@@ -5,6 +5,7 @@ import {
   needsRehash,
   validatePasswordStrength,
   DEFAULT_ITERATIONS,
+  MAX_ITERATIONS,
   MIN_PASSWORD_LENGTH,
 } from "./password";
 import { sequentialRandomBytes } from "~/test/fake-runtime";
@@ -73,6 +74,22 @@ describe("verifyPassword", () => {
   it("rejects an empty password against a real hash", async () => {
     const hash = await hashPassword("nonempty", randomBytes, 1000);
     expect(await verifyPassword("", hash)).toBe(false);
+  });
+});
+
+describe("the Cloudflare Workers PBKDF2 limit", () => {
+  it("never hashes above the 100,000 iterations Workers accepts", () => {
+    // Production workerd throws above this count; local workerd does not, so this
+    // number is the only guard the test suite has.
+    expect(MAX_ITERATIONS).toBe(100_000);
+    expect(DEFAULT_ITERATIONS).toBeLessThanOrEqual(MAX_ITERATIONS);
+  });
+
+  it("reads a hash above the limit as unrecognised: a failed sign-in, not a thrown error", async () => {
+    const fromNode = "pbkdf2$sha256$1000$cjb9TzNfySOlPpG9wGkIiA==$2XvPuiS4N5p8Hpq4regDlz5kj4kIPltDm9nfmKmmrM0=";
+    const aboveLimit = fromNode.replace("$1000$", "$600000$");
+    await expect(verifyPassword("admin123", aboveLimit)).resolves.toBe(false);
+    expect(needsRehash(aboveLimit)).toBe(true);
   });
 });
 

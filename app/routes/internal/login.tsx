@@ -28,6 +28,8 @@ const LOGIN_ERRORS = {
   disabled: "This account has been disabled.",
   missingFields: "Email and password are both required.",
   rateLimited: "Too many sign-in attempts. Try again later.",
+  serviceUnavailable: "Sign-in is temporarily unavailable. Try again in a minute.",
+  unexpected: "Something went wrong while signing in. Try again.",
 } as const;
 
 export const links: LinksFunction = () => [

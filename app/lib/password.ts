@@ -8,10 +8,11 @@
  * implemented natively by the runtime, so the same security work costs a
  * fraction of the isolate time.
  *
- * Parameters follow OWASP's password-storage guidance for PBKDF2-HMAC-SHA256.
- * The iteration count is stored IN the hash, so it can be raised later without
- * invalidating existing passwords — `needsRehash()` reports which rows to
- * upgrade on next successful login.
+ * The iteration count is the most Cloudflare Workers allows (see
+ * `MAX_ITERATIONS`), which is below OWASP's 600,000 for PBKDF2-HMAC-SHA256. It is
+ * stored IN the hash, so it can be raised later without invalidating existing
+ * passwords — `needsRehash()` reports which rows to upgrade on next successful
+ * login.
  *
  * Format: pbkdf2$sha256$<iterations>$<salt-b64>$<hash-b64>
  * Self-describing on purpose: a bare hash with the parameters in code cannot be
@@ -22,8 +23,15 @@ import type { RandomBytes } from "~/ports/runtime";
 
 const ALGORITHM = "pbkdf2";
 const DIGEST = "sha256";
-/** OWASP's floor for PBKDF2-HMAC-SHA256. Raise it, never lower it. */
-export const DEFAULT_ITERATIONS = 600_000;
+/**
+ * The most PBKDF2 iterations Cloudflare Workers' WebCrypto accepts. Above it,
+ * `deriveBits` throws "iteration counts above 100000 are not supported" (seen in
+ * production on 2026-10-14, when every staff sign-in failed with a 500). Local
+ * workerd does not enforce the limit, so only production showed it.
+ */
+export const MAX_ITERATIONS = 100_000;
+/** Every new hash uses the platform maximum. Never above `MAX_ITERATIONS`. */
+export const DEFAULT_ITERATIONS = MAX_ITERATIONS;
 const SALT_BYTES = 16;
 const KEY_BITS = 256;
 
@@ -96,7 +104,9 @@ function parse(stored: string): ParsedHash | null {
   if (saltRaw === undefined || hashRaw === undefined) return null;
 
   const iterations = Number(iterationsRaw);
-  if (!Number.isInteger(iterations) || iterations < 1) return null;
+  // A count above the platform maximum cannot be verified on Workers (deriveBits
+  // throws), so such a hash reads as unrecognised: a failed sign-in, not a 500.
+  if (!Number.isInteger(iterations) || iterations < 1 || iterations > MAX_ITERATIONS) return null;
 
   try {
     return { iterations, salt: fromBase64(saltRaw), hash: fromBase64(hashRaw) };

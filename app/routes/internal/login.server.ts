@@ -15,7 +15,7 @@ export async function handleLoginAction(request: Request, deps: LoginActionDeps)
   const limit = await deps.limiter.check(authClientKey(request));
   if (limit === "limited") return data({ error: "rateLimited" as const }, { status: 429 });
   if (limit === "unavailable" && deps.productionLike) {
-    return new Response("Authentication rate limiting is unavailable", { status: 503 });
+    return data({ error: "serviceUnavailable" as const }, { status: 503 });
   }
 
   const form = await request.formData();
@@ -27,8 +27,18 @@ export async function handleLoginAction(request: Request, deps: LoginActionDeps)
     return data({ error: "missingFields" as const }, { status: 400 });
   }
 
-  const result = await deps.verifyCredentials(email, password);
-  if (!result.ok) return data({ error: result.reason }, { status: 401 });
+  // A failure here is ours, not the user's: it is logged and shown as a message on
+  // the sign-in form, never as the generic error page.
+  try {
+    const result = await deps.verifyCredentials(email, password);
+    if (!result.ok) return data({ error: result.reason }, { status: 401 });
 
-  return deps.createSession(result.user.id, next);
+    return await deps.createSession(result.user.id, next);
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "admin_login.failed",
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    return data({ error: "unexpected" as const }, { status: 500 });
+  }
 }

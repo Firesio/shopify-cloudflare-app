@@ -17,7 +17,9 @@ import { stdin, stdout } from "node:process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-const ITERATIONS = 600_000;
+// Cloudflare Workers refuses PBKDF2 above 100,000 iterations (MAX_ITERATIONS in
+// app/lib/password.ts); a hash made with more could never be verified there.
+const ITERATIONS = 100_000;
 const SALT_BYTES = 16;
 const KEY_BITS = 256;
 const MIN_PASSWORD_LENGTH = 8;

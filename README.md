@@ -299,13 +299,16 @@ shell history and `ps` output) and enforces the same policy as the UI.
 
 ### Auth
 
-Passwords use **PBKDF2-HMAC-SHA256 at 600,000 iterations** over WebCrypto, which
-workerd implements natively. `bcryptjs` — the usual choice — is pure JavaScript,
+Passwords use **PBKDF2-HMAC-SHA256 at 100,000 iterations** over WebCrypto, which
+workerd implements natively. 100,000 is the most Cloudflare Workers accepts (above
+it `deriveBits` throws in production, while local workerd does not enforce the
+limit), so it sits below OWASP's 600,000; `MAX_ITERATIONS` in `app/lib/password.ts`
+holds it, and a stored hash above it reads as unrecognised rather than throwing. `bcryptjs` — the usual choice — is pure JavaScript,
 so every round burns the isolate's CPU budget as interpreted code. Measured here:
 two full derivations at production parameters complete in well under a second.
 
 The iteration count is stored **inside** the hash
-(`pbkdf2$sha256$600000$<salt>$<hash>`), so it can be raised later without
+(`pbkdf2$sha256$100000$<salt>$<hash>`), so it can be raised later without
 invalidating existing passwords; `needsRehash()` upgrades a row on its next
 successful login, the only moment the plaintext exists.
 
