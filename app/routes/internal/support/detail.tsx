@@ -141,7 +141,7 @@ export default function InternalSupportThread() {
   });
 
   return (
-    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+    <div className="mx-auto w-full max-w-5xl flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <div className="px-4 lg:px-6">
         <Breadcrumb>
           <BreadcrumbList>

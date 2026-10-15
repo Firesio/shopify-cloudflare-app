@@ -97,7 +97,7 @@ export default function ResetAdminPassword() {
   const error = actionData?.error;
 
   return (
-    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+    <div className="mx-auto w-full max-w-3xl flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <div className="flex flex-col gap-2 px-4 lg:px-6">
         <Breadcrumb>
           <BreadcrumbList>
@@ -112,7 +112,7 @@ export default function ResetAdminPassword() {
         </Breadcrumb>
         <h1 className="text-2xl font-semibold tracking-tight">Reset admin password</h1>
       </div>
-      <div className="flex max-w-2xl flex-col gap-4 px-4 lg:px-6">
+      <div className="flex flex-col gap-4 px-4 lg:px-6">
         {error && (
           <Alert variant="destructive">
             <CircleAlert />
