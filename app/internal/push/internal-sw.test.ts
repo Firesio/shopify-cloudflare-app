@@ -18,14 +18,21 @@ interface FakeClient {
   readonly navigateFails?: boolean;
   focus(): Promise<FakeClient>;
   navigate(url: string): Promise<FakeClient>;
+  readonly messages: unknown[];
+  postMessage(message: unknown): void;
 }
 
-function client(url: string, navigateFails = false): FakeClient {
+function client(url: string, navigateFails = false, postMessageFails = false): FakeClient {
   const self: FakeClient = {
     url,
     focused: [],
     navigated: [],
     navigateFails,
+    messages: [],
+    postMessage(message) {
+      if (postMessageFails) throw new Error("client gone");
+      self.messages.push(message);
+    },
     focus() {
       self.focused.push("focus");
       return Promise.resolve(self);
@@ -121,6 +128,27 @@ describe("lifecycle", () => {
 });
 
 describe("push", () => {
+  it("tells open console windows that a push arrived, and nobody else", async () => {
+    const consoleWindow = client(`${ORIGIN}/internal/dashboard`);
+    const otherPath = client(`${ORIGIN}/pricing`);
+    const otherOrigin = client("https://evil.example/internal/x");
+    const worker = boot([consoleWindow, otherPath, otherOrigin]);
+
+    await worker.dispatch("push", pushWith({ title: "New ticket", topic: "support_ticket_opened" }));
+
+    expect(consoleWindow.messages).toEqual([{ type: "push-received", title: "New ticket", topic: "support_ticket_opened" }]);
+    expect(otherPath.messages).toEqual([]);
+    expect(otherOrigin.messages).toEqual([]);
+  });
+
+  it("still shows the notification when a window cannot be told", async () => {
+    const worker = boot([client(`${ORIGIN}/internal/dashboard`, false, true)]);
+
+    await worker.dispatch("push", pushWith({ title: "New ticket" }));
+
+    expect(worker.shown).toHaveLength(1);
+  });
+
   it("shows the title, body, icons and tag, and collapses duplicates with renotify", async () => {
     const worker = boot();
     await worker.dispatch(

@@ -25,4 +25,20 @@ describe("isSameOriginRequest", () => {
   it("rejects when the request url itself is unparseable", () => {
     expect(isSameOriginRequest("https://console.workmanjsc.vn", "nonsense")).toBe(false);
   });
+
+  describe("behind a tunnel or proxy", () => {
+    const SEEN = "http://translator.trycloudflare.com/internal/notifications";
+    const APP = "https://translator.trycloudflare.com";
+    it("accepts the app's own https origin when the Worker saw http", () => {
+      expect(isSameOriginRequest(APP, SEEN, APP)).toBe(true);
+    });
+    it("still rejects the https origin when no app URL is configured", () => {
+      expect(isSameOriginRequest(APP, SEEN)).toBe(false);
+    });
+    it("does not widen the check to other origins", () => {
+      expect(isSameOriginRequest("https://evil.example", SEEN, APP)).toBe(false);
+      expect(isSameOriginRequest("https://translator.trycloudflare.com.evil.example", SEEN, APP)).toBe(false);
+      expect(isSameOriginRequest(APP, SEEN, "not a url")).toBe(false);
+    });
+  });
 });

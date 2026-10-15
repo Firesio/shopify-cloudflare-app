@@ -1,4 +1,5 @@
 import { useLoaderData } from "react-router";
+import { usePushDelivery } from "~/internal/push/use-push-delivery";
 import type { loader } from "../notifications";
 import { DevicesCard } from "./devices-card";
 import { PreferencesCard } from "./preferences-card";
@@ -9,10 +10,11 @@ import { PreferencesCard } from "./preferences-card";
  */
 export function NotificationsPage() {
   const view = useLoaderData<typeof loader>();
+  usePushDelivery();
 
   return (
-    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <div className="flex max-w-3xl flex-col gap-4 px-4 md:gap-6 lg:px-6">
+    <div className="mx-auto w-full max-w-3xl flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className="flex flex-col gap-4 px-4 md:gap-6 lg:px-6">
         <PreferencesCard view={view} />
         <DevicesCard view={view} />
       </div>

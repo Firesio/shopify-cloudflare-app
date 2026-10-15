@@ -94,19 +94,44 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+/** Console windows that are open right now (same origin, under /internal/). */
+async function consoleClients() {
+  const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  const origin = self.location.origin;
+  return windows.filter((client) => {
+    const url = new URL(client.url);
+    return url.origin === origin && isInternalPath(url.pathname);
+  });
+}
+
+/**
+ * Tells open console windows that a push arrived. The operating system may still hide the banner (Focus Assist,
+ * Do Not Disturb, browser notifications switched off in system settings), and then "sent" and "shown" are
+ * indistinguishable to the person; this lets the page confirm delivery on its own.
+ */
+async function announceDelivery(payload) {
+  try {
+    for (const client of await consoleClients()) {
+      client.postMessage({ type: "push-received", title: payload.title, topic: payload.topic });
+    }
+  } catch {
+    // Telling the page is a courtesy: a failure here must never stop the notification from being shown.
+  }
+}
+
 self.addEventListener("push", (event) => {
   const payload = readPayload(event);
-  event.waitUntil(self.registration.showNotification(payload.title, notificationOptions(payload)));
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(payload.title, notificationOptions(payload)),
+      announceDelivery(payload),
+    ]),
+  );
 });
 
 /** A window already showing the console, if there is one. */
 async function findConsoleClient() {
-  const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-  const origin = self.location.origin;
-  return windows.find((client) => {
-    const url = new URL(client.url);
-    return url.origin === origin && isInternalPath(url.pathname);
-  });
+  return (await consoleClients())[0];
 }
 
 async function openOrFocus(target) {

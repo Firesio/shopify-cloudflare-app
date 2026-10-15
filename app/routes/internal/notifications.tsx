@@ -5,6 +5,7 @@ import { isSameOriginRequest } from "~/lib/same-origin";
 import { requireAdminUser } from "~/services/admin-auth.server";
 import { loadSettings } from "~/services/staff-notifications";
 import { adminSessionUsers, adminUsers, staffNotificationSettings } from "~/wiring.server";
+import { getEnv } from "~/request-context.server";
 import { NOTIFICATION_HANDLERS, readNotificationIntent } from "./notifications-intents.server";
 import { NotificationsPage } from "./notifications/page";
 
@@ -26,7 +27,7 @@ function failure(error: NotificationActionError) {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   // Cheapest check first, and before anything is read or changed.
-  if (!isSameOriginRequest(request.headers.get("Origin"), request.url)) throw new Response("Forbidden", { status: 403 });
+  if (!isSameOriginRequest(request.headers.get("Origin"), request.url, getEnv().SHOPIFY_APP_URL)) throw new Response("Forbidden", { status: 403 });
   // The authoritative repo, not the cached lookup: a disabled account must not change settings for up to a minute.
   const user = await requireAdminUser(request, { users: adminUsers() });
 

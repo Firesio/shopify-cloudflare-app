@@ -35,6 +35,8 @@ export interface PushBrowser {
   readonly prompts: () => number;
   /** The endpoint of the subscription the browser currently holds, or null. */
   readonly currentEndpoint: () => string | null;
+  /** The worker posting a message to the page, as it does when a push arrives. */
+  readonly deliver: (message: unknown) => void;
   readonly restore: () => void;
 }
 
@@ -101,6 +103,8 @@ export function installPushBrowser(options: PushBrowserOptions = {}): PushBrowse
     }
   }
 
+  const messageListeners = new Set<(event: MessageEvent) => void>();
+
   const serviceWorker = {
     register: (url: string, registerOptions?: { scope?: string }) => {
       registrations.push({ url, scope: registerOptions?.scope });
@@ -108,6 +112,12 @@ export function installPushBrowser(options: PushBrowserOptions = {}): PushBrowse
       return Promise.resolve(registration);
     },
     ready: Promise.resolve(registration),
+    addEventListener: (type: string, listener: (event: MessageEvent) => void) => {
+      if (type === "message") messageListeners.add(listener);
+    },
+    removeEventListener: (type: string, listener: (event: MessageEvent) => void) => {
+      if (type === "message") messageListeners.delete(listener);
+    },
   };
 
   // Each property is put back exactly as it was (or removed), so the DOM guard's own
@@ -136,6 +146,9 @@ export function installPushBrowser(options: PushBrowserOptions = {}): PushBrowse
     unsubscribed: () => unsubscribed,
     prompts: () => prompts,
     currentEndpoint: () => held?.endpoint ?? null,
+    deliver: (message) => {
+      for (const listener of messageListeners) listener(new MessageEvent("message", { data: message }));
+    },
     restore: () => {
       for (const restore of restores.reverse()) restore();
     },
