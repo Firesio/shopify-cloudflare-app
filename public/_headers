@@ -1,0 +1,10 @@
+# Cloudflare Workers static assets headers (copied to build/client with public/).
+# Syntax: https://developers.cloudflare.com/workers/static-assets/headers/
+# These apply to files served from the assets directory only, never to responses
+# the Worker generates (those get theirs from app/security/response-headers.ts).
+
+# The service worker is re-checked on every navigation so an update is picked up
+# immediately instead of waiting out a cache lifetime.
+/internal-sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /internal/

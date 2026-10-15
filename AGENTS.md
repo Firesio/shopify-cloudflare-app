@@ -101,6 +101,7 @@ surfaces, two systems, each stylesheet loaded by exactly one layout's `links()`
 so neither leaks into the other. Every colour, size and breakpoint comes from
 `app/styles/public/_tokens.scss` — @.claude/rules/styling.md
 @.claude/rules/shadcn-internal.md
+@.claude/rules/web-push.md
 @.claude/rules/i18n.md
 @.claude/rules/money.md.
 

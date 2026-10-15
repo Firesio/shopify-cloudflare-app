@@ -282,8 +282,8 @@ export class SupportRepo {
    * operation, so status can never lag the conversation.
    *
    * A MERCHANT reply reopens a closed thread; a staff reply does not, so a
-   * closing note does not put the thread back in the queue. Returns false when
-   * the ticket does not belong to `shop` — pass the staff shop to bypass, which
+   * closing note does not put the thread back in the queue. Returns the new
+   * message's id, or undefined when the ticket does not belong to `shop` — pass the staff shop to bypass, which
    * `replyAsStaff` does explicitly.
    */
   async reply(input: {
@@ -293,17 +293,17 @@ export class SupportRepo {
     authorName: string;
     body: string;
     at: number;
-  }): Promise<boolean> {
+  }): Promise<{ messageId: string } | undefined> {
     const db = getDb();
     const [ticket] = await db
       .select({ id: supportTickets.id })
       .from(supportTickets)
       .where(and(eq(supportTickets.shop, input.shop), eq(supportTickets.id, input.ticketId)))
       .limit(1);
-    if (!ticket) return false;
+    if (!ticket) return undefined;
 
-    await this.appendMessage(input.shop, input);
-    return true;
+    const messageId = await this.appendMessage(input.shop, input);
+    return { messageId };
   }
 
   /** Staff answer any shop's thread, so this one is not shop-scoped by design. */

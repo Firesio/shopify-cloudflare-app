@@ -20,6 +20,7 @@ import { historyLedger, refreshShopHistory, refreshShopSubscription } from "~/wi
 import { invalidateEntitlements } from "~/wiring/entitlement-cache.server";
 import { shops, shopSyncCheckpoints, support, webhookDeliveryRepository, webhookScopeObservations } from "~/wiring/repositories.server";
 import { redactionGuard } from "~/wiring/redaction.server";
+import { shopChangeAnnouncer } from "~/wiring/shop-announcements.server";
 import { appRuntime } from "~/wiring/runtime.server";
 
 export function tenantPurgeDependencies() {
@@ -60,6 +61,7 @@ function recordUninstallPorts(env: Env): RecordUninstallPorts {
       refreshSubscription: () => refreshShopSubscription(env, shop),
       refreshHistory: () => refreshShopHistory(env, shop),
     }),
+    announce: shopChangeAnnouncer(),
   };
 }
 

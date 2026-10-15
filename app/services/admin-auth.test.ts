@@ -97,7 +97,6 @@ describe("verifyAdminCredentials", () => {
           passwordHash,
           role: "admin",
           status: "active",
-          notifySupport: true,
           createdAt: 0,
           updatedAt: 0,
           lastLoginAt: null,

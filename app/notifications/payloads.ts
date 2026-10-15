@@ -61,6 +61,24 @@ export interface SupportStaffReplyPayload extends SupportPayload {
   staffName: string;
 }
 
+/** Shared by both shop notifications: the same shop, a different thing that happened to it. */
+interface ShopChangePayload extends BasePayload {
+  /** The merchant's own name for the shop; the domain when Shopify has not told us one yet. */
+  shopName: string;
+  /** The myshopify.com domain, the shop's identity everywhere else. */
+  shop: string;
+  /** When it happened, already formatted for the staff reading it. */
+  occurredAt: string;
+  /** Where to look the shop up in the internal console. Built by the caller — templates never make links. */
+  adminUrl: string;
+}
+
+export type ShopInstalledPayload = ShopChangePayload;
+export type ShopUninstalledPayload = ShopChangePayload;
+
+/** A test message carries no data: its copy is fixed. */
+export type PushTestPayload = BasePayload;
+
 /**
  * Event → payload.
  *
@@ -71,4 +89,7 @@ export interface PayloadByEvent extends Record<NotificationEvent, BasePayload> {
   admin_password_reset: AdminPasswordResetPayload;
   support_merchant_activity: SupportMerchantActivityPayload;
   support_staff_reply: SupportStaffReplyPayload;
+  shop_installed: ShopInstalledPayload;
+  shop_uninstalled: ShopUninstalledPayload;
+  push_test: PushTestPayload;
 }

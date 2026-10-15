@@ -35,7 +35,7 @@ function row(over: Partial<Row> = {}): Row {
   };
 }
 
-async function render(data: { tickets: Row[]; notifySupport: boolean }) {
+async function render(data: { tickets: Row[] }) {
   const routes: RouteObject[] = [
     { path: "/internal/support", Component: InternalSupport, loader: () => data },
   ];
@@ -75,14 +75,14 @@ describe("the internal support queue", () => {
   it("shows the shop, subject and the plan that shop is on", async () => {
     // The plan column is the point of this screen: a billing question has to be
     // answerable without opening a second page.
-    const html = await render({ tickets: [row()], notifySupport: true });
+    const html = await render({ tickets: [row()] });
     expect(html).toContain("Checkout is broken");
     expect(html).toContain("Alpha Store");
     expect(html).toContain("TODO:PRO");
   });
 
   it("labels status by whose turn it is, not by a raw enum", async () => {
-    const html = await render({ tickets: [row({ status: "open" })], notifySupport: true });
+    const html = await render({ tickets: [row({ status: "open" })] });
     const [ticket] = bodyRows(html);
     expect(ticket).toContain("Needs reply");
     expect(ticket).not.toMatch(/\bopen\b/);
@@ -91,7 +91,6 @@ describe("the internal support queue", () => {
   it("says a thread is waiting on the merchant once we have replied", async () => {
     const html = await render({
       tickets: [row({ status: "answered" })],
-      notifySupport: true,
     });
     const [ticket] = bodyRows(html);
     expect(ticket).toContain("Waiting on merchant");
@@ -101,7 +100,6 @@ describe("the internal support queue", () => {
   it("offers the views with a count each, and a way to start a ticket", async () => {
     const html = await render({
       tickets: [row({ id: "a", status: "open" }), row({ id: "b", status: "open" }), row({ id: "c", status: "answered" })],
-      notifySupport: true,
     });
     const tab = (name: string) => html.match(new RegExp(`<button[^>]*role="tab"[^>]*>${name}<span[^>]*>(\\d+)</span>`))?.[1];
     expect(tab("All")).toBe("3");
@@ -112,28 +110,27 @@ describe("the internal support queue", () => {
   });
 
   it("does not repeat the page title in the body — the shell header shows it", async () => {
-    const html = await render({ tickets: [row()], notifySupport: true });
+    const html = await render({ tickets: [row()] });
     expect(html).not.toContain("<h1");
   });
 
   it("marks an unread thread, and leaves a read one unmarked", async () => {
-    const unread = await render({ tickets: [row({ unread: true })], notifySupport: true });
+    const unread = await render({ tickets: [row({ unread: true })] });
     expect(bodyRows(unread)[0]).toMatch(/Checkout is broken New\b/);
 
-    const read = await render({ tickets: [row({ unread: false })], notifySupport: true });
+    const read = await render({ tickets: [row({ unread: false })] });
     expect(bodyRows(read)[0]).not.toMatch(/\bNew\b/);
   });
 
   it("falls back to the shop domain when no shop name was captured", async () => {
     const html = await render({
       tickets: [row({ shopName: "" })],
-      notifySupport: true,
     });
     expect(html).toContain("alpha.myshopify.com");
   });
 
   it("shows an empty state in place of rows when nothing is open", async () => {
-    const html = await render({ tickets: [], notifySupport: true });
+    const html = await render({ tickets: [] });
     const rows = bodyRows(html);
     // One row: the empty state itself, spanning the table, not a ticket.
     expect(rows).toHaveLength(1);
@@ -142,20 +139,16 @@ describe("the internal support queue", () => {
   });
 
   it("lays the columns out in the order the queue is read", async () => {
-    const html = await render({ tickets: [row()], notifySupport: true });
+    const html = await render({ tickets: [row()] });
     expect(headers(html)).toEqual(["Subject", "Shop", "Plan", "Type", "Status", "Last activity"]);
   });
 
-  it("reflects the signed-in person's own email preference", async () => {
-    const on = await render({ tickets: [], notifySupport: true });
-    expect(on).toContain("Email me about tickets");
-    // The switch is named by that label (label[for] -> button#id), and reflects the saved value.
-    expect(on).toMatch(/<label[^>]*for="notify-support"[^>]*>Email me about tickets<\/label>/);
-    const switchTag = (html: string) => html.match(/<button[^>]*role="switch"[^>]*>/)?.[0] ?? "";
-    expect(switchTag(on)).toContain('id="notify-support"');
-    expect(switchTag(on)).toContain('aria-checked="true"');
-
-    const off = await render({ tickets: [], notifySupport: false });
-    expect(switchTag(off)).toContain('aria-checked="false"');
+  it("links to the person's own notification settings instead of holding a switch for them", async () => {
+    const html = await render({ tickets: [] });
+    // The link is named by its visible text and points at the settings page.
+    expect(html).toMatch(/<a[^>]*href="\/internal\/notifications"[^>]*>.*Notification settings.*<\/a>/s);
+    // The legacy "email me about tickets" switch is gone: that choice now lives per topic and channel there.
+    expect(html).not.toContain("Email me about tickets");
+    expect(html).not.toContain('role="switch"');
   });
 });

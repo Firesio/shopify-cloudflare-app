@@ -1,4 +1,4 @@
-import { redactionGuard, shops } from "~/wiring.server";
+import { redactionGuard, shopChangeAnnouncer, shops } from "~/wiring.server";
 // Workers runtime adapter (Web Crypto + global fetch) — replaces the Node
 // adapter the upstream template ships with. Must be imported before shopifyApp.
 import "@shopify/shopify-api/adapters/cf-worker";
@@ -13,6 +13,8 @@ import { KVSessionStorage } from "./session-storage.server";
 import { persistShopIdentity, refreshShopSubscription } from "~/wiring.server";
 import { getEnv } from "~/request-context.server";
 import { hashShop, shopLog } from "~/observability/shop-log";
+import { decideInstallAnnouncement } from "~/domain/shop-announcement";
+import type { ShopChange } from "~/services/announce-shop-change";
 
 
 /**
@@ -36,6 +38,10 @@ import { hashShop, shopLog } from "~/observability/shop-log";
  * (`expiringOfflineAccessTokens`), so it fires again on every renewal, which is
  * why `recordInstall` upserts rather than inserts.
  *
+ * Because it fires on every renewal, telling the staff "a shop installed" is decided here from what was recorded
+ * BEFORE this call (`decideInstallAnnouncement`): only a shop we had no record of, or one that had uninstalled. The
+ * Partner-history back-fill never announces — it would flood the staff with every historical install.
+ *
  * Exported so the behaviour is testable: `shopifyApp` does not expose its
  * hooks, so a test cannot reach this through the built instance.
  */
@@ -45,12 +51,15 @@ export async function afterAuth({
 }: {
   session: { shop: string };
   admin?: { graphql: (query: string) => Promise<Response> };
-}, refresh: (env: Env, shop: string) => Promise<unknown> = refreshShopSubscription): Promise<void> {
+}, refresh: (env: Env, shop: string) => Promise<unknown> = refreshShopSubscription,
+announce: (change: ShopChange) => Promise<void> = shopChangeAnnouncer()): Promise<void> {
   // A merchant installing again is the one thing that lifts a redaction tombstone (our own design; Shopify's docs
   // say nothing about reinstalls). Cleared BEFORE recording the install so the shop works and Partner events for it
   // are processed again.
   if (await redactionGuard().clearOnInstall(session.shop)) await shopLog("shop.redaction_cleared", session.shop);
-  await shops().recordInstall(session.shop, Date.now());
+  const announcement = decideInstallAnnouncement(await shops().get(session.shop));
+  const installedAt = Date.now();
+  await shops().recordInstall(session.shop, installedAt);
   if (admin) {
     try {
       await persistShopIdentity(admin, session.shop);
@@ -62,6 +71,8 @@ export async function afterAuth({
       }));
     }
   }
+  // After the identity is stored, so the announcement can name the shop.
+  if (announcement.announce) await announceInstall(announce, { shop: session.shop, occasion: announcement.occasion, occurredAt: installedAt });
   try {
     await refresh(getEnv(), session.shop);
   } catch (error) {
@@ -70,6 +81,18 @@ export async function afterAuth({
       shopHash: await hashShop(session.shop),
       error: error instanceof Error ? error.message : String(error),
     }));
+  }
+}
+
+/** Decoration: a failed announcement is logged by shop hash and never fails the install. */
+async function announceInstall(
+  announce: (change: ShopChange) => Promise<void>,
+  install: { readonly shop: string; readonly occasion: string; readonly occurredAt: number },
+): Promise<void> {
+  try {
+    await announce({ kind: "installed", ...install });
+  } catch (error) {
+    await shopLog("shop.announce_failed", install.shop, { kind: "installed", error: error instanceof Error ? error.name : "unknown" });
   }
 }
 

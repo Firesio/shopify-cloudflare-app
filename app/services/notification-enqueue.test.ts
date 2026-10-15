@@ -74,4 +74,36 @@ describe("queued notifier", () => {
     await expect(notifier.send(request)).resolves.toBeUndefined();
     expect(logged).toHaveLength(2);
   });
+
+  it("records a failed row for a push that could not be queued, naming the device by id", async () => {
+    const { queue, notifier, settled, logged } = setup();
+    queue.failWith(new Error("queue unavailable"));
+    await expect(notifier.send({
+      event: "push_test",
+      to: { push: "subscription-id-1" },
+      payload: { recipientName: "Staff" },
+    })).resolves.toBeUndefined();
+    expect(settled).toEqual([expect.objectContaining({
+      event: "push_test",
+      channel: "push",
+      recipient: "subscription-id-1",
+      status: "failed",
+      reasonCode: "transport_error",
+    })]);
+    expect(logged).toEqual([{ event: "notification.enqueue_failed", notification: "push_test", reason: "Error" }]);
+  });
+
+  it("records one failed row per addressed channel", async () => {
+    const { queue, notifier, settled } = setup();
+    queue.failWith(new Error("down"));
+    await notifier.send({
+      event: "shop_installed",
+      to: { email: "staff@workmanjsc.vn", push: "d1" },
+      payload: { recipientName: "S", shopName: "A", shop: "a.myshopify.com", occurredAt: "x", adminUrl: "https://app.workmanjsc.vn/internal/shops/a" },
+    });
+    expect(settled.map((row) => row)).toEqual([
+      expect.objectContaining({ channel: "email", recipient: "staff@workmanjsc.vn" }),
+      expect.objectContaining({ channel: "push", recipient: "d1" }),
+    ]);
+  });
 });

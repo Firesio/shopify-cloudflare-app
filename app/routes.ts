@@ -57,6 +57,8 @@ export default [
   // Not merchant-facing: this is the team's console for operating the app.
   // Login and logout sit OUTSIDE the layout — the layout's loader requires a
   // signed-in user, so a login page inside it would redirect to itself.
+  // The install manifest must be fetchable without a session, so it is outside the layout too.
+  route("internal/manifest.webmanifest", "routes/internal/manifest.webmanifest.ts"),
   route("internal/login", "routes/internal/login.tsx"),
   route("internal/logout", "routes/internal/logout.tsx"),
   // Self-service recovery, also outside the layout: nobody is signed in yet.
@@ -81,6 +83,7 @@ export default [
     route("internal/shops/:shop", "routes/internal/shops/detail.tsx"),
     route("internal/mcp", "routes/internal/mcp.tsx"),
     route("internal/profile", "routes/internal/profile.tsx"),
+    route("internal/notifications", "routes/internal/notifications.tsx"),
   ]),
 
   // ── MCP & Automation Surface ──────────────────────────────────────────────

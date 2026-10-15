@@ -40,12 +40,11 @@ export const adminUsers = sqliteTable(
       .notNull()
       .default("active"),
     /**
-     * Email me when a merchant opens or replies to a support ticket.
+     * LEGACY, no longer read or written. "Email me about tickets" is now each person's own choice per topic and
+     * channel (`admin_notification_preferences`); migration 0030 carried a muted account over as an "off" row.
      *
-     * Per-account and on by default: a new staff member should hear about
-     * tickets rather than discover the setting later. Toggled from
-     * `/internal/support`. Only `active` accounts are ever notified, so
-     * disabling someone also stops their mail without touching this.
+     * The column stays until a later deploy drops it: removing a column is two deploys (stop reading, then drop),
+     * and a migration is forward-only (@rules/data.md). This is the first of those two.
      */
     notifySupport: integer("notify_support", { mode: "boolean" })
       .notNull()
@@ -65,8 +64,8 @@ export type NewAdminUser = typeof adminUsers.$inferInsert;
 export type AdminRole = AdminUser["role"];
 export type AdminStatus = AdminUser["status"];
 
-/** What is safe to send to the browser: never the password hash. */
-export type SafeAdminUser = Omit<AdminUser, "passwordHash">;
+/** What is safe to send to the browser: never the password hash, and not the legacy column nothing reads. */
+export type SafeAdminUser = Omit<AdminUser, "passwordHash" | "notifySupport">;
 
 /**
  * Single-use password-reset tokens for the internal console.

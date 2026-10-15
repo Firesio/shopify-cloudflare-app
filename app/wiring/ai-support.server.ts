@@ -5,10 +5,10 @@ import { getEnv } from "~/request-context.server";
 import { AiService } from "~/services/ai.server";
 import { SupportService } from "~/services/support.server";
 import { signAttachmentToken } from "~/support/file-token";
-import { adminUsers } from "~/wiring/admin.server";
 import { queuedNotifier } from "~/wiring/notifications.server";
 import { aiRepository, support } from "~/wiring/repositories.server";
 import { appRuntime } from "~/wiring/runtime.server";
+import { staffNotificationRecipients } from "~/wiring/staff-notifications.server";
 
 export function requireAttachmentTokenSecret(env: { readonly ATTACHMENT_TOKEN_SECRET?: string; readonly SHOPIFY_API_SECRET?: string }): string {
   if (!env.ATTACHMENT_TOKEN_SECRET) {
@@ -50,12 +50,13 @@ export function supportService(): SupportService {
   const env = getEnv();
   return new SupportService({
     repo: support(),
-    admins: adminUsers(),
+    staff: staffNotificationRecipients(),
     clock: appRuntime().clock,
     notifier: queuedNotifier(),
     appUrl: env.SHOPIFY_APP_URL,
     withinRateLimit: async (shop) => env.SUPPORT_LIMITER ? (await env.SUPPORT_LIMITER.limit({ key: shop })).success : true,
     signAttachment: async (attachmentId, expiresAt) => signAttachmentToken({ secret: requireAttachmentTokenSecret(env), attachmentId, expiresAt }),
+    log: (entry) => console.error(JSON.stringify(entry)),
   });
 }
 

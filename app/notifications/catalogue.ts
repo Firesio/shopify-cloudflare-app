@@ -55,11 +55,12 @@ export const EVENTS: Record<NotificationEvent, EventSpec> = {
 
   support_merchant_activity: {
     audience: "staff",
-    // The caller decides: only staff whose `notifySupport` is on and whose
-    // account is active are asked for. Making this "preference" would put the
-    // decision in a stored per-recipient row that duplicates that column.
+    // The caller decides: each person's own staff notification settings pick
+    // who is asked and on which channel (`StaffNotificationRecipients`).
+    // Making this "preference" would put the decision in a second store that
+    // duplicates those settings.
     gate: "caller_gated",
-    channels: ["email"],
+    channels: ["email", "push"],
     description: "A merchant opened or replied to a support ticket.",
   },
 
@@ -70,6 +71,31 @@ export const EVENTS: Record<NotificationEvent, EventSpec> = {
     gate: "essential",
     channels: ["email"],
     description: "We replied to a support ticket the merchant opened.",
+  },
+
+  shop_installed: {
+    audience: "staff",
+    // Caller-gated for the same reason as support activity: per-person staff
+    // settings decide who hears about an install and how.
+    gate: "caller_gated",
+    channels: ["email", "push"],
+    description: "A shop installed the app, or installed it again after uninstalling.",
+  },
+
+  shop_uninstalled: {
+    audience: "staff",
+    gate: "caller_gated",
+    channels: ["email", "push"],
+    description: "A shop uninstalled the app.",
+  },
+
+  push_test: {
+    audience: "staff",
+    // Essential: the person pressed "send a test" and is waiting for it. Only
+    // push can carry it, because the point is to prove the device receives push.
+    gate: "essential",
+    channels: ["push"],
+    description: "A test message to one of a staff member's own devices.",
   },
 };
 

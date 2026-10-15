@@ -48,7 +48,10 @@ interface TitledPath {
 }
 
 /** Pages reachable from the shell (the account menu) that are not in the sidebar. */
-const EXTRA_PAGES: readonly TitledPath[] = [{ href: "/internal/profile", title: "Profile" }];
+const EXTRA_PAGES: readonly TitledPath[] = [
+  { href: "/internal/profile", title: "Profile" },
+  { href: "/internal/notifications", title: "Notifications" },
+];
 
 /** The page title shown in the shell header: the longest known path that prefixes `pathname`. */
 export function titleFor(pathname: string): string {

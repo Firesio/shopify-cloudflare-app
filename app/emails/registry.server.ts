@@ -2,6 +2,7 @@ import type { PayloadByEvent } from "~/notifications/payloads";
 import type { NotificationEvent } from "~/notifications/types";
 import type { RenderedEmail } from "./render";
 import { adminPasswordResetEmail } from "./templates/admin-password-reset";
+import { shopInstalledEmail, shopUninstalledEmail } from "./templates/shop-change";
 import { supportMerchantActivityEmail } from "./templates/support-merchant-activity";
 import { supportStaffReplyEmail } from "./templates/support-staff-reply";
 
@@ -23,16 +24,28 @@ type EmailBuilder<E extends NotificationEvent> = (
   payload: PayloadByEvent[E],
 ) => Promise<RenderedEmail>;
 
-const BUILDERS: { [E in NotificationEvent]: EmailBuilder<E> } = {
+// `null` where the event has no email rendering (it is push-only). The `null` entries must agree with the catalogue's
+// `channels`; a test holds them to it.
+const BUILDERS: { [E in NotificationEvent]: EmailBuilder<E> | null } = {
   admin_password_reset: adminPasswordResetEmail,
   support_merchant_activity: supportMerchantActivityEmail,
   support_staff_reply: supportStaffReplyEmail,
+  shop_installed: shopInstalledEmail,
+  shop_uninstalled: shopUninstalledEmail,
+  push_test: null,
 };
 
-/** Build one event's email. Each builder receives exactly ITS event's payload. */
-export function buildEmail<E extends NotificationEvent>(
+/**
+ * Build one event's email. Each builder receives exactly ITS event's payload.
+ *
+ * Eligibility refuses a channel the catalogue does not list for an event, so a missing builder here is a broken
+ * invariant — a catalogue entry without a builder — and throws rather than quietly sending nothing.
+ */
+export async function buildEmail<E extends NotificationEvent>(
   event: E,
   payload: PayloadByEvent[E],
 ): Promise<RenderedEmail> {
-  return BUILDERS[event](payload);
+  const build = BUILDERS[event];
+  if (build === null) throw new Error(`The catalogue lists email for ${event}, which has no email template`);
+  return build(payload);
 }

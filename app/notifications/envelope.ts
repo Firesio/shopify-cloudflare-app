@@ -27,6 +27,14 @@ const supportPayload = {
   threadUrl: z.string(),
 };
 
+const shopChangePayload = {
+  ...basePayload,
+  shopName: z.string(),
+  shop: z.string(),
+  occurredAt: z.string(),
+  adminUrl: z.string(),
+};
+
 /**
  * One schema per event. Keyed by `NotificationEvent`, so a new event without a
  * schema stops compiling; `z.ZodType<PayloadByEvent[E]>` makes a schema that
@@ -47,6 +55,9 @@ const PAYLOAD_SCHEMAS: { [E in NotificationEvent]: z.ZodType<PayloadByEvent[E]> 
     ...supportPayload,
     staffName: z.string(),
   }),
+  shop_installed: z.object(shopChangePayload),
+  shop_uninstalled: z.object(shopChangePayload),
+  push_test: z.object(basePayload),
 };
 
 /** Keyed by the union, so the guard below cannot miss an event. */
@@ -54,6 +65,9 @@ const EVENT_KEYS: Record<NotificationEvent, true> = {
   admin_password_reset: true,
   support_merchant_activity: true,
   support_staff_reply: true,
+  shop_installed: true,
+  shop_uninstalled: true,
+  push_test: true,
 };
 
 /** Narrow a stored/queued string to a known event without a cast. */
@@ -68,8 +82,11 @@ const addressSchema = z.string().min(1);
 const envelopeSchema = z.object({
   v: z.literal(ENVELOPE_VERSION),
   event: z.string().refine(isNotificationEvent),
-  to: z.object({ email: addressSchema.optional() }),
-  cc: z.object({ email: z.array(addressSchema).optional() }).optional(),
+  // `to.push` is a push subscription id. Never an endpoint: the queue body and the log carry the id only.
+  to: z.object({ email: addressSchema.optional(), push: addressSchema.optional() }),
+  cc: z
+    .object({ email: z.array(addressSchema).optional(), push: z.array(addressSchema).optional() })
+    .optional(),
   scope: z.string().min(1).optional(),
   // REQUIRED on the wire: a redelivery after a successful send must find the
   // first send's row and stop, which is only possible with a stable key.

@@ -6,6 +6,7 @@ import {
 } from "~/domain/webhook-ordering";
 import type { RelationshipState } from "~/domain/shop-lifecycle";
 import { shopLog } from "~/observability/shop-log";
+import type { ShopChange } from "~/services/announce-shop-change";
 import type { UninstallReconciliationResult } from "~/services/reconcile-after-uninstall";
 
 export interface RecordUninstallPorts {
@@ -17,6 +18,8 @@ export interface RecordUninstallPorts {
   readonly cleanup: (shop: string) => Promise<void>;
   /** Re-reads Shopify's billing and history so the ledger reflects the uninstall. */
   readonly reconcile: (shop: string) => Promise<UninstallReconciliationResult>;
+  /** Tells the staff who asked to hear about it. Decoration: a failure is logged, never raised. */
+  readonly announce: (change: ShopChange) => Promise<void>;
 }
 
 export type UninstallOutcome = "recorded" | "already_uninstalled" | "ignored_stale" | "ignored_unknown_shop";
@@ -55,5 +58,19 @@ export async function recordUninstall(
   if (!reconciled.ok) {
     await shopLog("shopify.uninstall.reconciliation_failed", shop, { code: reconciled.code, detail: reconciled.detail });
   }
-  return decision.outcome === "apply" ? "recorded" : "already_uninstalled";
+  if (decision.outcome !== "apply") return "already_uninstalled";
+
+  // Only an uninstall that was just RECORDED is news: an already-uninstalled shop or a stale delivery is not, and the
+  // webhook and the cron probe may both observe the same one. The occasion is the moment Shopify says it happened,
+  // so a redelivered webhook announces once.
+  await announceUninstall(ports, shop, observation.occurredAt);
+  return "recorded";
+}
+
+async function announceUninstall(ports: RecordUninstallPorts, shop: string, occurredAt: number): Promise<void> {
+  try {
+    await ports.announce({ kind: "uninstalled", shop, occasion: String(occurredAt), occurredAt });
+  } catch (error) {
+    await shopLog("shop.announce_failed", shop, { kind: "uninstalled", error: error instanceof Error ? error.name : "unknown" });
+  }
 }

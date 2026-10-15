@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeDb } from "~/db/client";
 import { shopGrantedScopes, shops, webhookDeliveries } from "~/db/schema";
 import { shopHasher } from "~/adapters/shop-hasher";
+import { AdminUserRepo } from "~/models/admin-users.server";
+import { PushSubscriptionRepo } from "~/models/push-subscriptions.server";
+import { StaffPreferenceRepo } from "~/models/staff-notifications.server";
 import { RedactedShopRepo } from "~/models/redacted-shops.server";
 import { ShopRepo } from "~/models/shops.server";
 import { WebhookScopeObservationRepo } from "~/models/webhook-scope-observations.server";
@@ -11,6 +14,7 @@ import { runWithRequestContext } from "~/request-context.server";
 import { KVSessionStorage } from "~/session-storage.server";
 import { setupTestDatabase } from "~/test/db";
 import { offlineSession } from "~/test/factories";
+import { fakeQueueBinding } from "~/test/fake-notification-queue";
 import { queuedDelivery } from "~/test/webhook-deliveries";
 import { webhookConsumer } from "~/wiring.server";
 import { consumeWebhook } from "./webhook-consumer";
@@ -110,6 +114,88 @@ describe("app/uninstalled ordering (real D1 + KV)", () => {
     });
     expect(written).toBe("stale");
     expect(await row(shop)).toMatchObject({ relationshipStatus: "INSTALLED", relationshipOccurredAt: 8_000 });
+  });
+});
+
+describe("announcing an uninstall to the staff (real D1 + KV, fake queue binding)", () => {
+  /** One staff member with two devices who wants uninstalls on push (the default) and, optionally, on email too. */
+  async function staffWithDevices(options: { email?: boolean } = {}) {
+    await new AdminUserRepo().create({ id: "staff-1", email: "staff@workmanjsc.vn", name: "Sam", passwordHash: "x", role: "admin", now: 1 });
+    const devices = new PushSubscriptionRepo();
+    await devices.upsert("staff-1", { id: "phone", endpoint: "https://push.fake-service.invalid/phone", p256dh: "k", auth: "a", label: "Chrome on Android", kind: "phone", now: 1 });
+    await devices.upsert("staff-1", { id: "laptop", endpoint: "https://push.fake-service.invalid/laptop", p256dh: "k", auth: "a", label: "Firefox on Linux", kind: "desktop", now: 1 });
+    if (options.email) await new StaffPreferenceRepo().set("staff-1", "shop_uninstalled", "email", true, 2);
+  }
+
+  const withQueue = (queued: ReturnType<typeof fakeQueueBinding>) =>
+    Object.assign({}, env, { NOTIFICATION_QUEUE: queued.binding, SHOPIFY_APP_URL: "https://app.workmanjsc.vn" });
+
+  it("queues one notification per email recipient and per device when an uninstall is recorded", async () => {
+    quiet();
+    const shop = "announced.myshopify.com";
+    const queued = fakeQueueBinding();
+    await runWithRequestContext(withQueue(queued), async () => {
+      await staffWithDevices({ email: true });
+      await new ShopRepo().recordInstall(shop, 1_000);
+    });
+    const work = await inRequest(() => queuedDelivery({ shop, id: "announce-1", topic: "app/uninstalled", triggeredAt: 2_000 }));
+
+    await runWithRequestContext(withQueue(queued), () => consumeWebhook(webhookConsumer(), work));
+
+    expect(queued.bodies).toHaveLength(3);
+    expect(queued.bodies).toEqual(expect.arrayContaining([
+      expect.objectContaining({ event: "shop_uninstalled", to: { email: "staff@workmanjsc.vn" } }),
+      expect.objectContaining({ event: "shop_uninstalled", to: { push: "phone" } }),
+      expect.objectContaining({ event: "shop_uninstalled", to: { push: "laptop" } }),
+    ]));
+    const keys = new Set(queued.bodies.map((body) => (typeof body === "object" && body !== null && "dedupeKey" in body ? body.dedupeKey : null)));
+    expect(keys).toEqual(new Set([`shop-uninstalled:${shop}:2000`]));
+  });
+
+  it("announces nothing for an uninstall delivered after a reinstall", async () => {
+    quiet();
+    const shop = "stale-announce.myshopify.com";
+    const queued = fakeQueueBinding();
+    await runWithRequestContext(withQueue(queued), async () => {
+      await staffWithDevices();
+      await new ShopRepo().recordInstall(shop, 5_000);
+    });
+    const work = await inRequest(() => queuedDelivery({ shop, id: "stale-announce", topic: "app/uninstalled", triggeredAt: 2_000 }));
+
+    await runWithRequestContext(withQueue(queued), () => consumeWebhook(webhookConsumer(), work));
+
+    expect(queued.bodies).toEqual([]);
+  });
+
+  it("announces a redelivered uninstall once", async () => {
+    quiet();
+    const shop = "replayed-announce.myshopify.com";
+    const queued = fakeQueueBinding();
+    await runWithRequestContext(withQueue(queued), async () => {
+      await staffWithDevices();
+      await new ShopRepo().recordInstall(shop, 1_000);
+    });
+    const work = await inRequest(() => queuedDelivery({ shop, id: "replayed-announce", topic: "app/uninstalled", triggeredAt: 2_000 }));
+
+    await runWithRequestContext(withQueue(queued), () => consumeWebhook(webhookConsumer(), work));
+    await expect(runWithRequestContext(withQueue(queued), () => consumeWebhook(webhookConsumer(), work))).resolves.toMatchObject({ outcome: "duplicate" });
+
+    expect(queued.bodies).toHaveLength(2);
+  });
+
+  it("still records the uninstall when announcing fails", async () => {
+    quiet();
+    const shop = "announce-fails.myshopify.com";
+    const broken = Object.assign({}, env, { NOTIFICATION_QUEUE: { send: async () => { throw new Error("queue down"); } } });
+    await runWithRequestContext(broken, async () => {
+      await staffWithDevices();
+      await new ShopRepo().recordInstall(shop, 1_000);
+    });
+    const work = await inRequest(() => queuedDelivery({ shop, id: "announce-fails", topic: "app/uninstalled", triggeredAt: 2_000 }));
+
+    await expect(runWithRequestContext(broken, () => consumeWebhook(webhookConsumer(), work))).resolves.toEqual({ outcome: "processed", topic: "app/uninstalled" });
+
+    expect(await row(shop)).toMatchObject({ relationshipStatus: "UNINSTALLED", uninstalledAt: 2_000 });
   });
 });
 

@@ -11,6 +11,8 @@
  *   billing                    subscriptions, entitlements, Partner refresh
  *   ai-support                 AI and support use cases
  *   notifications              queued notifier and consumer dependencies
+ *   staff-notifications        staff devices, per-person preferences, who hears about a topic
+ *   push                       Web Push sender and the public VAPID key
  *   webhooks                   webhook consumer, tenant purge, scheduled work
  */
 export { appContext, appRuntime } from "~/wiring/runtime.server";
@@ -67,3 +69,11 @@ export {
 } from "~/wiring/ai-support.server";
 export { redactionGuard } from "~/wiring/redaction.server";
 export { scheduledDependencies, tenantPurgeDependencies, webhookConsumer } from "~/wiring/webhooks.server";
+export { pushConfig, pushSender } from "~/wiring/push.server";
+export { shopChangeAnnouncer } from "~/wiring/shop-announcements.server";
+export {
+  pushSubscriptionStore,
+  staffNotificationRecipients,
+  staffNotificationSettings,
+  staffPreferenceStore,
+} from "~/wiring/staff-notifications.server";

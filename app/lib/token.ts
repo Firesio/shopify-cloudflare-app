@@ -13,19 +13,13 @@
  */
 
 import type { RandomBytes } from "~/ports/runtime";
+import { encodeBase64Url } from "~/lib/base64url";
 
 const TOKEN_BYTES = 32; // 256 bits
 
-/** URL-safe base64 — no padding, no characters that need escaping in a path. */
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
 /** A fresh token. Return it to the caller once; never store it. */
 export function generateToken(randomBytes: RandomBytes): string {
-  return toBase64Url(randomBytes(TOKEN_BYTES));
+  return encodeBase64Url(randomBytes(TOKEN_BYTES));
 }
 
 /** Hex SHA-256 of a token — what goes in the database. */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveEligibility, blockedReason } from "./resolve";
+import { resolveEligibility, blockedReason, recordableRefusals } from "./resolve";
 import type { EligibilityContext } from "./types";
 import type { ChannelKey } from "../types";
 
@@ -176,5 +176,77 @@ describe("every block reason maps onto something storable", () => {
       "recipient_opted_out",
       "recipient_unreachable",
     ]);
+  });
+});
+
+describe("which refusals are recorded", () => {
+  const both = (overrides: Partial<EligibilityContext> = {}) =>
+    resolveEligibility(context({ event: "support_merchant_activity", availableChannels: ["email", "push"], ...overrides }));
+
+  it("does not record the channel a request never addressed, when it addressed another", () => {
+    // One request per recipient and channel: the email request has no push address, and that is not a failure.
+    const emailOnly = both({ addresses: { email: "staff@workmanjsc.vn" } });
+    expect(emailOnly.allowed).toEqual(["email"]);
+    expect(blockedReason(emailOnly, "push")).toBe("recipient_unreachable");
+    expect(recordableRefusals(emailOnly.decisions, { email: "staff@workmanjsc.vn" })).toEqual([]);
+
+    const pushOnly = both({ addresses: { push: "device-1" } });
+    expect(pushOnly.allowed).toEqual(["push"]);
+    expect(recordableRefusals(pushOnly.decisions, { push: "device-1" })).toEqual([]);
+  });
+
+  it("records a request that addressed nothing, for every channel", () => {
+    const none = both({ addresses: {} });
+    expect(recordableRefusals(none.decisions, {}).map((decision) => decision.channel).sort()).toEqual(["email", "push"]);
+  });
+
+  it("treats a blank address as nothing addressed", () => {
+    const blank = both({ addresses: { email: "   " } });
+    expect(recordableRefusals(blank.decisions, { email: "   " }).map((decision) => decision.channel).sort()).toEqual(["email", "push"]);
+  });
+
+  it("does not record the unaddressed channel even when that channel's transport is not configured", () => {
+    // A push-only request on a deployment with no email: the missing email transport is nothing to do with this send.
+    const pushOnly = both({ addresses: { push: "device-1" }, availableChannels: ["push"] });
+    expect(blockedReason(pushOnly, "email")).toBe("channel_unavailable");
+    expect(recordableRefusals(pushOnly.decisions, { push: "device-1" })).toEqual([]);
+  });
+
+  it("still records every other kind of refusal on an addressed channel", () => {
+    const unavailable = both({ addresses: { email: "staff@workmanjsc.vn" }, availableChannels: ["push"] });
+    expect(recordableRefusals(unavailable.decisions, { email: "staff@workmanjsc.vn" })).toEqual([
+      { channel: "email", allowed: false, reason: "channel_unavailable" },
+    ]);
+
+    const optedOut = both({ addresses: { email: "staff@workmanjsc.vn" }, optedOut: ["email"] });
+    expect(recordableRefusals(optedOut.decisions, { email: "staff@workmanjsc.vn" })).toEqual([
+      { channel: "email", allowed: false, reason: "recipient_opted_out" },
+    ]);
+  });
+
+  it("records a channel that was addressed with an unusable address", () => {
+    const decisions = both({ addresses: { email: "staff@workmanjsc.vn", push: "  " } });
+    expect(recordableRefusals(decisions.decisions, { email: "staff@workmanjsc.vn", push: "  " })).toEqual([
+      { channel: "push", allowed: false, reason: "recipient_unreachable" },
+    ]);
+  });
+});
+
+describe("push in the catalogue", () => {
+  it("lets a staff event carry push once the channel is available, and only then", () => {
+    const withPush = resolveEligibility(context({ event: "shop_installed", availableChannels: ["email", "push"], addresses: { push: "device-1" } }));
+    expect(withPush.allowed).toEqual(["push"]);
+    const withoutPush = resolveEligibility(context({ event: "shop_installed", availableChannels: ["email"], addresses: { push: "device-1" } }));
+    expect(blockedReason(withoutPush, "push")).toBe("channel_unavailable");
+  });
+
+  it("sends a test even though a tenant selected nothing, but never over email", () => {
+    const test = resolveEligibility(context({
+      event: "push_test",
+      availableChannels: ["email", "push"],
+      selection: { push_test: [] },
+      addresses: { email: "staff@workmanjsc.vn", push: "device-1" },
+    }));
+    expect(test.allowed).toEqual(["push"]);
   });
 });

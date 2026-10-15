@@ -59,4 +59,31 @@ describe("notification envelope", () => {
     const parsed = parseEnvelope({ ...toEnvelope(reset), payload: { ...reset.payload, extra: "x" } });
     expect(parsed.ok && "extra" in parsed.value.payload).toBe(false);
   });
+
+  it("round-trips a push request, which names a device by id", () => {
+    const push: QueuedNotification = {
+      event: "shop_installed",
+      to: { push: "subscription-id-1" },
+      scope: "alpha.myshopify.com",
+      dedupeKey: "shop-installed:alpha.myshopify.com:new",
+      payload: {
+        recipientName: "Staff",
+        shopName: "Alpha Store",
+        shop: "alpha.myshopify.com",
+        occurredAt: "Oct 15, 2026, 9:30 AM",
+        adminUrl: "https://app.workmanjsc.vn/internal/shops/alpha.myshopify.com",
+      },
+    };
+    expect(parseEnvelope(onTheWire(toEnvelope(push)))).toEqual({ ok: true, value: push });
+  });
+
+  it("covers the test event, whose payload is only the base fields", () => {
+    const test: QueuedNotification = { event: "push_test", to: { push: "d1" }, dedupeKey: "push-test:1", payload: { recipientName: "Staff" } };
+    expect(parseEnvelope(onTheWire(toEnvelope(test)))).toEqual({ ok: true, value: test });
+  });
+
+  it("rejects a shop notification missing the shop", () => {
+    const body = { v: 1, event: "shop_uninstalled", to: { push: "d1" }, dedupeKey: "k", payload: { recipientName: "S", shopName: "A", occurredAt: "x", adminUrl: "y" } };
+    expect(parseEnvelope(body)).toMatchObject({ ok: false, reason: "invalid_payload" });
+  });
 });

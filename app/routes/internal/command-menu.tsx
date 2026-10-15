@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSubmit } from "react-router";
-import { LogOut, Monitor, Moon, Plus, Search, Sun, UserCircle } from "lucide-react";
+import { Bell, LogOut, Monitor, Moon, Plus, Search, Sun, UserCircle } from "lucide-react";
 import { Button } from "~/internal/components/ui/button";
 import {
   CommandDialog,
@@ -86,6 +86,10 @@ export function CommandMenu() {
             <CommandItem onSelect={() => run(() => void navigate("/internal/profile"))}>
               <UserCircle />
               <span>Account</span>
+            </CommandItem>
+            <CommandItem onSelect={() => run(() => void navigate("/internal/notifications"))}>
+              <Bell />
+              <span>Notifications</span>
             </CommandItem>
             <CommandItem onSelect={() => run(() => void submit(null, LOGOUT))}>
               <LogOut />

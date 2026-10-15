@@ -102,6 +102,15 @@ export default tseslint.config(
     },
   },
   {
+    // Static files served as-is (no build step), such as the staff console's
+    // push service worker: a worker global scope, not a window and not Node.
+    files: ["public/**/*.js"],
+    languageOptions: {
+      sourceType: "script",
+      globals: { ...globals.serviceworker },
+    },
+  },
+  {
     files: ["app/**/*.{ts,tsx}"],
     ignores: ["app/models/**", "app/wiring.server.ts", "app/wiring/**", "app/**/*.test.{ts,tsx}"],
     rules: {

@@ -1,4 +1,5 @@
 import { emailChannel } from "./channels/email/channel.server";
+import { pushChannel } from "./channels/push/channel.server";
 import type {
   Channel,
   Message,
@@ -61,6 +62,7 @@ interface ChannelEntry<M extends Message> {
 const REGISTRY: { [K in Message["kind"]]: ChannelEntry<Extract<Message, { kind: K }>> } =
   {
     email: { channel: emailChannel },
+    push: { channel: pushChannel },
   };
 
 /** Applies one channel's policies and transport to a message of its own kind. */
@@ -87,17 +89,21 @@ const HANDLERS: { [K in Message["kind"]]: Handler } = {
     message.kind === "email"
       ? runEntry(REGISTRY.email, message, context)
       : wrongKind(message),
+  push: (message, context) =>
+    message.kind === "push"
+      ? runEntry(REGISTRY.push, message, context)
+      : wrongKind(message),
 };
 
 /**
  * Reached only if a handler is wired to the wrong key — a coding mistake, not a
  * runtime condition.
  *
- * The parameter is `Message`, not `never`: TypeScript only narrows a discriminant
- * to `never` for a union with more than one member, so a `never` parameter would
- * not compile while there is a single channel. The compile-time guarantee lives
- * in HANDLERS' mapped key type, which is the stronger of the two anyway — it
- * catches a MISSING channel, where a `never` check only catches a misrouted one.
+ * The parameter is `Message`, not `never`: each handler checks only its own
+ * discriminant, so the other members remain possible at the call. The
+ * compile-time guarantee lives in HANDLERS' mapped key type, which is the
+ * stronger of the two anyway — it catches a MISSING channel, where a `never`
+ * check only catches a misrouted one.
  */
 function wrongKind(message: Message): Promise<SendOutcome> {
   return Promise.resolve({

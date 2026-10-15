@@ -153,7 +153,7 @@ describe("SupportRepo", () => {
         at: 1_700_000_100_000,
       });
 
-      expect(replied).toBe(false);
+      expect(replied).toBeUndefined();
       // And the real owner's thread is untouched.
       const found = await repo.find(SHOP, ticket.id);
       expect(found?.messages).toHaveLength(1);

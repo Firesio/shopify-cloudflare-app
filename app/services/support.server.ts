@@ -1,6 +1,8 @@
 import { err, ok, type Result } from "~/lib/result";
 import type { Notifier } from "~/ports/notifier";
-import type { SupportAdminPort, SupportRepository, SupportThread } from "~/ports/support";
+import { staffTopicForSupportActivity } from "~/notifications/staff-topic";
+import type { StaffNotificationRecipients } from "~/ports/staff-notifications";
+import type { SupportRepository, SupportThread } from "~/ports/support";
 import { excerpt } from "~/support/excerpt";
 import type { SupportCategory } from "~/support/categories";
 import type { SupportTicket } from "~/support/types";
@@ -23,12 +25,15 @@ interface Clock {
 
 export interface SupportServiceDependencies {
   readonly repo: SupportRepository;
-  readonly admins: SupportAdminPort;
+  /** Who hears about a ticket, decided by each person's own notification settings. */
+  readonly staff: StaffNotificationRecipients;
   readonly clock: Clock;
   readonly notifier: Notifier;
   readonly appUrl: string;
   readonly withinRateLimit: (shop: string) => Promise<boolean>;
   readonly signAttachment: (attachmentId: string, expiresAt: number) => Promise<string>;
+  /** Where a degraded path reports itself. Receives a stable event name, never a message body or an address. */
+  readonly log: (entry: { readonly event: "support.notify_staff_failed"; readonly reason: string }) => void;
 }
 
 /** Where a thread lives, for the links inside notifications. */
@@ -91,6 +96,7 @@ export class SupportService {
       subject: input.subject,
       body: input.body,
       isNew: true,
+      messageId: created.messageId,
     });
 
     return ok(created);
@@ -148,6 +154,7 @@ export class SupportService {
       subject: thread?.ticket.subject ?? "",
       body: input.body,
       isNew: false,
+      messageId: replied.messageId,
     });
 
     return ok(null);
@@ -174,9 +181,17 @@ export class SupportService {
   }
 
   /**
-   * Tell every opted-in, active staff account. One send each rather than a
-   * single message with many recipients, so one bad address cannot suppress
-   * the rest and each row in `notification_logs` names one person.
+   * Tell the staff who asked to hear about it, on the channel each chose: one email request per person who wants
+   * email, one push request per enabled device of each person who wants push. Who those are is the staff
+   * notification settings' decision (`recipientsFor`); this only addresses the messages.
+   *
+   * One request each rather than a message with many recipients, so one bad address or dead device cannot
+   * suppress the rest and each row in `notification_logs` names one recipient. The dedupe key is shared by the
+   * whole fan-out for ONE ticket event and is made unique per recipient by the log's (key, recipient) pair, so a
+   * redelivery of any single message sends nothing twice.
+   *
+   * Best effort and last: the ticket is already committed, so a failure here is logged and never reaches the
+   * merchant's request.
    */
   private async notifyStaff(input: {
     ticketId: string;
@@ -184,26 +199,42 @@ export class SupportService {
     subject: string;
     body: string;
     isNew: boolean;
+    messageId: string;
   }): Promise<void> {
-    const recipients = await this.dependencies.admins.supportNotifyRecipients();
-    if (recipients.length === 0) return;
+    try {
+      const recipients = await this.dependencies.staff.recipientsFor(staffTopicForSupportActivity(input.isNew));
+      if (recipients.emails.length === 0 && recipients.devices.length === 0) return;
 
-    const urls = threadUrls(this.dependencies.appUrl, input.ticketId);
-
-    // Enqueueing is cheap and independent per recipient, so all go at once. The
-    // notifier never rejects, so one bad enqueue cannot suppress the others.
-    await Promise.all(recipients.map((recipient) => this.dependencies.notifier.send({
-      event: "support_merchant_activity",
-      to: { email: recipient.email },
-      payload: {
-        recipientName: recipient.name,
+      const base = {
+        event: "support_merchant_activity" as const,
+        dedupeKey: input.isNew ? `ticket-opened:${input.ticketId}` : `ticket-reply:${input.ticketId}:${input.messageId}`,
+      };
+      const content = {
         shopName: input.shopName,
         subject: input.subject,
         excerpt: excerpt(input.body),
-        threadUrl: urls.staff,
+        threadUrl: threadUrls(this.dependencies.appUrl, input.ticketId).staff,
         isNew: input.isNew,
-      },
-    })));
+      };
+
+      // Enqueueing is cheap and independent per recipient, so all go at once. The notifier never rejects, so one
+      // bad enqueue cannot suppress the others.
+      await Promise.all([
+        ...recipients.emails.map((recipient) => this.dependencies.notifier.send({
+          ...base,
+          to: { email: recipient.email },
+          payload: { recipientName: recipient.name, ...content },
+        })),
+        ...recipients.devices.map((device) => this.dependencies.notifier.send({
+          ...base,
+          to: { push: device.subscriptionId },
+          // A push is read by a device, not addressed to a person by name.
+          payload: { recipientName: "Staff", ...content },
+        })),
+      ]);
+    } catch (cause) {
+      this.dependencies.log({ event: "support.notify_staff_failed", reason: cause instanceof Error ? cause.name : "unknown" });
+    }
   }
 
   /**

@@ -171,7 +171,16 @@
     "AI_GATEWAY_ID": "",
     "SHOPIFY_PARTNER_APP_ID": "",
     "SHOPIFY_PARTNER_ORGANIZATION_ID": "",
-    "SHOPIFY_PARTNER_API_VERSION": "2026-07"
+    "SHOPIFY_PARTNER_API_VERSION": "2026-07",
+    // Web push (staff browsers). The PUBLIC half of the VAPID key pair, base64url: browsers need it to subscribe. Empty
+    // = push disabled. The private half is the secret VAPID_PRIVATE_KEY, deliberately NOT in `secrets.required` (a
+    // missing required secret fails the deploy and push is optional); generate both with `npm run push:keys`.
+    "VAPID_PUBLIC_KEY": "",
+    // LOCAL DEV ONLY: an empty slot so `.dev.vars` can supply the private half. Wrangler loads only declared names from
+    // `.dev.vars` once a `secrets` block exists, and an optional secret cannot be declared in `secrets.required`.
+    // Never put a value here. Production does not declare it (the env.production block below has no such var): there it
+    // is a real secret set with `wrangler secret put VAPID_PRIVATE_KEY --env production`.
+    "VAPID_PRIVATE_KEY": ""
   },
 
   // ─────────────────────────── PRODUCTION ───────────────────────────
@@ -270,7 +279,10 @@
         "SHOPIFY_PARTNER_APP_ID": "",
         "SHOPIFY_PARTNER_ORGANIZATION_ID": "",
         "SHOPIFY_PARTNER_API_VERSION": "2026-07",
-        "AI_GATEWAY_ID": ""
+        "AI_GATEWAY_ID": "",
+        // Public VAPID key (see the top-level note). Set it from `npm run push:keys`; the private half is
+        // `wrangler secret put VAPID_PRIVATE_KEY --env production`.
+        "VAPID_PUBLIC_KEY": ""
       }
     }
   }

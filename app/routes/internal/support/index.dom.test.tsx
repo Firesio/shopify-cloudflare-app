@@ -54,7 +54,7 @@ afterEach(cleanup);
 
 function mount(tickets: Row[]) {
   const router = createMemoryRouter(
-    [{ path: "/internal/support", Component: InternalSupport, loader: () => ({ notifySupport: true, tickets }) }],
+    [{ path: "/internal/support", Component: InternalSupport, loader: () => ({ tickets }) }],
     { initialEntries: ["/internal/support"] },
   );
   render(<RouterProvider router={router} />);

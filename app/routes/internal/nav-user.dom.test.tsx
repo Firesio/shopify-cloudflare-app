@@ -57,6 +57,18 @@ describe("the account menu", () => {
     expect(within(menu).getByRole("menuitem", { name: "Log out" })).toBeTruthy();
   });
 
+  it("links to the notification settings between Account and Log out", async () => {
+    mount();
+    fireEvent.keyDown(screen.getByRole("button", { name: /Local Admin/ }), { key: "Enter" });
+
+    const menu = await screen.findByRole("menu");
+    const names = within(menu)
+      .getAllByRole("menuitem")
+      .map((item) => item.textContent);
+    expect(names).toEqual(["Account", "Notifications", "Log out"]);
+    expect(within(menu).getByRole("menuitem", { name: "Notifications" }).getAttribute("href")).toBe("/internal/notifications");
+  });
+
   it("signs out with a POST to the logout route, never a link", async () => {
     const logouts = mount();
     fireEvent.keyDown(screen.getByRole("button", { name: /Local Admin/ }), { key: "Enter" });

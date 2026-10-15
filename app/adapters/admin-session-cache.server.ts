@@ -20,7 +20,6 @@ const cachedUserSchema = z.object({
   name: z.string(),
   role: z.enum(["owner", "admin"]),
   status: z.literal("active"),
-  notifySupport: z.boolean(),
   createdAt: z.number(),
   updatedAt: z.number(),
   lastLoginAt: z.number().nullable(),

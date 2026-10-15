@@ -1,7 +1,7 @@
 import type { NotificationLogsPort } from "~/ports/notification-logs";
 import type { NotificationQueue } from "~/ports/notification-queue";
 import type { Notifier, NotifyRequest } from "~/ports/notifier";
-import type { NotificationEvent } from "~/notifications/types";
+import { isChannelKey, type NotificationEvent } from "~/notifications/types";
 
 export interface QueuedNotifierDependencies {
   readonly queue: NotificationQueue;
@@ -51,12 +51,14 @@ async function recordEnqueueFailure(
 
   const now = dependencies.now();
   try {
-    if (input.to.email !== undefined) {
+    // One row per channel the request addressed, so a push that never left is as visible as an email that did not.
+    for (const [channel, recipient] of Object.entries(input.to)) {
+      if (!isChannelKey(channel) || recipient === undefined) continue;
       await dependencies.logs.recordSettled({
         id: dependencies.newId(),
         event: input.event,
-        channel: "email",
-        recipient: input.to.email,
+        channel,
+        recipient,
         status: "failed",
         reasonCode: "transport_error",
         detail: "Could not be queued for sending.",

@@ -32,6 +32,7 @@ function composed(refresher: FakeTokenRefresher, clock: () => number): ProbePort
       shops: { facts: (domain) => repository.get(domain), applyUninstall: (domain, next) => repository.applyUninstall(domain, next) },
       cleanup: async (domain) => { await sessions.deleteSessions((await sessions.findSessionsByShop(domain)).map(({ id }) => id)); },
       reconcile: async () => ({ ok: true }),
+      announce: async () => undefined,
     }, shop, observation),
   };
 }

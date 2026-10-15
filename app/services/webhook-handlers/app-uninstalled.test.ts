@@ -15,6 +15,7 @@ describe("appUninstalledHandler", () => {
       },
       cleanup: async () => undefined,
       reconcile: async () => ({ ok: true }),
+      announce: async () => undefined,
     };
     const delivery: ConsumerDelivery = { id: "wh-9", shop: "fake.myshopify.com", topic: "app/uninstalled", status: "processing", triggeredAt: 777 };
     await appUninstalledHandler(ports)(delivery);

@@ -4,6 +4,8 @@ import { runWithRequestContext } from "~/request-context.server";
 import { setupTestDatabase } from "~/test/db";
 import { NotificationLogRepo } from "~/models/notification-logs.server";
 import { AdminUserRepo } from "~/models/admin-users.server";
+import { PushSubscriptionRepo } from "~/models/push-subscriptions.server";
+import { StaffPreferenceRepo, StaffRecipientsRepo } from "~/models/staff-notifications.server";
 import { SupportRepo } from "~/models/support.server";
 import { createAdmin } from "~/services/admin-management.server";
 import { SupportService } from "./support.server";
@@ -64,7 +66,6 @@ async function staffMember(email = "support@example.org") {
     role: "owner",
   }, adminDeps);
   if (!created.ok) throw new Error(`fixture: ${created.reason}`);
-  await new AdminUserRepo().setNotifySupport(created.value.id, true, 1_000);
   return created.value;
 }
 
@@ -92,12 +93,12 @@ describe("opening a ticket", () => {
     const calls: string[] = [];
     const repo = {
       attachMany: async () => { calls.push("attachMany"); }, open: async () => ({ id: "t", messageId: "m" }),
-      openAsStaff: async () => ({ id: "t", messageId: "m" }), reply: async () => false,
+      openAsStaff: async () => ({ id: "t", messageId: "m" }), reply: async () => undefined,
       replyAsStaff: async () => undefined, find: async () => undefined, findForStaff: async () => undefined,
       listForShop: async () => [], listOpenForStaff: async () => [], closeAsStaff: async () => false,
       setCcEmails: async () => false, markRead: async () => {}, markReadAsStaff: async () => {},
     };
-    const service = new SupportService({ repo, admins: { supportNotifyRecipients: async () => [] }, clock: { now: () => 1 }, notifier: { send: async () => {} }, appUrl: "https://app.test", withinRateLimit: async () => true, signAttachment: async () => "token" });
+    const service = new SupportService({ repo, staff: { recipientsFor: async () => ({ emails: [], devices: [] }) }, clock: { now: () => 1 }, notifier: { send: async () => {} }, appUrl: "https://app.test", withinRateLimit: async () => true, signAttachment: async () => "token", log: () => {} });
     await service.adoptAttachments("shop.test", "message", [{ id: "upload", r2Key: "key", filename: "a.txt", contentType: "text/plain", sizeBytes: 1 }]);
     expect(calls).toEqual(["attachMany"]);
   });
@@ -108,7 +109,7 @@ describe("opening a ticket", () => {
       attachMany: async () => {},
       open: async () => { calls.push("open"); return { id: "ticket", messageId: "message" }; },
       openAsStaff: async () => ({ id: "ticket", messageId: "message" }),
-      reply: async () => false,
+      reply: async () => undefined,
       replyAsStaff: async () => undefined,
       find: async () => undefined,
       findForStaff: async () => undefined,
@@ -119,7 +120,7 @@ describe("opening a ticket", () => {
       markRead: async () => {},
       markReadAsStaff: async () => {},
     };
-    const service = new SupportService({ repo, admins: { supportNotifyRecipients: async () => [] }, clock: { now: () => 1 }, notifier: { send: async () => {} }, appUrl: "https://app.test", withinRateLimit: async () => true, signAttachment: async () => "token" });
+    const service = new SupportService({ repo, staff: { recipientsFor: async () => ({ emails: [], devices: [] }) }, clock: { now: () => 1 }, notifier: { send: async () => {} }, appUrl: "https://app.test", withinRateLimit: async () => true, signAttachment: async () => "token", log: () => {} });
     const result = await service.openTicket({ shop: "shop.myshopify.com", shopName: "Shop", merchantEmail: null, ccEmails: [], category: "bug", subject: "Subject", body: "Body" });
     expect(result).toEqual({ ok: true, value: { id: "ticket", messageId: "message" } });
     expect(calls).toEqual(["open"]);
@@ -201,7 +202,7 @@ describe("opening a ticket", () => {
   it("does not notify a staff member who opted out of support mail", async () => {
     const rows = await inRequest(async () => {
       const staff = await staffMember();
-      await new AdminUserRepo().setNotifySupport(staff.id, false, 2_000);
+      await new StaffPreferenceRepo().set(staff.id, "support_ticket_opened", "email", false, 2_000);
       await openTicket(supportService(), newShop());
       return recentRows();
     });
@@ -488,12 +489,13 @@ describe("what the service asks the notifier to send", () => {
     const notifier = fakeNotifier();
     const service = new SupportService({
       repo: new SupportRepo(testIds),
-      admins: new AdminUserRepo(),
+      staff: new StaffRecipientsRepo(),
       clock: { now: () => 1_700_000_000_000 },
       notifier,
       appUrl: "https://example.test",
       withinRateLimit: async () => true,
       signAttachment: async () => "unused",
+      log: () => {},
     });
     return { notifier, service };
   };
@@ -679,5 +681,157 @@ describe("what the service asks the notifier to send", () => {
     expect(thread?.ticket.lastAuthor).toBe("staff");
     expect(thread?.messages[0]?.author).toBe("staff");
     expect(thread?.messages[0]?.authorName).toBe("Support Team");
+  });
+});
+
+/**
+ * Who is asked, and on which channel, follows each person's OWN notification settings: the service only addresses
+ * the messages. Real D1 for the people, their settings and their devices; the notifier port is the boundary.
+ */
+describe("who is told about a ticket, per their own settings", () => {
+  const setup = () => {
+    const notifier = fakeNotifier();
+    const logged: unknown[] = [];
+    const service = new SupportService({
+      repo: new SupportRepo(testIds),
+      staff: new StaffRecipientsRepo(),
+      clock: { now: () => 1_700_000_000_000 },
+      notifier,
+      appUrl: "https://app.workmanjsc.vn",
+      withinRateLimit: async () => true,
+      signAttachment: async () => "unused",
+      log: (entry) => { logged.push(entry); },
+    });
+    return { notifier, service, logged };
+  };
+
+  const addDevice = (adminId: string, id: string) =>
+    new PushSubscriptionRepo().upsert(adminId, {
+      id,
+      endpoint: `https://push.fake-service.invalid/send/${id}`,
+      p256dh: "p256dh",
+      auth: "auth",
+      label: "Chrome on Android",
+      kind: "phone",
+      now: 1_000,
+    });
+
+  const turnOff = async (adminId: string, channel: "email" | "push") => {
+    const preferences = new StaffPreferenceRepo();
+    await preferences.set(adminId, "support_ticket_opened", channel, false, 2_000);
+    await preferences.set(adminId, "support_ticket_reply", channel, false, 2_000);
+  };
+
+  it("sends one email request to a person who wants email and nothing to their devices", async () => {
+    const { notifier } = await inRequest(async () => {
+      const { notifier, service } = setup();
+      const staff = await staffMember("mail-only@workmanjsc.vn");
+      await addDevice(staff.id, "device-ignored");
+      await turnOff(staff.id, "push");
+      await openTicket(service, newShop());
+      return { notifier };
+    });
+
+    expect(notifier.sent).toHaveLength(1);
+    expect(notifier.sent[0]?.to).toEqual({ email: "mail-only@workmanjsc.vn" });
+  });
+
+  it("sends one push request per enabled device to a person who wants push only", async () => {
+    const { notifier } = await inRequest(async () => {
+      const { notifier, service } = setup();
+      const staff = await staffMember("push-only@workmanjsc.vn");
+      await addDevice(staff.id, "device-phone");
+      await addDevice(staff.id, "device-laptop");
+      await turnOff(staff.id, "email");
+      await openTicket(service, newShop());
+      return { notifier };
+    });
+
+    expect(notifier.sent.map((request) => request.to).sort((a, b) => String(a.push).localeCompare(String(b.push)))).toEqual([
+      { push: "device-laptop" },
+      { push: "device-phone" },
+    ]);
+  });
+
+  it("asks nobody when everyone has the topic off, and still opens the ticket", async () => {
+    const shop = newShop();
+    const { notifier, thread } = await inRequest(async () => {
+      const { notifier, service } = setup();
+      const staff = await staffMember("quiet@workmanjsc.vn");
+      await addDevice(staff.id, "device-quiet");
+      await turnOff(staff.id, "email");
+      await turnOff(staff.id, "push");
+      const created = await openTicket(service, shop);
+      return { notifier, thread: await service.find(shop, created.id) };
+    });
+
+    expect(notifier.sent).toEqual([]);
+    expect(thread?.messages).toHaveLength(1);
+  });
+
+  it("keys the opening by the ticket and a reply by its message, the same for every recipient", async () => {
+    const shop = newShop();
+    const { notifier, ticketId, replyMessageId } = await inRequest(async () => {
+      const { notifier, service } = setup();
+      const staff = await staffMember("both@workmanjsc.vn");
+      await addDevice(staff.id, "device-both");
+      const created = await openTicket(service, shop);
+      await service.replyAsMerchant({ shop, shopName: "Alpha Store", ticketId: created.id, body: "Still broken." });
+      const thread = await service.find(shop, created.id);
+      return { notifier, ticketId: created.id, replyMessageId: thread?.messages[1]?.id };
+    });
+
+    const opened = notifier.sent.filter((request) => request.dedupeKey?.startsWith("ticket-opened:"));
+    const replies = notifier.sent.filter((request) => request.dedupeKey?.startsWith("ticket-reply:"));
+    expect(opened.map((request) => request.dedupeKey)).toEqual([`ticket-opened:${ticketId}`, `ticket-opened:${ticketId}`]);
+    expect(replies.map((request) => request.dedupeKey)).toEqual([
+      `ticket-reply:${ticketId}:${replyMessageId}`,
+      `ticket-reply:${ticketId}:${replyMessageId}`,
+    ]);
+    // Same key, different recipients: one email address and one device id, which is what makes each unique.
+    expect(opened.map((request) => request.to).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))).toEqual([
+      { email: "both@workmanjsc.vn" },
+      { push: "device-both" },
+    ]);
+    expect(opened.every((request) => request.event === "support_merchant_activity")).toBe(true);
+    expect(opened.map((request) => "isNew" in request.payload && request.payload.isNew)).toEqual([true, true]);
+    expect(replies.map((request) => "isNew" in request.payload && request.payload.isNew)).toEqual([false, false]);
+  });
+
+  it("follows the topic: a person who wants new tickets but not replies hears only the first", async () => {
+    const shop = newShop();
+    const notifier = await inRequest(async () => {
+      const { notifier, service } = setup();
+      const staff = await staffMember("opens-only@workmanjsc.vn");
+      await new StaffPreferenceRepo().set(staff.id, "support_ticket_reply", "email", false, 2_000);
+      const created = await openTicket(service, shop);
+      await service.replyAsMerchant({ shop, shopName: "Alpha Store", ticketId: created.id, body: "Hello again." });
+      return notifier;
+    });
+
+    expect(notifier.sent.map((request) => request.dedupeKey?.split(":")[0])).toEqual(["ticket-opened"]);
+  });
+
+  it("never raises into the merchant's request when reading the recipients fails", async () => {
+    const shop = newShop();
+    const logged: unknown[] = [];
+    const service = new SupportService({
+      repo: new SupportRepo(testIds),
+      staff: { recipientsFor: async () => { throw new Error("db unavailable for ops@workmanjsc.vn"); } },
+      clock: { now: () => 1_700_000_000_000 },
+      notifier: fakeNotifier(),
+      appUrl: "https://app.workmanjsc.vn",
+      withinRateLimit: async () => true,
+      signAttachment: async () => "unused",
+      log: (entry) => { logged.push(entry); },
+    });
+
+    const thread = await inRequest(async () => {
+      const created = await openTicket(service, shop);
+      return service.find(shop, created.id);
+    });
+
+    expect(thread?.messages).toHaveLength(1);
+    expect(logged).toEqual([{ event: "support.notify_staff_failed", reason: "Error" }]);
   });
 });

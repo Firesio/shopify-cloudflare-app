@@ -1,3 +1,5 @@
+import type { PushTransport } from "~/ports/push-transport";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // The notification system's vocabulary. PURE — no I/O, no framework, safe to
 // import from anywhere including the browser.
@@ -19,18 +21,24 @@ export type NotificationEvent =
   /** A merchant opened a ticket, or replied to one → tell the staff on duty. */
   | "support_merchant_activity"
   /** Staff answered → tell the merchant, at the address they gave us. */
-  | "support_staff_reply";
+  | "support_staff_reply"
+  /** A shop installed the app (or installed it again after uninstalling) → tell the staff. */
+  | "shop_installed"
+  /** A shop uninstalled the app → tell the staff. */
+  | "shop_uninstalled"
+  /** A staff member asked for a test message on one of their devices. */
+  | "push_test";
 
 // ─── Messages ────────────────────────────────────────────────────────────────
 
 /** Every transport this app can send over. */
-export type ChannelKey = "email";
+export type ChannelKey = "email" | "push";
 
 /**
  * Keyed by `ChannelKey`, so adding a transport to the union stops this
  * compiling until it is listed — the same guarantee the event catalogue gives.
  */
-const CHANNEL_KEYS: Record<ChannelKey, true> = { email: true };
+const CHANNEL_KEYS: Record<ChannelKey, true> = { email: true, push: true };
 
 /**
  * Narrow an untrusted string — a stored row, a form field — to a channel.
@@ -53,7 +61,7 @@ export function isChannelKey(value: string): value is ChannelKey {
  *
  * Adding SMS looks like:
  *   export interface SmsMessage { kind: "sms"; to: string; body: string }
- *   export type Message = EmailMessage | SmsMessage;
+ *   export type Message = EmailMessage | PushMessage | SmsMessage;
  * …and the compiler then tells you every place that must handle it.
  */
 export interface EmailMessage {
@@ -72,7 +80,33 @@ export interface EmailMessage {
   cc?: string[];
 }
 
-export type Message = EmailMessage;
+/**
+ * One web push to one staff device.
+ *
+ * `to` is the push SUBSCRIPTION ID, never the endpoint or its keys: the endpoint
+ * is a capability (whoever holds it can wake the device), and a message travels
+ * through a queue and is recorded in `notification_logs`. The channel resolves
+ * the id to the device's endpoint only at the moment of sending.
+ */
+export interface PushMessage {
+  kind: "push";
+  /** The device's push subscription id. */
+  to: string;
+  title: string;
+  body: string;
+  /** Where a tap goes: always a path under `/internal/`. */
+  url: string;
+  /** A newer notification with the same tag replaces one still waiting; also becomes the Web Push `Topic`. */
+  tag: string;
+  /** What the notification is about (a staff topic); the service worker receives it with the rest. */
+  topic: string;
+  /** How soon the push service should wake the device. */
+  urgency: "normal" | "high";
+  /** How long the push service keeps it for a device that is offline. */
+  ttlSeconds: number;
+}
+
+export type Message = EmailMessage | PushMessage;
 
 // ─── Outcomes ────────────────────────────────────────────────────────────────
 
@@ -159,6 +193,8 @@ export type SendOutcome =
 export interface SendContext {
   /** Which shop this is for, when a channel resolves per-shop credentials. */
   shop?: string;
+  /** The push sender and device store. Absent when push is not configured, which makes the push channel unavailable. */
+  push?: PushTransport;
 }
 
 /**

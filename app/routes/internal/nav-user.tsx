@@ -1,5 +1,5 @@
 import { Link, useSubmit } from "react-router";
-import { EllipsisVertical, LogOut, UserCircle } from "lucide-react";
+import { Bell, EllipsisVertical, LogOut, UserCircle } from "lucide-react";
 import { Avatar, AvatarFallback } from "~/internal/components/ui/avatar";
 import {
   DropdownMenu,
@@ -75,6 +75,12 @@ export function NavUser({ user }: NavUserProps) {
                 <Link to="/internal/profile" prefetch="intent">
                   <UserCircle />
                   Account
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/internal/notifications" prefetch="intent">
+                  <Bell />
+                  Notifications
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>

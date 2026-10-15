@@ -204,6 +204,20 @@
       "when": 1791530048977,
       "tag": "0028_low_major_mapleleaf",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1792070580009,
+      "tag": "0029_careful_nightshade",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1792070582978,
+      "tag": "0030_staff_notification_legacy_mute",
+      "breakpoints": true
     }
   ]
 }

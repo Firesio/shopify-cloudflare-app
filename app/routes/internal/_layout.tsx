@@ -49,11 +49,17 @@ import internalStyles from "~/styles/internal/internal.tailwind.css?url";
 export const meta: MetaFunction = () => [
   { title: "Staff Console" },
   { name: "robots", content: "noindex, nofollow" },
+  // The browser chrome of an installed console follows the theme.
+  { name: "theme-color", content: "#ffffff", media: "(prefers-color-scheme: light)" },
+  { name: "theme-color", content: "#0a0a0a", media: "(prefers-color-scheme: dark)" },
 ];
 
 export const links: LinksFunction = () => [
   ...INTERNAL_FONT_LINKS,
   { rel: "stylesheet", href: internalStyles },
+  // Installable console (and the only way web push works on iOS).
+  { rel: "manifest", href: "/internal/manifest.webmanifest" },
+  { rel: "apple-touch-icon", href: "/internal-icons/apple-touch-icon.png" },
 ];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {

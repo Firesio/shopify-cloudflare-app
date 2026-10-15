@@ -1,20 +1,18 @@
 import { shopSubscriptions, adminSessionUsers } from "~/wiring.server";
 import { Link, useLoaderData } from "react-router";
-import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => [
   { title: "Support · Staff Console" },
 ];
 import { Button } from "~/internal/components/ui/button";
-import { Plus } from "lucide-react";
+import { Bell, Plus } from "lucide-react";
 import { requireAdminUser } from "~/services/admin-auth.server";
-import { adminUsers } from "~/wiring.server";
 import { supportService } from "~/wiring.server";
 import { planForShopifyHandle } from "~/billing/plans";
 import { isUnreadFor, statusOf } from "~/support/status";
 import { Deferred, TableSkeleton } from "~/internal/components";
 import { streamRegion } from "~/internal/stream-region.server";
-import { NotifyCard } from "./index-notify-card";
 import { TicketTable } from "./index-ticket-table";
 
 const PAID_STATUSES = new Set(["ACTIVE", "CANCELLATION_SCHEDULED"]);
@@ -48,27 +46,11 @@ async function loadTicketRows() {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const actor = await requireAdminUser(request, { users: adminSessionUsers() });
+  await requireAdminUser(request, { users: adminSessionUsers() });
 
   return {
-    // From the session lookup already awaited above, so the switch paints at once.
-    notifySupport: actor.notifySupport,
     tickets: streamRegion("support_index", "tickets", loadTicketRows()),
   };
-};
-
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const actor = await requireAdminUser(request, { users: adminUsers() });
-  const form = await request.formData();
-
-  // The only action here is the signed-in person's own preference, so there is
-  // no id to trust from the form — it is always the actor's own row.
-  await adminUsers().setNotifySupport(
-    actor.id,
-    form.get("notifySupport") === "on",
-    Date.now(),
-  );
-  return { saved: true as const };
 };
 
 function NewTicketButton() {
@@ -83,13 +65,27 @@ function NewTicketButton() {
   );
 }
 
+/** What notifications a person gets about tickets is their own setting, kept on the notifications page. */
+function NotificationSettingsLink() {
+  return (
+    <Button size="sm" variant="outline" asChild>
+      <Link to="/internal/notifications">
+        <Bell />
+        <span className="hidden lg:inline">Notification settings</span>
+        <span className="lg:hidden">Alerts</span>
+      </Link>
+    </Button>
+  );
+}
+
 export default function InternalSupport() {
-  const { tickets, notifySupport } = useLoaderData<typeof loader>();
+  const { tickets } = useLoaderData<typeof loader>();
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <div className="px-4 lg:px-6">
-        <NotifyCard notifySupport={notifySupport} />
+      {/* Outside the streamed region: it stays when the tickets fail to load. */}
+      <div className="flex justify-end px-4 lg:px-6">
+        <NotificationSettingsLink />
       </div>
 
       <Deferred

@@ -43,3 +43,14 @@ export interface NotifyRequest<E extends NotificationEvent = NotificationEvent> 
 export interface Notifier {
   send<E extends NotificationEvent>(input: NotifyRequest<E>): Promise<void>;
 }
+
+/**
+ * Sends in the caller's own request instead of through the queue, and answers how many messages the channels
+ * accepted. For the one case where a person is waiting on the result — a "send me a test" button — and a queued
+ * message could not tell them whether it arrived. Everything else uses `Notifier`.
+ *
+ * Never throws: a send that failed, for any reason, is a count of zero (and a logged event).
+ */
+export interface ImmediateNotifier {
+  sendNow<E extends NotificationEvent>(input: NotifyRequest<E>): Promise<{ readonly delivered: number }>;
+}

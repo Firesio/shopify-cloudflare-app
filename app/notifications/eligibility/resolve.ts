@@ -50,3 +50,24 @@ export function blockedReason(
   if (!decision || decision.allowed) return null;
   return decision.reason;
 }
+
+type Refusal = Extract<ChannelDecision, { allowed: false }>;
+
+/**
+ * Which refusals deserve a row in the history.
+ *
+ * Every refusal does — EXCEPT one for a channel the request never addressed, when it addressed another. An event that
+ * can travel by email or by push is sent as one request per recipient and channel (a person's email address, each of
+ * their devices), so the other channel having no address is the request doing what it says, not a recipient we cannot
+ * reach or a transport we lack. Recording it would put a "refused" row beside every real send. A request that
+ * addresses NO channel is still recorded in full: that one is a recipient we hold no address for.
+ */
+export function recordableRefusals(
+  decisions: readonly ChannelDecision[],
+  addresses: Partial<Record<string, string>>,
+): Refusal[] {
+  const addressed = Object.values(addresses).some((address) => typeof address === "string" && address.trim().length > 0);
+  return decisions.filter(
+    (decision): decision is Refusal => !decision.allowed && !(addressed && addresses[decision.channel] === undefined),
+  );
+}

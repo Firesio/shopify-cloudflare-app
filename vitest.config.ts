@@ -71,6 +71,10 @@ const EXPLICIT_WORKERS = [
   "app/adapters/shopify-partner.test.ts",
   "app/adapters/shopify-store-credit.test.ts",
   "app/routes/app/_layout.render.test.tsx",
+  // Web Push crypto ships on workerd, whose WebCrypto (JWK import, HKDF, ECDSA) is not Node's: run it there.
+  "app/lib/web-push/encrypt.test.ts",
+  "app/lib/web-push/vapid.test.ts",
+  "app/adapters/web-push-sender.server.test.ts",
 ];
 
 const domSet = new Set(DOM_FILES);

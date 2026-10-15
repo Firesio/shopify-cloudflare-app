@@ -9,8 +9,17 @@ import {
 
 /** Never let a password hash leave this layer. */
 function toSafe(user: AdminUser): SafeAdminUser {
-  const { passwordHash: _ignored, ...safe } = user;
-  return safe;
+  // Built field by field: a spread would carry along every column the table has, including ones nothing reads.
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    status: user.status,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    lastLoginAt: user.lastLoginAt,
+  };
 }
 
 /** Emails are stored and compared lower-cased, so lookups are case-insensitive. */
@@ -148,28 +157,6 @@ export class AdminUserRepo {
       .set({ status, updatedAt: now })
       .where(eq(adminUsers.id, id));
     await this.invalidate(id);
-  }
-
-  /**
-   * Who gets emailed when a merchant opens or replies to a support ticket:
-   * accounts that asked for it AND can still sign in.
-   *
-   * Both conditions, not just the flag — a disabled account keeps its
-   * preference so re-enabling restores it, but must not receive operational
-   * mail in the meantime.
-   */
-  async supportNotifyRecipients(): Promise<{ name: string; email: string }[]> {
-    return getDb()
-      .select({ name: adminUsers.name, email: adminUsers.email })
-      .from(adminUsers)
-      .where(and(eq(adminUsers.status, "active"), eq(adminUsers.notifySupport, true)));
-  }
-
-  async setNotifySupport(id: string, notifySupport: boolean, now: number): Promise<void> {
-    await getDb()
-      .update(adminUsers)
-      .set({ notifySupport, updatedAt: now })
-      .where(eq(adminUsers.id, id));
   }
 
   async setRole(id: string, role: AdminRole, now: number): Promise<void> {

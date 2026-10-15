@@ -18,6 +18,7 @@
 export * from "./schema/shops";
 export * from "./schema/admin-users";
 export * from "./schema/notifications";
+export * from "./schema/push";
 export * from "./schema/support";
 export * from "./schema/ai";
 export * from "./schema/lifecycle";

@@ -69,3 +69,22 @@ describe("applySecurityHeaders", () => {
     expect(csp).not.toContain("fonts.gstatic.com");
   });
 });
+
+describe("the internal console's installability and push", () => {
+  const csp = () => headerValue("/internal/dashboard", "Content-Security-Policy") ?? "";
+
+  it("lets the console register its service worker and fetch its manifest: both fall back to default-src 'self'", () => {
+    const directives = csp().split("; ").map((directive) => directive.split(" ")[0]);
+    expect(csp()).toContain("default-src 'self'");
+    // An explicit worker-src/manifest-src/child-src could only narrow what default-src already allows.
+    for (const narrowing of ["worker-src", "manifest-src", "child-src"]) {
+      expect(directives, narrowing).not.toContain(narrowing);
+    }
+    expect(directives).toContain("script-src");
+  });
+
+  it("allows the console's own icons and lets push talk only to this origin", () => {
+    expect(csp()).toContain("img-src 'self' data:");
+    expect(csp()).toContain("connect-src 'self'");
+  });
+});

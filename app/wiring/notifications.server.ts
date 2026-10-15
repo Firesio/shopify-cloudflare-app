@@ -1,6 +1,8 @@
 import { CloudflareNotificationQueue } from "~/adapters/notification-queue.server";
 import { notify } from "~/notifications/notify.server";
-import type { Notifier } from "~/ports/notifier";
+import type { ImmediateNotifier, Notifier } from "~/ports/notifier";
+import type { PushTransport } from "~/ports/push-transport";
+import { pushTransport } from "~/wiring/push.server";
 import { getEnv } from "~/request-context.server";
 import { availableChannels } from "~/notifications/eligibility/snapshot.server";
 import { appRuntime } from "~/wiring/runtime.server";
@@ -20,12 +22,15 @@ export function notificationDependencies(): {
   readonly settings: NotificationSettingsPort;
   readonly runtime: Pick<Runtime, "clock" | "ids">;
   readonly availableChannels: readonly ChannelKey[];
+  readonly push?: PushTransport;
 } {
+  const push = pushTransport();
   return {
     logs: notificationLogs(),
     settings: notificationSettings(),
     runtime: appRuntime(),
-    availableChannels: availableChannels(getEnv()),
+    availableChannels: availableChannels(getEnv(), { push: push !== undefined }),
+    ...(push ? { push } : {}),
   };
 }
 
@@ -45,5 +50,29 @@ export function notificationConsumerDependencies(): NotificationConsumerDependen
   return {
     send: (request) => notify(request, notificationDependencies()),
     log: (entry) => console[entry.event === "notification.queue_sent" ? "log" : "warn"](JSON.stringify(entry)),
+  };
+}
+
+/**
+ * Sends inside the request and counts what was accepted, through the same `notify()` as the queue consumer. A retriable
+ * failure surfaces from `notify()` as a throw so a queue can back off; here nobody retries, so any failure is logged
+ * and counted as not delivered.
+ */
+export function immediateNotifier(): ImmediateNotifier {
+  return {
+    async sendNow(input) {
+      const dedupeKey = input.dedupeKey ?? `${input.event}:${appRuntime().ids.uuid()}`;
+      try {
+        const result = await notify({ ...input, dedupeKey }, notificationDependencies());
+        return { delivered: result.dispatched.filter((entry) => !entry.skipped && entry.outcome.status === "sent").length };
+      } catch (cause) {
+        console.warn(JSON.stringify({
+          event: "notification.send_now_failed",
+          notification: input.event,
+          reason: cause instanceof Error ? cause.name : "unknown",
+        }));
+        return { delivered: 0 };
+      }
+    },
   };
 }

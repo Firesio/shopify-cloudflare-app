@@ -24,6 +24,17 @@
 # and delete it once the hour has passed: a revoked secret that stays accepted lets anyone who holds it forge webhooks.
 # SHOPIFY_API_SECRET_PREVIOUS=
 
+# Optional: Web Push to staff browsers (VAPID, RFC 8292). Push stays off until BOTH values are set; the app sends
+# nothing and the UI shows push as unavailable. Generate a pair with `npm run push:keys`.
+#   VAPID_PUBLIC_KEY   not a secret: a var in wrangler.jsonc (top level and env.production.vars). Browsers need it to
+#                      subscribe. Locally put it here so it overrides the empty value in wrangler.jsonc.
+#   VAPID_PRIVATE_KEY  a SECRET, never committed. Deliberately not in `secrets.required` (a missing required secret
+#                      fails the deploy and push is optional). In production:
+#                        wrangler secret put VAPID_PRIVATE_KEY --env production
+# The contact URI (`sub`) is SHOPIFY_APP_URL, so it must be https: with a plain http://localhost app URL push stays off.
+# VAPID_PUBLIC_KEY=
+# VAPID_PRIVATE_KEY=
+
 # Optional: custom dev-store domain.
 # SHOP_CUSTOM_DOMAIN=
 

@@ -25,9 +25,14 @@ const GLOBAL_SCOPE = "global";
  * Extend this as channels arrive — an SMS entry would check for the provider
  * credentials the same way.
  */
-export function availableChannels(env: Pick<Env, "EMAIL" | "EMAIL_FROM">): ChannelKey[] {
+export function availableChannels(
+  env: Pick<Env, "EMAIL" | "EMAIL_FROM">,
+  capabilities: { readonly push: boolean },
+): ChannelKey[] {
   const channels: ChannelKey[] = [];
   if (env.EMAIL && env.EMAIL_FROM) channels.push("email");
+  // Push needs a sender, which exists only when valid VAPID keys are configured (see `pushTransport`).
+  if (capabilities.push) channels.push("push");
   return channels;
 }
 

@@ -1,14 +1,16 @@
 import { composeEmailMessage } from "./channels/email/compose";
+import { composePushMessage } from "./channels/push/compose";
 import { copyRecipients } from "./copy-recipients";
 import type { NotifyRequest } from "~/ports/notifier";
 import { dispatch, type DispatchResult } from "./dispatch.server";
-import { resolveEligibility } from "./eligibility/resolve";
+import { recordableRefusals, resolveEligibility } from "./eligibility/resolve";
 import { loadEligibilityContext } from "./eligibility/snapshot.server";
 import type { ChannelDecision } from "./eligibility/types";
 import type { PayloadByEvent } from "./payloads";
 import type { ChannelKey, Message, NotificationEvent } from "./types";
 import type { NotificationLogsPort } from "~/ports/notification-logs";
 import type { NotificationSettingsPort } from "~/ports/notification-settings";
+import type { PushTransport } from "~/ports/push-transport";
 import type { Runtime } from "~/ports/runtime";
 
 const GLOBAL_SCOPE = "global";
@@ -19,6 +21,8 @@ export interface NotifyDependencies {
   readonly runtime: Pick<Runtime, "clock" | "ids">;
   /** Channels whose transport is configured right now. */
   readonly availableChannels: readonly ChannelKey[];
+  /** The push sender and device store; absent when push is not configured, and then `push` is not an available channel. */
+  readonly push?: PushTransport;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -67,6 +71,8 @@ interface Composer {
  */
 const COMPOSERS: { [K in Message["kind"]]: Composer } = {
   email: { compose: composeEmailMessage },
+  // A push has no copies, so the composer ignores `cc`.
+  push: { compose: (event, payload, to) => composePushMessage(event, payload, to) },
 };
 
 export interface NotifyResult {
@@ -112,8 +118,7 @@ async function recordRefusals<E extends NotificationEvent>(
   claimLogId: () => string | undefined,
 ): Promise<void> {
   const now = dependencies.runtime.clock.now();
-  for (const decision of decisions) {
-    if (decision.allowed) continue;
+  for (const decision of recordableRefusals(decisions, input.to)) {
     const id = claimLogId() ?? dependencies.runtime.ids.uuid();
     await dependencies.logs.recordSettled({
       id,
@@ -164,7 +169,7 @@ async function dispatchAllowed<E extends NotificationEvent>(
         dedupeKey: input.dedupeKey,
         shop: input.scope,
         logId: claimLogId(),
-      }, {}, dependencies.logs, dependencies.runtime),
+      }, dependencies.push ? { push: dependencies.push } : {}, dependencies.logs, dependencies.runtime),
     );
   }
 
