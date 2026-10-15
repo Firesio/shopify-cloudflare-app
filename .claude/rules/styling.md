@@ -16,7 +16,7 @@ alwaysApply: true
 |---|---|---|
 | **Public** — landing, pricing, legal, support, errors | **SCSS** in `app/styles/public/` | `app/routes/public/_layout.tsx` `links()` |
 | **Embedded Shopify admin** (`/app/**`) | **Polaris web components** + App Bridge | `AppProvider` |
-| **Internal staff console** (`/internal/**`) | **Tailwind v4 + ngk-dashboard** | `app/routes/internal/_layout.tsx` and `login.tsx` `links()` |
+| **Internal staff console** (`/internal/**`) | **Tailwind v4 + shadcn/ui (neutral)** | `app/routes/internal/_layout.tsx` and `login.tsx` `links()` |
 
 `@rules/shopify-and-ui.md` bans hand-rolled CSS in the *merchant admin*, and that
 still holds: never style the embedded app yourself. This file governs the other

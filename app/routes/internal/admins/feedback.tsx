@@ -1,5 +1,7 @@
 import { useEffect } from "react";
-import { Alert, AlertDescription, toast } from "ngk-dashboard";
+import { CircleAlert, CircleCheck } from "lucide-react";
+import { toast } from "sonner";
+import { Alert, AlertDescription } from "~/internal/components/ui/alert";
 import type { AdminErrorReason } from "~/services/admin-management.server";
 import { ADMIN_ERRORS, ADMIN_ROLE_LABEL } from "~/internal/admin-messages";
 import { useActionToast } from "~/internal/use-action-toast";
@@ -13,7 +15,7 @@ export interface AdminActionResult {
   readonly role?: string;
 }
 
-interface AdminFeedback {
+export interface AdminFeedback {
   readonly errorMessage: string | undefined;
   readonly successMessage: string | undefined;
 }
@@ -65,19 +67,20 @@ export function AdminAlerts({
     <>
       {feedback.errorMessage && (
         <Alert variant="destructive">
+          <CircleAlert />
           <AlertDescription>{feedback.errorMessage}</AlertDescription>
         </Alert>
       )}
       {feedback.successMessage && (
         <Alert>
+          <CircleCheck />
           <AlertDescription>{feedback.successMessage}</AlertDescription>
         </Alert>
       )}
       {resetSuccess && (
         <Alert>
-          <AlertDescription>
-            Password reset. Give them the new password directly.
-          </AlertDescription>
+          <CircleCheck />
+          <AlertDescription>Password reset. Give them the new password directly.</AlertDescription>
         </Alert>
       )}
     </>

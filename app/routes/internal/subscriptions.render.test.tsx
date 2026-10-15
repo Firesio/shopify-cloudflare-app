@@ -52,12 +52,43 @@ async function render(events: SubscriptionHistoryRow[]) {
   return html;
 }
 
+/** The markup of the body row that mentions `text`, so a value is tied to ITS row. */
+function rowContaining(html: string, text: string): string {
+  const row = html.split("<tr").find((part) => part.includes(text));
+  expect(row, `no table row mentions ${text}`).toBeDefined();
+  return row ?? "";
+}
+
 describe("the internal subscriptions page", () => {
-  it("shows the shop, plan, and status for each event", async () => {
+  it("shows the shop, plan, status and date of each event in its own row", async () => {
+    const html = await render([
+      event(),
+      event({ id: "evt-2", shop: "other.myshopify.com", status: "CANCELED", planHandle: null, occurredAt: 1_600_000_000_000 }),
+    ]);
+    const first = rowContaining(html, "example.myshopify.com");
+    expect(first).toContain('href="/internal/shops/example.myshopify.com"');
+    expect(first).toContain("todo-pro");
+    expect(first).toContain("Active");
+    expect(first).toContain("Nov 14, 2023");
+
+    const second = rowContaining(html, "other.myshopify.com");
+    expect(second).toContain("Canceled");
+    expect(second).toContain("Free");
+    expect(second).not.toContain("Active");
+  });
+
+  it("leaves the title to the shell header and keeps the description in the table toolbar", async () => {
     const html = await render([event()]);
-    expect(html).toContain("example.myshopify.com");
-    expect(html).toContain("todo-pro");
-    expect(html).toContain("Active");
+    expect(html).not.toContain("<h1");
+    expect(html).toContain("Every plan change Shopify has told this app about");
+  });
+
+  it("offers sorting on the shop, plan and changed columns, and paging", async () => {
+    const html = await render([event()]);
+    for (const title of ["Shop", "Plan", "Changed"]) {
+      expect(html, title).toMatch(new RegExp(`<button[^>]*>${title}<svg`));
+    }
+    expect(html).toContain("Page 1 of 1");
   });
 
   it("does not imply Shopify historical events include a price", async () => {

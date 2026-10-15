@@ -1,27 +1,19 @@
-import {
-  Badge,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "ngk-dashboard";
 import { Mail, Store } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "~/internal/components/ui/avatar";
+import { Badge } from "~/internal/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/internal/components/ui/card";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "~/internal/components/ui/field";
+import { Input } from "~/internal/components/ui/input";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "~/internal/components/ui/item";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/internal/components/ui/select";
 import { CATEGORY_LABEL_EN, SUPPORT_CATEGORIES, toSupportCategory } from "~/support/categories";
 import { SUBJECT_MAX } from "~/schemas/support";
 import type { NewTicketForm, ShopContactInfo } from "./new-form-state";
 
 function ShopSelect({ shops, form }: { readonly shops: readonly ShopContactInfo[]; readonly form: NewTicketForm }) {
   return (
-    <div className="space-y-2">
-      <Label htmlFor="shop-select">Target Store</Label>
+    <Field>
+      <FieldLabel htmlFor="shop-select">Target store</FieldLabel>
       <Select value={form.selectedShop} onValueChange={(val) => form.setSelectedShop(val)}>
         <SelectTrigger id="shop-select">
           <SelectValue placeholder="Select a store" />
@@ -35,14 +27,14 @@ function ShopSelect({ shops, form }: { readonly shops: readonly ShopContactInfo[
           <SelectItem value="custom">Other / Custom store domain</SelectItem>
         </SelectContent>
       </Select>
-    </div>
+    </Field>
   );
 }
 
 function CustomShopField({ form }: { readonly form: NewTicketForm }) {
   return (
-    <div className="space-y-2">
-      <Label htmlFor="customShop">Custom Store Domain</Label>
+    <Field>
+      <FieldLabel htmlFor="customShop">Custom store domain</FieldLabel>
       <Input
         id="customShop"
         name="customShop"
@@ -51,70 +43,50 @@ function CustomShopField({ form }: { readonly form: NewTicketForm }) {
         placeholder="e.g. luxe-bbq.myshopify.com or custom domain"
         required
       />
-    </div>
-  );
-}
-
-function ContactEmail({ email }: { readonly email: string | null }) {
-  return (
-    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-      <Mail className="size-3.5 text-muted-foreground" />
-      {email ? (
-        <span className="font-mono text-foreground font-medium">{email}</span>
-      ) : (
-        <span className="text-amber-600 dark:text-amber-400">
-          No email address in records (portal notification only)
-        </span>
-      )}
-    </div>
-  );
-}
-
-function ContactLogo({ logoUrl }: { readonly logoUrl: string | null }) {
-  return (
-    <div className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary overflow-hidden border border-border/50">
-      {logoUrl ? (
-        <img
-          src={logoUrl}
-          alt=""
-          className="size-6 object-contain"
-          onError={(e) => {
-            e.currentTarget.style.display = "none";
-          }}
-        />
-      ) : (
-        <Store className="size-4" />
-      )}
-    </div>
+    </Field>
   );
 }
 
 /** Auto-resolved store banner. */
 function ContactBanner({ contact }: { readonly contact: ShopContactInfo }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/40 p-3.5">
-      <div className="flex items-center gap-3">
-        <ContactLogo logoUrl={contact.logoUrl} />
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm">{contact.shopName}</span>
-            {contact.isDevStore && <Badge variant="secondary" className="text-[10px] h-4">Dev Store</Badge>}
-          </div>
-          <ContactEmail email={contact.merchantEmail} />
-        </div>
-      </div>
-      <Badge variant={contact.merchantEmail ? "outline" : "secondary"}>
-        {contact.merchantEmail ? "Auto-detected" : "No email"}
-      </Badge>
-    </div>
+    <Item variant="muted">
+      <ItemMedia>
+        <Avatar>
+          {contact.logoUrl && <AvatarImage src={contact.logoUrl} alt="" />}
+          <AvatarFallback>
+            <Store className="size-4" />
+          </AvatarFallback>
+        </Avatar>
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle>
+          {contact.shopName}
+          {contact.isDevStore && <Badge variant="secondary">Dev store</Badge>}
+        </ItemTitle>
+        <ItemDescription className="flex items-center gap-1.5">
+          <Mail className="size-3.5 shrink-0" />
+          {contact.merchantEmail ? (
+            <span className="font-mono">{contact.merchantEmail}</span>
+          ) : (
+            <span>No email address in records (portal notification only)</span>
+          )}
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        <Badge variant={contact.merchantEmail ? "outline" : "secondary"}>
+          {contact.merchantEmail ? "Auto-detected" : "No email"}
+        </Badge>
+      </ItemActions>
+    </Item>
   );
 }
 
 function CategoryAndCc({ form }: { readonly form: NewTicketForm }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="space-y-2">
-        <Label htmlFor="category">Category</Label>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <Field>
+        <FieldLabel htmlFor="category">Category</FieldLabel>
         <Select
           name="category"
           value={form.category}
@@ -131,21 +103,24 @@ function CategoryAndCc({ form }: { readonly form: NewTicketForm }) {
             ))}
           </SelectContent>
         </Select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="ccEmails">CC Emails (Optional)</Label>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="ccEmails">CC emails (optional)</FieldLabel>
         <Input id="ccEmails" name="ccEmails" placeholder="e.g. support@example.com, dev@example.com" />
-      </div>
+        <FieldDescription>Separate several addresses with commas.</FieldDescription>
+      </Field>
     </div>
   );
 }
 
 function SubjectField({ form }: { readonly form: NewTicketForm }) {
   return (
-    <div className="space-y-2">
-      <div className="flex justify-between items-center">
-        <Label htmlFor="subject">Subject</Label>
-        <span className="text-xs text-muted-foreground">{form.subject.length}/{SUBJECT_MAX}</span>
+    <Field>
+      <div className="flex items-center justify-between">
+        <FieldLabel htmlFor="subject">Subject</FieldLabel>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {form.subject.length}/{SUBJECT_MAX}
+        </span>
       </div>
       <Input
         id="subject"
@@ -156,7 +131,7 @@ function SubjectField({ form }: { readonly form: NewTicketForm }) {
         placeholder="e.g. Follow-up regarding intake form setup"
         required
       />
-    </div>
+    </Field>
   );
 }
 
@@ -164,17 +139,19 @@ export function RecipientCard({ shops, form }: { readonly shops: readonly ShopCo
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Recipient & Classification</CardTitle>
+        <CardTitle>Recipient and classification</CardTitle>
         <CardDescription>
           Choose the destination merchant store. Contact email is retrieved from store records.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <ShopSelect shops={shops} form={form} />
-        {form.selectedShop === "custom" && <CustomShopField form={form} />}
-        {form.effectiveShop && <ContactBanner contact={form.currentContact} />}
-        <CategoryAndCc form={form} />
-        <SubjectField form={form} />
+      <CardContent>
+        <FieldGroup>
+          <ShopSelect shops={shops} form={form} />
+          {form.selectedShop === "custom" && <CustomShopField form={form} />}
+          {form.effectiveShop && <ContactBanner contact={form.currentContact} />}
+          <CategoryAndCc form={form} />
+          <SubjectField form={form} />
+        </FieldGroup>
       </CardContent>
     </Card>
   );

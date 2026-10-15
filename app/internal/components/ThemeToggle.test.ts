@@ -26,6 +26,12 @@ describe("THEME_INIT_SCRIPT", () => {
     expect(run({ stored: "light", prefersDark: true })).toBe(false);
   });
 
+  it("treats a saved \"system\" (or junk) as no choice, so the OS decides", () => {
+    expect(run({ stored: "system", prefersDark: true })).toBe(true);
+    expect(run({ stored: "system", prefersDark: false })).toBe(false);
+    expect(run({ stored: "purple", prefersDark: true })).toBe(true);
+  });
+
   it("follows the OS preference when nothing is stored", () => {
     expect(run({ stored: null, prefersDark: true })).toBe(true);
     expect(run({ stored: null, prefersDark: false })).toBe(false);

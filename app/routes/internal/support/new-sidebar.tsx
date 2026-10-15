@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from "ngk-dashboard";
+import { Badge } from "~/internal/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/internal/components/ui/card";
 import { Info } from "lucide-react";
 import type { ShopContactInfo } from "./new-form-state";
 
@@ -13,9 +14,9 @@ function PreviewRow({ label, children }: { readonly label: string; readonly chil
 }
 
 function RecipientValue({ email }: { readonly email: string | null }) {
-  if (!email) return <span className="text-xs text-amber-600">No email found</span>;
+  if (!email) return <span className="text-xs text-destructive">No email found</span>;
   return (
-    <span className="font-mono text-xs text-emerald-600 dark:text-emerald-400 font-medium truncate max-w-[160px]">
+    <span className="font-mono text-xs font-medium truncate max-w-40">
       {email}
     </span>
   );
@@ -31,15 +32,15 @@ export function OutreachPreview({ effectiveShop, contact, actorName }: OutreachP
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Outreach Preview</CardTitle>
+        <CardTitle>Outreach preview</CardTitle>
         <CardDescription>Summary of how this ticket will be delivered.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3.5 text-sm">
+      <CardContent className="flex flex-col gap-3 text-sm">
         <PreviewRow label="Destination:">
-          <span className="font-mono text-xs truncate max-w-[160px]">{effectiveShop || "—"}</span>
+          <span className="font-mono text-xs truncate max-w-40">{effectiveShop || "—"}</span>
         </PreviewRow>
         <PreviewRow label="Merchant:">
-          <span className="font-medium text-xs truncate max-w-[160px]">{contact.shopName}</span>
+          <span className="font-medium text-xs truncate max-w-40">{contact.shopName}</span>
         </PreviewRow>
         <PreviewRow label="Recipient:">
           <RecipientValue email={contact.merchantEmail} />
@@ -48,7 +49,7 @@ export function OutreachPreview({ effectiveShop, contact, actorName }: OutreachP
           <span className="text-xs font-medium">{actorName}</span>
         </PreviewRow>
         <PreviewRow label="Initial Status:">
-          <Badge variant="secondary" className="text-xs font-normal">Waiting on merchant</Badge>
+          <Badge variant="secondary">Waiting on merchant</Badge>
         </PreviewRow>
       </CardContent>
     </Card>
@@ -57,23 +58,25 @@ export function OutreachPreview({ effectiveShop, contact, actorName }: OutreachP
 
 export function OutreachNotes() {
   return (
-    <Card className="bg-muted/20 border-dashed">
+    <Card className="border-dashed">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Info className="size-4 text-primary" />
-          <CardTitle className="text-sm">Proactive Outreach</CardTitle>
+          <CardTitle className="text-sm">Proactive outreach</CardTitle>
         </div>
       </CardHeader>
-      <CardContent className="space-y-2 text-xs text-muted-foreground leading-relaxed">
-        <p>
-          • <strong>Email Dispatch:</strong> When created, an email with your message and direct thread link is sent to the merchant.
-        </p>
-        <p>
-          • <strong>Replies:</strong> When the merchant replies by email or in the app, their response reopens the ticket and notifies staff.
-        </p>
-        <p>
-          • <strong>AI Polish:</strong> You can quickly type bullet notes and click &ldquo;Polish &amp; optimize&rdquo; to draft a professional message.
-        </p>
+      <CardContent>
+        <ul className="flex list-disc flex-col gap-2 ps-4 text-xs leading-relaxed text-muted-foreground">
+          <li>
+            <strong className="font-medium text-foreground">Email dispatch:</strong> When created, an email with your message and direct thread link is sent to the merchant.
+          </li>
+          <li>
+            <strong className="font-medium text-foreground">Replies:</strong> When the merchant replies by email or in the app, their response reopens the ticket and notifies staff.
+          </li>
+          <li>
+            <strong className="font-medium text-foreground">AI polish:</strong> You can quickly type bullet notes and click &ldquo;Polish &amp; optimize&rdquo; to draft a professional message.
+          </li>
+        </ul>
       </CardContent>
     </Card>
   );

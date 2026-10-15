@@ -65,7 +65,7 @@ export default defineConfig(({ command }) => ({
   // Vite only discovers a dependency when it first sees an import of it. Left to
   // itself it finds the admin's (`react-i18next`, `zod`,
   // `@shopify/shopify-app-react-router/react`, ...) and the console's
-  // (`ngk-dashboard`, `recharts`, `lucide-react`) only when you first visit a
+  // (`radix-ui`, `recharts`, `lucide-react`, `sonner`) only when you first visit a
   // route that imports them. Each discovery re-optimises, reloads the page, and
   // leaves the browser holding dependency URLs with an outdated `?v=` hash that
   // answer 504 — the slow, error-filled first navigation in dev. Listing every
@@ -83,7 +83,11 @@ export default defineConfig(({ command }) => ({
       "react-i18next",
       "i18next",
       "zod",
-      "ngk-dashboard",
+      "radix-ui",
+      "sonner",
+      "class-variance-authority",
+      "clsx",
+      "tailwind-merge",
       "recharts",
       "lucide-react",
       "@shopify/shopify-app-react-router/react",

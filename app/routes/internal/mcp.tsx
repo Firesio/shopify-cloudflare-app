@@ -5,7 +5,10 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 export const meta: MetaFunction = () => [
   { title: "MCP & API · Staff Console" },
 ];
-import { Page } from "ngk-dashboard";
+import { AlertCircle } from "lucide-react";
+import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "~/internal/components/ui/alert";
+import { useActionToast } from "~/internal/use-action-toast";
 import { requireAdminUser } from "~/services/admin-auth.server";
 import { adminUsers, adminSessionUsers } from "~/wiring.server";
 import { getEnv } from "~/request-context.server";
@@ -107,12 +110,25 @@ function useClipboardCopy() {
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
   function copy(text: string) {
-    void navigator.clipboard.writeText(text);
-    setCopiedText(text);
-    setTimeout(() => setCopiedText(null), 2500);
+    void navigator.clipboard.writeText(text).then(
+      () => {
+        setCopiedText(text);
+        toast.success("Copied to clipboard");
+        setTimeout(() => setCopiedText(null), 2500);
+      },
+      () => toast.error("Could not copy. Select the text and copy it manually."),
+    );
   }
 
   return { copiedText, copy };
+}
+
+function actionMessage(actionData: ActionData | undefined) {
+  if (!actionData) return undefined;
+  if (!actionData.ok) return { error: actionData.error };
+  if ("createdToken" in actionData) return { success: "Personal access token created." };
+  if ("revokedTokenId" in actionData) return { success: "Token revoked." };
+  return { success: "OAuth client revoked." };
 }
 
 export default function McpAdmin() {
@@ -121,6 +137,8 @@ export default function McpAdmin() {
   const actionData = useActionData<ActionData>();
   const { copiedText, copy } = useClipboardCopy();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+  useActionToast(actionData, actionMessage(actionData));
 
   const createdToken =
     actionData && actionData.ok && "createdToken" in actionData
@@ -132,32 +150,37 @@ export default function McpAdmin() {
       : null;
 
   return (
-    <Page
-      title="MCP & REST API"
-      subtitle="Model Context Protocol server and reusable REST APIs for AI agents, monitoring, and automation."
-      fullWidth
-    >
-      <div className="flex flex-col gap-6">
-        {createdToken && tokenLabel && (
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      {actionData && !actionData.ok && (
+        <div className="px-4 lg:px-6">
+          <Alert variant="destructive">
+            <AlertCircle />
+            <AlertTitle>That did not work</AlertTitle>
+            <AlertDescription>{actionData.error}</AlertDescription>
+          </Alert>
+        </div>
+      )}
+      {createdToken && tokenLabel && (
+        <div className="px-4 lg:px-6">
           <CreatedTokenAlert
             createdToken={createdToken}
             tokenLabel={tokenLabel}
             copiedText={copiedText}
             onCopy={copy}
           />
-        )}
-        <McpTabs
-          access={access}
-          auditLogs={auditLogs}
-          toolCatalog={toolCatalog}
-          appUrl={appUrl}
-          now={now}
-          onCopy={copy}
-          copiedText={copiedText}
-          dialogOpen={createDialogOpen}
-          setDialogOpen={setCreateDialogOpen}
-        />
-      </div>
-    </Page>
+        </div>
+      )}
+      <McpTabs
+        access={access}
+        auditLogs={auditLogs}
+        toolCatalog={toolCatalog}
+        appUrl={appUrl}
+        now={now}
+        onCopy={copy}
+        copiedText={copiedText}
+        dialogOpen={createDialogOpen}
+        setDialogOpen={setCreateDialogOpen}
+      />
+    </div>
   );
 }

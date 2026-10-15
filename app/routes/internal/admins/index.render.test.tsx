@@ -73,35 +73,20 @@ describe("the removal confirmation", () => {
     // The guards would refuse them, so showing the buttons would be a lie.
     const html = await render([ACTOR]);
     expect(html).toContain("Me");
-    expect(html).not.toContain("Make owner");
-    expect(html).not.toContain("Disable");
+    expect(html).not.toContain("Actions for");
   });
 
-  it("offers actions on someone else's row", async () => {
+  it("offers an actions menu on someone else's row", async () => {
+    // The individual actions live inside the menu, which only renders once it is
+    // opened, so index.dom.test.tsx opens it and checks every action.
     const html = await render([ACTOR, admin()]);
-    expect(html).toContain("Disable");
-    expect(html).toContain("Make owner");
-    expect(html).toContain("Remove");
+    expect(html).toContain('aria-label="Actions for Other Person"');
   });
 
-  it("shows Enable for a disabled account, not Disable", async () => {
-    const html = await render([ACTOR, admin({ status: "disabled" })]);
-    expect(html).toContain("Enable");
-    expect(html).toContain("Disabled");
-  });
-
-  it("shows Make admin for an owner, not Make owner", async () => {
-    const html = await render([ACTOR, admin({ role: "owner" })]);
-    expect(html).toContain("Make admin");
-    expect(html).not.toContain("Make owner");
-  });
-
-  it("links to the reset page rather than embedding the field", async () => {
-    // The field lives on its own route so it exists without JavaScript; a
-    // dialog's contents only render once opened.
+  it("does not embed the reset field in the table", async () => {
+    // The field lives on its own route so it exists without JavaScript; the
+    // menu links to it (index.dom.test.tsx checks the href).
     const html = await render([ACTOR, admin()]);
-    expect(html).toContain("/internal/admins/other-id/reset");
-    expect(html).toContain("Reset password");
     expect(html).not.toContain('name="newPassword"');
   });
 
@@ -114,5 +99,31 @@ describe("the removal confirmation", () => {
   it("shows 'Never' rather than a blank cell for an account that never signed in", async () => {
     const html = await render([ACTOR, admin({ lastLoginAt: null })]);
     expect(html).toContain("Never");
+  });
+});
+
+describe("the admins table", () => {
+  it("does not repeat the page title in the body — the shell header shows it", async () => {
+    const html = await render([ACTOR]);
+    expect(html).not.toContain("<h1");
+  });
+
+  it("puts the Add admin action in the table toolbar", async () => {
+    const html = await render([ACTOR]);
+    expect(html).toMatch(/<button[^>]*aria-haspopup="dialog"[^>]*>.*?Add admin<\/button>/s);
+  });
+
+  it("labels the status and role of each account in its own row", async () => {
+    const html = await render([ACTOR, admin({ status: "disabled", role: "admin" })]);
+    const body = html.match(/<tbody[^>]*>(.*?)<\/tbody>/s)?.[1] ?? "";
+    const rows = [...body.matchAll(/<tr[^>]*>(.*?)<\/tr>/gs)].map((match) =>
+      match[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " "),
+    );
+    const mine = rows.find((text) => text.includes("me@example.com")) ?? "";
+    const theirs = rows.find((text) => text.includes("other@example.com")) ?? "";
+    expect(mine).toMatch(/Me\s+You/);
+    expect(mine).toContain("Owner");
+    expect(theirs).toContain("Disabled");
+    expect(theirs).not.toContain("You");
   });
 });

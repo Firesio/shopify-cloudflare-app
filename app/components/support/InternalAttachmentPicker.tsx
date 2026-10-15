@@ -1,8 +1,12 @@
 import { useRef } from "react";
-import { Button, Text } from "ngk-dashboard";
+import { Paperclip, X } from "lucide-react";
+import { Badge } from "~/internal/components/ui/badge";
+import { Button } from "~/internal/components/ui/button";
+import { FieldDescription, FieldError } from "~/internal/components/ui/field";
+import { Spinner } from "~/internal/components/ui/spinner";
 import type { UploadController } from "~/routes/app/support/use-pending-uploads";
 
-/** The internal console uses ngk-dashboard, not Shopify Polaris web components. */
+/** The internal console uses shadcn/ui, not Shopify Polaris web components. */
 export function InternalAttachmentPicker({ uploads }: { uploads: UploadController }) {
   const input = useRef<HTMLInputElement>(null);
 
@@ -22,24 +26,35 @@ export function InternalAttachmentPicker({ uploads }: { uploads: UploadControlle
       <input type="hidden" name="uploadIds" value={uploads.files.map((file) => file.uploadId).join(",")} />
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" disabled={uploads.busy} onClick={() => input.current?.click()}>
+        <Button type="button" variant="outline" size="sm" disabled={uploads.busy} onClick={() => input.current?.click()}>
+          {uploads.busy ? <Spinner /> : <Paperclip />}
           {uploads.busy ? "Uploading..." : "Attach files"}
         </Button>
-        <Text as="span" className="text-xs text-muted-foreground">
-          Up to 10 MB images, 100 MB video, and 25 MB files
-        </Text>
+        <FieldDescription>Up to 10 MB images, 100 MB video, and 25 MB files</FieldDescription>
       </div>
 
-      {uploads.files.map((file) => (
-        <div key={file.uploadId} className="flex items-center gap-2 text-sm">
-          <Text as="span" className="max-w-80 truncate">{file.filename}</Text>
-          <Button type="button" variant="ghost" size="sm" onClick={() => uploads.remove(file.uploadId)}>
-            Remove
-          </Button>
-        </div>
-      ))}
+      {uploads.files.length > 0 && (
+        <ul className="flex flex-wrap gap-2">
+          {uploads.files.map((file) => (
+            <li key={file.uploadId}>
+              <Badge variant="secondary" className="h-7 gap-1 pr-1 text-sm">
+                <span className="max-w-60 truncate">{file.filename}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Remove ${file.filename}`}
+                  onClick={() => uploads.remove(file.uploadId)}
+                >
+                  <X />
+                </Button>
+              </Badge>
+            </li>
+          ))}
+        </ul>
+      )}
 
-      {uploads.error && <Text as="p" className="text-sm text-destructive">That file could not be uploaded. Try again.</Text>}
+      {uploads.error && <FieldError>That file could not be uploaded. Try again.</FieldError>}
     </div>
   );
 }

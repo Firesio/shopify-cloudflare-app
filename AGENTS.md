@@ -96,10 +96,11 @@ request parameter and is authoritative; never add a language switcher there.
 @.claude/rules/i18n.md
 @.claude/rules/money.md
 
-**Public pages are SCSS with tokens; the embedded admin is Polaris.** Two
+**Public pages are SCSS with tokens; the embedded admin is Polaris; the internal console is shadcn/ui** (docs mirror in `docs/shadcn/`). Two
 surfaces, two systems, each stylesheet loaded by exactly one layout's `links()`
 so neither leaks into the other. Every colour, size and breakpoint comes from
 `app/styles/public/_tokens.scss` — @.claude/rules/styling.md
+@.claude/rules/shadcn-internal.md
 @.claude/rules/i18n.md
 @.claude/rules/money.md.
 

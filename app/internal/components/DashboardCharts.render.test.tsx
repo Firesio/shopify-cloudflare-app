@@ -4,18 +4,18 @@ import { MemoryRouter } from "react-router";
 import DashboardCharts from "./DashboardCharts";
 
 describe("DashboardCharts", () => {
-  it("renders when uninstall feedback is empty without error", () => {
+  it("renders every chart card when uninstall feedback is empty", () => {
     const html = renderToString(
       <MemoryRouter>
         <DashboardCharts
           trend={[{ month: "Jan", installs: 0, uninstalls: 0, active: 0 }]}
-          period="Last 12 months"
           uninstallFeedback={[]}
         />
       </MemoryRouter>
     );
 
-    expect(html).toContain("Uninstall timeline");
+    expect(html).toContain("Merchant growth");
+    expect(html).toContain("Installs and uninstalls");
     expect(html).toContain("Uninstall reasons");
     expect(html).toContain("Merchant exit comments");
     expect(html).toContain("No merchant exit feedback submitted yet.");
@@ -26,12 +26,11 @@ describe("DashboardCharts", () => {
       <MemoryRouter>
         <DashboardCharts
           trend={[{ month: "Jan", installs: 0, uninstalls: 0, active: 0 }]}
-          period="Last 12 months"
         />
       </MemoryRouter>
     );
 
-    expect(html).toContain("Uninstall timeline");
+        expect(html).toContain("Merchant growth");
     expect(html).toContain("Uninstall reasons");
     expect(html).toContain("Merchant exit comments");
   });
@@ -41,7 +40,6 @@ describe("DashboardCharts", () => {
       <MemoryRouter>
         <DashboardCharts
           trend={[{ month: "Jan", installs: 1, uninstalls: 1, active: 1 }]}
-          period="Last 12 months"
           uninstallFeedback={[
             {
               eventId: "evt-long",

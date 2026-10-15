@@ -20,6 +20,7 @@ type Health = {
 const HEADLINE = {
   admins: 3,
   stats: { totalShops: 10, paidShops: 4, freeShops: 6, mrrByCurrency: [] },
+  trend: [{ month: "Jan", installs: 2, uninstalls: 0, active: 2 }],
 };
 const CHARTS = { trend: [{ month: "Jan", installs: 2, uninstalls: 0, active: 2 }], uninstallFeedback: [] };
 const HEALTH: Health = { failedWebhooks: 0, deadLetterWebhooks: 0, lifecycleEvents: 0, subscriptionEvents: 0, checkpoint: null };
@@ -50,9 +51,8 @@ describe("dashboard streaming", () => {
     const never = new Promise<never>(() => {});
     const html = renderToString(await tree(loaderData({ headline: never, health: never, charts: never })));
 
-    // The frame is there immediately...
-    expect(html).toContain("Dashboard");
-    expect(html).toContain("Signed in as Jamie");
+    // The frame is there immediately (the title itself lives in the shell header)...
+    expect(html).not.toContain("<h1");
     // ...but no number is: a pending stat must not be rendered as a value.
     expect(html).not.toContain("Installed shops");
     expect(html).not.toContain("Webhook failures");

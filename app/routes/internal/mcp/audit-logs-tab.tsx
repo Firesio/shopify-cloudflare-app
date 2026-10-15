@@ -1,100 +1,124 @@
+import type { ColumnDef } from "@tanstack/react-table";
+import { ScrollText } from "lucide-react";
+import { Badge } from "~/internal/components/ui/badge";
 import {
-  Badge,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "ngk-dashboard";
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "~/internal/components/ui/empty";
+import { DataTable, SortableHeader } from "~/internal/components/data-table";
 import type { listRecentAuditLogs } from "~/services/mcp/audit.server";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
 import type { Locale } from "~/i18n/config";
+import { RightAlignedSortableHeader } from "../table-columns";
 
 const LOCALE: Locale = "en";
 
 type AuditLog = Awaited<ReturnType<typeof listRecentAuditLogs>>[number];
 
-function AuditLogRow({ log }: { log: AuditLog }) {
-  return (
-    <TableRow>
-      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-        {formatDateTime(LOCALE, log.createdAt, UTC)}
-      </TableCell>
-      <TableCell>
-        <div className="flex flex-col">
-          <span className="text-xs font-medium">{log.actorEmail}</span>
-          <span className="text-[10px] text-muted-foreground">
-            {log.actorType === "oauth_agent" ? "OAuth Agent" : "Personal Token"}
-          </span>
-        </div>
-      </TableCell>
-      <TableCell className="font-mono text-xs">{log.toolName}</TableCell>
-      <TableCell className="text-xs">{log.shop ?? "—"}</TableCell>
-      <TableCell>
-        <Badge variant={log.isMutation ? "secondary" : "outline"} className="text-[10px]">
-          {log.isMutation ? "Mutation" : "Query"}
-        </Badge>
-      </TableCell>
-      <TableCell>
-        {log.ok ? (
-          <Badge variant="outline" className="text-emerald-600 border-emerald-300">
-            200 OK
-          </Badge>
-        ) : (
-          <Badge variant="destructive" title={log.errorMessage ?? undefined}>
-            Error
-          </Badge>
-        )}
-      </TableCell>
-      <TableCell className="text-right text-xs font-mono text-muted-foreground">
-        {log.latencyMs}ms
-      </TableCell>
-    </TableRow>
-  );
+function actorKind(log: AuditLog): string {
+  return log.actorType === "oauth_agent" ? "OAuth agent" : "Personal token";
 }
+
+const COLUMNS: ColumnDef<AuditLog>[] = [
+  {
+    id: "when",
+    accessorFn: (log) => log.createdAt,
+    header: ({ column }) => <SortableHeader column={column} title="When" />,
+    enableHiding: false,
+    cell: ({ row }) => (
+      <span className="text-xs whitespace-nowrap tabular-nums text-muted-foreground">
+        {formatDateTime(LOCALE, row.original.createdAt, UTC)}
+      </span>
+    ),
+  },
+  {
+    id: "actor",
+    accessorFn: (log) => log.actorEmail,
+    header: ({ column }) => <SortableHeader column={column} title="Actor" />,
+    cell: ({ row }) => (
+      <div className="flex flex-col">
+        <span className="text-xs font-medium">{row.original.actorEmail}</span>
+        <span className="text-xs text-muted-foreground">{actorKind(row.original)}</span>
+      </div>
+    ),
+  },
+  {
+    id: "tool",
+    accessorFn: (log) => log.toolName,
+    header: ({ column }) => <SortableHeader column={column} title="Tool / endpoint" />,
+    cell: ({ row }) => <span className="font-mono text-xs">{row.original.toolName}</span>,
+  },
+  {
+    id: "shop",
+    accessorFn: (log) => log.shop ?? "",
+    header: ({ column }) => <SortableHeader column={column} title="Shop" />,
+    cell: ({ row }) => <span className="text-xs">{row.original.shop ?? "—"}</span>,
+  },
+  {
+    id: "type",
+    accessorFn: (log) => (log.isMutation ? "Mutation" : "Query"),
+    header: "Type",
+    cell: ({ row }) => (
+      <Badge variant={row.original.isMutation ? "secondary" : "outline"}>
+        {row.original.isMutation ? "Mutation" : "Query"}
+      </Badge>
+    ),
+  },
+  {
+    id: "status",
+    accessorFn: (log) => (log.ok ? "200 OK" : "Error"),
+    header: ({ column }) => <SortableHeader column={column} title="Status" />,
+    cell: ({ row }) =>
+      row.original.ok ? (
+        <Badge variant="outline">200 OK</Badge>
+      ) : (
+        <Badge variant="destructive" title={row.original.errorMessage ?? undefined}>
+          Error
+        </Badge>
+      ),
+  },
+  {
+    id: "latency",
+    accessorFn: (log) => log.latencyMs,
+    header: ({ column }) => <RightAlignedSortableHeader column={column} title="Latency" />,
+    cell: ({ row }) => (
+      <div className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+        {row.original.latencyMs}ms
+      </div>
+    ),
+  },
+];
 
 export function AuditLogsTab({ logs }: { logs: AuditLog[] }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Audit & Activity Stream</CardTitle>
-        <CardDescription>
-          Real-time log of tool calls, mutations, shop lookups, and replies made through MCP and REST APIs.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="overflow-x-auto p-0">
-        <Table className="[&_th]:h-10 [&_th]:px-4 [&_td]:px-4 [&_td]:py-2.5">
-          <TableHeader>
-            <TableRow>
-              <TableHead>When</TableHead>
-              <TableHead>Actor</TableHead>
-              <TableHead>Tool / Endpoint</TableHead>
-              <TableHead>Shop</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Latency</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {logs.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
-                  No activity logged yet. Call any MCP tool or API endpoint to start tracking.
-                </TableCell>
-              </TableRow>
-            ) : (
-              logs.map((log) => <AuditLogRow key={log.id} log={log} />)
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+    <DataTable
+      columns={COLUMNS}
+      data={logs}
+      getRowId={(log) => log.id}
+      compactHidden={["shop", "type", "latency"]}
+      toolbarStart={
+        <div className="flex min-w-0 flex-col">
+          <h3 className="text-base font-semibold">Audit &amp; activity stream</h3>
+          <p className="text-sm text-muted-foreground">
+            Log of tool calls, mutations, shop lookups, and replies made through MCP and REST APIs.
+          </p>
+        </div>
+      }
+      empty={
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ScrollText />
+            </EmptyMedia>
+            <EmptyTitle>No activity logged yet</EmptyTitle>
+            <EmptyDescription>Call any MCP tool or API endpoint to start tracking.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      }
+    />
   );
 }

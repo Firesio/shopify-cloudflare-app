@@ -5,7 +5,15 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 export const meta: MetaFunction = () => [
   { title: "AI Analytics · Staff Console" },
 ];
-import { BlockStack, CardSkeleton, InlineStack, Page, StatCard } from "ngk-dashboard";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/internal/components/ui/card";
+import { Skeleton } from "~/internal/components/ui/skeleton";
 import { Coins, Gauge } from "lucide-react";
 import { requireOwner } from "~/services/admin-auth.server";
 import { adminUsers } from "~/wiring.server";
@@ -19,7 +27,7 @@ import { Deferred, StatRowSkeleton } from "~/internal/components";
 import { streamRegion } from "~/internal/stream-region.server";
 import { PurposeCard } from "./ai/purpose-card";
 import { buildPurpose, summarizeRun } from "./ai/purposes";
-import { RecentCallsCard } from "./ai/recent-calls-card";
+import { RecentCallsTable } from "./ai/recent-calls-table";
 
 /** The internal console is staff-only and English-only — no i18n here. */
 const LOCALE: Locale = "en";
@@ -115,36 +123,54 @@ export default function AiSettings() {
   });
 
   return (
-    <Page
-      title="AI"
-      subtitle="Which models do which job, in the order they are tried."
-      fullWidth
-    >
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <Deferred resolve={overview} fallback={<AiSkeleton />} errorTitle="AI settings">
         {({ purposes, spend, runs }) => (
-          <BlockStack gap={4}>
-            <UsageStats spend={spend} />
-            {purposes.map((purpose) => (
-              <PurposeCard key={purpose.role} purpose={purpose} busy={busy} />
-            ))}
-            <RecentCallsCard runs={runs} />
-          </BlockStack>
+          <>
+            <div className="flex flex-col gap-4 px-4 lg:px-6">
+              <UsageStats spend={spend} />
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                {purposes.map((purpose) => (
+                  <PurposeCard key={purpose.role} purpose={purpose} busy={busy} />
+                ))}
+              </div>
+            </div>
+            <RecentCallsTable runs={runs} />
+          </>
         )}
       </Deferred>
-    </Page>
+    </div>
+  );
+}
+
+/** A card-shaped placeholder: a title line, then `lines` body rows. */
+function CardPlaceholder({ lines }: { lines: number }) {
+  return (
+    <Card aria-hidden>
+      <CardHeader>
+        <Skeleton className="h-5 w-40" />
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        {Array.from({ length: lines }, (_, index) => (
+          <Skeleton key={index} className="h-10 w-full" />
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
 /** Mirrors the page: three usage tiles, one card per purpose, recent calls. */
 function AiSkeleton() {
   return (
-    <BlockStack gap={4}>
+    <div className="flex flex-col gap-4 px-4 lg:px-6">
       <StatRowSkeleton count={3} />
-      {MODEL_ROLES.map((role) => (
-        <CardSkeleton key={role} lines={4} />
-      ))}
-      <CardSkeleton lines={5} />
-    </BlockStack>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        {MODEL_ROLES.map((role) => (
+          <CardPlaceholder key={role} lines={3} />
+        ))}
+      </div>
+      <CardPlaceholder lines={5} />
+    </div>
   );
 }
 
@@ -153,11 +179,26 @@ function UsageStats({
 }: {
   spend: { calls: number; input: number; output: number };
 }) {
+  const tiles = [
+    { label: "Calls (30 days)", value: spend.calls, icon: Gauge },
+    { label: "Input tokens", value: spend.input, icon: Coins },
+    { label: "Output tokens", value: spend.output, icon: Coins },
+  ];
   return (
-    <InlineStack gap={4} className="flex-wrap [&>*]:min-w-48 [&>*]:flex-1">
-      <StatCard label="Calls (30 days)" value={formatNumber(LOCALE, spend.calls)} icon={Gauge} />
-      <StatCard label="Input tokens" value={formatNumber(LOCALE, spend.input)} icon={Coins} />
-      <StatCard label="Output tokens" value={formatNumber(LOCALE, spend.output)} icon={Coins} />
-    </InlineStack>
+    <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:shadow-xs sm:grid-cols-3">
+      {tiles.map(({ label, value, icon: Icon }) => (
+        <Card key={label}>
+          <CardHeader>
+            <CardDescription>{label}</CardDescription>
+            <CardTitle className="text-2xl font-semibold tabular-nums">
+              {formatNumber(LOCALE, value)}
+            </CardTitle>
+            <CardAction>
+              <Icon className="size-4 text-muted-foreground" />
+            </CardAction>
+          </CardHeader>
+        </Card>
+      ))}
+    </div>
   );
 }

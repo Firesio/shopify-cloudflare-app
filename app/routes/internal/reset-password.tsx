@@ -5,7 +5,6 @@ import type {
   LoaderFunctionArgs,
   MetaFunction,
 } from "react-router";
-import { Text } from "ngk-dashboard";
 import {
   checkResetToken,
   completePasswordReset,
@@ -84,13 +83,7 @@ export default function ResetPassword() {
   return (
     <AuthShell
       title="Choose a new password"
-      subtitle={
-        valid && !done && (
-          <Text as="p" className="mt-1 text-sm text-muted-foreground">
-            Pick a password you have not used here before.
-          </Text>
-        )
-      }
+      subtitle={valid && !done ? "Pick a password you have not used here before." : undefined}
     >
       {error && <ErrorAlert message={RESET_PASSWORD_ERRORS[error]} />}
       {done ? <ResetDone /> : deadToken ? <RequestNewLink /> : <ResetForm submitting={submitting} />}

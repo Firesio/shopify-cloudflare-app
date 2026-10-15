@@ -1,17 +1,32 @@
-import { Form } from "react-router";
+import { useState } from "react";
+import { Form, useNavigation } from "react-router";
 import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Text,
-} from "ngk-dashboard";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "~/internal/components/ui/alert-dialog";
+import { Badge } from "~/internal/components/ui/badge";
+import { Button } from "~/internal/components/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "~/internal/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "~/internal/components/ui/dialog";
+import { Field, FieldGroup, FieldLabel } from "~/internal/components/ui/field";
+import { Input } from "~/internal/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/internal/components/ui/select";
+import { Spinner } from "~/internal/components/ui/spinner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/internal/components/ui/table";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
 import type { Locale } from "~/i18n/config";
@@ -19,8 +34,10 @@ import type { Locale } from "~/i18n/config";
 /** The internal console is staff-only and English-only — no i18n here. */
 const LOCALE: Locale = "en";
 
-const FIELD_CLASS =
-  "h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+/** id of the hidden revoke form that the confirmation dialog submits. */
+const REVOKE_FORM_ID = "revoke-promo";
+
+const DURATIONS = [3, 7, 10, 14, 30, 90] as const;
 
 interface PromoGrant {
   readonly id: string;
@@ -49,7 +66,7 @@ interface EffectivePlan {
 function EffectiveBadge({ effective }: { effective: EffectivePlan }) {
   if (effective.source === "promo") {
     return (
-      <Badge variant="secondary" className="font-semibold">
+      <Badge variant="secondary">
         {`Promo Active: ${effective.planHandle.toUpperCase()} (${effective.activePromo?.remainingDays}d left)`}
       </Badge>
     );
@@ -64,118 +81,194 @@ function EffectiveBadge({ effective }: { effective: EffectivePlan }) {
   return <Badge variant="outline">No Active Promo</Badge>;
 }
 
-function GrantPromoForm({ plans }: { plans: readonly PromoPlan[] }) {
+/** True while the submission with this intent is the one in flight, so only ITS button spins. */
+function usePendingIntent(intent: string): boolean {
+  const navigation = useNavigation();
+  return navigation.state !== "idle" && navigation.formData?.get("intent") === intent;
+}
+
+function PromoFields({ plans }: { plans: readonly PromoPlan[] }) {
   return (
-    <Form method="post" className="flex flex-wrap items-end gap-3 pt-3 border-t">
-      <input type="hidden" name="intent" value="grant_promo" />
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="planHandle" className="text-xs font-medium text-muted-foreground">
-          Promo Plan
-        </label>
-        <select id="planHandle" name="planHandle" className={FIELD_CLASS} required>
-          {plans.map((p) => (
-            <option key={p.handle} value={p.handle}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="durationDays" className="text-xs font-medium text-muted-foreground">
-          Duration
-        </label>
-        <select id="durationDays" name="durationDays" className={FIELD_CLASS} defaultValue="10">
-          <option value="3">3 Days</option>
-          <option value="7">7 Days</option>
-          <option value="10">10 Days</option>
-          <option value="14">14 Days</option>
-          <option value="30">30 Days</option>
-          <option value="90">90 Days</option>
-        </select>
-      </div>
-
-      <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
-        <label htmlFor="reason" className="text-xs font-medium text-muted-foreground">
-          Reason / Justification
-        </label>
-        <input
-          type="text"
+    <FieldGroup>
+      <Field>
+        <FieldLabel htmlFor="planHandle">Promo plan</FieldLabel>
+        <Select name="planHandle" defaultValue={plans[0]?.handle} required>
+          <SelectTrigger id="planHandle" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {plans.map((p) => (
+              <SelectItem key={p.handle} value={p.handle}>
+                {p.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="durationDays">Duration</FieldLabel>
+        <Select name="durationDays" defaultValue="10">
+          <SelectTrigger id="durationDays" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DURATIONS.map((days) => (
+              <SelectItem key={days} value={String(days)}>
+                {`${days} days`}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="reason">Reason / justification</FieldLabel>
+        <Input
           id="reason"
           name="reason"
           placeholder="e.g., VIP Demo, Retention goodwill, Extended trial"
-          className={FIELD_CLASS}
           required
         />
-      </div>
+      </Field>
+    </FieldGroup>
+  );
+}
 
-      <Button type="submit" size="sm" className="h-9">
-        Grant Promo
-      </Button>
-    </Form>
+function GrantPromoDialog({ plans }: { plans: readonly PromoPlan[] }) {
+  const [open, setOpen] = useState(false);
+  const pending = usePendingIntent("grant_promo");
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" disabled={plans.length === 0}>
+          Grant promo
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        {/* Submitting closes the dialog; the browser's own validation has already
+            run by the time onSubmit fires, so an invalid form never closes it. */}
+        <Form method="post" className="grid gap-4" onSubmit={() => setOpen(false)}>
+          <input type="hidden" name="intent" value="grant_promo" />
+          <DialogHeader>
+            <DialogTitle>Grant a promotional plan</DialogTitle>
+            <DialogDescription>
+              Temporary comped access that expires on its own. A paid higher-tier plan still takes precedence.
+            </DialogDescription>
+          </DialogHeader>
+          <PromoFields plans={plans} />
+          <DialogFooter>
+            <Button type="submit" disabled={pending}>
+              {pending && <Spinner />}
+              Grant promo
+            </Button>
+          </DialogFooter>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 function GrantStatusBadge({ isActive, isRevoked }: { isActive: boolean; isRevoked: boolean }) {
-  if (isActive) return <Badge variant="secondary" className="text-xs">Active</Badge>;
-  if (isRevoked) return <Badge variant="destructive" className="text-xs">Revoked</Badge>;
-  return <Badge variant="outline" className="text-xs">Expired</Badge>;
+  if (isActive) return <Badge variant="secondary">Active</Badge>;
+  if (isRevoked) return <Badge variant="destructive">Revoked</Badge>;
+  return <Badge variant="outline">Expired</Badge>;
 }
 
-function RevokeForm({ grantId }: { grantId: string }) {
-  return (
-    <Form method="post">
-      <input type="hidden" name="intent" value="revoke_promo" />
-      <input type="hidden" name="grantId" value={grantId} />
-      <Button type="submit" variant="ghost" size="sm" className="h-6 px-2 text-xs text-destructive hover:text-destructive">
-        Revoke
-      </Button>
-    </Form>
-  );
-}
-
-function GrantRow({ grant, now }: { grant: PromoGrant; now: number }) {
+function GrantRow({ grant, now, onRevoke }: { grant: PromoGrant; now: number; onRevoke: (grant: PromoGrant) => void }) {
   const isExpired = now >= grant.expiresAt;
   const isRevoked = grant.revokedAt !== null;
   const isActive = !isExpired && !isRevoked && now >= grant.startsAt;
 
   return (
     <TableRow>
-      <TableCell className="font-medium">{grant.planHandle.toUpperCase()}</TableCell>
+      <TableCell className="pl-4 font-medium">{grant.planHandle.toUpperCase()}</TableCell>
       <TableCell>
         <GrantStatusBadge isActive={isActive} isRevoked={isRevoked} />
       </TableCell>
       <TableCell className="max-w-xs truncate text-muted-foreground">{grant.reason}</TableCell>
       <TableCell className="text-muted-foreground">{grant.grantedBy}</TableCell>
-      <TableCell className="text-muted-foreground">{formatDateTime(LOCALE, grant.expiresAt, UTC)}</TableCell>
-      <TableCell className="text-right">
-        {isActive && <RevokeForm grantId={grant.id} />}
+      <TableCell className="text-muted-foreground tabular-nums">{formatDateTime(LOCALE, grant.expiresAt, UTC)}</TableCell>
+      <TableCell className="pr-4 text-right">
+        {isActive && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="text-destructive hover:text-destructive"
+            onClick={() => onRevoke(grant)}
+          >
+            Revoke
+          </Button>
+        )}
       </TableCell>
     </TableRow>
   );
 }
 
-function GrantHistoryTable({ grants, now }: { grants: readonly PromoGrant[]; now: number }) {
+function GrantHistoryTable({
+  grants,
+  now,
+  onRevoke,
+}: {
+  grants: readonly PromoGrant[];
+  now: number;
+  onRevoke: (grant: PromoGrant) => void;
+}) {
   return (
-    <div className="overflow-x-auto pt-2">
-      <Table className="[&_th]:h-9 [&_th]:px-3 [&_td]:px-3 [&_td]:py-2 text-xs">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Plan</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Reason</TableHead>
-            <TableHead>Granted By</TableHead>
-            <TableHead>Valid Until</TableHead>
-            <TableHead className="text-right">Action</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {grants.map((grant) => (
-            <GrantRow key={grant.id} grant={grant} now={now} />
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="pl-4">Plan</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Reason</TableHead>
+          <TableHead>Granted by</TableHead>
+          <TableHead>Valid until</TableHead>
+          <TableHead className="pr-4 text-right">Action</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {grants.map((grant) => (
+          <GrantRow key={grant.id} grant={grant} now={now} onRevoke={onRevoke} />
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+/**
+ * The confirm button submits the hidden form by id, so revoking stays a normal
+ * POST to the action: same intent, same field names, same server guards.
+ */
+function RevokeGrantDialog({ revoking, onClose }: { revoking: PromoGrant | null; onClose: () => void }) {
+  const pending = usePendingIntent("revoke_promo");
+  return (
+    <>
+      <Form method="post" id={REVOKE_FORM_ID} className="hidden" onSubmit={onClose}>
+        <input type="hidden" name="intent" value="revoke_promo" />
+        <input type="hidden" name="grantId" value={revoking?.id ?? ""} />
+      </Form>
+      <AlertDialog
+        open={revoking !== null}
+        onOpenChange={(open) => {
+          if (!open) onClose();
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{`Revoke the ${revoking?.planHandle.toUpperCase() ?? ""} promo?`}</AlertDialogTitle>
+            <AlertDialogDescription>
+              The shop loses the comped plan immediately. This cannot be undone; grant a new promo to restore it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction type="submit" form={REVOKE_FORM_ID} variant="destructive" disabled={pending}>
+              {pending && <Spinner />}
+              Revoke
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -192,28 +285,26 @@ export function PromoOverridesCard({
   grants: readonly PromoGrant[];
   now: number;
 }) {
+  // One dialog for the whole table: only ever a single pending confirmation.
+  const [revoking, setRevoking] = useState<PromoGrant | null>(null);
   return (
     <Card>
-      <CardContent className="pt-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div>
-              <Text as="h2" className="text-base font-semibold">
-                Promotional Plan Overrides
-              </Text>
-              <Text as="p" className="text-sm text-muted-foreground">
-                Grant temporary comped plan access with auto-expiry. Organic higher-tier plans take precedence.
-              </Text>
-            </div>
-            <div>
-              <EffectiveBadge effective={effective} />
-            </div>
-          </div>
-
-          {canGrant && <GrantPromoForm plans={plans} />}
-          {grants.length > 0 && <GrantHistoryTable grants={grants} now={now} />}
-        </div>
-      </CardContent>
+      <CardHeader>
+        <CardTitle>Promotional Plan Overrides</CardTitle>
+        <CardDescription>
+          Grant temporary comped plan access with auto-expiry. Organic higher-tier plans take precedence.
+        </CardDescription>
+        <CardAction className="flex flex-wrap items-center justify-end gap-2">
+          <EffectiveBadge effective={effective} />
+          {canGrant && <GrantPromoDialog plans={plans} />}
+        </CardAction>
+      </CardHeader>
+      {grants.length > 0 && (
+        <CardContent className="px-0">
+          <GrantHistoryTable grants={grants} now={now} onRevoke={setRevoking} />
+        </CardContent>
+      )}
+      <RevokeGrantDialog revoking={revoking} onClose={() => setRevoking(null)} />
     </Card>
   );
 }

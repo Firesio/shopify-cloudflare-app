@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
-import { Alert, AlertDescription, Input, Label } from "ngk-dashboard";
+import { Alert, AlertDescription } from "~/internal/components/ui/alert";
+import { Card, CardContent, CardDescription, CardHeader } from "~/internal/components/ui/card";
+import { Field, FieldLabel } from "~/internal/components/ui/field";
+import { Input } from "~/internal/components/ui/input";
 import { AppMark, THEME_INIT_SCRIPT } from "~/internal/components";
 import { identity } from "~/identity";
 
@@ -16,17 +19,19 @@ export function AuthShell({
   return (
     <>
       <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-      <div className="grid min-h-dvh place-items-center bg-background p-6">
-        <div className="w-full max-w-sm">
-          <div className="mb-8 text-center">
-            <div className="mb-4 flex items-center justify-center gap-2">
-              <AppMark className="size-7" />
-              <span className="text-lg font-semibold">{identity.brandName}</span>
-            </div>
-            <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-            {subtitle}
+      <div className="grid min-h-dvh place-items-center bg-muted/40 p-6">
+        <div className="flex w-full max-w-sm flex-col gap-6">
+          <div className="flex items-center justify-center gap-2">
+            <AppMark className="size-7" />
+            <span className="text-lg font-semibold">{identity.brandName}</span>
           </div>
-          {children}
+          <Card>
+            <CardHeader className="text-center">
+              <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+              {subtitle && <CardDescription>{subtitle}</CardDescription>}
+            </CardHeader>
+            <CardContent>{children}</CardContent>
+          </Card>
         </div>
       </div>
     </>
@@ -41,27 +46,10 @@ export function ErrorAlert({ message }: { readonly message: string }) {
   );
 }
 
-/** A labelled field wrapper: label above its control. */
-export function Field({
-  id,
-  label,
-  children,
-}: {
-  readonly id: string;
-  readonly label: string;
-  readonly children: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      {children}
-    </div>
-  );
-}
-
 export function EmailField() {
   return (
-    <Field id="email" label="Email">
+    <Field>
+      <FieldLabel htmlFor="email">Email</FieldLabel>
       <Input
         id="email"
         name="email"

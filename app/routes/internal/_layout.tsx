@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import {
-  Form,
   Link,
   Outlet,
   isRouteErrorResponse,
@@ -14,33 +13,34 @@ import type {
   LoaderFunctionArgs,
   MetaFunction,
 } from "react-router";
-import { User as UserIcon, LogOut } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
+import { AppSidebar } from "./app-sidebar";
+import { CommandMenu } from "./command-menu";
+import { titleFor } from "./layout-nav";
 import {
-  Avatar,
-  AvatarFallback,
-  DashboardLayout,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  ErrorState,
-  SkeletonPage,
-  Toaster,
-  type RenderLinkArgs,
-} from "ngk-dashboard";
-import { INTERNAL_NAV } from "./layout-nav";
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "~/internal/components/ui/empty";
+import { Separator } from "~/internal/components/ui/separator";
+import { Skeleton } from "~/internal/components/ui/skeleton";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "~/internal/components/ui/sidebar";
+import { Toaster } from "~/internal/components/ui/sonner";
 import { requireAdminUser } from "~/services/admin-auth.server";
 import { adminSessionUsers } from "~/wiring.server";
 import {
-  AppLogo,
   INTERNAL_FONT_LINKS,
   ThemeToggle,
   THEME_INIT_SCRIPT,
   useIsDarkTheme,
 } from "~/internal/components";
-// Tailwind v4 + ngk-dashboard styles, scoped to /internal by THIS route's
+// Tailwind v4 + shadcn/ui styles, scoped to /internal by THIS route's
 // links(): React Router only injects it while an internal route is matched, so
 // Tailwind's Preflight never reaches the Polaris merchant app or the SCSS public
 // pages. See .claude/rules/styling.md.
@@ -71,15 +71,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
  */
 export const shouldRevalidate = () => false;
 
-/** Router-neutral link renderer that DashboardLayout requires. */
-function renderLink({ href, className, children, onClick, ...rest }: RenderLinkArgs) {
-  return (
-    <Link to={href} prefetch="intent" className={className} onClick={onClick} {...rest}>
-      {children}
-    </Link>
-  );
-}
-
 /**
  * Top progress bar — immediate feedback on every client navigation, so a slow
  * loader never makes the console feel frozen.
@@ -106,83 +97,75 @@ function NavProgress() {
   );
 }
 
-export function UserMenu({ user }: { user: { name: string; email: string } }) {
-  const initial = (user.name || "?").charAt(0).toUpperCase();
-
+/** Shown the instant a navigation starts: the shape every console page shares (title, stat row, content). */
+function PageSkeleton() {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <Avatar className="size-8">
-          <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
-            {initial}
-          </AvatarFallback>
-        </Avatar>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="flex flex-col">
-          <span className="truncate text-sm font-semibold">{user.name}</span>
-          <span className="truncate text-xs font-normal text-muted-foreground">
-            {user.email}
-          </span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/internal/profile" prefetch="intent">
-            <UserIcon />
-            Profile
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild variant="destructive">
-          <SignOutControl />
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-export function SignOutControl() {
-  return (
-    <Form method="post" action="/internal/logout">
-      <button type="submit">
-        <LogOut />
-        Sign out
-      </button>
-    </Form>
+    <div aria-hidden className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className="flex flex-col gap-2 px-4 lg:px-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-72" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <Skeleton key={index} className="h-32 rounded-xl" />
+        ))}
+      </div>
+      <div className="px-4 lg:px-6">
+        <Skeleton className="h-80 w-full rounded-xl" />
+      </div>
+    </div>
   );
 }
 
 export default function InternalLayout() {
   const { user } = useLoaderData<typeof loader>();
   const { pathname } = useLocation();
+  const navigation = useNavigation();
   const dark = useIsDarkTheme();
+  // Moving to another page: swap in the skeleton the moment the click lands,
+  // rather than leaving the old page on screen until the next loader answers.
+  // A form submission or a same-page revalidation keeps the page as it is.
+  const navigatingAway =
+    navigation.state === "loading" &&
+    navigation.formData === undefined &&
+    navigation.location.pathname !== pathname;
 
   return (
     <>
       <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       <NavProgress />
       <Toaster theme={dark ? "dark" : "light"} />
-      <DashboardLayout
-        nav={INTERNAL_NAV}
-        logo={<AppLogo />}
-        currentPath={pathname}
-        renderLink={renderLink}
-        headerEnd={
-          <>
-            <ThemeToggle />
-            <UserMenu user={user} />
-          </>
-        }
-      >
-        <Suspense fallback={<SkeletonPage sections={2} />}>
-          <Outlet />
-        </Suspense>
-      </DashboardLayout>
+      <SidebarProvider>
+        <AppSidebar variant="inset" pathname={pathname} user={user} />
+        <SidebarInset>
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b">
+            <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
+              <h1 className="text-base font-medium">{titleFor(pathname)}</h1>
+              <div className="ml-auto flex items-center gap-2">
+                <CommandMenu />
+                <ThemeToggle />
+              </div>
+            </div>
+          </header>
+          <div className="@container/main flex flex-1 flex-col">
+            {navigatingAway ? (
+              <PageSkeleton />
+            ) : (
+              <Suspense fallback={<PageSkeleton />}>
+                <Outlet />
+              </Suspense>
+            )}
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
     </>
   );
 }
 
 /**
- * Console-scoped error boundary: a failed child route shows ngk's ErrorState
+ * Console-scoped error boundary: a failed child route shows an Empty state
  * instead of a raw stack. This route's links() still apply, so the stylesheet is
  * present here.
  */
@@ -195,15 +178,23 @@ export function ErrorBoundary() {
     <>
       <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       <div className="grid min-h-dvh place-items-center bg-background p-6">
-        <ErrorState
-          heading={
-            is404
-              ? "Page not found"
-              : is403
-                ? "You do not have access to that"
-                : "Something went wrong"
-          }
-        />
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ShieldAlert />
+            </EmptyMedia>
+            <EmptyTitle>
+              {is404
+                ? "Page not found"
+                : is403
+                  ? "You do not have access to that"
+                  : "Something went wrong"}
+            </EmptyTitle>
+            <EmptyDescription>
+              <Link to="/internal/dashboard">Back to the dashboard</Link>
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       </div>
     </>
   );

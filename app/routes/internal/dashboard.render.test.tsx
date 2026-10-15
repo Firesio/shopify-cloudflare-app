@@ -36,7 +36,7 @@ async function render(data: LoaderData) {
   // a reader thinks in and are regrouped here exactly as the loader groups them.
   const fullData = {
     user: data.user,
-    headline: { admins: data.admins, stats: data.stats },
+    headline: { admins: data.admins, stats: data.stats, trend: data.trend },
     health: data.health,
     charts: { trend: data.trend, uninstallFeedback: data.uninstallFeedback ?? [] },
   };
@@ -77,10 +77,9 @@ describe("the internal dashboard", () => {
       trend: [{ month: "Jan", installs: 2, uninstalls: 0, active: 2 }],
       health: { failedWebhooks: 2, deadLetterWebhooks: 1, lifecycleEvents: 4, subscriptionEvents: 3, checkpoint: { lastSucceededAt: 100, lastFailedAt: null } },
     });
-    expect(html).toContain("Jamie");
     expectStat(html, "Installed shops", "10");
     expectStat(html, "Paid shops", "4");
-    expectStat(html, "Free shops", "6");
+    expect(html).toContain("6 shops on a free plan");
     expectStat(html, "Free plan", "6");
     expectStat(html, "Pro plan", "4");
     expect(html).toContain("$76.00");
@@ -125,5 +124,42 @@ describe("the internal dashboard", () => {
     expect(html).toContain("Webhook failures");
     expect(html).toContain("Dead-letter webhooks");
     expect(html).toContain("Last sync");
+  });
+
+  it("leaves the page title to the shell header: no h1 and no sign-in subtitle in the body", async () => {
+    const html = await render({
+      user: { name: "Jamie" },
+      admins: 1,
+      stats: { totalShops: 2, paidShops: 0, freeShops: 2, mrrByCurrency: [] },
+      trend: [{ month: "Jan", installs: 0, uninstalls: 0, active: 0 }],
+      health: { failedWebhooks: 0, deadLetterWebhooks: 0, lifecycleEvents: 0, subscriptionEvents: 0, checkpoint: null },
+    });
+    expect(html).not.toContain("<h1");
+    expect(html).not.toContain("Signed in as");
+  });
+
+  it("puts the trend icon after the footer headline only on cards that have a trend", async () => {
+    const html = await render({
+      user: { name: "Jamie" },
+      admins: 1,
+      stats: { totalShops: 12, paidShops: 4, freeShops: 8, mrrByCurrency: [] },
+      trend: [
+        { month: "Jan", installs: 4, uninstalls: 1, active: 10 },
+        { month: "Feb", installs: 5, uninstalls: 3, active: 12 },
+      ],
+      health: { failedWebhooks: 0, deadLetterWebhooks: 0, lifecycleEvents: 0, subscriptionEvents: 0, checkpoint: null },
+    });
+    const card = (from: string, to: string) => html.slice(html.indexOf(from), html.indexOf(to));
+    const installed = card("Installed shops", "Paid shops");
+    const paid = card("Paid shops", "Monthly recurring revenue");
+    const uninstalls = card("Uninstalls this month", "Where installed shops sit today");
+
+    // Installed shops grew 10 -> 12: an up badge in the header and an up icon after the footer headline.
+    expect(installed).toContain("+20%");
+    expect(installed).toMatch(/5 installed, 3 left in Feb\s*<svg[^>]*lucide-trending-up[^>]*size-4/);
+    // Uninstalls rose 1 -> 3: a trend, so the icon follows the footer headline here too.
+    expect(uninstalls).toMatch(/1 in Jan\s*<svg[^>]*lucide-trending-up[^>]*size-4/);
+    // Paid shops has no month-over-month figure, so its footer carries no trend icon.
+    expect(paid).not.toContain("lucide-trending");
   });
 });

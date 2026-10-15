@@ -4,7 +4,6 @@ import type {
   LinksFunction,
   MetaFunction,
 } from "react-router";
-import { Text } from "ngk-dashboard";
 import { requestPasswordReset } from "~/services/password-reset.server";
 import { isProductionLike } from "~/lib/deployment";
 import { getEnv } from "~/request-context.server";
@@ -57,12 +56,7 @@ export default function ForgotPassword() {
   return (
     <AuthShell
       title="Reset your password"
-      subtitle={
-        <Text as="p" className="mt-1 text-sm text-muted-foreground">
-          Enter your email address and we will send you a link to choose a
-          new password.
-        </Text>
-      }
+      subtitle="Enter your email address and we will send you a link to choose a new password."
     >
       {error && <ErrorAlert message={FORGOT_PASSWORD_ERRORS[error]} />}
       {sent ? (

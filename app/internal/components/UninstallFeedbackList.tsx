@@ -1,26 +1,20 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
+import { MessageSquare, Store } from "lucide-react";
+import { Link } from "react-router";
+import { Avatar, AvatarFallback, AvatarImage } from "~/internal/components/ui/avatar";
+import { Badge } from "~/internal/components/ui/badge";
+import { Button } from "~/internal/components/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "~/internal/components/ui/card";
 import {
-  Badge,
-  BlockStack,
-  Card,
-  CardContent,
-  CardHeader,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  InlineStack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Text,
-} from "ngk-dashboard";
-import { Store } from "lucide-react";
-import { Link } from "react-router";
+} from "~/internal/components/ui/dialog";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "~/internal/components/ui/empty";
+import { DataTable, SortableHeader } from "~/internal/components/data-table";
 import {
   filterMerchantFeedback,
   formatReason,
@@ -32,8 +26,58 @@ import type { Locale } from "~/i18n/config";
 
 const LOCALE: Locale = "en";
 
+/** Messages longer than this are clamped in the table and open in a dialog. */
+const LONG_MESSAGE = 80;
+
 function shopLabel(item: RawUninstallFeedback): string {
   return item.shopName ? `${item.shopName} (${item.shop})` : item.shop;
+}
+
+function feedbackColumns(onOpen: (item: RawUninstallFeedback) => void): ColumnDef<RawUninstallFeedback>[] {
+  return [
+    {
+      id: "shop",
+      accessorFn: shopLabel,
+      header: ({ column }) => <SortableHeader column={column} title="Shop" />,
+      cell: ({ row }) => <ShopCell item={row.original} />,
+      enableHiding: false,
+    },
+    {
+      id: "reason",
+      accessorFn: (item) => (item.reason ? formatReason(item.reason) : ""),
+      header: "Reason",
+      cell: ({ row }) =>
+        row.original.reason ? (
+          <Badge variant="outline" className="text-xs">
+            {formatReason(row.original.reason)}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+    {
+      id: "feedback",
+      accessorFn: (item) => item.reasonDescription ?? "",
+      header: "Feedback",
+      cell: ({ row }) => <MessageCell item={row.original} onOpen={onOpen} />,
+      enableSorting: false,
+    },
+    {
+      id: "date",
+      accessorFn: (item) => item.occurredAt,
+      header: ({ column }) => (
+        <div className="flex justify-end">
+          <SortableHeader column={column} title="Date" />
+        </div>
+      ),
+      cell: ({ row }) => (
+        <div className="text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+          {formatDateTime(LOCALE, row.original.occurredAt, UTC)}
+        </div>
+      ),
+      sortDescFirst: true,
+    },
+  ];
 }
 
 /** List of written feedback comments left by departing merchants. */
@@ -43,56 +87,70 @@ export function UninstallFeedbackList({
   feedback: readonly RawUninstallFeedback[];
 }) {
   const [activeItem, setActiveItem] = useState<RawUninstallFeedback | null>(null);
-  const itemsWithText = filterMerchantFeedback(feedback);
+  const itemsWithText = useMemo(() => filterMerchantFeedback(feedback), [feedback]);
+  const columns = useMemo(() => feedbackColumns(setActiveItem), []);
 
   return (
     <Card>
       <CardHeader>
-        <InlineStack align="start" justify="between" gap={4}>
-          <BlockStack gap={1}>
-            <Text as="h2" className="font-semibold">
-              Merchant exit comments
-            </Text>
-            <Text as="p" className="text-sm text-muted-foreground">
-              Written feedback submitted by merchants upon uninstalling
-            </Text>
-          </BlockStack>
-          <Text as="p" className="text-2xl font-semibold tabular-nums">
-            {String(itemsWithText.length)}
-          </Text>
-        </InlineStack>
+        <CardTitle>Merchant exit comments</CardTitle>
+        <CardDescription>{"Written feedback submitted by merchants upon uninstalling"}</CardDescription>
+        <CardAction>
+          <Badge variant="outline">{String(itemsWithText.length)}</Badge>
+        </CardAction>
       </CardHeader>
-      <CardContent className="p-0">
-        <Table className="[&_th]:h-12 [&_th]:px-4 [&_td]:px-4 [&_td]:py-3">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-1/4">Shop</TableHead>
-              <TableHead className="w-1/6">Reason</TableHead>
-              <TableHead>Feedback</TableHead>
-              <TableHead className="w-40 text-right">Date</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {itemsWithText.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="h-28 text-center text-muted-foreground">
-                  No merchant exit feedback submitted yet.
-                </TableCell>
-              </TableRow>
-            ) : (
-              itemsWithText.map((item) => (
-                <FeedbackRow key={item.eventId} item={item} onOpen={setActiveItem} />
-              ))
-            )}
-          </TableBody>
-        </Table>
+      <CardContent className="px-0">
+        <DataTable
+          columns={columns}
+          data={itemsWithText}
+          getRowId={(item) => item.eventId}
+          compactHidden={["reason"]}
+          search={{
+            placeholder: "Search feedback…",
+            text: (item) => `${item.shopName ?? ""} ${item.shop} ${item.reason ?? ""} ${item.reasonDescription ?? ""}`,
+          }}
+          empty={<NoFeedback />}
+        />
       </CardContent>
       <FeedbackDialog item={activeItem} onClose={() => setActiveItem(null)} />
     </Card>
   );
 }
 
-function FeedbackRow({
+function NoFeedback() {
+  return (
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <MessageSquare />
+        </EmptyMedia>
+        <EmptyTitle>No merchant exit feedback submitted yet.</EmptyTitle>
+      </EmptyHeader>
+    </Empty>
+  );
+}
+
+function ShopCell({ item }: { item: RawUninstallFeedback }) {
+  return (
+    <div className="flex items-center gap-3 font-medium">
+      <Avatar className="size-6 rounded-md border">
+        {item.logoUrl ? <AvatarImage src={item.logoUrl} alt="" className="object-contain p-0.5" /> : null}
+        <AvatarFallback className="rounded-md">
+          <Store className="size-3.5 text-muted-foreground" />
+        </AvatarFallback>
+      </Avatar>
+      <Link
+        to={`/internal/shops/${encodeURIComponent(item.shop)}`}
+        prefetch="intent"
+        className="hover:underline"
+      >
+        {shopLabel(item)}
+      </Link>
+    </div>
+  );
+}
+
+function MessageCell({
   item,
   onOpen,
 }: {
@@ -100,55 +158,22 @@ function FeedbackRow({
   onOpen: (item: RawUninstallFeedback) => void;
 }) {
   return (
-    <TableRow>
-      <TableCell className="font-medium">
-        <div className="flex items-center gap-2">
-          {item.logoUrl ? (
-            <img src={item.logoUrl} alt="" className="size-5 rounded object-cover" />
-          ) : (
-            <Store className="size-5 shrink-0 text-muted-foreground" />
-          )}
-          <Link
-            to={`/internal/shops/${encodeURIComponent(item.shop)}`}
-            className="hover:underline"
-          >
-            {shopLabel(item)}
-          </Link>
-        </div>
-      </TableCell>
-      <TableCell>
-        {item.reason ? (
-          <Badge variant="outline" className="text-xs">
-            {formatReason(item.reason)}
-          </Badge>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell className="max-w-md">
-        <div className="flex flex-col gap-1.5">
-          <p
-            className="line-clamp-3 text-sm italic text-foreground [overflow-wrap:anywhere] break-words cursor-pointer hover:text-foreground/80"
-            onClick={() => onOpen(item)}
-            title="Click to view full message"
-          >
-            "{item.reasonDescription}"
-          </p>
-          {(item.reasonDescription?.length ?? 0) > 80 && (
-            <button
-              type="button"
-              onClick={() => onOpen(item)}
-              className="self-start text-xs font-medium text-primary hover:underline cursor-pointer"
-            >
-              View full message
-            </button>
-          )}
-        </div>
-      </TableCell>
-      <TableCell className="text-right text-xs tabular-nums text-muted-foreground whitespace-nowrap">
-        {formatDateTime(LOCALE, item.occurredAt, UTC)}
-      </TableCell>
-    </TableRow>
+    <div className="flex max-w-md min-w-48 flex-col gap-1.5 whitespace-normal">
+      <p className="line-clamp-3 text-sm italic text-foreground [overflow-wrap:anywhere]">
+        "{item.reasonDescription}"
+      </p>
+      {(item.reasonDescription?.length ?? 0) > LONG_MESSAGE && (
+        <Button
+          type="button"
+          variant="link"
+          size="xs"
+          className="self-start px-0"
+          onClick={() => onOpen(item)}
+        >
+          View full message
+        </Button>
+      )}
+    </div>
   );
 }
 

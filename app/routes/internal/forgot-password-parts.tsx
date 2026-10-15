@@ -1,15 +1,21 @@
 import { Form, Link } from "react-router";
-import { Alert, AlertDescription, Button } from "ngk-dashboard";
+import { Alert, AlertDescription } from "~/internal/components/ui/alert";
+import { Button } from "~/internal/components/ui/button";
+import { Spinner } from "~/internal/components/ui/spinner";
+import { FieldGroup } from "~/internal/components/ui/field";
 import { paths } from "~/urls";
 import { EmailField } from "./auth-shell";
 
 export function ForgotPasswordForm({ submitting }: { readonly submitting: boolean }) {
   return (
-    <Form method="post" className="flex flex-col gap-4">
-      <EmailField />
-      <Button type="submit" disabled={submitting}>
-        {submitting ? "Sending…" : "Send reset link"}
-      </Button>
+    <Form method="post">
+      <FieldGroup className="gap-4">
+        <EmailField />
+        <Button type="submit" disabled={submitting}>
+          {submitting && <Spinner />}
+          {submitting ? "Sending…" : "Send reset link"}
+        </Button>
+      </FieldGroup>
     </Form>
   );
 }
@@ -43,10 +49,10 @@ export function ForgotPasswordSent({ devToken }: { readonly devToken?: string | 
 
 export function BackToSignIn() {
   return (
-    <p className="mt-6 text-center text-sm">
-      <Link to="/internal/login" className="text-muted-foreground underline">
-        Back to sign in
-      </Link>
-    </p>
+    <div className="mt-4 flex justify-center">
+      <Button asChild variant="link" size="sm" className="text-muted-foreground">
+        <Link to="/internal/login">Back to sign in</Link>
+      </Button>
+    </div>
   );
 }

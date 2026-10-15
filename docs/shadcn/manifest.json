@@ -1,0 +1,451 @@
+{
+  "source": "https://ui.shadcn.com/docs",
+  "syncedAt": "2026-10-15T10:53:07.920Z",
+  "pageCount": 74,
+  "pages": [
+    {
+      "family": "guides",
+      "title": "Introduction",
+      "file": "guides/introduction.md",
+      "markdownUrl": "https://ui.shadcn.com/docs.md"
+    },
+    {
+      "family": "guides",
+      "title": "shadcn",
+      "file": "guides/cli.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/cli.md"
+    },
+    {
+      "family": "guides",
+      "title": "components.json",
+      "file": "guides/components-json.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components-json.md"
+    },
+    {
+      "family": "guides",
+      "title": "Theming",
+      "file": "guides/theming.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/theming.md"
+    },
+    {
+      "family": "guides",
+      "title": "Dark Mode",
+      "file": "guides/dark-mode.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/dark-mode.md"
+    },
+    {
+      "family": "guides",
+      "title": "Vite",
+      "file": "guides/dark-mode-vite.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/dark-mode/vite.md"
+    },
+    {
+      "family": "guides",
+      "title": "React Router",
+      "file": "guides/installation-react-router.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/installation/react-router.md"
+    },
+    {
+      "family": "guides",
+      "title": "Manual Installation",
+      "file": "guides/installation-manual.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/installation/manual.md"
+    },
+    {
+      "family": "guides",
+      "title": "Tailwind v4",
+      "file": "guides/tailwind-v4.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/tailwind-v4.md"
+    },
+    {
+      "family": "guides",
+      "title": "Next.js 15 + React 19",
+      "file": "guides/react-19.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/react-19.md"
+    },
+    {
+      "family": "guides",
+      "title": "Forms",
+      "file": "guides/forms.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/forms.md"
+    },
+    {
+      "family": "guides",
+      "title": "React Hook Form",
+      "file": "guides/forms-react-hook-form.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/forms/react-hook-form.md"
+    },
+    {
+      "family": "guides",
+      "title": "Skills",
+      "file": "guides/skills.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/skills.md"
+    },
+    {
+      "family": "guides",
+      "title": "Changelog",
+      "file": "guides/changelog.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/changelog.md"
+    },
+    {
+      "family": "components",
+      "title": "Accordion",
+      "file": "components/accordion.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/accordion.md"
+    },
+    {
+      "family": "components",
+      "title": "Alert",
+      "file": "components/alert.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/alert.md"
+    },
+    {
+      "family": "components",
+      "title": "Alert Dialog",
+      "file": "components/alert-dialog.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/alert-dialog.md"
+    },
+    {
+      "family": "components",
+      "title": "Aspect Ratio",
+      "file": "components/aspect-ratio.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/aspect-ratio.md"
+    },
+    {
+      "family": "components",
+      "title": "Avatar",
+      "file": "components/avatar.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/avatar.md"
+    },
+    {
+      "family": "components",
+      "title": "Badge",
+      "file": "components/badge.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/badge.md"
+    },
+    {
+      "family": "components",
+      "title": "Breadcrumb",
+      "file": "components/breadcrumb.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/breadcrumb.md"
+    },
+    {
+      "family": "components",
+      "title": "Button",
+      "file": "components/button.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/button.md"
+    },
+    {
+      "family": "components",
+      "title": "Button Group",
+      "file": "components/button-group.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/button-group.md"
+    },
+    {
+      "family": "components",
+      "title": "Calendar",
+      "file": "components/calendar.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/calendar.md"
+    },
+    {
+      "family": "components",
+      "title": "Card",
+      "file": "components/card.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/card.md"
+    },
+    {
+      "family": "components",
+      "title": "Carousel",
+      "file": "components/carousel.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/carousel.md"
+    },
+    {
+      "family": "components",
+      "title": "Chart",
+      "file": "components/chart.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/chart.md"
+    },
+    {
+      "family": "components",
+      "title": "Checkbox",
+      "file": "components/checkbox.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/checkbox.md"
+    },
+    {
+      "family": "components",
+      "title": "Collapsible",
+      "file": "components/collapsible.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/collapsible.md"
+    },
+    {
+      "family": "components",
+      "title": "Combobox",
+      "file": "components/combobox.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/combobox.md"
+    },
+    {
+      "family": "components",
+      "title": "Command",
+      "file": "components/command.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/command.md"
+    },
+    {
+      "family": "components",
+      "title": "Context Menu",
+      "file": "components/context-menu.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/context-menu.md"
+    },
+    {
+      "family": "components",
+      "title": "Data Table",
+      "file": "components/data-table.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/data-table.md"
+    },
+    {
+      "family": "components",
+      "title": "Date Picker",
+      "file": "components/date-picker.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/date-picker.md"
+    },
+    {
+      "family": "components",
+      "title": "Dialog",
+      "file": "components/dialog.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/dialog.md"
+    },
+    {
+      "family": "components",
+      "title": "Direction",
+      "file": "components/direction.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/direction.md"
+    },
+    {
+      "family": "components",
+      "title": "Drawer",
+      "file": "components/drawer.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/drawer.md"
+    },
+    {
+      "family": "components",
+      "title": "Dropdown Menu",
+      "file": "components/dropdown-menu.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/dropdown-menu.md"
+    },
+    {
+      "family": "components",
+      "title": "Empty",
+      "file": "components/empty.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/empty.md"
+    },
+    {
+      "family": "components",
+      "title": "Field",
+      "file": "components/field.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/field.md"
+    },
+    {
+      "family": "components",
+      "title": "Hover Card",
+      "file": "components/hover-card.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/hover-card.md"
+    },
+    {
+      "family": "components",
+      "title": "Input",
+      "file": "components/input.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/input.md"
+    },
+    {
+      "family": "components",
+      "title": "Input Group",
+      "file": "components/input-group.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/input-group.md"
+    },
+    {
+      "family": "components",
+      "title": "Input OTP",
+      "file": "components/input-otp.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/input-otp.md"
+    },
+    {
+      "family": "components",
+      "title": "Item",
+      "file": "components/item.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/item.md"
+    },
+    {
+      "family": "components",
+      "title": "Kbd",
+      "file": "components/kbd.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/kbd.md"
+    },
+    {
+      "family": "components",
+      "title": "Label",
+      "file": "components/label.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/label.md"
+    },
+    {
+      "family": "components",
+      "title": "Menubar",
+      "file": "components/menubar.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/menubar.md"
+    },
+    {
+      "family": "components",
+      "title": "Native Select",
+      "file": "components/native-select.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/native-select.md"
+    },
+    {
+      "family": "components",
+      "title": "Navigation Menu",
+      "file": "components/navigation-menu.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/navigation-menu.md"
+    },
+    {
+      "family": "components",
+      "title": "Pagination",
+      "file": "components/pagination.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/pagination.md"
+    },
+    {
+      "family": "components",
+      "title": "Popover",
+      "file": "components/popover.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/popover.md"
+    },
+    {
+      "family": "components",
+      "title": "Progress",
+      "file": "components/progress.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/progress.md"
+    },
+    {
+      "family": "components",
+      "title": "Radio Group",
+      "file": "components/radio-group.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/radio-group.md"
+    },
+    {
+      "family": "components",
+      "title": "Resizable",
+      "file": "components/resizable.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/resizable.md"
+    },
+    {
+      "family": "components",
+      "title": "Scroll Area",
+      "file": "components/scroll-area.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/scroll-area.md"
+    },
+    {
+      "family": "components",
+      "title": "Select",
+      "file": "components/select.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/select.md"
+    },
+    {
+      "family": "components",
+      "title": "Separator",
+      "file": "components/separator.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/separator.md"
+    },
+    {
+      "family": "components",
+      "title": "Sheet",
+      "file": "components/sheet.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/sheet.md"
+    },
+    {
+      "family": "components",
+      "title": "Sidebar",
+      "file": "components/sidebar.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/sidebar.md"
+    },
+    {
+      "family": "components",
+      "title": "Skeleton",
+      "file": "components/skeleton.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/skeleton.md"
+    },
+    {
+      "family": "components",
+      "title": "Slider",
+      "file": "components/slider.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/slider.md"
+    },
+    {
+      "family": "components",
+      "title": "Sonner",
+      "file": "components/sonner.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/sonner.md"
+    },
+    {
+      "family": "components",
+      "title": "Spinner",
+      "file": "components/spinner.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/spinner.md"
+    },
+    {
+      "family": "components",
+      "title": "Switch",
+      "file": "components/switch.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/switch.md"
+    },
+    {
+      "family": "components",
+      "title": "Table",
+      "file": "components/table.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/table.md"
+    },
+    {
+      "family": "components",
+      "title": "Tabs",
+      "file": "components/tabs.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/tabs.md"
+    },
+    {
+      "family": "components",
+      "title": "Textarea",
+      "file": "components/textarea.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/textarea.md"
+    },
+    {
+      "family": "components",
+      "title": "Toast",
+      "file": "components/toast.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/toast.md"
+    },
+    {
+      "family": "components",
+      "title": "Toggle",
+      "file": "components/toggle.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/toggle.md"
+    },
+    {
+      "family": "components",
+      "title": "Toggle Group",
+      "file": "components/toggle-group.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/toggle-group.md"
+    },
+    {
+      "family": "components",
+      "title": "Tooltip",
+      "file": "components/tooltip.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/tooltip.md"
+    },
+    {
+      "family": "components",
+      "title": "Typography",
+      "file": "components/typography.md",
+      "markdownUrl": "https://ui.shadcn.com/docs/components/radix/typography.md"
+    },
+    {
+      "family": "examples",
+      "title": "Dashboard example",
+      "file": "examples/dashboard-01.md",
+      "markdownUrl": "https://ui.shadcn.com/r/styles/new-york-v4/dashboard-01.json"
+    }
+  ]
+}

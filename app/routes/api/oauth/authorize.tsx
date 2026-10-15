@@ -1,6 +1,11 @@
 import { redirect, Form, useLoaderData, useNavigation } from "react-router";
 import type { ActionFunctionArgs, LinksFunction, LoaderFunctionArgs, MetaFunction } from "react-router";
-import { Alert, AlertDescription, Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "ngk-dashboard";
+import { ShieldCheck } from "lucide-react";
+import { Alert, AlertDescription } from "~/internal/components/ui/alert";
+import { Badge } from "~/internal/components/ui/badge";
+import { Button } from "~/internal/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/internal/components/ui/card";
+import { Spinner } from "~/internal/components/ui/spinner";
 import { requireAdminUser } from "~/services/admin-auth.server";
 import { adminUsers } from "~/wiring.server";
 import { issueAuthorizationCode, validateAuthorizeRequest } from "~/services/mcp/oauth.server";
@@ -154,15 +159,8 @@ function AuthorizeError({ data }: { data: AuthorizeErrorData }) {
 
 function ShieldIcon() {
   return (
-    <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-      <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-        />
-      </svg>
+    <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10">
+      <ShieldCheck className="size-6 text-primary" aria-hidden />
     </div>
   );
 }
@@ -183,9 +181,9 @@ function ScopeList({ scopes }: { scopes: McpScope[] }) {
             >
               <div className="flex items-center justify-between">
                 <span className="font-medium text-sm text-foreground">{desc?.label ?? scope}</span>
-                <code className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                <Badge variant="outline" className="font-mono">
                   {scope}
-                </code>
+                </Badge>
               </div>
               {desc?.description && (
                 <p className="text-xs text-muted-foreground">{desc.description}</p>
@@ -216,6 +214,7 @@ function ConsentForm({ data, isSubmitting }: { data: AuthorizeSuccessData; isSub
           className="w-full sm:flex-1"
           disabled={isSubmitting}
         >
+          {isSubmitting && <Spinner />}
           {isSubmitting ? "Authorizing..." : "Allow Access"}
         </Button>
         <Button

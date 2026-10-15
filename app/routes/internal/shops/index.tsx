@@ -4,8 +4,6 @@ import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 export const meta: MetaFunction = () => [
   { title: "Shops · Staff Console" },
 ];
-import { EmptyState, Page } from "ngk-dashboard";
-import { Store } from "lucide-react";
 import { requireAdminUser } from "~/services/admin-auth.server";
 import { adminSessionUsers } from "~/wiring.server";
 import { listShopsDirectory } from "~/services/internal-admin/ops.server";
@@ -36,18 +34,15 @@ export default function Shops() {
   const { shops } = useLoaderData<typeof loader>();
 
   return (
-    <Page title="Shops" subtitle="Every shop that has ever installed this app." fullWidth>
-      <Deferred resolve={shops} fallback={<TableSkeleton rows={10} columns={5} />} errorTitle="The shops list">
-        {(resolved) =>
-          resolved.length === 0 ? (
-            <EmptyState heading="No shops yet" icon={Store}>
-              The first install writes a row here.
-            </EmptyState>
-          ) : (
-            <ShopsTable shops={resolved} />
-          )
-        }
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <Deferred
+        resolve={shops}
+        fallback={<TableSkeleton rows={10} columns={5} inset />}
+        errorTitle="The shops list"
+        insetError
+      >
+        {(resolved) => <ShopsTable shops={resolved} />}
       </Deferred>
-    </Page>
+    </div>
   );
 }

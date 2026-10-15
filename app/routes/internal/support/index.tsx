@@ -5,8 +5,8 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 export const meta: MetaFunction = () => [
   { title: "Support · Staff Console" },
 ];
-import { BlockStack, Button, EmptyState, Page } from "ngk-dashboard";
-import { LifeBuoy } from "lucide-react";
+import { Button } from "~/internal/components/ui/button";
+import { Plus } from "lucide-react";
 import { requireAdminUser } from "~/services/admin-auth.server";
 import { adminUsers } from "~/wiring.server";
 import { supportService } from "~/wiring.server";
@@ -71,35 +71,42 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return { saved: true as const };
 };
 
+function NewTicketButton() {
+  return (
+    <Button size="sm" asChild>
+      <Link to="/internal/support/new">
+        <Plus />
+        <span className="hidden lg:inline">New ticket</span>
+        <span className="lg:hidden">New</span>
+      </Link>
+    </Button>
+  );
+}
+
 export default function InternalSupport() {
   const { tickets, notifySupport } = useLoaderData<typeof loader>();
 
   return (
-    <Page
-      title="Support"
-      subtitle="Open tickets from every shop, most recent first."
-      fullWidth
-      primaryAction={
-        <Button asChild>
-          <Link to="/internal/support/new">New ticket</Link>
-        </Button>
-      }
-    >
-      <BlockStack gap={4}>
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className="px-4 lg:px-6">
         <NotifyCard notifySupport={notifySupport} />
+      </div>
 
-        <Deferred resolve={tickets} fallback={<TableSkeleton rows={8} columns={6} />} errorTitle="Open tickets">
-          {(resolved) =>
-            resolved.length === 0 ? (
-              <EmptyState heading="No open tickets" icon={LifeBuoy}>
-                When a merchant files a ticket from their admin, it lands here.
-              </EmptyState>
-            ) : (
-              <TicketTable tickets={resolved} />
-            )
-          }
-        </Deferred>
-      </BlockStack>
-    </Page>
+      <Deferred
+        resolve={tickets}
+        fallback={
+          // The toolbar's action is there from the first paint, ahead of its rows.
+          <div className="flex flex-col gap-4 px-4 lg:px-6">
+            <div className="flex justify-end">
+              <NewTicketButton />
+            </div>
+            <TableSkeleton rows={8} columns={6} />
+          </div>
+        }
+        errorTitle="Open tickets"
+      >
+        {(resolved) => <TicketTable tickets={resolved} toolbarEnd={<NewTicketButton />} />}
+      </Deferred>
+    </div>
   );
 }

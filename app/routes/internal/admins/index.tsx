@@ -5,7 +5,6 @@ export const meta: MetaFunction = () => [
   { title: "Admins · Staff Console" },
 ];
 import { useState } from "react";
-import { BlockStack, Page } from "ngk-dashboard";
 import { requireOwner } from "~/services/admin-auth.server";
 import { adminUsers } from "~/wiring.server";
 // Type-only: erased at build, so it does not pull the server module into the
@@ -13,11 +12,11 @@ import { adminUsers } from "~/wiring.server";
 import type { AdminErrorReason } from "~/services/admin-management.server";
 import type { SafeAdminUser } from "~/db/schema";
 import { INTENTS, SUCCESS_KEY, readIntent, type Intent } from "./intents.server";
-import { AdminAlerts, useAdminFeedback } from "./feedback";
+import { AdminAlerts, useAdminFeedback, type AdminActionResult, type AdminFeedback } from "./feedback";
 import { Deferred, TableSkeleton } from "~/internal/components";
 import { streamRegion } from "~/internal/stream-region.server";
 import { AdminsTable } from "./table";
-import { AddAdminCard } from "./add-form";
+import { AddAdminDialog } from "./add-form";
 import { RemoveAdminDialog } from "./remove-dialog";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -58,6 +57,35 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   });
 };
 
+interface AddDialogState {
+  readonly open: boolean;
+  /** The action result that was current when the state was last reconciled. */
+  readonly seen: AdminActionResult | undefined;
+  /** Whether a result has arrived since the dialog opened. */
+  readonly fresh: boolean;
+}
+
+/**
+ * Drives the add dialog from the action result: a NEW result that succeeded
+ * closes it; a new error keeps it open and is shown inside it (so the page-level
+ * alert does not repeat it). Reconciled during render, the pattern React
+ * documents for state that follows a prop, so no effect writes state.
+ */
+function useAddDialog(result: AdminActionResult | undefined, feedback: AdminFeedback) {
+  const [state, setState] = useState<AddDialogState>({ open: false, seen: result, fresh: false });
+  if (state.seen !== result) {
+    setState({ open: state.open && result?.success !== "created", seen: result, fresh: state.open });
+  }
+  const error = state.open && state.fresh ? feedback.errorMessage : undefined;
+  return {
+    open: state.open,
+    error,
+    onOpenChange: (open: boolean) => setState({ open, seen: result, fresh: false }),
+    // The error is shown in the dialog, so the page-level alert must not repeat it.
+    pageFeedback: { errorMessage: error ? undefined : feedback.errorMessage, successMessage: feedback.successMessage },
+  };
+}
+
 export default function Admins() {
   const { actor, admins, resetSuccess } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
@@ -77,28 +105,51 @@ export default function Admins() {
   // pending confirmation, so a single piece of state describes it.
   const [confirming, setConfirming] = useState<SafeAdminUser | null>(null);
 
+  const addDialog = useAddDialog(actionData, feedback);
+
+  const toolbarStart = <p className="text-sm text-muted-foreground">Who can sign in to this console</p>;
+  const addAdmin = (
+    <AddAdminDialog
+      open={addDialog.open}
+      onOpenChange={addDialog.onOpenChange}
+      busy={busy}
+      loading={isPending("create")}
+      error={addDialog.error}
+    />
+  );
+
   return (
-    <Page title="Admins" subtitle="Who can sign in to this console" fullWidth>
-      <BlockStack gap={4}>
-        <AdminAlerts feedback={feedback} resetSuccess={resetSuccess} />
-        <Deferred resolve={admins} fallback={<TableSkeleton rows={4} columns={6} />} errorTitle="The admins list">
-          {(resolved) => (
-            <AdminsTable
-              admins={resolved}
-              actorId={actor.id}
-              busy={busy}
-              isPending={isPending}
-              onRemove={setConfirming}
-            />
-          )}
-        </Deferred>
-        <AddAdminCard busy={busy} loading={isPending("create")} />
-        <RemoveAdminDialog
-          confirming={confirming}
-          busy={busy}
-          onClose={() => setConfirming(null)}
-        />
-      </BlockStack>
-    </Page>
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className="flex flex-col gap-4 px-4 empty:hidden lg:px-6">
+        <AdminAlerts feedback={addDialog.pageFeedback} resetSuccess={resetSuccess} />
+      </div>
+      <Deferred
+        resolve={admins}
+        fallback={
+          // The same toolbar the table renders, so the action is there from the first paint.
+          <div className="flex flex-col gap-4 px-4 lg:px-6">
+            <div className="flex items-center justify-between gap-2">
+              {toolbarStart}
+              {addAdmin}
+            </div>
+            <TableSkeleton rows={4} columns={6} />
+          </div>
+        }
+        errorTitle="The admins list"
+      >
+        {(resolved) => (
+          <AdminsTable
+            admins={resolved}
+            actorId={actor.id}
+            busy={busy}
+            isPending={isPending}
+            onRemove={setConfirming}
+            toolbarStart={toolbarStart}
+            toolbarEnd={addAdmin}
+          />
+        )}
+      </Deferred>
+      <RemoveAdminDialog confirming={confirming} busy={busy} onClose={() => setConfirming(null)} />
+    </div>
   );
 }

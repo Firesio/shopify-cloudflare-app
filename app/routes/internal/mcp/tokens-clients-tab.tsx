@@ -1,263 +1,270 @@
+import type { ReactNode } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
+import { KeyRound, Plug } from "lucide-react";
+import { Badge } from "~/internal/components/ui/badge";
 import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "ngk-dashboard";
-import { Form } from "react-router";
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "~/internal/components/ui/empty";
+import { DataTable, SortableHeader } from "~/internal/components/data-table";
 import type { listPersonalAccessTokens } from "~/services/mcp/tokens.server";
 import type { listOAuthClients } from "~/services/mcp/oauth.server";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
 import type { Locale } from "~/i18n/config";
+import { RightAlignedSortableHeader } from "../table-columns";
 import { CreateTokenDialog } from "./create-token-dialog";
+import { RevokeAction } from "./revoke-action";
 
 const LOCALE: Locale = "en";
 
 type Token = Awaited<ReturnType<typeof listPersonalAccessTokens>>[number];
 type Client = Awaited<ReturnType<typeof listOAuthClients>>[number];
 
-function RevokeForm({
-  intent,
-  idField,
-  id,
-  isSubmitting,
-}: {
-  intent: "revoke_token" | "revoke_client";
-  idField: "token_id" | "client_id";
-  id: string;
-  isSubmitting: boolean;
-}) {
+type TokenStatus = "Active" | "Expired" | "Revoked";
+
+function tokenStatus(token: Token, now: number): TokenStatus {
+  if (token.revokedAt !== null) return "Revoked";
+  if (token.expiresAt !== null && now > token.expiresAt) return "Expired";
+  return "Active";
+}
+
+function StatusBadge({ status }: { status: TokenStatus }) {
+  return <Badge variant={status === "Revoked" ? "destructive" : "outline"}>{status}</Badge>;
+}
+
+/** The heading that sits where dashboard-01 puts the view switcher: left of the toolbar. */
+function SectionHeading({ title, description }: { title: string; description: string }) {
   return (
-    <Form method="post" className="inline">
-      <input type="hidden" name="intent" value={intent} />
-      <input type="hidden" name={idField} value={id} />
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-7 text-xs text-destructive hover:text-destructive"
-        disabled={isSubmitting}
-      >
-        Revoke
-      </Button>
-    </Form>
+    <div className="flex min-w-0 flex-col">
+      <h3 className="text-base font-semibold">{title}</h3>
+      <p className="text-sm text-muted-foreground">{description}</p>
+    </div>
   );
 }
 
-function ActiveBadge() {
+function EmptyList({ icon, title, description }: { icon: ReactNode; title: string; description: string }) {
   return (
-    <Badge variant="outline" className="text-emerald-600 border-emerald-300">
-      Active
-    </Badge>
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">{icon}</EmptyMedia>
+        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   );
 }
 
-function TokenStatusBadge({ isRevoked, isExpired }: { isRevoked: boolean; isExpired: boolean }) {
-  if (isRevoked) return <Badge variant="destructive">Revoked</Badge>;
-  if (isExpired) return <Badge variant="outline">Expired</Badge>;
-  return <ActiveBadge />;
+const TOKEN_COLUMNS: ColumnDef<Token>[] = [
+  {
+    id: "label",
+    accessorFn: (token) => token.label,
+    header: ({ column }) => <SortableHeader column={column} title="Label" />,
+    enableHiding: false,
+    cell: ({ row }) => <span className="font-medium">{row.original.label}</span>,
+  },
+  {
+    id: "prefix",
+    accessorFn: (token) => token.tokenPrefix,
+    header: "Prefix",
+    cell: ({ row }) => <span className="font-mono text-xs">{row.original.tokenPrefix}...</span>,
+  },
+  {
+    id: "scopes",
+    accessorFn: (token) => token.scopes.join(" "),
+    header: "Scopes",
+    enableSorting: false,
+    cell: ({ row }) => (
+      <div className="flex flex-wrap gap-1">
+        {row.original.scopes.map((scope) => (
+          <Badge key={scope} variant="outline">
+            {scope}
+          </Badge>
+        ))}
+      </div>
+    ),
+  },
+  {
+    // A token that was never used sorts as the oldest.
+    id: "last used",
+    accessorFn: (token) => token.lastUsedAt ?? 0,
+    header: ({ column }) => <RightAlignedSortableHeader column={column} title="Last used" />,
+    cell: ({ row }) => (
+      <div className="text-right text-xs tabular-nums text-muted-foreground">
+        {row.original.lastUsedAt ? formatDateTime(LOCALE, row.original.lastUsedAt, UTC) : "Never"}
+      </div>
+    ),
+  },
+];
+
+/** Status depends on the clock, which the loader hands the page as `now`. */
+function tokenStatusColumn(now: number): ColumnDef<Token> {
+  return {
+    id: "status",
+    accessorFn: (token) => tokenStatus(token, now),
+    header: ({ column }) => <SortableHeader column={column} title="Status" />,
+    cell: ({ row }) => <StatusBadge status={tokenStatus(row.original, now)} />,
+  };
 }
 
-function TokenRowView({
-  tok,
-  now,
-  isSubmitting,
-}: {
-  tok: Token;
-  now: number;
-  isSubmitting: boolean;
-}) {
-  const isRevoked = tok.revokedAt !== null;
-  const isExpired = tok.expiresAt !== null && now > tok.expiresAt;
-  return (
-    <TableRow>
-      <TableCell className="font-medium">{tok.label}</TableCell>
-      <TableCell className="font-mono text-xs">{tok.tokenPrefix}...</TableCell>
-      <TableCell>
-        <div className="flex flex-wrap gap-1">
-          {tok.scopes.map((s) => (
-            <Badge key={s} variant="outline" className="text-[10px]">
-              {s}
-            </Badge>
-          ))}
-        </div>
-      </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
-        {tok.lastUsedAt ? formatDateTime(LOCALE, tok.lastUsedAt, UTC) : "Never"}
-      </TableCell>
-      <TableCell>
-        <TokenStatusBadge isRevoked={isRevoked} isExpired={isExpired} />
-      </TableCell>
-      <TableCell className="text-right">
-        {!isRevoked && (
-          <RevokeForm intent="revoke_token" idField="token_id" id={tok.id} isSubmitting={isSubmitting} />
-        )}
-      </TableCell>
-    </TableRow>
-  );
-}
+const TOKEN_ACTIONS_COLUMN: ColumnDef<Token> = {
+  id: "actions",
+  header: () => <span className="sr-only">Actions</span>,
+  enableSorting: false,
+  enableHiding: false,
+  cell: ({ row }) =>
+    row.original.revokedAt === null ? (
+      <div className="flex justify-end">
+        <RevokeAction
+          intent="revoke_token"
+          idField="token_id"
+          id={row.original.id}
+          name={row.original.label}
+          noun="token"
+        />
+      </div>
+    ) : null,
+};
 
 function TokensSection({
   tokens,
-  isSubmitting,
   dialogOpen,
   setDialogOpen,
   now,
 }: {
   tokens: Token[];
-  isSubmitting: boolean;
   dialogOpen: boolean;
   setDialogOpen: (o: boolean) => void;
   now: number;
 }) {
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-base font-semibold">Personal Access Tokens</h3>
-          <p className="text-xs text-muted-foreground">
-            Static bearer tokens with customizable scopes for scripts and AI agents.
-          </p>
+    <DataTable
+      columns={[...TOKEN_COLUMNS, tokenStatusColumn(now), TOKEN_ACTIONS_COLUMN]}
+      data={tokens}
+      getRowId={(token) => token.id}
+      stickyEnd="actions"
+      compactHidden={["prefix", "scopes", "last used"]}
+      toolbarStart={
+        <SectionHeading
+          title="Personal access tokens"
+          description="Static bearer tokens with customizable scopes for scripts and AI agents."
+        />
+      }
+      toolbarEnd={<CreateTokenDialog dialogOpen={dialogOpen} setDialogOpen={setDialogOpen} />}
+      empty={
+        <EmptyList
+          icon={<KeyRound />}
+          title="No personal access tokens yet"
+          description="Generate a token to let a script or AI agent call the MCP server and REST API."
+        />
+      }
+    />
+  );
+}
+
+const CLIENT_COLUMNS: ColumnDef<Client>[] = [
+  {
+    id: "client name",
+    accessorFn: (client) => client.clientName,
+    header: ({ column }) => <SortableHeader column={column} title="Client name" />,
+    enableHiding: false,
+    cell: ({ row }) => <span className="font-medium">{row.original.clientName}</span>,
+  },
+  {
+    id: "client id",
+    accessorFn: (client) => client.clientId,
+    header: "Client ID",
+    cell: ({ row }) => <span className="font-mono text-xs">{row.original.clientId}</span>,
+  },
+  {
+    id: "redirect uris",
+    accessorFn: (client) => client.redirectUris.join(", "),
+    header: "Redirect URIs",
+    enableSorting: false,
+    cell: ({ row }) => (
+      <span className="block max-w-xs truncate text-xs text-muted-foreground" title={row.original.redirectUris.join(", ")}>
+        {row.original.redirectUris.join(", ")}
+      </span>
+    ),
+  },
+  {
+    id: "registered",
+    accessorFn: (client) => client.createdAt,
+    header: ({ column }) => <RightAlignedSortableHeader column={column} title="Registered" />,
+    cell: ({ row }) => (
+      <div className="text-right text-xs tabular-nums text-muted-foreground">
+        {formatDateTime(LOCALE, row.original.createdAt, UTC)}
+      </div>
+    ),
+  },
+  {
+    id: "status",
+    accessorFn: (client) => (client.revokedAt === null ? "Active" : "Revoked"),
+    header: ({ column }) => <SortableHeader column={column} title="Status" />,
+    cell: ({ row }) => <StatusBadge status={row.original.revokedAt === null ? "Active" : "Revoked"} />,
+  },
+  {
+    id: "actions",
+    header: () => <span className="sr-only">Actions</span>,
+    enableSorting: false,
+    enableHiding: false,
+    cell: ({ row }) =>
+      row.original.revokedAt === null ? (
+        <div className="flex justify-end">
+          <RevokeAction
+            intent="revoke_client"
+            idField="client_id"
+            id={row.original.id}
+            name={row.original.clientName}
+            noun="client"
+          />
         </div>
-        <CreateTokenDialog dialogOpen={dialogOpen} setDialogOpen={setDialogOpen} />
-      </div>
+      ) : null,
+  },
+];
 
-      <Card>
-        <CardContent className="overflow-x-auto p-0">
-          <Table className="[&_th]:h-10 [&_th]:px-4 [&_td]:px-4 [&_td]:py-2.5">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Label</TableHead>
-                <TableHead>Prefix</TableHead>
-                <TableHead>Scopes</TableHead>
-                <TableHead>Last Used</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tokens.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
-                    No personal access tokens generated yet.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                tokens.map((tok) => (
-                  <TokenRowView key={tok.id} tok={tok} now={now} isSubmitting={isSubmitting} />
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function ClientRowView({ cli, isSubmitting }: { cli: Client; isSubmitting: boolean }) {
-  const isRevoked = cli.revokedAt !== null;
+function ClientsSection({ clients }: { clients: Client[] }) {
   return (
-    <TableRow>
-      <TableCell className="font-medium">{cli.clientName}</TableCell>
-      <TableCell className="font-mono text-xs">{cli.clientId}</TableCell>
-      <TableCell className="text-xs text-muted-foreground max-w-xs truncate">
-        {cli.redirectUris.join(", ")}
-      </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
-        {formatDateTime(LOCALE, cli.createdAt, UTC)}
-      </TableCell>
-      <TableCell>
-        {isRevoked ? <Badge variant="destructive">Revoked</Badge> : <ActiveBadge />}
-      </TableCell>
-      <TableCell className="text-right">
-        {!isRevoked && (
-          <RevokeForm intent="revoke_client" idField="client_id" id={cli.id} isSubmitting={isSubmitting} />
-        )}
-      </TableCell>
-    </TableRow>
-  );
-}
-
-function ClientsSection({
-  clients,
-  isSubmitting,
-}: {
-  clients: Client[];
-  isSubmitting: boolean;
-}) {
-  return (
-    <div>
-      <div className="mb-4">
-        <h3 className="text-base font-semibold">Registered OAuth 2.0 Clients</h3>
-        <p className="text-xs text-muted-foreground">
-          Dynamically registered agents via RFC 7591.
-        </p>
-      </div>
-      <Card>
-        <CardContent className="overflow-x-auto p-0">
-          <Table className="[&_th]:h-10 [&_th]:px-4 [&_td]:px-4 [&_td]:py-2.5">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Client Name</TableHead>
-                <TableHead>Client ID</TableHead>
-                <TableHead>Redirect URIs</TableHead>
-                <TableHead>Registered</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {clients.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
-                    No OAuth clients registered yet. Connect an agent via Zero-Touch OAuth to see it here.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                clients.map((cli) => (
-                  <ClientRowView key={cli.id} cli={cli} isSubmitting={isSubmitting} />
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
+    <DataTable
+      columns={CLIENT_COLUMNS}
+      data={clients}
+      getRowId={(client) => client.id}
+      stickyEnd="actions"
+      compactHidden={["client id", "redirect uris", "registered"]}
+      toolbarStart={
+        <SectionHeading title="Registered OAuth 2.0 clients" description="Dynamically registered agents via RFC 7591." />
+      }
+      empty={
+        <EmptyList
+          icon={<Plug />}
+          title="No OAuth clients registered yet"
+          description="Connect an agent via Zero-Touch OAuth to see it here."
+        />
+      }
+    />
   );
 }
 
 export function TokensClientsTab({
   tokens,
   clients,
-  isSubmitting,
   dialogOpen,
   setDialogOpen,
   now,
 }: {
   tokens: Token[];
   clients: Client[];
-  isSubmitting: boolean;
   dialogOpen: boolean;
   setDialogOpen: (o: boolean) => void;
   now: number;
 }) {
   return (
-    <div className="space-y-8">
-      <TokensSection
-        tokens={tokens}
-        isSubmitting={isSubmitting}
-        dialogOpen={dialogOpen}
-        setDialogOpen={setDialogOpen}
-        now={now}
-      />
-      <ClientsSection clients={clients} isSubmitting={isSubmitting} />
+    <div className="flex flex-col gap-8">
+      <TokensSection tokens={tokens} dialogOpen={dialogOpen} setDialogOpen={setDialogOpen} now={now} />
+      <ClientsSection clients={clients} />
     </div>
   );
 }

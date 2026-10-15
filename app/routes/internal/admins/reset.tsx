@@ -1,4 +1,5 @@
 import {
+  Link,
   data,
   redirect,
   useActionData,
@@ -10,8 +11,19 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 export const meta: MetaFunction = () => [
   { title: "Reset Admin Password · Staff Console" },
 ];
-import { Alert, AlertDescription, BlockStack, CardSkeleton, EmptyState, Page, Text } from "ngk-dashboard";
-import { UserX } from "lucide-react";
+import { CircleAlert, UserX } from "lucide-react";
+import { Alert, AlertDescription } from "~/internal/components/ui/alert";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "~/internal/components/ui/breadcrumb";
+import { Card, CardContent, CardHeader } from "~/internal/components/ui/card";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "~/internal/components/ui/empty";
+import { Skeleton } from "~/internal/components/ui/skeleton";
 import { requireOwner } from "~/services/admin-auth.server";
 import { adminUsers, appRuntime } from "~/wiring.server";
 import {
@@ -85,39 +97,64 @@ export default function ResetAdminPassword() {
   const error = actionData?.error;
 
   return (
-    <Page
-      title="Reset admin password"
-      narrowWidth
-      backAction={{ label: "Admins", href: "/internal/admins" }}
-    >
-      <BlockStack gap={4}>
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className="flex flex-col gap-2 px-4 lg:px-6">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/internal/admins">Admins</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbPage>Reset password</BreadcrumbPage>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <h1 className="text-2xl font-semibold tracking-tight">Reset admin password</h1>
+      </div>
+      <div className="flex max-w-2xl flex-col gap-4 px-4 lg:px-6">
         {error && (
           <Alert variant="destructive">
+            <CircleAlert />
             <AlertDescription>
-              {error === "mismatch"
-                ? "The new passwords do not match."
-                : ADMIN_ERRORS[error]}
+              {error === "mismatch" ? "The new passwords do not match." : ADMIN_ERRORS[error]}
             </AlertDescription>
           </Alert>
         )}
 
-        <Deferred resolve={target} resetKey={targetId} fallback={<CardSkeleton lines={3} />} errorTitle="This admin">
+        <Deferred resolve={target} resetKey={targetId} fallback={<ResetSkeleton />} errorTitle="This admin">
           {(loaded) =>
             loaded ? (
-              <BlockStack gap={4}>
-                <Text as="h2" className="text-lg font-semibold">
-                  {`Reset the password for ${loaded.name}?`}
-                </Text>
-                <ResetPasswordCard busy={busy} />
-              </BlockStack>
+              <ResetPasswordCard name={loaded.name} busy={busy} />
             ) : (
-              <EmptyState heading="Admin not found" icon={UserX}>
-                That account no longer exists.
-              </EmptyState>
+              <Empty className="border">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <UserX />
+                  </EmptyMedia>
+                  <EmptyTitle>Admin not found</EmptyTitle>
+                  <EmptyDescription>That account no longer exists.</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             )
           }
         </Deferred>
-      </BlockStack>
-    </Page>
+      </div>
+    </div>
+  );
+}
+
+function ResetSkeleton() {
+  return (
+    <Card aria-hidden>
+      <CardHeader>
+        <Skeleton className="h-5 w-64" />
+        <Skeleton className="h-4 w-full" />
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-9 w-full" />
+      </CardContent>
+    </Card>
   );
 }

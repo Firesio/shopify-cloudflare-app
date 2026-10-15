@@ -59,6 +59,18 @@ async function render(data: { tickets: Row[]; notifySupport: boolean }) {
   return html;
 }
 
+/** The text of each body row, so a label is asserted in the row it belongs to. */
+function bodyRows(html: string): string[] {
+  const body = html.match(/<tbody[^>]*>(.*?)<\/tbody>/s)?.[1] ?? "";
+  return [...body.matchAll(/<tr[^>]*>(.*?)<\/tr>/gs)].map((match) => match[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+}
+
+/** The header cells' text, in column order. */
+function headers(html: string): string[] {
+  const head = html.match(/<thead[^>]*>(.*?)<\/thead>/s)?.[1] ?? "";
+  return [...head.matchAll(/<th[^>]*>(.*?)<\/th>/gs)].map((match) => match[1].replace(/<[^>]+>/g, "").trim());
+}
+
 describe("the internal support queue", () => {
   it("shows the shop, subject and the plan that shop is on", async () => {
     // The plan column is the point of this screen: a billing question has to be
@@ -71,8 +83,9 @@ describe("the internal support queue", () => {
 
   it("labels status by whose turn it is, not by a raw enum", async () => {
     const html = await render({ tickets: [row({ status: "open" })], notifySupport: true });
-    expect(html).toContain("Needs reply");
-    expect(html).not.toContain(">open<");
+    const [ticket] = bodyRows(html);
+    expect(ticket).toContain("Needs reply");
+    expect(ticket).not.toMatch(/\bopen\b/);
   });
 
   it("says a thread is waiting on the merchant once we have replied", async () => {
@@ -80,16 +93,35 @@ describe("the internal support queue", () => {
       tickets: [row({ status: "answered" })],
       notifySupport: true,
     });
-    expect(html).toContain("Waiting on merchant");
+    const [ticket] = bodyRows(html);
+    expect(ticket).toContain("Waiting on merchant");
+    expect(ticket).not.toContain("Needs reply");
+  });
+
+  it("offers the views with a count each, and a way to start a ticket", async () => {
+    const html = await render({
+      tickets: [row({ id: "a", status: "open" }), row({ id: "b", status: "open" }), row({ id: "c", status: "answered" })],
+      notifySupport: true,
+    });
+    const tab = (name: string) => html.match(new RegExp(`<button[^>]*role="tab"[^>]*>${name}<span[^>]*>(\\d+)</span>`))?.[1];
+    expect(tab("All")).toBe("3");
+    expect(tab("Needs reply")).toBe("2");
+    expect(tab("Waiting on merchant")).toBe("1");
+    expect(html).toMatch(/<a[^>]*href="\/internal\/support\/new"/);
+    expect(bodyRows(html)).toHaveLength(3);
+  });
+
+  it("does not repeat the page title in the body — the shell header shows it", async () => {
+    const html = await render({ tickets: [row()], notifySupport: true });
+    expect(html).not.toContain("<h1");
   });
 
   it("marks an unread thread, and leaves a read one unmarked", async () => {
     const unread = await render({ tickets: [row({ unread: true })], notifySupport: true });
-    expect(unread).toContain("New");
+    expect(bodyRows(unread)[0]).toMatch(/Checkout is broken New\b/);
 
     const read = await render({ tickets: [row({ unread: false })], notifySupport: true });
-    // The word only appears as the unread badge on this screen.
-    expect(read).not.toContain(">New<");
+    expect(bodyRows(read)[0]).not.toMatch(/\bNew\b/);
   });
 
   it("falls back to the shop domain when no shop name was captured", async () => {
@@ -100,14 +132,30 @@ describe("the internal support queue", () => {
     expect(html).toContain("alpha.myshopify.com");
   });
 
-  it("shows an empty state rather than a bare table when nothing is open", async () => {
+  it("shows an empty state in place of rows when nothing is open", async () => {
     const html = await render({ tickets: [], notifySupport: true });
-    expect(html).toContain("No open tickets");
-    expect(html).not.toContain("Last activity");
+    const rows = bodyRows(html);
+    // One row: the empty state itself, spanning the table, not a ticket.
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toContain("No open tickets");
+    expect(rows[0]).not.toContain("Checkout is broken");
+  });
+
+  it("lays the columns out in the order the queue is read", async () => {
+    const html = await render({ tickets: [row()], notifySupport: true });
+    expect(headers(html)).toEqual(["Subject", "Shop", "Plan", "Type", "Status", "Last activity"]);
   });
 
   it("reflects the signed-in person's own email preference", async () => {
     const on = await render({ tickets: [], notifySupport: true });
     expect(on).toContain("Email me about tickets");
+    // The switch is named by that label (label[for] -> button#id), and reflects the saved value.
+    expect(on).toMatch(/<label[^>]*for="notify-support"[^>]*>Email me about tickets<\/label>/);
+    const switchTag = (html: string) => html.match(/<button[^>]*role="switch"[^>]*>/)?.[0] ?? "";
+    expect(switchTag(on)).toContain('id="notify-support"');
+    expect(switchTag(on)).toContain('aria-checked="true"');
+
+    const off = await render({ tickets: [], notifySupport: false });
+    expect(switchTag(off)).toContain('aria-checked="false"');
   });
 });

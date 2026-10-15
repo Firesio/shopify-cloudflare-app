@@ -1,6 +1,16 @@
-import { Alert, AlertDescription, AlertTitle, Button } from "ngk-dashboard";
-import { Check, Copy, Key } from "lucide-react";
+import { Check, Copy, KeyRound } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "~/internal/components/ui/alert";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "~/internal/components/ui/input-group";
 
+/**
+ * Shown once, inline (so it survives without JavaScript): the raw token is
+ * never stored and cannot be displayed again.
+ */
 export function CreatedTokenAlert({
   createdToken,
   tokenLabel,
@@ -13,35 +23,35 @@ export function CreatedTokenAlert({
   onCopy: (text: string) => void;
 }) {
   return (
-    <Alert className="border-emerald-500 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-100">
-      <Key className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-      <div className="flex-1">
-        <AlertTitle className="font-semibold text-emerald-800 dark:text-emerald-200">
-          Personal Access Token Created: {tokenLabel}
-        </AlertTitle>
-        <AlertDescription className="mt-2 space-y-2">
-          <p className="text-xs">
-            Copy this token now. For security, it will never be displayed again.
-          </p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 p-2 bg-background border rounded text-xs select-all font-mono">
-              {createdToken}
-            </code>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => onCopy(createdToken)}
-            >
+    <Alert>
+      <KeyRound />
+      <AlertTitle className="line-clamp-none">Personal access token created: {tokenLabel}</AlertTitle>
+      <AlertDescription className="flex flex-col gap-3">
+        <p>Copy this token now. For security, it will never be displayed again.</p>
+        <InputGroup>
+          <InputGroupInput
+            readOnly
+            value={createdToken}
+            aria-label="Personal access token"
+            className="font-mono text-xs"
+          />
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton size="sm" onClick={() => onCopy(createdToken)}>
               {copiedText === createdToken ? (
-                <Check className="h-4 w-4 text-emerald-600" />
+                <>
+                  <Check className="text-emerald-600" />
+                  Copied
+                </>
               ) : (
-                <Copy className="h-4 w-4" />
+                <>
+                  <Copy />
+                  Copy
+                </>
               )}
-            </Button>
-          </div>
-        </AlertDescription>
-      </div>
+            </InputGroupButton>
+          </InputGroupAddon>
+        </InputGroup>
+      </AlertDescription>
     </Alert>
   );
 }

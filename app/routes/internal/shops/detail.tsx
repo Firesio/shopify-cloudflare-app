@@ -1,8 +1,20 @@
 import { shops, adminSessionUsers, adminUsers } from "~/wiring.server";
-import { useLoaderData } from "react-router";
+import { useEffect, useRef } from "react";
+import { Link, useLoaderData, useNavigation } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
-import { CardSkeleton, EmptyState, Page } from "ngk-dashboard";
 import { Store } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "~/internal/components/ui/breadcrumb";
+import { Card, CardContent, CardHeader } from "~/internal/components/ui/card";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "~/internal/components/ui/empty";
+import { Skeleton } from "~/internal/components/ui/skeleton";
 import { requireAdminUser } from "~/services/admin-auth.server";
 import { setShopDevStatus, grantShopPromoPlan, revokeShopPromoPlan } from "~/services/internal-admin/ops.server";
 import { Deferred, TableSkeleton } from "~/internal/components";
@@ -51,20 +63,73 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   return null;
 };
 
+/** What the merchant-facing outcome of each intent is called in its confirmation toast. */
+function intentToastMessage(intent: string): string | undefined {
+  switch (intent) {
+    case "toggle_dev_status":
+      return "Store type updated.";
+    case "grant_promo":
+      return "Promo granted.";
+    case "revoke_promo":
+      return "Promo revoked.";
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * The actions here return no body, so there is no `actionData` to key a toast
+ * on. A submission is finished when the navigation that carried an intent
+ * returns to idle; a failing action throws to the error boundary instead, so
+ * reaching idle with a remembered intent means it succeeded. The toast layers
+ * on top of the page simply showing the new data.
+ */
+function useIntentToast() {
+  const navigation = useNavigation();
+  const submitted = navigation.formData?.get("intent");
+  const intent = typeof submitted === "string" ? submitted : null;
+  const previous = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (previous.current !== null && intent === null) {
+      const message = intentToastMessage(previous.current);
+      if (message) toast.success(message);
+    }
+    previous.current = intent;
+  }, [intent]);
+}
+
 export default function ShopDetail() {
   const { shopDomain, detail } = useLoaderData<typeof loader>();
+  useIntentToast();
 
   return (
-    <Page
-      title={shopDomain}
-      subtitle="Install history and subscription activity."
-      backAction={{ label: "Shops", href: "/internal/shops" }}
-      fullWidth
-    >
-      <Deferred resolve={detail} resetKey={shopDomain} fallback={<DetailSkeleton />} errorTitle="This shop">
-        {(loaded) => (loaded ? <ShopDetailBody {...loaded} /> : <ShopNotFound shopDomain={shopDomain} />)}
-      </Deferred>
-    </Page>
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className="flex flex-col gap-2 px-4 lg:px-6">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/internal/shops">Shops</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{shopDomain}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{shopDomain}</h1>
+          <p className="text-sm text-muted-foreground">Install history and subscription activity.</p>
+        </div>
+      </div>
+      <div className="px-4 lg:px-6">
+        <Deferred resolve={detail} resetKey={shopDomain} fallback={<DetailSkeleton />} errorTitle="This shop">
+          {(loaded) => (loaded ? <ShopDetailBody {...loaded} /> : <ShopNotFound shopDomain={shopDomain} />)}
+        </Deferred>
+      </div>
+    </div>
   );
 }
 
@@ -81,7 +146,7 @@ function ShopDetailBody({
   now,
 }: LoadedShop) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 md:gap-6">
       {reconciliation?.lastFailedAt && (
         <ReconciliationFailureCard
           failureDetail={reconciliation.failureDetail}
@@ -104,18 +169,34 @@ function ShopDetailBody({
 
 function ShopNotFound({ shopDomain }: { shopDomain: string }) {
   return (
-    <EmptyState heading="Shop not found" icon={Store}>
-      {shopDomain} has never installed this app.
-    </EmptyState>
+    <Empty className="border">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Store />
+        </EmptyMedia>
+        <EmptyTitle>Shop not found</EmptyTitle>
+        <EmptyDescription>{`${shopDomain} has never installed this app.`}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   );
 }
 
-/** Mirrors the body: summary strip, promo card, then two history tables. */
+/** Mirrors the body: summary and promo cards (a title line plus rows), then two history tables. */
 function DetailSkeleton() {
   return (
-    <div aria-hidden className="flex flex-col gap-4">
-      <CardSkeleton lines={2} header={false} />
-      <CardSkeleton lines={3} />
+    <div aria-hidden className="flex flex-col gap-4 md:gap-6">
+      {[2, 3].map((lines) => (
+        <Card key={lines}>
+          <CardHeader>
+            <Skeleton className="h-5 w-48" />
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {Array.from({ length: lines }, (_, index) => (
+              <Skeleton key={index} className="h-4 w-full" />
+            ))}
+          </CardContent>
+        </Card>
+      ))}
       <TableSkeleton rows={4} columns={4} />
       <TableSkeleton rows={3} columns={4} />
     </div>

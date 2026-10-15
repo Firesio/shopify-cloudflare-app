@@ -1,6 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { Await } from "react-router";
-import { Card } from "ngk-dashboard";
+import { Alert } from "~/internal/components/ui/alert";
 
 /**
  * A region that failed to load. It says so, rather than showing a plausible
@@ -9,11 +9,9 @@ import { Card } from "ngk-dashboard";
  */
 export function RegionError({ title }: { title: string }) {
   return (
-    <Card>
-      <div role="alert" className="p-6 text-sm text-muted-foreground">
-        {title} could not be loaded. Reload the page to try again.
-      </div>
-    </Card>
+    <Alert variant="destructive" className="grid-cols-1">
+      {title} could not be loaded. Reload the page to try again.
+    </Alert>
   );
 }
 
@@ -31,6 +29,8 @@ interface DeferredProps<T> {
    * fresh boundary, so the skeleton appears instead.
    */
   readonly resetKey?: string;
+  /** Pad the error state with the page gutters, for regions that pad themselves (a `DataTable`). */
+  readonly insetError?: boolean;
   readonly children: (value: T) => ReactNode;
 }
 
@@ -41,10 +41,11 @@ interface DeferredProps<T> {
  * already-visible data stays up until the fresh data lands instead of flashing
  * the skeleton.
  */
-export function Deferred<T>({ resolve, fallback, errorTitle, resetKey, children }: DeferredProps<T>) {
+export function Deferred<T>({ resolve, fallback, errorTitle, resetKey, insetError = false, children }: DeferredProps<T>) {
+  const error = <RegionError title={errorTitle} />;
   return (
     <Suspense key={resetKey} fallback={fallback}>
-      <Await resolve={resolve} errorElement={<RegionError title={errorTitle} />}>
+      <Await resolve={resolve} errorElement={insetError ? <div className="px-4 lg:px-6">{error}</div> : error}>
         {children}
       </Await>
     </Suspense>

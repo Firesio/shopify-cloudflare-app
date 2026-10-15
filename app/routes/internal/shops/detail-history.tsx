@@ -1,15 +1,6 @@
-import {
-  Badge,
-  Card,
-  CardContent,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Text,
-} from "ngk-dashboard";
+import { Badge } from "~/internal/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/internal/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/internal/components/ui/table";
 import { planForShopifyHandle } from "~/billing/plans";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
@@ -30,64 +21,66 @@ const STATUS_LABEL: Record<SubscriptionStatus, string> = {
   FROZEN: "Frozen",
 };
 
-const STATUS_TONE: Record<SubscriptionStatus, "success" | "warning" | "destructive" | "outline"> = {
-  ACTIVE: "success",
-  CANCELLATION_SCHEDULED: "warning",
-  CANCELED: "destructive",
-  NONE: "outline",
-  UNKNOWN: "outline",
-  PENDING: "warning",
-  FROZEN: "warning",
+const SUCCESS_TINT = "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
+const WARNING_TINT = "border-amber-600/30 bg-amber-500/10 text-amber-700 dark:text-amber-400";
+
+/** shadcn's Badge has no success/warning variants, so those two are outline badges with a tint. */
+const STATUS_BADGE: Record<SubscriptionStatus, { variant: "outline" | "destructive"; className?: string }> = {
+  ACTIVE: { variant: "outline", className: SUCCESS_TINT },
+  CANCELLATION_SCHEDULED: { variant: "outline", className: WARNING_TINT },
+  CANCELED: { variant: "destructive" },
+  NONE: { variant: "outline" },
+  UNKNOWN: { variant: "outline" },
+  PENDING: { variant: "outline", className: WARNING_TINT },
+  FROZEN: { variant: "outline", className: WARNING_TINT },
 };
 
 function EventRow({ event }: { event: EventHistoryRow }) {
   return (
     <TableRow>
-      <TableCell className="font-medium">{event.kind}</TableCell>
-      <TableCell><Badge variant="outline">{event.status}</Badge></TableCell>
+      <TableCell className="pl-4 font-medium">{event.kind}</TableCell>
+      <TableCell>
+        <Badge variant="outline">{event.status}</Badge>
+      </TableCell>
       <TableCell className="max-w-md whitespace-normal text-muted-foreground">{event.detail}</TableCell>
-      <TableCell className="text-muted-foreground">{formatDateTime(LOCALE, event.occurredAt, UTC)}</TableCell>
+      <TableCell className="pr-4 text-right text-muted-foreground tabular-nums">
+        {formatDateTime(LOCALE, event.occurredAt, UTC)}
+      </TableCell>
     </TableRow>
   );
 }
 
 export function EventHistorySection({ events }: { events: readonly EventHistoryRow[] }) {
   return (
-    <section aria-labelledby="event-history-heading">
-      <div className="mb-3">
-        <Text as="h2" id="event-history-heading" className="text-base font-semibold">
-          Event history
-        </Text>
-        <Text as="p" className="text-sm text-muted-foreground">
-          Immutable relationship, subscription, and webhook delivery records.
-        </Text>
-      </div>
-      <Card>
-        <CardContent className="overflow-x-auto p-0">
-          <Table className="[&_th]:h-12 [&_th]:px-4 [&_td]:px-4 [&_td]:py-3">
-            <TableHeader>
+    <Card role="region" aria-labelledby="event-history-heading">
+      <CardHeader>
+        <CardTitle id="event-history-heading">Event history</CardTitle>
+        <CardDescription>Immutable relationship, subscription, and webhook delivery records.</CardDescription>
+      </CardHeader>
+      <CardContent className="px-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="pl-4">Event</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Detail</TableHead>
+              <TableHead className="pr-4 text-right">When</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {events.length === 0 ? (
               <TableRow>
-                <TableHead>Event</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Detail</TableHead>
-                <TableHead>When</TableHead>
+                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                  No event records for this shop yet.
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {events.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
-                    No event records for this shop yet.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                events.map((event) => <EventRow key={event.id} event={event} />)
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </section>
+            ) : (
+              events.map((event) => <EventRow key={event.id} event={event} />)
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -99,15 +92,18 @@ interface SubscriptionHistoryItem {
 }
 
 function SubscriptionRow({ event }: { event: SubscriptionHistoryItem }) {
+  const badge = STATUS_BADGE[event.status];
   return (
     <TableRow>
-      <TableCell className="font-medium">{planForShopifyHandle(event.planHandle)?.name ?? event.planHandle ?? "Free"}</TableCell>
+      <TableCell className="pl-4 font-medium">
+        {planForShopifyHandle(event.planHandle)?.name ?? event.planHandle ?? "Free"}
+      </TableCell>
       <TableCell>
-        <Badge variant={STATUS_TONE[event.status]}>
+        <Badge variant={badge.variant} className={badge.className}>
           {STATUS_LABEL[event.status]}
         </Badge>
       </TableCell>
-      <TableCell className="text-muted-foreground">
+      <TableCell className="pr-4 text-right text-muted-foreground tabular-nums">
         {formatDateTime(LOCALE, event.occurredAt, UTC)}
       </TableCell>
     </TableRow>
@@ -116,20 +112,24 @@ function SubscriptionRow({ event }: { event: SubscriptionHistoryItem }) {
 
 export function SubscriptionHistoryCard({ history }: { history: readonly SubscriptionHistoryItem[] }) {
   return (
-    <Card>
-      <CardContent className="overflow-x-auto p-0">
-        <Table className="[&_th]:h-12 [&_th]:px-4 [&_td]:px-4 [&_td]:py-3">
+    <Card role="region" aria-labelledby="subscription-history-heading">
+      <CardHeader>
+        <CardTitle id="subscription-history-heading">Subscription history</CardTitle>
+        <CardDescription>Every plan change Shopify has reported for this shop.</CardDescription>
+      </CardHeader>
+      <CardContent className="px-0">
+        <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Plan</TableHead>
+              <TableHead className="pl-4">Plan</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Changed</TableHead>
+              <TableHead className="pr-4 text-right">Changed</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {history.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                <TableCell colSpan={3} className="text-center text-muted-foreground">
                   No subscription activity for this shop yet.
                 </TableCell>
               </TableRow>

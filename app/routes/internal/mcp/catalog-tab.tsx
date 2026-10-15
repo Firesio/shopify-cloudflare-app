@@ -1,29 +1,30 @@
+import { Badge } from "~/internal/components/ui/badge";
 import {
-  Badge,
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "ngk-dashboard";
+} from "~/internal/components/ui/card";
 import type { TOOL_CATALOG } from "~/mcp/catalog";
 
 type CatalogTool = (typeof TOOL_CATALOG)[number]["tools"][number];
 
 function ToolCard({ tool }: { tool: CatalogTool }) {
   return (
-    <Card className="flex flex-col justify-between">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="font-mono text-sm">{tool.name}</CardTitle>
-          <Badge variant={tool.isMutation ? "secondary" : "outline"} className="text-[10px]">
-            {tool.isMutation ? "Mutation" : "Read-Only"}
+    <Card className="gap-3 py-4">
+      <CardHeader>
+        <CardTitle className="font-mono text-sm">{tool.name}</CardTitle>
+        <CardDescription className="text-xs">{tool.summary}</CardDescription>
+        <CardAction>
+          <Badge variant={tool.isMutation ? "secondary" : "outline"}>
+            {tool.isMutation ? "Mutation" : "Read-only"}
           </Badge>
-        </div>
-        <CardDescription className="text-xs mt-1">{tool.summary}</CardDescription>
+        </CardAction>
       </CardHeader>
-      <CardContent className="pt-0 text-[11px] text-muted-foreground flex items-center justify-between">
-        <span>Scope: <code className="bg-muted px-1 py-0.5 rounded">{tool.scope}</code></span>
+      <CardContent className="text-xs text-muted-foreground">
+        Scope: <code className="rounded bg-muted px-1 py-0.5">{tool.scope}</code>
       </CardContent>
     </Card>
   );
@@ -36,18 +37,18 @@ export function CatalogTab({
   appUrl: string;
 }) {
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {catalog.map((group) => (
-        <div key={group.domain} className="space-y-3">
+        <section key={group.domain} className="flex flex-col gap-3">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             {group.domain}
           </h3>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {group.tools.map((tool) => (
               <ToolCard key={tool.name} tool={tool} />
             ))}
           </div>
-        </div>
+        </section>
       ))}
     </div>
   );

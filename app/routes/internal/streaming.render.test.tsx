@@ -54,8 +54,12 @@ interface PageCase {
   /** The streamed region the page's primary data lives in. */
   readonly region: string;
   readonly resolved: unknown;
-  /** Visible while pending: proves the frame rendered. */
-  readonly frame: string;
+  /**
+   * Visible while pending: proves the frame rendered. `null` for a top-level
+   * page whose title lives in the shell header (_layout.tsx, covered by
+   * _layout.test.tsx) and whose body is nothing but the streamed region.
+   */
+  readonly frame: string | null;
   /** Visible only once the region's data has arrived. */
   readonly data: string;
   readonly errorTitle: string;
@@ -70,7 +74,7 @@ const CASES: readonly PageCase[] = [
     immediate: {},
     region: "shops",
     resolved: [{ shop: "cool.myshopify.com", name: null, email: null, logoUrl: null, installedAt: 1, active: true, isDevStore: false, planName: "Free" }],
-    frame: "Every shop that has ever installed this app.",
+    frame: null,
     data: "cool.myshopify.com",
     errorTitle: "The shops list",
   },
@@ -94,7 +98,7 @@ const CASES: readonly PageCase[] = [
     immediate: {},
     region: "events",
     resolved: [],
-    frame: "Every plan change Shopify has told this app about",
+    frame: null,
     data: "No subscription activity yet",
     errorTitle: "Subscription history",
   },
@@ -118,7 +122,7 @@ const CASES: readonly PageCase[] = [
     immediate: { ticketId: "t1" },
     region: "detail",
     resolved: null,
-    frame: "Support ticket",
+    frame: ">Ticket</span>",
     data: "Ticket not found",
     errorTitle: "This ticket",
   },
@@ -130,8 +134,8 @@ const CASES: readonly PageCase[] = [
     immediate: { actorName: "Me" },
     region: "shops",
     resolved: [],
-    frame: "New Support Ticket",
-    data: "Create Ticket &amp; Email Merchant",
+    frame: "New support ticket",
+    data: "Create ticket and email merchant",
     errorTitle: "The shop list",
   },
   {
@@ -142,7 +146,9 @@ const CASES: readonly PageCase[] = [
     immediate: { actor: ACTOR, resetSuccess: false },
     region: "admins",
     resolved: [ACTOR],
-    frame: "Who can sign in to this console",
+    // The toolbar copy sits inside the streamed table, so on a failed list the
+    // frame is the page's own wrapper.
+    frame: 'class="flex flex-col gap-4 py-4 md:gap-6 md:py-6"',
     data: "Last sign-in",
     errorTitle: "The admins list",
   },
@@ -170,7 +176,10 @@ const CASES: readonly PageCase[] = [
       spend: { calls: 7, input: 1, output: 2 },
       runs: [],
     },
-    frame: "Which models do which job",
+    // The AI page has no static copy of its own (its title lives in the shell
+    // header), so the frame is the page's own wrapper: it must survive the
+    // pending and failed states, not just the loaded one.
+    frame: 'class="flex flex-col gap-4 py-4 md:gap-6 md:py-6"',
     data: "Calls (30 days)",
     errorTitle: "AI settings",
   },
@@ -198,14 +207,14 @@ async function streamed(page: PageCase, region: Promise<unknown>): Promise<strin
 describe.each(CASES)("$name streams its data", (page) => {
   it("paints the frame and a skeleton while the data is pending, with no data yet", async () => {
     const html = renderToString(await frameTree(page, new Promise<never>(() => {})));
-    expect(html).toContain(page.frame);
+    if (page.frame !== null) expect(html).toContain(page.frame);
     expect(html).toContain("animate-pulse");
     expect(html).not.toContain(page.data);
   });
 
   it("shows the data once the promise resolves", async () => {
     const html = await streamed(page, Promise.resolve(page.resolved));
-    expect(html).toContain(page.frame);
+    if (page.frame !== null) expect(html).toContain(page.frame);
     expect(html).toContain(page.data);
   });
 
@@ -213,7 +222,7 @@ describe.each(CASES)("$name streams its data", (page) => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const html = await streamed(page, streamRegion("test_route", "test_region", Promise.reject(new Error("d1 down"))));
 
-    expect(html).toContain(page.frame);
+    if (page.frame !== null) expect(html).toContain(page.frame);
     expect(html).toMatch(new RegExp(`role="alert"[^>]*>${page.errorTitle}(<!-- -->)? could not be loaded`));
     expect(html).not.toContain(page.data);
     const logged = log.mock.calls.map((call) => String(call[0]));
@@ -239,7 +248,10 @@ describe("mcp streams its tokens and audit logs", () => {
   it("paints the page and its default tab while neither region has arrived", async () => {
     const never = new Promise<never>(() => {});
     const html = renderToString(await mcpTree(never, never));
-    expect(html).toContain("MCP &amp; REST API");
+    // The title lives in the shell header now; the page itself is the tab strip
+    // and the default tab's cards.
     expect(html).toContain("Quick Connect");
+    expect(html).toContain("Zero-Touch OAuth 2.0");
+    expect(html).not.toContain("<h1");
   });
 });

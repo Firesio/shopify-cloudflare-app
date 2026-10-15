@@ -1,5 +1,10 @@
-import { Form } from "react-router";
-import { Badge, Button, Card, CardContent, Text } from "ngk-dashboard";
+import { Form, useNavigation } from "react-router";
+import { CircleAlert } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "~/internal/components/ui/alert";
+import { Badge } from "~/internal/components/ui/badge";
+import { Button } from "~/internal/components/ui/button";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "~/internal/components/ui/card";
+import { Spinner } from "~/internal/components/ui/spinner";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
 import type { Locale } from "~/i18n/config";
@@ -23,28 +28,27 @@ export function ReconciliationFailureCard({
   failureCode: string | null;
 }) {
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <Text as="p" className="font-medium text-destructive">Partner reconciliation failed</Text>
-        <Text as="p" className="mt-1 text-sm text-muted-foreground">
-          {failureDetail ?? failureCode ?? "Unknown Partner API failure"}
-        </Text>
-      </CardContent>
-    </Card>
+    <Alert variant="destructive">
+      <CircleAlert />
+      <AlertTitle>Partner reconciliation failed</AlertTitle>
+      <AlertDescription>{failureDetail ?? failureCode ?? "Unknown Partner API failure"}</AlertDescription>
+    </Alert>
   );
 }
 
 function StoreTypeControl({ isDevStore }: { isDevStore: boolean }) {
+  const navigation = useNavigation();
+  const busy = navigation.state !== "idle";
+  const toggling = busy && navigation.formData?.get("intent") === "toggle_dev_status";
   return (
-    <div className="flex items-center gap-2 mt-1">
-      {isDevStore ? (
-        <Badge variant="secondary">Development Store</Badge>
-      ) : (
-        <Badge variant="outline">Production Store</Badge>
-      )}
+    <div className="flex items-center gap-2">
+      <Badge variant={isDevStore ? "secondary" : "outline"}>
+        {isDevStore ? "Development Store" : "Production Store"}
+      </Badge>
       <Form method="post">
         <input type="hidden" name="intent" value="toggle_dev_status" />
-        <Button type="submit" variant="ghost" size="sm" className="h-6 px-2 text-xs">
+        <Button type="submit" variant="ghost" size="xs" disabled={busy}>
+          {toggling && <Spinner />}
           {isDevStore ? "Mark Production" : "Mark Dev"}
         </Button>
       </Form>
@@ -52,46 +56,38 @@ function StoreTypeControl({ isDevStore }: { isDevStore: boolean }) {
   );
 }
 
+/** A label above its value, for the summary's `<dl>`. */
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="text-sm">{children}</dd>
+    </div>
+  );
+}
+
 export function ShopSummaryCard({ shop }: { shop: SummaryShop }) {
   const contact = shop.contactEmail || shop.email;
+  const active = shop.uninstalledAt === null;
   return (
     <Card>
-      <CardContent className="grid gap-4 pt-6 sm:grid-cols-4">
-        <div>
-          <Text as="p" className="text-xs text-muted-foreground">
-            Status
-          </Text>
-          <Badge variant={shop.uninstalledAt === null ? "outline" : "destructive"}>
-            {shop.uninstalledAt === null ? "Active" : "Uninstalled"}
-          </Badge>
-          {contact ? (
-            <Text as="p" className="text-xs text-muted-foreground mt-1.5 truncate">
-              {contact}
-            </Text>
-          ) : null}
-        </div>
-        <div>
-          <Text as="p" className="text-xs text-muted-foreground">
-            Store Type (Revenue Tracking)
-          </Text>
-          <StoreTypeControl isDevStore={shop.isDevStore} />
-        </div>
-        <div>
-          <Text as="p" className="text-xs text-muted-foreground">
-            Installed
-          </Text>
-          <Text as="p">{formatDateTime(LOCALE, shop.installedAt, UTC)}</Text>
-        </div>
-        <div>
-          <Text as="p" className="text-xs text-muted-foreground">
-            Uninstalled
-          </Text>
-          <Text as="p">
-            {shop.uninstalledAt === null
-              ? "—"
-              : formatDateTime(LOCALE, shop.uninstalledAt, UTC)}
-          </Text>
-        </div>
+      <CardHeader>
+        <CardTitle>Overview</CardTitle>
+        <CardAction>
+          <Badge variant={active ? "outline" : "secondary"}>{active ? "Active" : "Uninstalled"}</Badge>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Fact label="Contact">{contact ? <span className="truncate">{contact}</span> : "—"}</Fact>
+          <Fact label="Store Type (Revenue Tracking)">
+            <StoreTypeControl isDevStore={shop.isDevStore} />
+          </Fact>
+          <Fact label="Installed">{formatDateTime(LOCALE, shop.installedAt, UTC)}</Fact>
+          <Fact label="Uninstalled">
+            {shop.uninstalledAt === null ? "—" : formatDateTime(LOCALE, shop.uninstalledAt, UTC)}
+          </Fact>
+        </dl>
       </CardContent>
     </Card>
   );

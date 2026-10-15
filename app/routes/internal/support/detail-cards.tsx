@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
-import { Badge, BlockStack, Card, CardContent, CardHeader, Text } from "ngk-dashboard";
-import { Thread, type ThreadMessage } from "~/components/support/Thread";
+import { Badge } from "~/internal/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/internal/components/ui/card";
+import type { ThreadMessage } from "~/components/support/Thread";
+import { Conversation } from "./conversation";
 import { formatDateTime, formatNumber } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
 import type { Locale } from "~/i18n/config";
@@ -12,30 +14,30 @@ const LOCALE: Locale = "en";
 
 function Detail({ label, children }: { readonly label: string; readonly children: ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-3">
-      <Text as="span" className="text-sm text-muted-foreground">
-        {label}
-      </Text>
-      <Text as="span" className="text-sm">
-        {children}
-      </Text>
+    <div className="flex flex-col gap-1">
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="text-sm break-words">{children}</dd>
     </div>
   );
 }
 
-export function ConversationCard({ messages }: { readonly messages: readonly ThreadMessage[] }) {
+export function ConversationCard({
+  messages,
+  merchantLabel,
+}: {
+  readonly messages: readonly ThreadMessage[];
+  readonly merchantLabel: string;
+}) {
   return (
     <Card>
       <CardHeader>
-        <Text as="h2" className="font-semibold">
-          Conversation
-        </Text>
+        <CardTitle>Conversation</CardTitle>
+        <CardDescription>{`${formatNumber(LOCALE, messages.length)} ${messages.length === 1 ? "message" : "messages"}`}</CardDescription>
       </CardHeader>
       <CardContent>
-        <Thread
+        <Conversation
           messages={messages}
-          youLabel="You"
-          downloadLabel="Download file"
+          merchantLabel={merchantLabel}
           formatFileSize={(sizeBytes) => `${formatNumber(LOCALE, Math.max(1, Math.round(sizeBytes / 1024)))} KB`}
           formatWhen={(at) => formatDateTime(LOCALE, at, UTC)}
         />
@@ -57,12 +59,10 @@ export function DetailsCard({ status, shop, plan, createdAt, merchantEmail, ccEm
   return (
     <Card>
       <CardHeader>
-        <Text as="h2" className="font-semibold">
-          Details
-        </Text>
+        <CardTitle>Details</CardTitle>
       </CardHeader>
       <CardContent>
-        <BlockStack gap={3}>
+        <dl className="flex flex-col gap-4">
           <Detail label="Status">
             <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABEL[status]}</Badge>
           </Detail>
@@ -72,7 +72,7 @@ export function DetailsCard({ status, shop, plan, createdAt, merchantEmail, ccEm
           <Detail label="Opened">{formatDateTime(LOCALE, createdAt, UTC)}</Detail>
           <Detail label="Reply to">{merchantEmail ?? "In-app only"}</Detail>
           <Detail label="Copied">{ccEmails.length > 0 ? ccEmails.join(", ") : "—"}</Detail>
-        </BlockStack>
+        </dl>
       </CardContent>
     </Card>
   );

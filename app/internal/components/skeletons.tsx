@@ -1,4 +1,14 @@
-import { Card, CardContent, InlineStack, Skeleton } from "ngk-dashboard";
+import { Card, CardHeader } from "~/internal/components/ui/card";
+import { Skeleton } from "~/internal/components/ui/skeleton";
+import { cn } from "~/internal/lib/utils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "~/internal/components/ui/table";
 
 /**
  * Placeholders for streamed regions. `aria-hidden` because they say nothing a
@@ -6,38 +16,80 @@ import { Card, CardContent, InlineStack, Skeleton } from "ngk-dashboard";
  * Shapes mirror the final layout (same Card, same row rhythm) to avoid a jump.
  */
 
-/** A row of KPI cards, matching the `StatCard` rows on the console. */
+const STAT_COLUMNS = {
+  "min-w-48": "grid-cols-[repeat(auto-fit,minmax(12rem,1fr))]",
+  "min-w-44": "grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]",
+} as const;
+
+/** A row of KPI cards, matching the stat-card rows on the console. */
 export function StatRowSkeleton({ count, minWidth = "min-w-48" }: { count: number; minWidth?: "min-w-48" | "min-w-44" }) {
   return (
-    <InlineStack aria-hidden gap={4} className={`flex-wrap [&>*]:flex-1 ${minWidth === "min-w-44" ? "[&>*]:min-w-44" : "[&>*]:min-w-48"}`}>
+    <div aria-hidden className={`grid gap-4 ${STAT_COLUMNS[minWidth]}`}>
       {Array.from({ length: count }, (_, index) => (
-        <Card key={index} className="h-28 p-6">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="mt-4 h-8 w-20" />
+        <Card key={index}>
+          <CardHeader>
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="mt-1 h-8 w-20" />
+          </CardHeader>
         </Card>
       ))}
-    </InlineStack>
+    </div>
   );
 }
 
-/** A table card: a header row and `rows` body rows. */
-export function TableSkeleton({ rows = 8, columns = 4 }: { rows?: number; columns?: number }) {
+/**
+ * What `DataTable` will render: a toolbar row, a bordered table with a muted
+ * header, and the paging footer. `inset` adds the page gutters `DataTable`
+ * applies to itself; leave it off when the parent already pads.
+ */
+export function TableSkeleton({
+  rows = 8,
+  columns = 4,
+  inset = false,
+}: {
+  rows?: number;
+  columns?: number;
+  inset?: boolean;
+}) {
   return (
-    <Card aria-hidden>
-      <CardContent className="p-0">
-        <div className="flex h-12 items-center gap-4 border-b px-4">
-          {Array.from({ length: columns }, (_, index) => (
-            <Skeleton key={index} className="h-4 flex-1" />
-          ))}
-        </div>
-        {Array.from({ length: rows }, (_, row) => (
-          <div key={row} className="flex h-14 items-center gap-4 border-b px-4 last:border-b-0">
-            {Array.from({ length: columns }, (_, column) => (
-              <Skeleton key={column} className="h-4 flex-1" />
+    <div aria-hidden className={cn("flex w-full flex-col gap-4", inset && "px-4 lg:px-6")}>
+      <div className="flex items-center justify-between gap-2">
+        <Skeleton className="h-4 w-56 max-w-1/2" />
+        <Skeleton className="h-8 w-36" />
+      </div>
+      <div className="overflow-hidden rounded-lg border">
+        <Table>
+          <TableHeader className="bg-muted">
+            <TableRow>
+              {Array.from({ length: columns }, (_, index) => (
+                <TableHead key={index}>
+                  <Skeleton className="h-4 w-full" />
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: rows }, (_, row) => (
+              <TableRow key={row}>
+                {Array.from({ length: columns }, (_, column) => (
+                  <TableCell key={column}>
+                    <Skeleton className="h-4 w-full" />
+                  </TableCell>
+                ))}
+              </TableRow>
             ))}
-          </div>
-        ))}
-      </CardContent>
-    </Card>
+          </TableBody>
+        </Table>
+      </div>
+      <div className="flex items-center justify-between px-4">
+        <Skeleton className="hidden h-4 w-16 lg:block" />
+        <div className="ml-auto flex items-center gap-2 lg:ml-0">
+          <Skeleton className="hidden h-8 w-24 lg:block" />
+          <Skeleton className="h-8 w-24" />
+          <Skeleton className="size-8" />
+          <Skeleton className="size-8" />
+        </div>
+      </div>
+    </div>
   );
 }

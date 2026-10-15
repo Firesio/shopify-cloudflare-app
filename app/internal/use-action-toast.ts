@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { toast } from "ngk-dashboard";
+import { toast } from "sonner";
 import { resolveToast, type ActionMessage } from "~/lib/action-feedback";
 
 /**

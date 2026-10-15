@@ -1,50 +1,85 @@
-import { Badge, BlockStack, Card, CardContent, CardHeader, InlineStack, Text } from "ngk-dashboard";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Badge } from "~/internal/components/ui/badge";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "~/internal/components/ui/empty";
+import { DataTable, SortableHeader } from "~/internal/components/data-table";
 import { formatNumber } from "~/i18n/format";
 import type { Locale } from "~/i18n/config";
+import { RightAlignedSortableHeader } from "../table-columns";
 import type { RecentRun } from "./purposes";
 
 const LOCALE: Locale = "en";
 
-function RunRow({ run }: { run: RecentRun }) {
-  return (
-    <InlineStack gap={3} align="center" className="text-sm">
-      <Badge variant={run.status === "ok" ? "outline" : "destructive"}>
-        {run.status === "ok" ? "ok" : (run.reasonCode ?? "error")}
+const COLUMNS: ColumnDef<RecentRun>[] = [
+  {
+    id: "status",
+    accessorFn: (run) => (run.status === "ok" ? "ok" : (run.reasonCode ?? "error")),
+    header: ({ column }) => <SortableHeader column={column} title="Status" />,
+    cell: ({ row }) => (
+      <Badge variant={row.original.status === "ok" ? "outline" : "destructive"}>
+        {row.original.status === "ok" ? "ok" : (row.original.reasonCode ?? "error")}
       </Badge>
-      <span className="font-medium">{run.feature}</span>
-      <span className="truncate text-muted-foreground">{run.modelId}</span>
-      <span className="ml-auto whitespace-nowrap tabular-nums text-muted-foreground">
-        {formatNumber(LOCALE, run.tokens)} tok
-        {run.latencyMs === null ? "" : ` · ${formatNumber(LOCALE, run.latencyMs)} ms`}
+    ),
+  },
+  {
+    id: "feature",
+    accessorFn: (run) => run.feature,
+    header: ({ column }) => <SortableHeader column={column} title="Feature" />,
+    enableHiding: false,
+    cell: ({ row }) => <span className="font-medium">{row.original.feature}</span>,
+  },
+  {
+    id: "model",
+    accessorFn: (run) => run.modelId,
+    header: ({ column }) => <SortableHeader column={column} title="Model" />,
+    cell: ({ row }) => (
+      <span className="block max-w-64 truncate text-muted-foreground" title={row.original.modelId}>
+        {row.original.modelId}
       </span>
-    </InlineStack>
-  );
-}
+    ),
+  },
+  {
+    id: "tokens",
+    accessorFn: (run) => run.tokens,
+    header: ({ column }) => <RightAlignedSortableHeader column={column} title="Tokens" />,
+    cell: ({ row }) => <div className="text-right tabular-nums">{formatNumber(LOCALE, row.original.tokens)}</div>,
+  },
+  {
+    id: "latency",
+    // A call with no recorded latency sorts as the fastest rather than as NaN.
+    accessorFn: (run) => run.latencyMs ?? 0,
+    header: ({ column }) => <RightAlignedSortableHeader column={column} title="Latency" />,
+    cell: ({ row }) => (
+      <div className="text-right tabular-nums text-muted-foreground">
+        {row.original.latencyMs === null ? "—" : `${formatNumber(LOCALE, row.original.latencyMs)} ms`}
+      </div>
+    ),
+  },
+];
 
-export function RecentCallsCard({ runs }: { runs: readonly RecentRun[] }) {
+export function RecentCallsTable({ runs }: { runs: readonly RecentRun[] }) {
   return (
-    <Card>
-      <CardHeader>
-        <Text as="h2" className="font-semibold">
-          Recent calls
-        </Text>
-        <Text as="p" className="text-sm text-muted-foreground">
-          Every attempt leaves a row — including the ones that failed and fell through.
-        </Text>
-      </CardHeader>
-      <CardContent>
-        {runs.length === 0 ? (
-          <Text as="p" className="text-sm text-muted-foreground">
-            Nothing yet.
-          </Text>
-        ) : (
-          <BlockStack gap={2}>
-            {runs.map((run) => (
-              <RunRow key={run.id} run={run} />
-            ))}
-          </BlockStack>
-        )}
-      </CardContent>
-    </Card>
+    <DataTable
+      columns={COLUMNS}
+      data={runs}
+      getRowId={(run) => run.id}
+      compactHidden={["model", "latency"]}
+      columnMenu={false}
+      toolbarStart={
+        <div className="flex flex-col">
+          <h2 className="text-base font-semibold">Recent calls</h2>
+          <p className="text-sm text-muted-foreground">
+            Every attempt leaves a row, including the ones that failed and fell through.
+          </p>
+        </div>
+      }
+      empty={
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>No calls yet</EmptyTitle>
+            <EmptyDescription>Calls appear here as soon as a feature uses a model.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      }
+    />
   );
 }

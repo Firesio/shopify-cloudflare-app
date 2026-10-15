@@ -1,12 +1,14 @@
+import { Bot, Check, Copy, Shield, Terminal } from "lucide-react";
+import { Button } from "~/internal/components/ui/button";
 import {
-  Button,
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "ngk-dashboard";
-import { Bot, Shield, Terminal } from "lucide-react";
+} from "~/internal/components/ui/card";
+import { Field, FieldGroup, FieldLabel } from "~/internal/components/ui/field";
 import { EndpointRow } from "./endpoint-row";
 
 type CopyProps = {
@@ -44,10 +46,10 @@ function EndpointField({
   copiedText: string | null;
 }) {
   return (
-    <div>
-      <span className="text-xs font-semibold text-muted-foreground uppercase">{label}</span>
-      <EndpointRow text={text} onCopy={onCopy} copied={copiedText === text} />
-    </div>
+    <Field>
+      <FieldLabel className="text-xs font-semibold text-muted-foreground uppercase">{label}</FieldLabel>
+      <EndpointRow label={label} text={text} onCopy={onCopy} copied={copiedText === text} />
+    </Field>
   );
 }
 
@@ -55,19 +57,19 @@ function OAuthCard({ appUrl, onCopy, copiedText }: CopyProps) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-primary" />
-          <CardTitle>Zero-Touch OAuth 2.0</CardTitle>
-        </div>
+        <CardTitle>Zero-Touch OAuth 2.0</CardTitle>
+        <CardAction>
+          <Shield className="size-5 text-muted-foreground" />
+        </CardAction>
         <CardDescription>
           Seamless agent discovery via RFC 8414 & RFC 9728. Point compatible agents directly to this domain.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+      <CardContent className="flex flex-col gap-4 text-sm">
         <p className="text-muted-foreground">
           Agents supporting standard OAuth discovery can automatically register and connect without manual token copy-pasting.
         </p>
-        <div className="space-y-2 pt-2">
+        <FieldGroup className="gap-4">
           <EndpointField
             label="MCP RPC Endpoint"
             text={`${appUrl}/api/mcp`}
@@ -86,7 +88,7 @@ function OAuthCard({ appUrl, onCopy, copiedText }: CopyProps) {
             onCopy={onCopy}
             copiedText={copiedText}
           />
-        </div>
+        </FieldGroup>
       </CardContent>
     </Card>
   );
@@ -96,35 +98,35 @@ function RestApiCard({ appUrl, onCopy, copiedText }: CopyProps) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-2">
-          <Terminal className="h-5 w-5 text-primary" />
-          <CardTitle>REST API Base URL</CardTitle>
-        </div>
+        <CardTitle>REST API Base URL</CardTitle>
+        <CardAction>
+          <Terminal className="size-5 text-muted-foreground" />
+        </CardAction>
         <CardDescription>
           Reusable HTTP endpoints for external dashboards, CI/CD, and scripts.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+      <CardContent className="flex flex-col gap-4 text-sm">
         <p className="text-muted-foreground">
           All MCP tools are also reachable as standard JSON REST endpoints at <code>/api/v1/*</code> using standard Bearer authentication.
         </p>
-        <div className="space-y-2 pt-2">
+        <FieldGroup className="gap-4">
           <EndpointField
             label="REST API Root"
             text={`${appUrl}/api/v1/health`}
             onCopy={onCopy}
             copiedText={copiedText}
           />
-          <div>
-            <span className="text-xs font-semibold text-muted-foreground uppercase">
+          <Field>
+            <FieldLabel className="text-xs font-semibold text-muted-foreground uppercase">
               cURL Example
-            </span>
-            <pre className="p-3 bg-muted rounded text-xs overflow-x-auto font-mono">
+            </FieldLabel>
+            <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">
               {`curl -H "Authorization: Bearer <TOKEN>" \\
   ${appUrl}/api/v1/metrics/revenue`}
             </pre>
-          </div>
-        </div>
+          </Field>
+        </FieldGroup>
       </CardContent>
     </Card>
   );
@@ -142,14 +144,15 @@ function ConfigSnippet({
   copiedText: string | null;
 }) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="font-medium text-xs">{label}</span>
-        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onCopy(config)}>
+    <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium">{label}</span>
+        <Button size="xs" variant="ghost" onClick={() => onCopy(config)}>
+          {copiedText === config ? <Check className="text-emerald-600" /> : <Copy />}
           {copiedText === config ? "Copied" : "Copy"}
         </Button>
       </div>
-      <pre className="p-3 bg-muted rounded text-xs overflow-x-auto font-mono">{config}</pre>
+      <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">{config}</pre>
     </div>
   );
 }
@@ -161,10 +164,10 @@ function AgentSnippetsCard({ appUrl, onCopy, copiedText }: CopyProps) {
   return (
     <Card className="md:col-span-2">
       <CardHeader>
-        <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-primary" />
-          <CardTitle>AI Agent Configuration Snippets</CardTitle>
-        </div>
+        <CardTitle>AI Agent Configuration Snippets</CardTitle>
+        <CardAction>
+          <Bot className="size-5 text-muted-foreground" />
+        </CardAction>
         <CardDescription>
           Paste into your AI coding tool's configuration to enable store monitoring and support management.
         </CardDescription>
@@ -189,7 +192,7 @@ function AgentSnippetsCard({ appUrl, onCopy, copiedText }: CopyProps) {
 
 export function QuickConnectTab(props: CopyProps) {
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid gap-4 md:grid-cols-2">
       <OAuthCard {...props} />
       <RestApiCard {...props} />
       <AgentSnippetsCard {...props} />

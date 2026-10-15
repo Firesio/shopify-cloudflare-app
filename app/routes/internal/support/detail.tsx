@@ -1,12 +1,26 @@
 import { shopSubscriptions, adminSessionUsers } from "~/wiring.server";
-import { useActionData, useLoaderData } from "react-router";
+import { Link, useActionData, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => [
   { title: "Support Ticket · Staff Console" },
 ];
-import { Alert, AlertDescription, BlockStack, CardSkeleton, EmptyState, Page, Text } from "ngk-dashboard";
 import { LifeBuoy } from "lucide-react";
+import { Alert, AlertDescription } from "~/internal/components/ui/alert";
+import { Badge } from "~/internal/components/ui/badge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "~/internal/components/ui/breadcrumb";
+import { Button } from "~/internal/components/ui/button";
+import { Card, CardContent, CardHeader } from "~/internal/components/ui/card";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "~/internal/components/ui/empty";
+import { Skeleton } from "~/internal/components/ui/skeleton";
+import { useActionToast } from "~/internal/use-action-toast";
 import { requireAdminUser } from "~/services/admin-auth.server";
 import { adminUsers } from "~/wiring.server";
 import { supportService } from "~/wiring.server";
@@ -15,10 +29,11 @@ import { planForShopifyHandle } from "~/billing/plans";
 import { statusOf } from "~/support/status";
 import { CATEGORY_LABEL_EN } from "~/support/categories";
 import { BODY_MAX } from "~/schemas/support";
-import { THREAD_CSS, type ThreadMessage } from "~/components/support/Thread";
+import type { ThreadMessage } from "~/components/support/Thread";
 import { Deferred } from "~/internal/components";
 import { streamRegion } from "~/internal/stream-region.server";
 import { ConversationCard, DetailsCard } from "./detail-cards";
+import { STATUS_LABEL, STATUS_VARIANT } from "./status-display";
 import { ReplyCard } from "./detail-reply-card";
 
 type StaffThread = NonNullable<Awaited<ReturnType<ReturnType<typeof supportService>["findForStaff"]>>>;
@@ -117,22 +132,44 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 export default function InternalSupportThread() {
   const { ticketId, detail } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const failure = actionData && "error" in actionData ? actionData.error : undefined;
+  const outcome = actionData && "success" in actionData ? actionData.success : undefined;
+
+  useActionToast(actionData, {
+    error: failure,
+    success: outcome === "closed" ? "Ticket closed." : outcome === "replied" ? "Reply sent." : undefined,
+  });
 
   return (
-    <Page title="Support ticket" backAction={{ label: "Support", href: "/internal/support" }}>
-      <style dangerouslySetInnerHTML={{ __html: THREAD_CSS }} />
-      <BlockStack gap={4}>
-        {actionData && "error" in actionData && (
-          <Alert variant="destructive">
-            <AlertDescription>{actionData.error}</AlertDescription>
-          </Alert>
-        )}
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className="px-4 lg:px-6">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/internal/support">Support</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Ticket</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
 
-        <Deferred resolve={detail} resetKey={ticketId} fallback={<TicketSkeleton />} errorTitle="This ticket">
-          {(loaded) => (loaded ? <TicketBody {...loaded} /> : <TicketNotFound />)}
-        </Deferred>
-      </BlockStack>
-    </Page>
+      {failure && (
+        <div className="px-4 lg:px-6">
+          <Alert variant="destructive">
+            <AlertDescription>{failure}</AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      <Deferred resolve={detail} resetKey={ticketId} fallback={<TicketSkeleton />} errorTitle="This ticket">
+        {(loaded) => (loaded ? <TicketBody {...loaded} /> : <TicketNotFound />)}
+      </Deferred>
+    </div>
   );
 }
 
@@ -140,20 +177,22 @@ type LoadedTicket = NonNullable<Awaited<ReturnType<typeof loadTicketDetail>>>;
 
 function TicketBody({ ticket, messages, plan }: LoadedTicket) {
   return (
-    <BlockStack gap={4}>
-      <div>
-        <Text as="h2" className="text-lg font-semibold">
-          {ticket.subject}
-        </Text>
-        <Text as="p" className="text-sm text-muted-foreground">
-          {`${ticket.shopName || ticket.shop} · ${CATEGORY_LABEL_EN[ticket.category]}`}
-        </Text>
+    <>
+      <div className="flex flex-wrap items-start justify-between gap-3 px-4 lg:px-6">
+        <div className="flex min-w-0 flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">{ticket.subject}</h1>
+          <p className="text-sm text-muted-foreground">
+            {`${ticket.shopName || ticket.shop} · ${CATEGORY_LABEL_EN[ticket.category]}`}
+          </p>
+        </div>
+        <Badge variant={STATUS_VARIANT[ticket.status]}>{STATUS_LABEL[ticket.status]}</Badge>
       </div>
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr] lg:items-start">
-        <BlockStack gap={4}>
-          <ConversationCard messages={messages} />
+
+      <div className="grid gap-4 px-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start lg:px-6">
+        <div className="flex flex-col gap-4">
+          <ConversationCard messages={messages} merchantLabel={ticket.shopName || ticket.shop} />
           <ReplyCard ticketId={ticket.id} isClosed={ticket.status === "closed"} />
-        </BlockStack>
+        </div>
 
         <DetailsCard
           status={ticket.status}
@@ -164,27 +203,61 @@ function TicketBody({ ticket, messages, plan }: LoadedTicket) {
           ccEmails={ticket.ccEmails}
         />
       </div>
-    </BlockStack>
+    </>
   );
 }
 
 function TicketNotFound() {
   return (
-    <EmptyState heading="Ticket not found" icon={LifeBuoy}>
-      It may have been removed. Go back to the queue to pick another.
-    </EmptyState>
+    <div className="px-4 lg:px-6">
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <LifeBuoy />
+          </EmptyMedia>
+          <EmptyTitle>Ticket not found</EmptyTitle>
+          <EmptyDescription>It may have been removed. Go back to the queue to pick another.</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button asChild variant="outline">
+            <Link to="/internal/support">Back to support</Link>
+          </Button>
+        </EmptyContent>
+      </Empty>
+    </div>
   );
 }
 
-/** Mirrors the body: a conversation and reply box beside a details column. */
+function SkeletonCard({ lines }: { readonly lines: number }) {
+  return (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-4 w-32" />
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {Array.from({ length: lines }, (_, index) => (
+          <Skeleton key={index} className="h-4 w-full" />
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Mirrors the body: a heading, then a conversation and reply box beside a details column. */
 function TicketSkeleton() {
   return (
-    <div aria-hidden className="grid gap-4 lg:grid-cols-[2fr_1fr] lg:items-start">
-      <div className="flex flex-col gap-4">
-        <CardSkeleton lines={6} />
-        <CardSkeleton lines={4} />
+    <div aria-hidden className="flex flex-col gap-4 px-4 md:gap-6 lg:px-6">
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-8 w-72" />
+        <Skeleton className="h-4 w-48" />
       </div>
-      <CardSkeleton lines={6} />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
+        <div className="flex flex-col gap-4">
+          <SkeletonCard lines={6} />
+          <SkeletonCard lines={4} />
+        </div>
+        <SkeletonCard lines={6} />
+      </div>
     </div>
   );
 }

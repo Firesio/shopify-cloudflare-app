@@ -1,19 +1,11 @@
 import { useState } from "react";
 import { Form, useNavigation } from "react-router";
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Text,
-  Textarea,
-} from "ngk-dashboard";
+import { Button } from "~/internal/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/internal/components/ui/card";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "~/internal/components/ui/field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/internal/components/ui/select";
+import { Spinner } from "~/internal/components/ui/spinner";
+import { Textarea } from "~/internal/components/ui/textarea";
 import { Sparkles } from "lucide-react";
 import { BODY_MAX } from "~/schemas/support";
 import { InternalAttachmentPicker } from "~/components/support/InternalAttachmentPicker";
@@ -47,7 +39,7 @@ function aiActionCopy(instruction: string): { label: string; hint: string } {
 function ToneSelect({ tone, onChange }: { readonly tone: ReplyTone; readonly onChange: (tone: ReplyTone) => void }) {
   return (
     <Select value={tone} onValueChange={(next) => onChange(toReplyTone(next))}>
-      <SelectTrigger className="w-40" aria-label="Tone">
+      <SelectTrigger className="w-40" aria-label="Tone" size="sm">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -76,10 +68,8 @@ function AiBox({ ticketId, draft, busy }: AiBoxProps) {
   const copy = aiActionCopy(instruction);
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-dashed p-3">
-      <Label htmlFor="ai-instruction" className="text-xs text-muted-foreground">
-        Tell the AI what to say — it writes the reply below
-      </Label>
+    <Field className="rounded-lg border border-dashed p-3">
+      <FieldLabel htmlFor="ai-instruction">Tell the AI what to say</FieldLabel>
       <Textarea
         id="ai-instruction"
         rows={2}
@@ -93,32 +83,36 @@ function AiBox({ ticketId, draft, busy }: AiBoxProps) {
         <Button
           type="button"
           variant="outline"
+          size="sm"
           disabled={busy || draft.state === "drafting"}
           onClick={() => void draft.draft({ ticketId, tone, instruction })}
         >
-          <Sparkles className="mr-1 size-4" />
+          {draft.state === "drafting" ? <Spinner /> : <Sparkles />}
           {draft.state === "drafting" ? "Writing…" : copy.label}
         </Button>
-        <Text as="span" className="text-xs text-muted-foreground">
-          {copy.hint}
-        </Text>
       </div>
-    </div>
+      <FieldDescription>{copy.hint}</FieldDescription>
+    </Field>
   );
 }
 
-function ReplyActions({ isClosed, busy, pendingIntent }: { readonly isClosed: boolean; readonly busy: boolean; readonly pendingIntent: unknown }) {
+function ReplyActions({ isClosed, pendingIntent, busy }: { readonly isClosed: boolean; readonly pendingIntent: unknown; readonly busy: boolean }) {
+  const closing = busy && pendingIntent === "close";
+  const sending = busy && !closing;
+
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <Field orientation="horizontal">
       <Button type="submit" disabled={busy}>
-        {busy && !pendingIntent ? "Sending…" : "Send reply"}
+        {sending && <Spinner />}
+        {sending ? "Sending…" : "Send reply"}
       </Button>
       {!isClosed && (
         <Button type="submit" name="intent" value="close" variant="outline" disabled={busy}>
-          Close ticket
+          {closing && <Spinner />}
+          {closing ? "Closing…" : "Close ticket"}
         </Button>
       )}
-    </div>
+    </Field>
   );
 }
 
@@ -133,34 +127,33 @@ export function ReplyCard({ ticketId, isClosed }: { readonly ticketId: string; r
   return (
     <Card>
       <CardHeader>
-        <Text as="h2" className="font-semibold">
-          {isClosed ? "Reopen with a reply" : "Reply"}
-        </Text>
+        <CardTitle>{isClosed ? "Reopen with a reply" : "Reply"}</CardTitle>
+        <CardDescription>This reply is emailed to the merchant and their copy list.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Form method="post" className="flex flex-col gap-3">
-          <AiBox ticketId={ticketId} draft={draft} busy={busy} />
+        <Form method="post">
+          <FieldGroup>
+            <AiBox ticketId={ticketId} draft={draft} busy={busy} />
 
-          <Label htmlFor="body" className="sr-only">
-            Reply
-          </Label>
-          <Textarea
-            id="body"
-            name="body"
-            rows={5}
-            maxLength={BODY_MAX}
-            placeholder="This reply is emailed to the merchant and their copy list."
-          />
+            <Field>
+              <FieldLabel htmlFor="body" className="sr-only">
+                Reply
+              </FieldLabel>
+              <Textarea
+                id="body"
+                name="body"
+                rows={5}
+                maxLength={BODY_MAX}
+                placeholder="Write your reply to the merchant…"
+              />
+            </Field>
 
-          <InternalAttachmentPicker uploads={uploads} />
+            <InternalAttachmentPicker uploads={uploads} />
 
-          <ReplyActions isClosed={isClosed} busy={busy} pendingIntent={pendingIntent} />
+            {draft.error && <FieldError>{draft.error}</FieldError>}
 
-          {draft.error && (
-            <Text as="p" className="text-sm text-destructive">
-              {draft.error}
-            </Text>
-          )}
+            <ReplyActions isClosed={isClosed} pendingIntent={pendingIntent} busy={busy} />
+          </FieldGroup>
         </Form>
       </CardContent>
     </Card>

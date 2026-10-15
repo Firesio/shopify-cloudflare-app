@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { data, useActionData, useLoaderData, useNavigation } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => [
   { title: "Profile · Staff Console" },
 ];
-import { BlockStack, Page, Text } from "ngk-dashboard";
+import { useActionToast } from "~/internal/use-action-toast";
 import { requireAdminUser } from "~/services/admin-auth.server";
 import {
   changeOwnPassword,
@@ -17,9 +18,10 @@ import { UTC } from "~/i18n/time-zone";
 import type { Locale } from "~/i18n/config";
 import { adminUsers, adminSessionUsers, appRuntime } from "~/wiring.server";
 import {
-  ChangePasswordCard,
-  DetailsCard,
-  ProfileAlerts,
+  AccountCard,
+  PasswordCard,
+  ProfileSuccess,
+  type ProfileDialog,
 } from "./profile-forms";
 
 const LOCALE: Locale = "en";
@@ -36,6 +38,16 @@ const PROFILE_ERRORS: Record<ProfileErrorReason, string> = {
 const PROFILE_SUCCESS: Record<SuccessKey, string> = {
   detailsSaved: "Your details were saved.",
   passwordChanged: "Your password was changed.",
+};
+
+/** Which dialog an error belongs to, so a failed submit reopens the right one. */
+const DIALOG_FOR_ERROR: Record<ProfileErrorReason, ProfileDialog> = {
+  nameRequired: "details",
+  notFound: "details",
+  wrongPassword: "password",
+  mismatch: "password",
+  tooShort: "password",
+  sameAsOld: "password",
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -83,29 +95,51 @@ export default function Profile() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
 
-  const busy = navigation.state !== "idle";
-  const errorMessage =
-    actionData && "error" in actionData && actionData.error
-      ? PROFILE_ERRORS[actionData.error]
-      : undefined;
+  const submittingIntent = navigation.formData?.get("intent");
+  const busyDetails = submittingIntent === "details";
+  const busyPassword = submittingIntent === "password";
+  const errorReason =
+    actionData && "error" in actionData && actionData.error ? actionData.error : undefined;
+  const errorMessage = errorReason ? PROFILE_ERRORS[errorReason] : undefined;
   const successMessage =
     actionData && "success" in actionData && actionData.success
       ? PROFILE_SUCCESS[actionData.success]
       : undefined;
 
-  return (
-    <Page title="Profile" narrowWidth>
-      <BlockStack gap={4}>
-        <ProfileAlerts errorMessage={errorMessage} successMessage={successMessage} />
-        <DetailsCard user={user} busy={busy} />
-        <ChangePasswordCard busy={busy} />
+  // A new action result decides the dialogs once: an error reopens the dialog
+  // it belongs to, a success closes whichever was open.
+  const [openDialog, setOpenDialog] = useState<ProfileDialog | null>(null);
+  const [seenResult, setSeenResult] = useState(actionData);
+  if (actionData !== seenResult) {
+    setSeenResult(actionData);
+    setOpenDialog(errorReason ? DIALOG_FOR_ERROR[errorReason] : null);
+  }
+  useActionToast(actionData, { error: errorMessage, success: successMessage });
 
-        {user.lastLoginAt && (
-          <Text as="p" className="text-xs text-muted-foreground">
-            {formatDateTime(LOCALE, user.lastLoginAt, UTC)}
-          </Text>
-        )}
-      </BlockStack>
-    </Page>
+  const errorFor = (dialog: ProfileDialog) =>
+    errorReason && DIALOG_FOR_ERROR[errorReason] === dialog ? errorMessage : undefined;
+  const controlFor = (dialog: ProfileDialog) => ({
+    open: openDialog === dialog,
+    onOpenChange: (open: boolean) => setOpenDialog(open ? dialog : null),
+  });
+
+  return (
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className="flex max-w-2xl flex-col gap-4 px-4 md:gap-6 lg:px-6">
+        <ProfileSuccess message={successMessage} />
+        <AccountCard
+          user={user}
+          lastSignIn={user.lastLoginAt ? formatDateTime(LOCALE, user.lastLoginAt, UTC) : undefined}
+          busy={busyDetails}
+          error={errorFor("details")}
+          {...controlFor("details")}
+        />
+        <PasswordCard
+          busy={busyPassword}
+          error={errorFor("password")}
+          {...controlFor("password")}
+        />
+      </div>
+    </div>
   );
 }

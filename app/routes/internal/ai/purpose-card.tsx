@@ -1,19 +1,25 @@
 import { Form } from "react-router";
+import { Badge } from "~/internal/components/ui/badge";
+import { Button } from "~/internal/components/ui/button";
 import {
-  Badge,
-  BlockStack,
-  Button,
   Card,
+  CardAction,
   CardContent,
+  CardDescription,
   CardHeader,
-  InlineStack,
+  CardTitle,
+} from "~/internal/components/ui/card";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "~/internal/components/ui/empty";
+import { Field, FieldLabel } from "~/internal/components/ui/field";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "~/internal/components/ui/item";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Text,
-} from "ngk-dashboard";
+} from "~/internal/components/ui/select";
+import { Spinner } from "~/internal/components/ui/spinner";
 import {
   ArrowDown,
   ArrowUp,
@@ -24,7 +30,7 @@ import {
   Trash2,
   Wand2,
 } from "lucide-react";
-import { ChainButton } from "./chain-button";
+import { ChainButton, useIsPending } from "./chain-button";
 import type { Purpose } from "./purposes";
 
 type ChainEntry = Purpose["chain"][number];
@@ -32,42 +38,40 @@ type ChainEntry = Purpose["chain"][number];
 function PurposeHeader({ purpose }: { purpose: Purpose }) {
   return (
     <CardHeader>
-      <BlockStack gap={1}>
-        <InlineStack gap={2} align="center">
-          <Cpu className="size-4 text-muted-foreground" />
-          <Text as="h2" className="font-semibold">
-            {purpose.label}
-          </Text>
-          {purpose.usedBy ? (
-            <Badge variant="outline">{purpose.usedBy}</Badge>
-          ) : (
-            <Badge variant="secondary">Not used yet</Badge>
-          )}
-          {purpose.chain.length === 0 && <Badge variant="outline">Off</Badge>}
-        </InlineStack>
-        <Text as="p" className="text-sm text-muted-foreground">
-          {purpose.description}
-        </Text>
-      </BlockStack>
+      <CardTitle className="flex items-center gap-2">
+        <Cpu className="size-4 text-muted-foreground" />
+        {purpose.label}
+      </CardTitle>
+      <CardDescription>{purpose.description} Models are tried in the order listed.</CardDescription>
+      <CardAction className="flex flex-wrap justify-end gap-1.5">
+        {purpose.usedBy ? (
+          <Badge variant="outline">{purpose.usedBy}</Badge>
+        ) : (
+          <Badge variant="secondary">Not used yet</Badge>
+        )}
+        {purpose.chain.length === 0 && <Badge variant="outline">Off</Badge>}
+      </CardAction>
     </CardHeader>
   );
 }
 
 function EmptyChain({ role, busy }: { role: string; busy: boolean }) {
+  const pending = useIsPending(role, "recommend");
   return (
-    <InlineStack gap={3} align="center" className="flex-wrap">
-      <Text as="p" className="text-sm text-muted-foreground">
-        No models yet — this purpose is switched off.
-      </Text>
+    <Empty className="border border-dashed p-6">
+      <EmptyHeader>
+        <EmptyTitle>No models yet</EmptyTitle>
+        <EmptyDescription>This purpose is switched off.</EmptyDescription>
+      </EmptyHeader>
       <Form method="post">
         <input type="hidden" name="role" value={role} />
         <input type="hidden" name="intent" value="recommend" />
         <Button type="submit" variant="outline" size="sm" disabled={busy}>
-          <Wand2 className="mr-1 size-4" />
+          {pending ? <Spinner /> : <Wand2 />}
           Use recommended
         </Button>
       </Form>
-    </InlineStack>
+    </Empty>
   );
 }
 
@@ -85,40 +89,57 @@ function ChainEntryRow({
   busy: boolean;
 }) {
   return (
-    <InlineStack gap={2} align="center" className="rounded-md border px-3 py-2">
-      <span className="w-6 text-sm tabular-nums text-muted-foreground">{index + 1}</span>
-      <BlockStack gap={0} className="min-w-0 flex-1">
-        <Text as="span" className="truncate font-medium">
-          {entry.label}
-        </Text>
-        <Text as="span" className="truncate text-xs text-muted-foreground">
-          {entry.modelId}
-        </Text>
-      </BlockStack>
-
-      {!entry.enabled && <Badge variant="secondary">Paused</Badge>}
-      {/* Set by the RUNTIME after a failure, and it clears itself. */}
-      {entry.demoted && <Badge variant="destructive">Recently failed</Badge>}
-      {entry.retired && <Badge variant="destructive">Not in catalogue</Badge>}
-
-      <ChainButton role={role} modelId={entry.modelId} intent="up" busy={busy} disabled={index === 0}>
-        <ArrowUp className="size-4" />
-      </ChainButton>
-      <ChainButton role={role} modelId={entry.modelId} intent="down" busy={busy} disabled={isLast}>
-        <ArrowDown className="size-4" />
-      </ChainButton>
-      <ChainButton
-        role={role}
-        modelId={entry.modelId}
-        intent={entry.enabled ? "disable" : "enable"}
-        busy={busy}
-      >
-        {entry.enabled ? <PauseCircle className="size-4" /> : <PlayCircle className="size-4" />}
-      </ChainButton>
-      <ChainButton role={role} modelId={entry.modelId} intent="remove" busy={busy}>
-        <Trash2 className="size-4" />
-      </ChainButton>
-    </InlineStack>
+    <Item variant="outline" size="sm" className="flex-wrap sm:flex-nowrap">
+      <span className="w-5 text-sm tabular-nums text-muted-foreground">{index + 1}</span>
+      <ItemContent className="min-w-0 basis-[calc(100%-2.5rem)] sm:basis-auto">
+        <ItemTitle className="max-w-full truncate">{entry.label}</ItemTitle>
+        <ItemDescription className="truncate text-xs">{entry.modelId}</ItemDescription>
+      </ItemContent>
+      <ItemActions className="w-full flex-wrap justify-end gap-1 sm:w-auto">
+        {!entry.enabled && <Badge variant="secondary">Paused</Badge>}
+        {/* Set by the RUNTIME after a failure, and it clears itself. */}
+        {entry.demoted && <Badge variant="destructive">Recently failed</Badge>}
+        {entry.retired && <Badge variant="destructive">Not in catalogue</Badge>}
+        <ChainButton
+          role={role}
+          modelId={entry.modelId}
+          intent="up"
+          label="Move up"
+          busy={busy}
+          disabled={index === 0}
+        >
+          <ArrowUp />
+        </ChainButton>
+        <ChainButton
+          role={role}
+          modelId={entry.modelId}
+          intent="down"
+          label="Move down"
+          busy={busy}
+          disabled={isLast}
+        >
+          <ArrowDown />
+        </ChainButton>
+        <ChainButton
+          role={role}
+          modelId={entry.modelId}
+          intent={entry.enabled ? "disable" : "enable"}
+          label={entry.enabled ? "Pause model" : "Resume model"}
+          busy={busy}
+        >
+          {entry.enabled ? <PauseCircle /> : <PlayCircle />}
+        </ChainButton>
+        <ChainButton
+          role={role}
+          modelId={entry.modelId}
+          intent="remove"
+          label="Remove from chain"
+          busy={busy}
+        >
+          <Trash2 />
+        </ChainButton>
+      </ItemActions>
+    </Item>
   );
 }
 
@@ -127,13 +148,18 @@ function ChainEntryRow({
  * is already the right one and nobody has to compare 21 model names.
  */
 function AddModelForm({ purpose, busy }: { purpose: Purpose; busy: boolean }) {
+  const pending = useIsPending(purpose.role, "add");
+  const selectId = `add-model-${purpose.role}`;
   return (
-    <Form method="post" className="flex flex-wrap items-end gap-2">
+    <Form method="post" className="flex flex-col gap-2 sm:flex-row sm:items-end">
       <input type="hidden" name="role" value={purpose.role} />
       <input type="hidden" name="intent" value="add" />
-      <div className="min-w-80 flex-1">
+      <Field className="min-w-0 flex-1">
+        <FieldLabel htmlFor={selectId} className="sr-only">
+          Add a model to {purpose.label}
+        </FieldLabel>
         <Select name="modelId" defaultValue={purpose.available[0]?.id}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger id={selectId} className="w-full">
             <SelectValue placeholder="Choose a model…" />
           </SelectTrigger>
           <SelectContent>
@@ -144,9 +170,9 @@ function AddModelForm({ purpose, busy }: { purpose: Purpose; busy: boolean }) {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </Field>
       <Button type="submit" variant="outline" disabled={busy}>
-        <Plus className="mr-1 size-4" />
+        {pending ? <Spinner /> : <Plus />}
         Add to chain
       </Button>
     </Form>
@@ -162,26 +188,24 @@ export function PurposeCard({ purpose, busy }: { purpose: Purpose; busy: boolean
   return (
     <Card>
       <PurposeHeader purpose={purpose} />
-      <CardContent>
-        <BlockStack gap={3}>
-          {purpose.chain.length === 0 ? (
-            <EmptyChain role={purpose.role} busy={busy} />
-          ) : (
-            <BlockStack gap={2}>
-              {purpose.chain.map((entry, index) => (
-                <ChainEntryRow
-                  key={entry.modelId}
-                  role={purpose.role}
-                  entry={entry}
-                  index={index}
-                  isLast={index === purpose.chain.length - 1}
-                  busy={busy}
-                />
-              ))}
-            </BlockStack>
-          )}
-          {purpose.available.length > 0 && <AddModelForm purpose={purpose} busy={busy} />}
-        </BlockStack>
+      <CardContent className="flex flex-col gap-3">
+        {purpose.chain.length === 0 ? (
+          <EmptyChain role={purpose.role} busy={busy} />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {purpose.chain.map((entry, index) => (
+              <ChainEntryRow
+                key={entry.modelId}
+                role={purpose.role}
+                entry={entry}
+                index={index}
+                isLast={index === purpose.chain.length - 1}
+                busy={busy}
+              />
+            ))}
+          </div>
+        )}
+        {purpose.available.length > 0 && <AddModelForm purpose={purpose} busy={busy} />}
       </CardContent>
     </Card>
   );

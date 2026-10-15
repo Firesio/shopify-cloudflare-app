@@ -1,10 +1,23 @@
-import { Form, data, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
+import { Form, Link, data, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => [
   { title: "New Support Ticket · Staff Console" },
 ];
-import { Alert, AlertDescription, BlockStack, Button, CardSkeleton, Page } from "ngk-dashboard";
+import { Alert, AlertDescription } from "~/internal/components/ui/alert";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "~/internal/components/ui/breadcrumb";
+import { Button } from "~/internal/components/ui/button";
+import { Card, CardContent, CardHeader } from "~/internal/components/ui/card";
+import { Skeleton } from "~/internal/components/ui/skeleton";
+import { Spinner } from "~/internal/components/ui/spinner";
+import { useActionToast } from "~/internal/use-action-toast";
 import { Send } from "lucide-react";
 import { requireAdminUser } from "~/services/admin-auth.server";
 import { adminUsers, shopMetrics, support, adminSessionUsers } from "~/wiring.server";
@@ -90,57 +103,81 @@ export default function NewInternalSupportTicket() {
   const { shops, actorName } = useLoaderData<typeof loader>();
   const actionData = useActionData<{ error?: string }>();
 
+  useActionToast(actionData, { error: actionData?.error });
+
   return (
-    <Page
-      title="New Support Ticket"
-      subtitle="Proactively contact a merchant. Store information and email address are retrieved automatically from database records."
-      backAction={{ href: "/internal/support", label: "Support Queue" }}
-    >
-      <BlockStack gap={6}>
-        {actionData?.error && (
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className="flex flex-col gap-3 px-4 lg:px-6">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/internal/support">Support</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>New ticket</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">New support ticket</h1>
+          <p className="text-sm text-muted-foreground">
+            Proactively contact a merchant. Store information and email address are retrieved automatically from database records.
+          </p>
+        </div>
+      </div>
+
+      {actionData?.error && (
+        <div className="px-4 lg:px-6">
           <Alert variant="destructive">
             <AlertDescription>{actionData.error}</AlertDescription>
           </Alert>
-        )}
+        </div>
+      )}
 
+      <div className="px-4 lg:px-6">
         <Deferred resolve={shops} fallback={<NewTicketSkeleton />} errorTitle="The shop list">
           {(registeredShops) => <NewTicketForm shops={registeredShops} actorName={actorName} />}
         </Deferred>
-      </BlockStack>
-    </Page>
+      </div>
+    </div>
   );
 }
 
 function NewTicketForm({ shops: registeredShops, actorName }: { shops: ShopContactInfo[]; actorName: string }) {
   const navigation = useNavigation();
-  const isSubmitting = navigation.state === "submitting";
+  // The redirect to the new thread is a `loading` navigation: keep the form
+  // locked through it so a second click cannot create a duplicate ticket.
+  const isSubmitting = navigation.state !== "idle";
 
   const form = useNewTicketForm(registeredShops);
   const draft = useReplyDraft("body");
   const uploads = usePendingUploads("new", form.effectiveShop || undefined);
 
   return (
-    <Form method="post" className="grid gap-6 lg:grid-cols-[2fr_1fr] lg:items-start">
+    <Form method="post" className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
       <input type="hidden" name="shop" value={form.selectedShop} />
 
-      {/* Left Column: Primary Form Fields */}
-      <div className="space-y-6">
+      {/* Left column: primary form fields */}
+      <div className="flex flex-col gap-4">
         <RecipientCard shops={registeredShops} form={form} />
         <MessageCard form={form} draft={draft} uploads={uploads} isSubmitting={isSubmitting} />
 
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center justify-between">
           <Button variant="ghost" asChild>
-            <a href="/internal/support">Cancel</a>
+            <Link to="/internal/support">Cancel</Link>
           </Button>
-          <Button type="submit" disabled={isSubmitting || uploads.busy} className="gap-2">
-            <Send className="size-4" />
-            {isSubmitting ? "Creating & Sending..." : "Create Ticket & Email Merchant"}
+          <Button type="submit" disabled={isSubmitting || uploads.busy}>
+            {isSubmitting ? <Spinner /> : <Send />}
+            {isSubmitting ? "Creating and sending…" : "Create ticket and email merchant"}
           </Button>
         </div>
       </div>
 
-      {/* Right Column: Preview & Staff Context */}
-      <div className="space-y-6">
+      {/* Right column: preview and staff context */}
+      <div className="flex flex-col gap-4">
         <OutreachPreview effectiveShop={form.effectiveShop} contact={form.currentContact} actorName={actorName} />
         <OutreachNotes />
       </div>
@@ -148,17 +185,32 @@ function NewTicketForm({ shops: registeredShops, actorName }: { shops: ShopConta
   );
 }
 
+function SkeletonCard({ lines }: { readonly lines: number }) {
+  return (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-4 w-40" />
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {Array.from({ length: lines }, (_, index) => (
+          <Skeleton key={index} className="h-9 w-full" />
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 /** Mirrors the form: recipient and message cards beside the preview column. */
 function NewTicketSkeleton() {
   return (
-    <div aria-hidden className="grid gap-6 lg:grid-cols-[2fr_1fr] lg:items-start">
-      <div className="space-y-6">
-        <CardSkeleton lines={3} />
-        <CardSkeleton lines={6} />
+    <div aria-hidden className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
+      <div className="flex flex-col gap-4">
+        <SkeletonCard lines={3} />
+        <SkeletonCard lines={4} />
       </div>
-      <div className="space-y-6">
-        <CardSkeleton lines={4} />
-        <CardSkeleton lines={2} />
+      <div className="flex flex-col gap-4">
+        <SkeletonCard lines={4} />
+        <SkeletonCard lines={2} />
       </div>
     </div>
   );
