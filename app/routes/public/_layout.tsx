@@ -1,4 +1,7 @@
 import { Link, Outlet } from "react-router";
+import { getEnv } from "~/request-context.server";
+import { installTarget } from "~/lib/install-target";
+import { InstallLink } from "./install-button";
 import type { LinksFunction } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "~/i18n/useLocale";
@@ -11,6 +14,24 @@ import publicStyles from "~/styles/public/public.scss?url";
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: publicStyles },
 ];
+
+/**
+ * Decides, once for every public page, how a visitor installs the app: the
+ * App Store listing when `SHOPIFY_APP_HANDLE` is set, the manual shop-domain
+ * form when it is not. A set-but-malformed handle degrades to the manual form
+ * and says so, because a silent fallback would leave the listing unlinked
+ * after launch without anyone noticing.
+ */
+export const loader = () => {
+  const install = installTarget(getEnv().SHOPIFY_APP_HANDLE);
+  if (install.kind === "manual" && install.reason === "invalid") {
+    console.warn(JSON.stringify({ event: "install_target.invalid_handle" }));
+  }
+  return { install };
+};
+
+/** The answer is deploy configuration, so there is nothing to refetch between page navigations. */
+export const shouldRevalidate = () => false;
 
 /** Namespaces this route tree needs — entry.server only ships these. */
 export const handle = { i18n: ["common", "public"] };
@@ -38,9 +59,7 @@ export default function PublicLayout() {
               <Link to="/support">{t("nav.support")}</Link>
             </div>
             <LocaleSwitcher current={locale} />
-            <Link to="/auth/login" className="btn btn--primary">
-              {t("actions.install")}
-            </Link>
+            <InstallLink className="btn btn--primary">{t("actions.install")}</InstallLink>
           </nav>
         </div>
       </header>

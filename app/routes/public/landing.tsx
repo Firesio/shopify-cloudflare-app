@@ -5,6 +5,8 @@ import { i18nServer } from "~/i18n/i18n.server";
 import { useLocale } from "~/i18n/useLocale";
 import { formatMoney } from "~/money";
 import { FEATURED_PLAN_HANDLE, PLANS } from "~/billing/plans";
+import { paths } from "~/urls";
+import { useInstallTarget } from "./install-button";
 
 export const handle = { i18n: ["common", "public"] };
 
@@ -36,6 +38,34 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => [
 
 const FEATURE_KEYS = ["one", "two", "three"] as const;
 
+/**
+ * Two different ways in. Listed on the App Store: one link out to the listing,
+ * with no field for a shop domain (Shopify forbids asking for it). Not listed
+ * yet: the shop-domain form that starts OAuth directly.
+ */
+function InstallCall() {
+  const { t } = useTranslation("public");
+  const target = useInstallTarget();
+
+  if (target.kind === "appStore") {
+    return (
+      <a href={target.url} className="btn btn--primary" rel="noopener">
+        {t("landing.appStoreCta")}
+      </a>
+    );
+  }
+
+  return (
+    <form action={paths.login()} method="get" className="stack form--narrow">
+      <div className="field">
+        <label className="field__label" htmlFor="shop">{t("landing.storeUrlLabel")}</label>
+        <input className="field__input" id="shop" name="shop" type="text" required placeholder={t("landing.storeUrlPlaceholder")} autoComplete="url" inputMode="url" />
+      </div>
+      <button type="submit" className="btn btn--primary">{t("landing.installCta")}</button>
+    </form>
+  );
+}
+
 export default function Landing() {
   const { t } = useTranslation("public");
   const locale = useLocale();
@@ -47,13 +77,7 @@ export default function Landing() {
           <p className="eyebrow">{t("landing.eyebrow")}</p>
           <h1>{t("landing.heading")}</h1>
           <p className="lead">{t("landing.lead")}</p>
-          <form action="/auth/login" method="get" className="stack form--narrow">
-            <div className="field">
-              <label className="field__label" htmlFor="shop">{t("landing.storeUrlLabel")}</label>
-              <input className="field__input" id="shop" name="shop" type="text" required placeholder={t("landing.storeUrlPlaceholder")} autoComplete="url" inputMode="url" />
-            </div>
-            <button type="submit" className="btn btn--primary">{t("landing.installCta")}</button>
-          </form>
+          <InstallCall />
           <Link to="/pricing" className="btn btn--secondary">{t("landing.pricingCta")}</Link>
         </div>
       </section>

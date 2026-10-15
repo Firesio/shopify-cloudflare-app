@@ -4,6 +4,7 @@
     "heading": "TODO: what your app does, in one line",
     "lead": "TODO: the follow-up sentence — who it is for and why it matters.",
     "installCta": "Install on Shopify",
+    "appStoreCta": "Install from the Shopify App Store",
     "storeUrlLabel": "Enter your Shopify store URL",
     "storeUrlPlaceholder": "your-store.myshopify.com",
     "pricingCta": "See pricing",

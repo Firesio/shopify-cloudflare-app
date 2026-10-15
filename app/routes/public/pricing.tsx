@@ -5,6 +5,7 @@ import { i18nServer } from "~/i18n/i18n.server";
 import { useLocale } from "~/i18n/useLocale";
 import { formatMoney } from "~/money";
 import { FEATURED_PLAN_HANDLE, PLAN_LIST } from "~/billing/plans";
+import { InstallLink } from "./install-button";
 
 export const handle = { i18n: ["common", "public"] };
 
@@ -69,12 +70,9 @@ export default function Pricing() {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  to="/auth/login"
-                  className={`btn ${popular ? "btn--primary" : "btn--secondary"}`}
-                >
+                <InstallLink className={`btn ${popular ? "btn--primary" : "btn--secondary"}`}>
                   {t("pricing.getStarted")}
-                </Link>
+                </InstallLink>
               </article>
             );
           })}

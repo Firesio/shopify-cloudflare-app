@@ -156,6 +156,11 @@
     "SHOPIFY_API_KEY": "",
     "SCOPES": "",
     "SHOPIFY_APP_URL": "http://localhost:3000",
+    // The App Store listing handle (apps.shopify.com/<handle>). Empty until the app
+    // has a public listing: the landing page then shows the shop-domain install
+    // form. Once set, every Install button points at the listing instead and no
+    // form asks for a shop domain (App Store requirement 2.3.1).
+    "SHOPIFY_APP_HANDLE": "",
     // Must be an address on a domain onboarded to Email Sending. Empty means
     // email is disabled and sendEmail() reports notConfigured.
     "EMAIL_FROM": "",
@@ -258,6 +263,8 @@
         "SCOPES": "",
         // Your production URL — must match application_url in shopify.app.toml.
         "SHOPIFY_APP_URL": "https://example.com",
+        // Set to the listing handle once the app is live on the App Store.
+        "SHOPIFY_APP_HANDLE": "",
         "EMAIL_FROM": "",
         "EMAIL_FROM_NAME": "",
         "SHOPIFY_PARTNER_APP_ID": "",

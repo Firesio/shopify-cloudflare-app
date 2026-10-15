@@ -117,6 +117,20 @@ subrequests per invocation Free 50 / Paid 10,000; to internal services (KV, D1, 
 - The previous schedule (one daily tick of 50) covered 50 shops/day, so a fleet over ~50 was never covered within the cooldown.
 - Named-env `triggers` are not inherited: `env.production.triggers.crons` re-declares both crons, and `scripts/check-placeholders.mjs` fails the deploy gate if the hourly one is missing. The dispatcher matches `controller.cron` against `UNINSTALL_PROBE_CRON` (`app/domain/cron-schedule.ts`); any other cron, including the local `*/5 * * * *`, runs everything.
 
+## App Store install requirements (2026-10-15)
+
+Verified against shopify.dev docs lookup on 2026-10-15 — [App Store requirements](https://shopify.dev/docs/apps/launch/shopify-app-store/app-store-requirements) section 2.3, [Pass app review](https://shopify.dev/docs/apps/launch/app-store-review/pass-app-review).
+
+| Finding (documented) | Design consequence |
+|---|---|
+| **2.3.1** Installation must be initiated from a Shopify-owned surface. The app **must not request manual entry of a myshopify.com URL or a shop's domain** during the installation or configuration flow. | Once the app has a listing, no page may show a shop-domain field: the landing page, header and pricing CTAs link to `https://apps.shopify.com/<handle>`, and `/auth/login` redirects there instead of rendering its form. |
+| **2.3.2 / 2.3.4** Authenticate with OAuth immediately after install and after every reinstall, before any other step or any UI. **2.3.3** Redirect to the app UI after the merchant accepts permissions. | Nothing on the public site may stand between the listing's Install button and OAuth. |
+| App URL and allowed redirection URLs must lead merchants to the OAuth screen, or the app is not approved. | Keep the toml `application_url` / `redirect_urls` honest; test them before submission. |
+
+| Our design decision (not a Shopify rule) | Consequence |
+|---|---|
+| **The manual shop-domain form stays, but only while there is no listing** (development, and the review period). `SHOPIFY_APP_HANDLE` (a `vars` entry, declared at the top level AND under `env.production` because named envs do not inherit) selects the flow: empty or malformed → manual form; a valid handle → App Store link, no form. `installTarget()` (`app/lib/install-target.ts`) is the single decision; the public layout loader runs it once and `useInstallTarget()` hands it to every CTA. A malformed handle degrades to the manual form and logs `install_target.invalid_handle`. | **Set `SHOPIFY_APP_HANDLE` in `env.production` before the submission that goes live**, or the production landing page keeps asking for a shop domain. `/auth/login` still accepts a request that carries a valid `?shop=` (the library sending an expired session back through login) and forwards it to Shopify's install page; that is not manual entry. Unverified: that a reviewer treats the unlisted-phase form as out of scope; it is hidden from review only by the handle being set. |
+
 ## Unverified — must be confirmed before anything depends on it
 
 Anything in this section stays labelled unverified until someone observes it

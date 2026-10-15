@@ -58,6 +58,11 @@ ATTACHMENT_TOKEN_SECRET=dev-only-attachment-token-secret-change-me
 # SHOPIFY_PARTNER_ORGANIZATION_ID=
 # SHOPIFY_PARTNER_API_VERSION=2026-07
 
+# The App Store listing handle (apps.shopify.com/<handle>). Leave it unset locally and
+# before the app is listed: the landing page then shows the shop-domain install form.
+# Setting it makes every Install button link to the listing and hides the form.
+# SHOPIFY_APP_HANDLE=
+
 # `npm run dev` injects SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SCOPES, and the
 # tunnel URL. It does not inject SHOPIFY_PARTNER_APP_ID, so set that value
 # explicitly for the selected development app. Production sets the same keys
