@@ -15,7 +15,7 @@ import { KVSessionStorage } from "~/session-storage.server";
 import { setupTestDatabase } from "~/test/db";
 import { offlineSession } from "~/test/factories";
 import { fakeQueueBinding } from "~/test/fake-notification-queue";
-import { queuedDelivery } from "~/test/webhook-deliveries";
+import { admittedDelivery } from "~/test/webhook-deliveries";
 import { webhookConsumer } from "~/wiring.server";
 import { consumeWebhook } from "./webhook-consumer";
 
@@ -45,7 +45,7 @@ describe("app/uninstalled ordering (real D1 + KV)", () => {
       await new ShopRepo().recordInstall(shop, 5_000);
       await new KVSessionStorage(env.SESSION).storeSession(offlineSession(shop));
     });
-    const work = await inRequest(() => queuedDelivery({ shop, id: "late-uninstall", topic: "app/uninstalled", triggeredAt: 2_000 }));
+    const work = await inRequest(() => admittedDelivery({ shop, id: "late-uninstall", topic: "app/uninstalled", triggeredAt: 2_000 }));
 
     await expect(consume(work)).resolves.toEqual({ outcome: "processed", topic: "app/uninstalled" });
 
@@ -60,7 +60,7 @@ describe("app/uninstalled ordering (real D1 + KV)", () => {
       await new ShopRepo().recordInstall(shop, 1_000);
       await new KVSessionStorage(env.SESSION).storeSession(offlineSession(shop));
     });
-    const work = await inRequest(() => queuedDelivery({ shop, id: "in-order", topic: "app/uninstalled", triggeredAt: 2_000 }));
+    const work = await inRequest(() => admittedDelivery({ shop, id: "in-order", topic: "app/uninstalled", triggeredAt: 2_000 }));
 
     await consume(work);
 
@@ -74,7 +74,7 @@ describe("app/uninstalled ordering (real D1 + KV)", () => {
     quiet();
     const shop = "duplicate.myshopify.com";
     await inRequest(async () => { await new ShopRepo().recordInstall(shop, 1_000); });
-    const work = await inRequest(() => queuedDelivery({ shop, id: "dup", topic: "app/uninstalled", triggeredAt: 2_000 }));
+    const work = await inRequest(() => admittedDelivery({ shop, id: "dup", topic: "app/uninstalled", triggeredAt: 2_000 }));
 
     await expect(consume(work)).resolves.toMatchObject({ outcome: "processed" });
     const afterFirst = await row(shop);
@@ -97,7 +97,7 @@ describe("app/uninstalled ordering (real D1 + KV)", () => {
       await new ShopRepo().recordInstall("bystander.myshopify.com", 1_000);
       await new KVSessionStorage(env.SESSION).storeSession(offlineSession("bystander.myshopify.com"));
     });
-    const work = await inRequest(() => queuedDelivery({ shop: "victim.myshopify.com", id: "victim", topic: "app/uninstalled", triggeredAt: 2_000 }));
+    const work = await inRequest(() => admittedDelivery({ shop: "victim.myshopify.com", id: "victim", topic: "app/uninstalled", triggeredAt: 2_000 }));
 
     await consume(work);
 
@@ -138,7 +138,7 @@ describe("announcing an uninstall to the staff (real D1 + KV, fake queue binding
       await staffWithDevices({ email: true });
       await new ShopRepo().recordInstall(shop, 1_000);
     });
-    const work = await inRequest(() => queuedDelivery({ shop, id: "announce-1", topic: "app/uninstalled", triggeredAt: 2_000 }));
+    const work = await inRequest(() => admittedDelivery({ shop, id: "announce-1", topic: "app/uninstalled", triggeredAt: 2_000 }));
 
     await runWithRequestContext(withQueue(queued), () => consumeWebhook(webhookConsumer(), work));
 
@@ -160,7 +160,7 @@ describe("announcing an uninstall to the staff (real D1 + KV, fake queue binding
       await staffWithDevices();
       await new ShopRepo().recordInstall(shop, 5_000);
     });
-    const work = await inRequest(() => queuedDelivery({ shop, id: "stale-announce", topic: "app/uninstalled", triggeredAt: 2_000 }));
+    const work = await inRequest(() => admittedDelivery({ shop, id: "stale-announce", topic: "app/uninstalled", triggeredAt: 2_000 }));
 
     await runWithRequestContext(withQueue(queued), () => consumeWebhook(webhookConsumer(), work));
 
@@ -175,7 +175,7 @@ describe("announcing an uninstall to the staff (real D1 + KV, fake queue binding
       await staffWithDevices();
       await new ShopRepo().recordInstall(shop, 1_000);
     });
-    const work = await inRequest(() => queuedDelivery({ shop, id: "replayed-announce", topic: "app/uninstalled", triggeredAt: 2_000 }));
+    const work = await inRequest(() => admittedDelivery({ shop, id: "replayed-announce", topic: "app/uninstalled", triggeredAt: 2_000 }));
 
     await runWithRequestContext(withQueue(queued), () => consumeWebhook(webhookConsumer(), work));
     await expect(runWithRequestContext(withQueue(queued), () => consumeWebhook(webhookConsumer(), work))).resolves.toMatchObject({ outcome: "duplicate" });
@@ -191,7 +191,7 @@ describe("announcing an uninstall to the staff (real D1 + KV, fake queue binding
       await staffWithDevices();
       await new ShopRepo().recordInstall(shop, 1_000);
     });
-    const work = await inRequest(() => queuedDelivery({ shop, id: "announce-fails", topic: "app/uninstalled", triggeredAt: 2_000 }));
+    const work = await inRequest(() => admittedDelivery({ shop, id: "announce-fails", topic: "app/uninstalled", triggeredAt: 2_000 }));
 
     await expect(runWithRequestContext(broken, () => consumeWebhook(webhookConsumer(), work))).resolves.toEqual({ outcome: "processed", topic: "app/uninstalled" });
 
@@ -202,7 +202,7 @@ describe("announcing an uninstall to the staff (real D1 + KV, fake queue binding
 describe("app/scopes_update ordering (real D1 + KV)", () => {
   async function scopesUpdate(shop: string, id: string, triggeredAt: number, scopes: readonly string[]) {
     return inRequest(async () => {
-      const work = await queuedDelivery({ shop, id, topic: "app/scopes_update", triggeredAt });
+      const work = await admittedDelivery({ shop, id, topic: "app/scopes_update", triggeredAt });
       await new WebhookScopeObservationRepo().record(id, shop, scopes);
       return work;
     });
@@ -263,7 +263,7 @@ describe("app/scopes_update ordering (real D1 + KV)", () => {
     const shop = "early-scopes.myshopify.com";
     const work = await scopesUpdate(shop, "early-1", 2_000, ["read_products"]);
     await expect(consume({ ...work, attempts: 1 })).resolves.toMatchObject({ outcome: "deferred", topic: "app/scopes_update" });
-    expect(await deliveryStatuses(shop)).toEqual([{ id: "early-1", status: "queued" }]);
+    expect(await deliveryStatuses(shop)).toEqual([{ id: "early-1", status: "received" }]);
 
     // The first embedded load writes the row; the redelivery now applies the update.
     await inRequest(async () => { await new ShopRepo().recordInstall(shop, 1_000); });
@@ -288,7 +288,7 @@ describe("a shop with no shops row is not a redacted shop (real D1)", () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const shop = "unknown-uninstall.myshopify.com";
-    const work = await inRequest(() => queuedDelivery({ shop, id: "unknown-1", topic: "app/uninstalled", triggeredAt: 2_000 }));
+    const work = await inRequest(() => admittedDelivery({ shop, id: "unknown-1", topic: "app/uninstalled", triggeredAt: 2_000 }));
 
     await expect(consume(work)).resolves.toEqual({ outcome: "processed", topic: "app/uninstalled" });
 
@@ -302,7 +302,7 @@ describe("a shop with no shops row is not a redacted shop (real D1)", () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const shop = "unknown-dup.myshopify.com";
-    const work = await inRequest(() => queuedDelivery({ shop, id: "unknown-dup", topic: "app/uninstalled", triggeredAt: 2_000 }));
+    const work = await inRequest(() => admittedDelivery({ shop, id: "unknown-dup", topic: "app/uninstalled", triggeredAt: 2_000 }));
 
     await expect(consume(work)).resolves.toMatchObject({ outcome: "processed" });
     await expect(consume(work)).resolves.toMatchObject({ outcome: "duplicate" });
@@ -316,7 +316,7 @@ describe("a shop with no shops row is not a redacted shop (real D1)", () => {
     quiet();
     const shop = "tombstoned-uninstall.myshopify.com";
     await tombstone(shop);
-    const work = await inRequest(() => queuedDelivery({ shop, id: "tomb-1", topic: "app/uninstalled", triggeredAt: 2_000 }));
+    const work = await inRequest(() => admittedDelivery({ shop, id: "tomb-1", topic: "app/uninstalled", triggeredAt: 2_000 }));
 
     await expect(consume(work)).resolves.toEqual({ outcome: "missing", topic: "app/uninstalled" });
 
@@ -329,11 +329,42 @@ describe("a shop with no shops row is not a redacted shop (real D1)", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const shop = "known-uninstall.myshopify.com";
     await inRequest(async () => { await new ShopRepo().recordInstall(shop, 1_000); });
-    const work = await inRequest(() => queuedDelivery({ shop, id: "known-1", topic: "app/uninstalled", triggeredAt: 2_000 }));
+    const work = await inRequest(() => admittedDelivery({ shop, id: "known-1", topic: "app/uninstalled", triggeredAt: 2_000 }));
 
     await expect(consume(work)).resolves.toMatchObject({ outcome: "processed" });
 
     expect(await row(shop)).toMatchObject({ relationshipStatus: "UNINSTALLED" });
     expect(log.mock.calls.some(([line]) => String(line).includes("webhook.shop_unknown"))).toBe(false);
+  });
+});
+
+describe("announcing a dead-lettered webhook to the staff (real D1 + KV, fake queue binding)", () => {
+  const withQueue = (queued: ReturnType<typeof fakeQueueBinding>) =>
+    Object.assign({}, env, { NOTIFICATION_QUEUE: queued.binding, SHOPIFY_APP_URL: "https://app.workmanjsc.vn" });
+
+  it("queues one notification per email recipient and per device, keyed by the delivery, and only once", async () => {
+    quiet();
+    const shop = "dead-letter-announced.myshopify.com";
+    const queued = fakeQueueBinding();
+    await runWithRequestContext(withQueue(queued), async () => {
+      await new AdminUserRepo().create({ id: "staff-dl", email: "staff@workmanjsc.vn", name: "Sam", passwordHash: "x", role: "admin", now: 1 });
+      await new PushSubscriptionRepo().upsert("staff-dl", { id: "phone-dl", endpoint: "https://push.fake-service.invalid/phone", p256dh: "k", auth: "a", label: "Chrome on Android", kind: "phone", now: 1 });
+      await new ShopRepo().recordInstall(shop, 1_000);
+    });
+    // A topic no handler is registered for can never succeed, so the consumer dead-letters it on the first delivery.
+    const work = await inRequest(() => admittedDelivery({ shop, id: "retired-1", topic: "retired/topic", triggeredAt: 2_000 }));
+
+    await expect(runWithRequestContext(withQueue(queued), () => consumeWebhook(webhookConsumer(), work))).resolves.toMatchObject({ outcome: "unsupported" });
+    // The queue redelivers: the row is already dead-lettered, so nothing is announced a second time.
+    await runWithRequestContext(withQueue(queued), () => consumeWebhook(webhookConsumer(), work));
+
+    expect(await deliveryStatuses(shop)).toEqual([{ id: "retired-1", status: "dead_letter" }]);
+    expect(queued.bodies).toHaveLength(2);
+    expect(queued.bodies).toEqual(expect.arrayContaining([
+      expect.objectContaining({ event: "webhook_dead_letter", to: { email: "staff@workmanjsc.vn" } }),
+      expect.objectContaining({ event: "webhook_dead_letter", to: { push: "phone-dl" } }),
+    ]));
+    const keys = new Set(queued.bodies.map((body) => (typeof body === "object" && body !== null && "dedupeKey" in body ? body.dedupeKey : null)));
+    expect(keys).toEqual(new Set(["webhook-dead-letter:retired-1"]));
   });
 });

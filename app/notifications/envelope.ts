@@ -57,6 +57,15 @@ const PAYLOAD_SCHEMAS: { [E in NotificationEvent]: z.ZodType<PayloadByEvent[E]> 
   }),
   shop_installed: z.object(shopChangePayload),
   shop_uninstalled: z.object(shopChangePayload),
+  webhook_dead_letter: z.object({
+    ...basePayload,
+    shopName: z.string(),
+    shop: z.string(),
+    topic: z.string(),
+    deliveryId: z.string(),
+    occurredAt: z.string(),
+    adminUrl: z.string(),
+  }),
   push_test: z.object(basePayload),
 };
 
@@ -67,6 +76,7 @@ const EVENT_KEYS: Record<NotificationEvent, true> = {
   support_staff_reply: true,
   shop_installed: true,
   shop_uninstalled: true,
+  webhook_dead_letter: true,
   push_test: true,
 };
 

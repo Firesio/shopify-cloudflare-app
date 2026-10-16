@@ -3,6 +3,7 @@ import type { NotificationEvent } from "~/notifications/types";
 import type { RenderedEmail } from "./render";
 import { adminPasswordResetEmail } from "./templates/admin-password-reset";
 import { shopInstalledEmail, shopUninstalledEmail } from "./templates/shop-change";
+import { webhookDeadLetterEmail } from "./templates/webhook-dead-letter";
 import { supportMerchantActivityEmail } from "./templates/support-merchant-activity";
 import { supportStaffReplyEmail } from "./templates/support-staff-reply";
 
@@ -32,6 +33,7 @@ const BUILDERS: { [E in NotificationEvent]: EmailBuilder<E> | null } = {
   support_staff_reply: supportStaffReplyEmail,
   shop_installed: shopInstalledEmail,
   shop_uninstalled: shopUninstalledEmail,
+  webhook_dead_letter: webhookDeadLetterEmail,
   push_test: null,
 };
 

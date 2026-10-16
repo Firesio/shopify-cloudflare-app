@@ -6,10 +6,8 @@ import {
 import { runWithRequestContext } from "../app/request-context.server";
 import { sweepPlanFor } from "../app/domain/cron-schedule";
 import { runScheduledSweeps } from "../app/services/scheduled.server";
-import { scheduledDependencies, webhookConsumer } from "../app/wiring.server";
-import { consumeWebhook } from "../app/services/webhook-consumer";
+import { scheduledDependencies, webhookQueueDependencies } from "../app/wiring.server";
 import { handleWebhookQueueBatch } from "../app/services/webhook-queue";
-import { webhookLogLevel } from "../app/services/webhook-logging";
 import { handleNotificationBatch } from "../app/services/notification-queue";
 import { notificationConsumerDependencies } from "../app/wiring/notifications.server";
 import { queueKind } from "../app/lib/queue-names";
@@ -61,26 +59,7 @@ export default {
         await handleNotificationBatch(batch, notificationConsumerDependencies());
         return;
       }
-      await handleWebhookQueueBatch(batch, {
-        now: Date.now,
-        consume: async (work) => {
-          // Queue attempts count completed retries; the consumer counts deliveries.
-          return consumeWebhook(webhookConsumer(), { ...work, attempts: (work.attempts ?? 0) + 1 });
-        },
-        log: async (entry) => {
-          const digest = entry.shop ? await crypto.subtle.digest("SHA-256", new TextEncoder().encode(entry.shop)) : undefined;
-          const shopHash = digest ? `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}` : undefined;
-          console[webhookLogLevel(entry.outcome)](JSON.stringify({
-            id: entry.id,
-            shop: shopHash,
-            topic: entry.topic,
-            handler: entry.handler,
-            outcome: entry.outcome,
-            attempts: entry.attempts,
-            latencyMs: entry.latencyMs,
-          }));
-        },
-      });
+      await handleWebhookQueueBatch(batch, webhookQueueDependencies());
     });
   },
 } satisfies ExportedHandler<Env>;

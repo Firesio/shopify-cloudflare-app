@@ -1,21 +1,21 @@
-import type { WebhookDeliveriesPort } from "~/ports/webhook-deliveries";
-import type { RedactionGuard } from "~/services/redaction-guard";
+import type { QueuedWebhook } from "~/ports/webhook-queue";
 
-export interface WebhookIngestDependencies {
-  readonly deliveries: WebhookDeliveriesPort;
-  readonly queue: { send(message: WebhookQueueMessage): Promise<void> };
+/**
+ * The receiver's whole job, after the signature is checked: put ONE durable message on the queue and answer 2xx.
+ *
+ * Shopify allows 5 s for the response and retries a non-2xx up to 8 times over 4 hours, so the request must not
+ * depend on anything slow, and the 2xx must mean "this delivery will not be lost". A queue send is the one durable
+ * write that satisfies both: if it succeeds the message is redelivered until a consumer acknowledges it; if it throws
+ * the request answers 5xx and Shopify retries. There is deliberately no inbox write in the request: a row marked
+ * "queued" before the send could outlive a worker that died in between, and the retry would then be taken for a
+ * duplicate. Admission (dedupe, tombstone, inbox row) happens in the consumer, `admitWebhook`.
+ */
+export interface WebhookEnqueueDependencies {
+  readonly queue: { send(message: QueuedWebhook): Promise<void> };
   /** Epoch milliseconds; the log reports latency as `now() - receivedAt`. */
   readonly now: () => number;
   readonly hashPayload: (payload: unknown) => Promise<string>;
-  /** A redacted shop's deliveries are acknowledged and dropped: no delivery row may carry its domain again. */
-  readonly redaction: Pick<RedactionGuard, "isSuppressed">;
-  readonly beforeEnqueue?: (webhook: AuthenticatedWebhook) => Promise<void>;
-  readonly log?: (webhook: AuthenticatedWebhook, outcome: "queued" | "duplicate" | "suppressed", latencyMs: number) => Promise<void>;
-}
-
-export interface WebhookQueueMessage {
-  readonly shop: string;
-  readonly id: string;
+  readonly log?: (webhook: AuthenticatedWebhook, latencyMs: number) => Promise<void>;
 }
 
 export interface AuthenticatedWebhook {
@@ -27,50 +27,25 @@ export interface AuthenticatedWebhook {
   readonly triggeredAt: number;
   readonly receivedAt: number;
   readonly payload: unknown;
+  /** Typed values the handler needs from the payload (`app/scopes_update`); the payload itself is never forwarded. */
+  readonly scopes?: readonly string[];
 }
 
-/** Persist before handoff, so a Shopify retry cannot create a second effect. */
-export async function ingestWebhook(
-  dependencies: WebhookIngestDependencies,
-  webhook: AuthenticatedWebhook,
-): Promise<"queued" | "duplicate" | "suppressed"> {
-  // Before any write. The caller still answers 2xx so Shopify stops retrying; a duplicate or late `shop/redact`
-  // for an already-redacted shop is therefore acknowledged and is a no-op that leaves no delivery row behind.
-  if (await dependencies.redaction.isSuppressed(webhook.shop, "webhook_delivery")) {
-    await dependencies.log?.(webhook, "suppressed", dependencies.now() - webhook.receivedAt);
-    return "suppressed";
-  }
-  const topic = normalizeWebhookTopic(webhook.topic);
-  const claimed = await dependencies.deliveries.claim({
-    id: webhook.webhookId,
-    eventId: webhook.eventId,
-    topic,
+export async function enqueueWebhook(dependencies: WebhookEnqueueDependencies, webhook: AuthenticatedWebhook): Promise<void> {
+  await dependencies.queue.send({
     shop: webhook.shop,
-    apiVersion: webhook.apiVersion,
-    triggeredAt: webhook.triggeredAt,
-    receivedAt: webhook.receivedAt,
-    payloadHash: await dependencies.hashPayload(webhook.payload),
+    id: webhook.webhookId,
+    intake: {
+      topic: normalizeWebhookTopic(webhook.topic),
+      eventId: webhook.eventId,
+      apiVersion: webhook.apiVersion,
+      triggeredAt: webhook.triggeredAt,
+      receivedAt: webhook.receivedAt,
+      payloadHash: await dependencies.hashPayload(webhook.payload),
+      scopes: [...new Set(webhook.scopes ?? [])].sort(),
+    },
   });
-  if (claimed === "duplicate") {
-    const existing = await dependencies.deliveries.get(webhook.shop, webhook.webhookId);
-    if (existing?.status !== "received") {
-      await dependencies.log?.(webhook, "duplicate", dependencies.now() - webhook.receivedAt);
-      return "duplicate";
-    }
-  }
-
-  if (dependencies.deliveries.claimForQueue && !(await dependencies.deliveries.claimForQueue(webhook.shop, webhook.webhookId))) return "duplicate";
-
-  try {
-    await dependencies.beforeEnqueue?.(webhook);
-    await dependencies.queue.send({ shop: webhook.shop, id: webhook.webhookId });
-  } catch (error) {
-    await dependencies.deliveries.markReceived?.(webhook.shop, webhook.webhookId);
-    throw error;
-  }
-  await dependencies.deliveries.markQueued(webhook.shop, webhook.webhookId);
-  await dependencies.log?.(webhook, "queued", dependencies.now() - webhook.receivedAt);
-  return "queued";
+  await dependencies.log?.(webhook, dependencies.now() - webhook.receivedAt);
 }
 
 /** Shopify authentication returns enum names; consumers use webhook paths. */

@@ -43,7 +43,7 @@ export type ShopGateDecision =
   | "discard_redacted"
   /** Dispatch, but the shop is unknown: the consumer logs `webhook.shop_unknown`. */
   | "run_unknown_shop"
-  /** Leave the delivery queued and retry later: the shop row may still be coming. */
+  /** Leave the delivery as it is and retry later: the shop row may still be coming. */
   | "defer_unknown_shop";
 
 /**
@@ -81,7 +81,6 @@ export type WebhookDeliveryStatus =
   | "dead_letter";
 
 export type WebhookTransitionEvent =
-  | { readonly type: "queue" }
   | { readonly type: "claim"; readonly now: number; readonly leaseMs: number }
   | { readonly type: "complete"; readonly now: number }
   | { readonly type: "fail"; readonly now: number }
@@ -91,7 +90,8 @@ type Transition = Readonly<{ from: WebhookDeliveryStatus; to: WebhookDeliverySta
 type WebhookTransitionType = WebhookTransitionEvent["type"];
 
 const TRANSITIONS: Readonly<Record<WebhookDeliveryStatus, Readonly<Partial<Record<WebhookTransitionType, WebhookDeliveryStatus>>>>> = {
-  received: { queue: "queued", claim: "processing" },
+  received: { claim: "processing" },
+  /** Written only by the receiver that preceded the queue-first one; kept so a row it left behind can still be claimed. */
   queued: { claim: "processing" },
   processing: { claim: "processing", complete: "processed", fail: "failed" },
   processed: {},

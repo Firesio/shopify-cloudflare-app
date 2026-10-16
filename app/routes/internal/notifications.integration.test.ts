@@ -102,7 +102,7 @@ describe("loader", () => {
     await inRequest(async () => {
       const { cookie } = await signedIn("plain@workmanjsc.vn", "admin");
       const view = await loader(get(cookie));
-      expect(view.matrix.map((row) => row.topic)).toEqual(["support_ticket_opened", "support_ticket_reply", "shop_installed", "shop_uninstalled"]);
+      expect(view.matrix.map((row) => row.topic)).toEqual(["support_ticket_opened", "support_ticket_reply", "shop_installed", "shop_uninstalled", "webhook_dead_letter"]);
       expect(view.devices).toEqual([]);
       expect(view.push).toEqual({ configured: true, publicKey: vapid.publicKey, maxDevices: MAX_DEVICES_PER_ADMIN });
     });

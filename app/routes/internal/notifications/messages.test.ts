@@ -41,11 +41,12 @@ describe("describeResult", () => {
 });
 
 describe("groupMatrix", () => {
-  it("gathers the topics under Support and Shops, keeping their order", () => {
+  it("gathers the topics under Support, Shops and System, keeping their order", () => {
     const groups = groupMatrix(buildMatrix([]));
     expect(groups.map((group) => [group.label, group.rows.map((row) => row.topic)])).toEqual([
       ["Support", ["support_ticket_opened", "support_ticket_reply"]],
       ["Shops", ["shop_installed", "shop_uninstalled"]],
+      ["System", ["webhook_dead_letter"]],
     ]);
   });
 

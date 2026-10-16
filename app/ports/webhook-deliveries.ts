@@ -8,20 +8,3 @@ export interface WebhookDeliveryInput {
   readonly receivedAt: number;
   readonly payloadHash: string;
 }
-
-export interface StoredWebhookDelivery {
-  readonly status: string;
-  readonly id?: string;
-  readonly shop?: string;
-  readonly topic?: string;
-  readonly processingStartedAt?: number | null;
-  readonly failureCode?: string | null;
-}
-
-export interface WebhookDeliveriesPort {
-  claim(input: WebhookDeliveryInput): Promise<"claimed" | "duplicate">;
-  get(shop: string, id: string): Promise<StoredWebhookDelivery | undefined>;
-  markQueued(shop: string, id: string): Promise<void>;
-  claimForQueue?(shop: string, id: string): Promise<boolean>;
-  markReceived?(shop: string, id: string): Promise<void>;
-}

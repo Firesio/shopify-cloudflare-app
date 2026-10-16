@@ -26,6 +26,8 @@ export type NotificationEvent =
   | "shop_installed"
   /** A shop uninstalled the app → tell the staff. */
   | "shop_uninstalled"
+  /** A Shopify webhook was dead-lettered after exhausting its retries → tell the staff, who must act on it. */
+  | "webhook_dead_letter"
   /** A staff member asked for a test message on one of their devices. */
   | "push_test";
 

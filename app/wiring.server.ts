@@ -68,7 +68,7 @@ export {
   supportService,
 } from "~/wiring/ai-support.server";
 export { redactionGuard } from "~/wiring/redaction.server";
-export { scheduledDependencies, tenantPurgeDependencies, webhookConsumer } from "~/wiring/webhooks.server";
+export { scheduledDependencies, tenantPurgeDependencies, webhookConsumer, webhookQueueDependencies } from "~/wiring/webhooks.server";
 export { pushConfig, pushSender } from "~/wiring/push.server";
 export { shopChangeAnnouncer } from "~/wiring/shop-announcements.server";
 export {

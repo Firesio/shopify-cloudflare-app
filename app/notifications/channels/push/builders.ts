@@ -16,6 +16,8 @@ type PushBuilder<E extends NotificationEvent> = (payload: PayloadByEvent[E]) => 
 const SUPPORT_TTL_SECONDS = 24 * 60 * 60;
 const SHOP_TTL_SECONDS = 60 * 60;
 const TEST_TTL_SECONDS = 60;
+/** A dead letter is still unresolved tomorrow, so the push service may hold it for an offline device. */
+const DEAD_LETTER_TTL_SECONDS = 24 * 60 * 60;
 
 /**
  * EVENT → PUSH CONTENT, `null` where this channel does not render the event.
@@ -61,6 +63,16 @@ export const PUSH_BUILDERS: { [E in NotificationEvent]: PushBuilder<E> | null } 
     topic: "shop_uninstalled",
     urgency: "normal",
     ttlSeconds: SHOP_TTL_SECONDS,
+  }),
+
+  webhook_dead_letter: (payload) => ({
+    title: `Webhook failed · ${payload.topic}`,
+    body: `${payload.shopName} · ${payload.shop}`,
+    url: toInternalPath(payload.adminUrl),
+    tag: `webhook:${payload.deliveryId}:dead_letter`,
+    topic: "webhook_dead_letter",
+    urgency: "high",
+    ttlSeconds: DEAD_LETTER_TTL_SECONDS,
   }),
 
   push_test: () => ({

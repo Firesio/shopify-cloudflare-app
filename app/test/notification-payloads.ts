@@ -40,5 +40,14 @@ export const SAMPLE_PAYLOADS: { readonly [E in NotificationEvent]: PayloadByEven
     occurredAt: "Oct 15, 2026, 9:30 AM",
     adminUrl: "https://app.workmanjsc.vn/internal/shops/alpha.myshopify.com",
   },
+  webhook_dead_letter: {
+    recipientName: "Sam",
+    shopName: "Alpha Store",
+    shop: "alpha.myshopify.com",
+    topic: "shop/redact",
+    deliveryId: "wh-123",
+    occurredAt: "Oct 15, 2026, 9:30 AM",
+    adminUrl: "https://app.workmanjsc.vn/internal/shops/alpha.myshopify.com",
+  },
   push_test: { recipientName: "Staff" },
 };

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { env } from "cloudflare:test";
 import { RouterContextProvider } from "react-router";
 import { runWithRequestContext } from "~/request-context.server";
@@ -6,9 +6,14 @@ import { setupTestDatabase } from "~/test/db";
 import { WebhookDeliveryRepo } from "~/models/webhook-deliveries.server";
 import { KVSessionStorage } from "~/session-storage.server";
 import { offlineSession, signedWebhookRequest } from "~/test/factories";
+import { ShopRepo } from "~/models/shops.server";
+import { consumeWebhook } from "~/services/webhook-consumer";
+import { captureWebhookQueue, failWebhookQueue } from "~/test/webhook-queue";
+import { webhookConsumer } from "~/wiring.server";
 import { action } from "./uninstalled";
 
 setupTestDatabase();
+afterEach(() => vi.restoreAllMocks());
 
 const WEBHOOK_URL = "https://example.test/webhooks/app/uninstalled";
 
@@ -43,55 +48,60 @@ describe("app/uninstalled webhook", () => {
 
   it("accepts the uninstall when the stored offline session has an expired token (Shopify rejects the refresh once uninstalled)", async () => {
     const shop = "expired-session.myshopify.com";
+    const sent = captureWebhookQueue();
     await inRequest(async () => {
       await new KVSessionStorage(env.SESSION).storeSession(offlineSession(shop, { expires: new Date(Date.now() - 60_000), refreshToken: "revoked-refresh-token" }));
     });
     const response = await post(await signedWebhookRequest({ url: WEBHOOK_URL, topic: "app/uninstalled", shop, payload: {}, webhookId: "wh-expired" }));
     expect(response.status).toBe(200);
-    const delivery = await inRequest(() => new WebhookDeliveryRepo().get(shop, "wh-expired"));
-    expect(delivery).toMatchObject({ topic: "app/uninstalled", status: "queued" });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ shop, id: "wh-expired", intake: { topic: "app/uninstalled" } });
   });
 
-  it("durably queues uninstall work even when the shop session exists", async () => {
+  it("acknowledges after one queue message and writes nothing to D1 in the request", async () => {
     const shop = "uninstalled.myshopify.com";
-    const storage = new KVSessionStorage(env.SESSION);
-    await inRequest(async () => {
-      await storage.storeSession(offlineSession(shop));
-    });
-
-    const request = await signedWebhookRequest({
-      url: WEBHOOK_URL,
-      topic: "app/uninstalled",
-      shop,
-      payload: {},
-    });
-    const response = await post(request);
-    expect(response.status).toBe(200);
-
-    const delivery = await inRequest(() => new WebhookDeliveryRepo().get(shop, "webhook-id-1"));
-    expect(delivery?.status).toBe("queued");
-  });
-
-  it("is idempotent — a replayed delivery is a no-op, not an error", async () => {
-    const shop = "replayed-uninstall.myshopify.com";
+    const sent = captureWebhookQueue();
     await inRequest(async () => {
       await new KVSessionStorage(env.SESSION).storeSession(offlineSession(shop));
     });
 
-    const request = () =>
-      signedWebhookRequest({
-        url: WEBHOOK_URL,
-        topic: "app/uninstalled",
-        shop,
-        payload: {},
-      });
+    const response = await post(await signedWebhookRequest({ url: WEBHOOK_URL, topic: "app/uninstalled", shop, payload: {} }));
 
-    const first = await post(await request());
-    expect(first.status).toBe(200);
+    expect(response.status).toBe(200);
+    expect(sent).toHaveLength(1);
+    // Admission (the inbox row) is the consumer's step; the request must not depend on D1 to answer Shopify.
+    expect(await inRequest(() => new WebhookDeliveryRepo().get(shop, "webhook-id-1"))).toBeUndefined();
+  });
 
-    // Deliveries are at-least-once — the session is already gone by now.
-    const second = await post(await request());
-    expect(second.status).toBe(200);
+  it("answers 5xx when the queue refuses the message, so Shopify retries instead of losing the delivery", async () => {
+    failWebhookQueue();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const request = await signedWebhookRequest({ url: WEBHOOK_URL, topic: "app/uninstalled", shop: "queue-down.myshopify.com", payload: {} });
+    await expect(post(request)).rejects.toThrow("queue unavailable");
+  });
+
+  it("is idempotent — a replayed delivery produces exactly one inbox row and one processed effect", async () => {
+    const shop = "replayed-uninstall.myshopify.com";
+    const sent = captureWebhookQueue();
+    await inRequest(async () => {
+      await new ShopRepo().recordInstall(shop, 1);
+      await new KVSessionStorage(env.SESSION).storeSession(offlineSession(shop));
+    });
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    const request = () => signedWebhookRequest({ url: WEBHOOK_URL, topic: "app/uninstalled", shop, payload: {} });
+    // Deliveries are at-least-once: Shopify retried, so the same webhook id produced two messages.
+    expect((await post(await request())).status).toBe(200);
+    expect((await post(await request())).status).toBe(200);
+    expect(sent).toHaveLength(2);
+
+    const results = await inRequest(async () => {
+      const outcomes = [];
+      for (const message of sent) outcomes.push(await consumeWebhook(webhookConsumer(), message));
+      return outcomes;
+    });
+    expect(results).toEqual([{ outcome: "processed", topic: "app/uninstalled" }, { outcome: "duplicate", topic: "app/uninstalled" }]);
+    expect(await inRequest(() => new WebhookDeliveryRepo().listForShop(shop))).toHaveLength(1);
   });
 
   describe("during a client-secret rotation", () => {

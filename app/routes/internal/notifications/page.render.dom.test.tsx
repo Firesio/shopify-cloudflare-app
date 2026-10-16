@@ -88,8 +88,8 @@ describe("the matrix", () => {
     const page = await renderPage(settingsView({ push: { configured: false, publicKey: "", maxDevices: 5 } }));
     const view = within(page);
     expect(view.queryByRole("switch", { name: /by push$/ })).toBeNull();
-    expect(view.getAllByRole("switch", { name: /by email$/ })).toHaveLength(4);
-    expect(view.getAllByText("Not set up")).toHaveLength(4);
+    expect(view.getAllByRole("switch", { name: /by email$/ })).toHaveLength(5);
+    expect(view.getAllByText("Not set up")).toHaveLength(5);
     expect(view.getByText(/only email can be changed/)).toBeTruthy();
   });
 });

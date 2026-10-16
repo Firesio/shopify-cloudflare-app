@@ -26,7 +26,8 @@ as much a violation as a missing pattern.
 | Wiring adapters to ports | **Composition root** — `app/wiring.server.ts` only, called from ring 5 |
 | Expected, non-exceptional failure | **Result** — `{ ok: false, reason }`, never a throw as flow control |
 | A route action with multiple intents | **Command dispatch** — `Record<Intent, Handler>`, action is a thin `dispatch()` |
-| A webhook or queue consumer | **Idempotency guard** — stable key, claim it, return early, *before* any side effect |
+| A webhook or queue consumer | **Idempotency guard** — stable key, claim it, return early, *before* any side effect. For a webhook the claim is the consumer's admission step (`admitWebhook`), never the HTTP request |
+| A side effect of a handler (mail, push, any outbound notice) | **Enqueue, with a deterministic dedupe key** built from the delivery or event, never a random one: the handler runs again on retry |
 | A record with a lifecycle (anything with a `status` column) | **State machine** — transitions declared as data, one `transition()` funnel, illegal transitions rejected |
 | Any business decision | **Functional core** — pure function; the shell only awaits I/O and calls it |
 | A cached read | **KV under a shop-scoped key**, with explicit invalidation at the write site |

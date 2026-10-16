@@ -6,13 +6,17 @@ import { ShopRepo } from "~/models/shops.server";
 import { ShopTokenProbeRepo } from "~/models/shop-token-probes.server";
 import { TenantPurgeRepo } from "~/models/tenant-purge.server";
 import type { RedactionTombstone } from "~/ports/redacted-shops";
+import type { QueuedWebhook } from "~/ports/webhook-queue";
 import { getEnv } from "~/request-context.server";
 import { KVSessionStorage } from "~/session-storage.server";
 import { probeInstalledShops } from "~/services/probe-installed-shops";
 import { reconcileAfterUninstall } from "~/services/reconcile-after-uninstall";
 import { reconcileHistory } from "~/services/reconcile-shopify-history";
 import { recordUninstall, type RecordUninstallPorts } from "~/services/record-uninstall";
-import type { WebhookHandlerRegistry } from "~/services/webhook-consumer";
+import { consumeWebhook, type WebhookConsumerDependencies, type WebhookHandlerRegistry } from "~/services/webhook-consumer";
+import { webhookLogLevel } from "~/services/webhook-logging";
+import type { QueueProcessingDependencies } from "~/services/webhook-queue";
+import { admitWebhook } from "~/services/webhook-admission";
 import { appScopesUpdateHandler } from "~/services/webhook-handlers/app-scopes-update";
 import { appUninstalledHandler } from "~/services/webhook-handlers/app-uninstalled";
 import { complianceHandler } from "~/services/webhook-handlers/compliance";
@@ -20,7 +24,7 @@ import { historyLedger, refreshShopHistory, refreshShopSubscription } from "~/wi
 import { invalidateEntitlements } from "~/wiring/entitlement-cache.server";
 import { shops, shopSyncCheckpoints, support, webhookDeliveryRepository, webhookScopeObservations } from "~/wiring/repositories.server";
 import { redactionGuard } from "~/wiring/redaction.server";
-import { shopChangeAnnouncer } from "~/wiring/shop-announcements.server";
+import { shopChangeAnnouncer, webhookDeadLetterAnnouncer } from "~/wiring/shop-announcements.server";
 import { appRuntime } from "~/wiring/runtime.server";
 
 export function tenantPurgeDependencies() {
@@ -92,11 +96,44 @@ export function webhookConsumer() {
   return {
     deliveries: webhookDeliveryRepository(),
     now: appRuntime().clock.now,
+    admit: (work: QueuedWebhook) => admitWebhook({
+      deliveries: webhookDeliveryRepository(),
+      scopes: webhookScopeObservations(),
+      redaction: redactionGuard(),
+    }, work),
+    onDeadLetter: async ({ shop, id, topic, at }: { shop: string; id: string; topic: string; at: number }) => {
+      await webhookDeadLetterAnnouncer()({ shop, deliveryId: id, topic, occurredAt: at });
+    },
     shopStanding: async (shop: string) => ({
       tombstoned: (await redactionGuard().redactedAmong([shop])).has(shop),
       hasShopRecord: (await shops().get(shop)) !== undefined,
     }),
     handlers,
+  };
+}
+
+/**
+ * What the `shopify-webhooks` queue consumer runs. `message.attempts` is 1-based (Cloudflare: "Starts at 1"), and the
+ * queue handler already passes it through as `work.attempts`, so the consumer sees the delivery count unchanged:
+ * `max_retries: 8` means nine deliveries, and the final one is attempt 9.
+ */
+export function webhookQueueDependencies(consumer: () => WebhookConsumerDependencies = webhookConsumer): QueueProcessingDependencies {
+  return {
+    now: Date.now,
+    consume: (work) => consumeWebhook(consumer(), work),
+    log: async (entry) => {
+      const digest = entry.shop ? await crypto.subtle.digest("SHA-256", new TextEncoder().encode(entry.shop)) : undefined;
+      const shopHash = digest ? `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}` : undefined;
+      console[webhookLogLevel(entry.outcome)](JSON.stringify({
+        id: entry.id,
+        shop: shopHash,
+        topic: entry.topic,
+        handler: entry.handler,
+        outcome: entry.outcome,
+        attempts: entry.attempts,
+        latencyMs: entry.latencyMs,
+      }));
+    },
   };
 }
 

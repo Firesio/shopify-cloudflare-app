@@ -3,7 +3,6 @@ import { decideShopGate, deferralDelaySeconds, isWebhookTopic, topicRequiresShop
 
 describe("webhook delivery lifecycle", () => {
   const legal: readonly [WebhookDeliveryStatus, WebhookTransitionEvent, WebhookDeliveryStatus][] = [
-    ["received", { type: "queue" }, "queued"],
     ["received", { type: "claim", now: 100, leaseMs: 50 }, "processing"],
     ["queued", { type: "claim", now: 100, leaseMs: 50 }, "processing"],
     ["processing", { type: "claim", now: 150, leaseMs: 50 }, "processing"],
@@ -28,7 +27,7 @@ describe("webhook delivery lifecycle", () => {
       .toEqual({ ok: false, reason: "illegal_transition" });
   });
 
-  const eventTypes: readonly WebhookTransitionEvent["type"][] = ["queue", "claim", "complete", "fail", "dead_letter"];
+  const eventTypes: readonly WebhookTransitionEvent["type"][] = ["claim", "complete", "fail", "dead_letter"];
   const legalPairs = new Set(legal.map(([status, event]) => `${status}:${event.type}`));
   const statuses: readonly WebhookDeliveryStatus[] = ["received", "queued", "processing", "processed", "failed", "dead_letter"];
   const illegal = statuses.flatMap((status) => eventTypes.filter((type) => !legalPairs.has(`${status}:${type}`)).map((type) => ({ status, type })));

@@ -45,7 +45,7 @@ beforeEach(() => {
 describe("loadSettings", () => {
   it("returns every topic with its default, no devices, and the push configuration", async () => {
     const view = await loadSettings("a", deps());
-    expect(view.matrix.map((row) => row.topic)).toEqual(["support_ticket_opened", "support_ticket_reply", "shop_installed", "shop_uninstalled"]);
+    expect(view.matrix.map((row) => row.topic)).toEqual(["support_ticket_opened", "support_ticket_reply", "shop_installed", "shop_uninstalled", "webhook_dead_letter"]);
     expect(view.matrix.find((row) => row.topic === "shop_installed")).toMatchObject({ email: false, push: true });
     expect(view.devices).toEqual([]);
     expect(view.push).toEqual({ configured: true, publicKey: "PUBLIC", maxDevices: MAX_DEVICES_PER_ADMIN });

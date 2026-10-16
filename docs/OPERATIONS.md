@@ -150,9 +150,20 @@ npx wrangler queues consumer add shopify-webhooks-dlq-prod <replay-worker-name> 
 npx wrangler queues consumer remove shopify-webhooks-dlq-prod <replay-worker-name>
 ```
 
+A message in the DLQ carries `shop`, the webhook id and an `intake` (topic, ids,
+trigger time, payload hash and, for `app/scopes_update`, the scope list), never
+the payload. Whether it has an inbox row depends on how it died: a handler that
+failed on every delivery leaves a `dead_letter` row (and the staff were told, if
+anyone has the **Webhook failed for good** topic on); a message that never got
+past admission (D1 unavailable for all nine deliveries) has **no row**, and only
+the `webhook.queue` `failed` log lines and the DLQ itself record it. See
+[Receiving Shopify webhooks](webhooks.md).
+
 Do not attach the production Worker as a replay consumer until an engineer has
 verified that the deployed handler accepts the stored message shape and that
-the webhook delivery state machine will make replay idempotent. Record the
+the webhook delivery state machine will make replay idempotent. Admission is
+idempotent on the webhook id, so replaying a message whose row already exists is
+safe, but a handler with an external effect needs its own check. Record the
 delivery IDs, operator, start/end time, and outcome. Never purge the DLQ as an
 incident response step; that discards the evidence and work to recover.
 

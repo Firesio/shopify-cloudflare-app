@@ -15,6 +15,7 @@ export const STAFF_TOPICS = [
   "support_ticket_reply",
   "shop_installed",
   "shop_uninstalled",
+  "webhook_dead_letter",
 ] as const;
 export type StaffTopic = (typeof STAFF_TOPICS)[number];
 
@@ -22,7 +23,7 @@ export type StaffTopic = (typeof STAFF_TOPICS)[number];
 export const STAFF_CHANNELS = ["email", "push"] as const;
 export type StaffChannel = (typeof STAFF_CHANNELS)[number];
 
-export type StaffTopicGroup = "support" | "shops";
+export type StaffTopicGroup = "support" | "shops" | "system";
 
 export interface StaffTopicSpec {
   readonly group: StaffTopicGroup;
@@ -58,11 +59,19 @@ export const STAFF_TOPIC_SPECS: Readonly<Record<StaffTopic, StaffTopicSpec>> = {
     description: "A shop uninstalls the app.",
     defaults: { email: false, push: true },
   },
+  webhook_dead_letter: {
+    group: "system",
+    label: "Webhook failed for good",
+    description: "A Shopify webhook ran out of retries and was dead-lettered, so its work did not happen.",
+    // Rare and never decoration: a dead-lettered shop/redact or app/uninstalled is a compliance or billing problem.
+    defaults: { email: true, push: true },
+  },
 };
 
 export const STAFF_TOPIC_GROUP_LABEL: Readonly<Record<StaffTopicGroup, string>> = {
   support: "Support",
   shops: "Shops",
+  system: "System",
 };
 
 export function isStaffTopic(value: string): value is StaffTopic {

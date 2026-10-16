@@ -6,7 +6,13 @@ export type UninstallReconciliationResult =
 
 export type UninstallReconciliationDependencies = ShopReconciler;
 
-/** Performs both Shopify reads; the queue retries any incomplete reconciliation. */
+/**
+ * Performs both Shopify reads and reports the outcome; it never retries. `recordUninstall` logs a failure
+ * (`shopify.uninstall.reconciliation_failed`) and still reports the uninstall as recorded, because a failure here is
+ * not always transient (a missing Partner credential or a redacted shop never succeeds on retry) and a retry of the
+ * whole delivery would dead-letter an uninstall whose real work is done. The daily Partner-history sweep is what
+ * catches the ledger up.
+ */
 export async function reconcileAfterUninstall(
   dependencies: UninstallReconciliationDependencies,
 ): Promise<UninstallReconciliationResult> {

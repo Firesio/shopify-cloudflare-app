@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { count, eq } from "drizzle-orm";
 import { RouterContextProvider } from "react-router";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { shopHasher } from "~/adapters/shop-hasher";
 import { makeDb } from "~/db/client";
 import { webhookDeliveries } from "~/db/schema";
@@ -9,10 +9,12 @@ import { RedactedShopRepo } from "~/models/redacted-shops.server";
 import { ShopRepo } from "~/models/shops.server";
 import { runWithRequestContext } from "~/request-context.server";
 import { afterAuth } from "~/shopify.server";
+import type { QueuedWebhook } from "~/ports/webhook-queue";
 import { consumeWebhook } from "~/services/webhook-consumer";
 import { setupTestDatabase } from "~/test/db";
 import { signedWebhookRequest } from "~/test/factories";
-import { queuedDelivery } from "~/test/webhook-deliveries";
+import { admittedDelivery } from "~/test/webhook-deliveries";
+import { captureWebhookQueue } from "~/test/webhook-queue";
 import { webhookConsumer } from "~/wiring.server";
 import { action as complianceAction } from "./compliance";
 import { action as uninstalledAction } from "./app/uninstalled";
@@ -20,19 +22,27 @@ import { action as uninstalledAction } from "./app/uninstalled";
 setupTestDatabase();
 afterEach(() => vi.restoreAllMocks());
 
+let queued: QueuedWebhook[] = [];
+beforeEach(() => { queued = captureWebhookQueue(); });
+
 const inRequest = <T>(fn: () => Promise<T>) => runWithRequestContext(env, fn);
 type Action = typeof complianceAction;
 const post = (handler: Action, request: Request) => inRequest(() => handler({ request, params: {}, url: new URL(request.url), pattern: "/", context: new RouterContextProvider() }));
 const redact = (shop: string, webhookId: string) => signedWebhookRequest({ url: "https://example.test/webhooks/compliance", topic: "shop/redact", shop, payload: { shop_domain: shop }, webhookId });
 const uninstall = (shop: string, webhookId: string) => signedWebhookRequest({ url: "https://example.test/webhooks/app/uninstalled", topic: "app/uninstalled", shop, payload: { id: 1 }, webhookId });
-const consume = (work: { shop: string; id: string }) => inRequest(() => consumeWebhook(webhookConsumer(), work));
+const consume = (work: QueuedWebhook) => inRequest(() => consumeWebhook(webhookConsumer(), work));
+const consumeAll = () => inRequest(async () => {
+  const results = [];
+  for (const message of queued.splice(0)) results.push(await consumeWebhook(webhookConsumer(), message));
+  return results;
+});
 const deliveryCount = async (shop: string) => Number((await makeDb(env.DB).select({ count: count() }).from(webhookDeliveries).where(eq(webhookDeliveries.shop, shop)).get())?.count ?? 0);
 const isTombstoned = (shop: string) => inRequest(async () => new RedactedShopRepo().isRedacted(await shopHasher.hash(shop)));
 
 async function redactAndPurge(shop: string, id: string) {
   await inRequest(() => new ShopRepo().recordInstall(shop, 1));
   await post(complianceAction, await redact(shop, id));
-  await consume({ shop, id });
+  await consumeAll();
 }
 
 describe("redaction tombstone at webhook intake (real D1 + queue)", () => {
@@ -53,6 +63,7 @@ describe("redaction tombstone at webhook intake (real D1 + queue)", () => {
     const response = await post(uninstalledAction, await uninstall(shop, "late-uninstall"));
 
     expect(response.status).toBe(200);
+    await expect(consumeAll()).resolves.toEqual([{ outcome: "missing", topic: "app/uninstalled" }]);
     expect(await deliveryCount(shop)).toBe(0);
   });
 
@@ -63,6 +74,7 @@ describe("redaction tombstone at webhook intake (real D1 + queue)", () => {
 
     expect((await post(complianceAction, await redact(shop, "tomb-r3"))).status).toBe(200);
     expect((await post(complianceAction, await redact(shop, "tomb-r3-again"))).status).toBe(200);
+    await expect(consumeAll()).resolves.toEqual([{ outcome: "missing", topic: "shop/redact" }, { outcome: "missing", topic: "shop/redact" }]);
 
     expect(await deliveryCount(shop)).toBe(0);
     const handled = log.mock.calls.map(String).filter((line) => line.includes('"event":"compliance.handled"'));
@@ -75,6 +87,7 @@ describe("redaction tombstone at webhook intake (real D1 + queue)", () => {
     await redactAndPurge("tomb-intake-4.myshopify.com", "tomb-r4");
     const other = "tomb-bystander.myshopify.com";
     expect((await post(uninstalledAction, await uninstall(other, "bystander-uninstall"))).status).toBe(200);
+    await consumeAll();
     expect(await deliveryCount(other)).toBe(1);
   });
 
@@ -87,6 +100,7 @@ describe("redaction tombstone at webhook intake (real D1 + queue)", () => {
 
     expect(await isTombstoned(shop)).toBe(false);
     await post(uninstalledAction, await uninstall(shop, "after-reinstall"));
+    await consumeAll();
     expect(await deliveryCount(shop)).toBe(1);
   });
 
@@ -94,7 +108,7 @@ describe("redaction tombstone at webhook intake (real D1 + queue)", () => {
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     const shop = "tomb-skip.myshopify.com";
     await redactAndPurge(shop, "tomb-skip-redact"); // tombstoned; a delivery queued before the purge can still be in flight
-    const work = await inRequest(() => queuedDelivery({ shop, id: "skip-me", topic: "app/uninstalled", triggeredAt: 5 }));
+    const work = await inRequest(() => admittedDelivery({ shop, id: "skip-me", topic: "app/uninstalled", triggeredAt: 5 }));
     expect(await deliveryCount(shop)).toBe(1);
 
     await expect(consume(work)).resolves.toEqual({ outcome: "missing", topic: "app/uninstalled" });

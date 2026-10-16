@@ -1,5 +1,6 @@
 import { shopLog } from "~/observability/shop-log";
 import type { QueuedWebhook } from "~/ports/webhook-queue";
+import type { WebhookAdmission } from "~/services/webhook-admission";
 import { decideShopGate, deferralDelaySeconds, type ShopGateDecision, isWebhookTopic, topicRequiresShopRecord, transitionWebhookDelivery, WEBHOOK_PROCESSING_LEASE_MS, type WebhookTopic } from "~/domain/webhook-delivery-lifecycle";
 export type { QueuedWebhook } from "~/ports/webhook-queue";
 
@@ -33,6 +34,16 @@ export interface WebhookConsumerDependencies {
   };
   readonly handlers: WebhookHandlerRegistry;
   readonly now: () => number;
+  /**
+   * Writes the inbox row for a message that carries an `intake` (`admitWebhook`). Absent means every row already
+   * exists, which is true of tests that seed the inbox directly.
+   */
+  readonly admit?: (work: QueuedWebhook) => Promise<WebhookAdmission>;
+  /**
+   * Tells the staff a delivery was dead-lettered, once, when the dead-letter write applied. Decoration: a failure is
+   * logged and never changes what happens to the delivery, which is why it is invoked through `announceDeadLetter`.
+   */
+  readonly onDeadLetter?: (deadLetter: { readonly shop: string; readonly id: string; readonly topic: string; readonly at: number }) => Promise<void>;
   /**
    * What is known about a shop: erased (tombstoned) and/or recorded (has a `shops` row). Asked only for topics that
    * need the record. Absent means "known and not erased".
@@ -73,6 +84,23 @@ async function claimDelivery(
   return claimed === "unavailable" || claimed === "conflict" ? { claimed: false } : { claimed: true, startedAt };
 }
 
+/** Dead-letter a delivery and, only if this call is the one that did it, tell the staff. */
+async function deadLetter(
+  dependencies: WebhookConsumerDependencies,
+  work: QueuedWebhook,
+  topic: string,
+  detail: string,
+): Promise<void> {
+  const at = dependencies.now();
+  const written = await dependencies.deliveries.markDeadLetter?.(work.shop, work.id, at, detail, "failed");
+  if (written !== "applied") return;
+  try {
+    await dependencies.onDeadLetter?.({ shop: work.shop, id: work.id, topic, at });
+  } catch (error) {
+    await shopLog("webhook.dead_letter_announce_failed", work.shop, { topic, error: error instanceof Error ? error.name : "unknown" });
+  }
+}
+
 /** A topic with no registered handler can never succeed: record it as failed, then dead-letter it. */
 async function retireUnsupportedTopic(
   dependencies: WebhookConsumerDependencies,
@@ -82,7 +110,7 @@ async function retireUnsupportedTopic(
   const unsupported: WebhookConsumerResult = { outcome: "unsupported", topic: delivery.topic };
   const detail = `No consumer is registered for ${delivery.topic}.`;
   if (delivery.status === "failed") {
-    await dependencies.deliveries.markDeadLetter?.(work.shop, work.id, dependencies.now(), detail, "failed");
+    await deadLetter(dependencies, work, delivery.topic, detail);
     return unsupported;
   }
   const claim = await claimDelivery(dependencies, work, delivery);
@@ -90,7 +118,7 @@ async function retireUnsupportedTopic(
   await dependencies.deliveries.markFailed(work.shop, work.id, {
     failedAt: dependencies.now(), failureCode: "unsupported_topic", failureDetail: detail,
   }, "processing", claim.startedAt);
-  await dependencies.deliveries.markDeadLetter?.(work.shop, work.id, dependencies.now(), detail, "failed");
+  await deadLetter(dependencies, work, delivery.topic, detail);
   return unsupported;
 }
 
@@ -113,9 +141,7 @@ async function runHandler(
       failureCode: "consumer_failed",
       failureDetail: detail,
     }, "processing", startedAt);
-    if ((work.attempts ?? 0) >= FINAL_QUEUE_ATTEMPT) {
-      await dependencies.deliveries.markDeadLetter?.(work.shop, work.id, dependencies.now(), detail, "failed");
-    }
+    if ((work.attempts ?? 0) >= FINAL_QUEUE_ATTEMPT) await deadLetter(dependencies, work, topic, detail);
     throw error;
   }
 }
@@ -125,6 +151,7 @@ export async function consumeWebhook(
   dependencies: WebhookConsumerDependencies,
   work: QueuedWebhook,
 ): Promise<WebhookConsumerResult> {
+  if ((await dependencies.admit?.(work)) === "suppressed") return { outcome: "missing", topic: work.intake?.topic ?? null };
   const delivery = await dependencies.deliveries.get(work.shop, work.id);
   if (!delivery) return { outcome: "missing", topic: null };
   const gate = await shopGate(dependencies, work, delivery);

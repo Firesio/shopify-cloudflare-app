@@ -90,16 +90,15 @@ describe("WebhookDeliveryRepo", () => {
     });
   });
 
-  it("marks a claimed delivery as queued before a worker handles it", async () => {
+  it("leaves a claimed delivery as received, ready for the consumer that claimed it to process", async () => {
     const stored = await inRequest(async () => {
       const repo = new WebhookDeliveryRepo();
       const input = delivery();
       await repo.claim(input);
-      await repo.markQueued(input.shop, input.id);
       return repo.get(input.shop, input.id);
     });
 
-    expect(stored).toMatchObject({ status: "queued" });
+    expect(stored).toMatchObject({ status: "received", attempts: 0 });
   });
 
   it("grants processing to only one worker", async () => {

@@ -174,6 +174,10 @@ Durable Objects, Hyperdrive, Vectorize, Workers AI, Browser Rendering, Images,
 Containers, service bindings — is out of scope until a written reason says
 otherwise.** Declare a binding when you need it, not before.
 
+**Webhooks: verify the HMAC, put one durable message on the queue, answer 2xx** —
+the request writes nothing to D1; the queue consumer admits (dedupes), processes,
+retries and dead-letters. Handler rules and topic classes: `docs/webhooks.md`.
+
 **Build and deploy are one step** (`npm run cf:deploy`): the Vite plugin bakes
 the environment into the build, so a deploy that reuses a dev build ships
 localhost vars and placeholder binding ids. Migrations land before the worker.

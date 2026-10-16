@@ -1,32 +1,12 @@
 import type { ActionFunctionArgs } from "react-router";
 import { verifyShopifyWebhook, webhookSecrets } from "~/adapters/shopify-webhook.server";
 import { getEnv } from "~/request-context.server";
-import { redactionGuard, webhookDeliveries } from "~/wiring.server";
-import { ingestWebhook, parseTriggeredAt, sha256Json } from "~/services/webhook-ingest";
-import { formatWebhookLog, withWebhookFailureLog, writeWebhookLog } from "~/services/webhook-logging";
+import { withWebhookFailureLog } from "~/services/webhook-logging";
+import { enqueueVerifiedWebhook } from "../enqueue.server";
 
 export const action = ({ request }: ActionFunctionArgs) => withWebhookFailureLog(request, () => receive(request));
 
 async function receive(request: Request): Promise<Response> {
-  const authenticated = await verifyShopifyWebhook(request, webhookSecrets(getEnv()));
-  const now = Date.now();
-  await ingestWebhook({
-    deliveries: webhookDeliveries(),
-    queue: { send: async (message) => { await getEnv().WEBHOOK_QUEUE.send(message); } },
-    now: Date.now,
-    hashPayload: sha256Json,
-    redaction: redactionGuard(),
-    log: async (webhook, outcome, latencyMs) => writeWebhookLog(await formatWebhookLog({ deliveryId: webhook.webhookId, topic: webhook.topic, shop: webhook.shop, handler: webhook.topic, outcome, attempts: 0, latencyMs })),
-  }, {
-    webhookId: authenticated.webhookId,
-    eventId: authenticated.eventId ?? authenticated.webhookId,
-    topic: authenticated.topic,
-    shop: authenticated.shop,
-    apiVersion: authenticated.apiVersion,
-    triggeredAt: parseTriggeredAt(authenticated.triggeredAt, now),
-    receivedAt: now,
-    payload: authenticated.payload,
-  });
-
+  await enqueueVerifiedWebhook(await verifyShopifyWebhook(request, webhookSecrets(getEnv())));
   return new Response(null, { status: 200 });
 }

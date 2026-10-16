@@ -8,6 +8,10 @@ import { consumeWebhook } from "../app/services/webhook-consumer";
 import { WebhookDeliveryRepo } from "../app/models/webhook-deliveries.server";
 import { runWithRequestContext } from "../app/request-context.server";
 import { setupTestDatabase } from "../app/test/db";
+import { WebhookScopeObservationRepo } from "../app/models/webhook-scope-observations.server";
+import { admitWebhook } from "../app/services/webhook-admission";
+import { noRedaction } from "../app/test/redaction";
+import { webhookQueueDependencies } from "../app/wiring/webhooks.server";
 
 setupTestDatabase();
 
@@ -112,6 +116,43 @@ describe("handleWebhookQueueBatch", () => {
       const row = await makeDb(env.DB).select({ status: schema.webhookDeliveries.status, failure_code: schema.webhookDeliveries.failureCode }).from(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.id, id)).get();
       expect(row).toEqual({ status: "dead_letter", failure_code: "dead_letter" });
       expect(events).toEqual(["ack"]);
+    });
+  });
+});
+
+describe("the webhook queue consumer's attempt count (the wiring workers/app.ts runs)", () => {
+  const failingConsumer = () => ({
+    deliveries: new WebhookDeliveryRepo(),
+    now: () => 100,
+    admit: (work: Parameters<typeof admitWebhook>[1]) => admitWebhook({ deliveries: new WebhookDeliveryRepo(), scopes: new WebhookScopeObservationRepo(), redaction: noRedaction }, work),
+    handlers: { "app/uninstalled": async () => { throw new Error("broken"); }, "app/scopes_update": async () => {}, "customers/data_request": async () => {}, "customers/redact": async () => {}, "shop/redact": async () => {} },
+  });
+  const message = (shop: string, id: string, attempts: number, events: string[]) => ({
+    body: { shop, id, intake: { topic: "app/uninstalled", eventId: "event", apiVersion: "2026-10", triggeredAt: 1, receivedAt: 2, payloadHash: "hash", scopes: [] } },
+    attempts,
+    ack: () => { events.push("ack"); },
+    retry: () => { events.push("retry"); },
+  });
+  const statusOf = (id: string) => makeDb(env.DB).select({ status: schema.webhookDeliveries.status }).from(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.id, id)).get();
+
+  it("admits the message, fails the handler, and keeps retrying through delivery 8: Cloudflare counts the first delivery as attempt 1", async () => {
+    await runWithRequestContext(env, async () => {
+      const events: string[] = [];
+      for (const attempts of [1, 8]) {
+        await handleWebhookQueueBatch({ messages: [message("attempts.myshopify.com", "attempts-1", attempts, events)] }, webhookQueueDependencies(failingConsumer));
+      }
+      // Delivery 8 of 9 is not the last one: the row must still be retryable, not dead-lettered a delivery early.
+      expect(await statusOf("attempts-1")).toEqual({ status: "failed" });
+      expect(events).toEqual(["retry", "retry"]);
+    });
+  });
+
+  it("dead-letters the row only on delivery 9, the last one that max_retries 8 allows", async () => {
+    await runWithRequestContext(env, async () => {
+      const events: string[] = [];
+      await handleWebhookQueueBatch({ messages: [message("attempts9.myshopify.com", "attempts-9", 9, events)] }, webhookQueueDependencies(failingConsumer));
+      expect(await statusOf("attempts-9")).toEqual({ status: "dead_letter" });
+      expect(events).toEqual(["retry"]);
     });
   });
 });

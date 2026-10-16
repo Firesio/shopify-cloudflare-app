@@ -89,6 +89,14 @@ export const EVENTS: Record<NotificationEvent, EventSpec> = {
     description: "A shop uninstalled the app.",
   },
 
+  webhook_dead_letter: {
+    audience: "staff",
+    // Caller-gated: per-person staff settings (topic `webhook_dead_letter`) decide who hears about it and how.
+    gate: "caller_gated",
+    channels: ["email", "push"],
+    description: "A Shopify webhook ran out of retries and was dead-lettered.",
+  },
+
   push_test: {
     audience: "staff",
     // Essential: the person pressed "send a test" and is waiting for it. Only

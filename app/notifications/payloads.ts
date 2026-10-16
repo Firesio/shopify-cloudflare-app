@@ -76,6 +76,19 @@ interface ShopChangePayload extends BasePayload {
 export type ShopInstalledPayload = ShopChangePayload;
 export type ShopUninstalledPayload = ShopChangePayload;
 
+/** A webhook that will not be retried again. Ids and names only: never the payload, never the failure text. */
+export interface WebhookDeadLetterPayload extends BasePayload {
+  shopName: string;
+  /** The myshopify.com domain. */
+  shop: string;
+  /** The webhook topic, e.g. `shop/redact`. */
+  topic: string;
+  /** `X-Shopify-Webhook-Id`: how the delivery is found in the failures API and the inbox. */
+  deliveryId: string;
+  occurredAt: string;
+  adminUrl: string;
+}
+
 /** A test message carries no data: its copy is fixed. */
 export type PushTestPayload = BasePayload;
 
@@ -91,5 +104,6 @@ export interface PayloadByEvent extends Record<NotificationEvent, BasePayload> {
   support_staff_reply: SupportStaffReplyPayload;
   shop_installed: ShopInstalledPayload;
   shop_uninstalled: ShopUninstalledPayload;
+  webhook_dead_letter: WebhookDeadLetterPayload;
   push_test: PushTestPayload;
 }

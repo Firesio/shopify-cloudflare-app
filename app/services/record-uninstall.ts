@@ -51,6 +51,12 @@ export async function recordUninstall(
       await shopLog("shopify.uninstall.ignored", shop, { reason: "stale_uninstall", occurredAt: observation.occurredAt });
       return "ignored_stale";
     }
+    // Only an uninstall that was just RECORDED is news: an already-uninstalled shop or a stale delivery is not, and
+    // the webhook and the cron probe may both observe the same one. The occasion is the moment Shopify says it
+    // happened, so a redelivered webhook announces once. It is announced HERE, before the cleanup and the Shopify
+    // reads, because a retry that finds the shop already uninstalled returns before reaching an announcement: if a
+    // step below threw and the announcement came after it, the staff would never hear about this uninstall.
+    await announceUninstall(ports, shop, observation.occurredAt);
   }
 
   await ports.cleanup(shop);
@@ -58,13 +64,7 @@ export async function recordUninstall(
   if (!reconciled.ok) {
     await shopLog("shopify.uninstall.reconciliation_failed", shop, { code: reconciled.code, detail: reconciled.detail });
   }
-  if (decision.outcome !== "apply") return "already_uninstalled";
-
-  // Only an uninstall that was just RECORDED is news: an already-uninstalled shop or a stale delivery is not, and the
-  // webhook and the cron probe may both observe the same one. The occasion is the moment Shopify says it happened,
-  // so a redelivered webhook announces once.
-  await announceUninstall(ports, shop, observation.occurredAt);
-  return "recorded";
+  return decision.outcome === "apply" ? "recorded" : "already_uninstalled";
 }
 
 async function announceUninstall(ports: RecordUninstallPorts, shop: string, occurredAt: number): Promise<void> {

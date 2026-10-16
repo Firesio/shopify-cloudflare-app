@@ -99,6 +99,13 @@ describe("recordUninstall", () => {
       expect(announced).toEqual([]);
     });
 
+    it("announces before the cleanup and the Shopify reads, so a failure in either cannot cost the staff the news", async () => {
+      const { ports, announced } = fakePorts(installedAt(1_000));
+      const throwing: RecordUninstallPorts = { ...ports, cleanup: async () => { throw new Error("kv down"); } };
+      await expect(recordUninstall(throwing, SHOP, { occurredAt: 2_000, externalId: "webhook:a" })).rejects.toThrow("kv down");
+      expect(announced).toEqual([{ kind: "uninstalled", shop: SHOP, occasion: "2000", occurredAt: 2_000 }]);
+    });
+
     it("still reports the uninstall recorded, and logs by shop hash, when announcing fails", async () => {
       const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
       const { ports } = fakePorts(installedAt(1_000));

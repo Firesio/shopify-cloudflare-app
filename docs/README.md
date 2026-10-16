@@ -5,6 +5,7 @@
   and release decisions.
 - [Legal content template](LEGAL_TEMPLATE.md) - required policy inputs.
 - [Operations runbook](OPERATIONS.md) - production operations and recovery.
+- [Receiving Shopify webhooks](webhooks.md) - the receiver/consumer design, handler rules, topic classes, how to add a topic.
 - [Entitlements](entitlements.md) - reusable billing and quota model.
 - [Template audit](AUDIT.md) - architectural review and known seams.
 

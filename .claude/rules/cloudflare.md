@@ -24,7 +24,7 @@ needs it; do not scaffold one speculatively.
 | **Static Assets** | Client bundle | The `assets` binding — not Pages |
 | **D1** | All relational state | `@rules/data.md` |
 | **KV** | Shopify sessions + hot read cache | Eventually consistent — never the source of relational truth. Shop-scoped keys, invalidate at the write site |
-| **Queues** | Webhook → pipeline handoff | At-least-once ⇒ idempotent consumers, backoff that spans an outage (not a minute), and a **dead-letter queue** |
+| **Queues** | Webhook → pipeline handoff | At-least-once ⇒ idempotent consumers, backoff that spans an outage (not a minute), and a **dead-letter queue**. A webhook route answers 2xx only after ONE `queue.send` and writes nothing to D1 first (`docs/webhooks.md`). `message.attempts` starts at 1: pass it through unchanged |
 | **Cron Triggers** | Periodic sweeps | One `scheduled` handler; each sweep guards its own errors so one failure never costs the others their tick |
 | **Email Sending** | Transactional email | Verified sender domain from `vars`; failures leave a retryable record |
 | **Rate Limiting** | Runaway clients / webhook floods | Config-only binding, fails open when absent |

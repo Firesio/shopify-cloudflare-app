@@ -3,10 +3,9 @@ import { verifyShopifyWebhook, webhookSecrets } from "~/adapters/shopify-webhook
 import { getEnv } from "~/request-context.server";
 import { compliancePayloadSchema } from "~/schemas/compliance-webhook";
 import { isComplianceTopic } from "~/services/compliance.server";
-import { ingestWebhook, parseTriggeredAt, sha256Json } from "~/services/webhook-ingest";
-import { formatWebhookLog, withWebhookFailureLog, writeWebhookLog } from "~/services/webhook-logging";
-import { redactionGuard, webhookDeliveries } from "~/wiring.server";
+import { withWebhookFailureLog } from "~/services/webhook-logging";
 import { shopLog } from "~/observability/shop-log";
+import { enqueueVerifiedWebhook } from "./enqueue.server";
 
 /**
  * The three MANDATORY compliance webhooks share this one endpoint, matching the
@@ -22,12 +21,14 @@ import { shopLog } from "~/observability/shop-log";
  *
  * Shopify allows 5 s for the whole response and treats anything else as a failed delivery
  * (https://shopify.dev/docs/apps/build/webhooks/verify-deliveries), while the erasure is allowed 30 days. So this
- * route only VERIFIES, CLAIMS and ENQUEUES: the 2xx means the delivery is durable in the inbox and on the queue, and
- * the queue consumer (`webhookConsumer()`, registry in `app/wiring.server.ts`) does the work with retries.
+ * route only VERIFIES and ENQUEUES: the 2xx means the delivery is durable on the queue (a failed send answers 5xx and
+ * Shopify retries), and the queue consumer (`webhookConsumer()`, registry in `app/wiring/webhooks.server.ts`) writes
+ * the inbox row and does the work, with retries.
  *
- * Once a shop has been redacted a minimal tombstone (hash + timestamp) remains, and `ingestWebhook` acknowledges any
- * later delivery for it (including a duplicate `shop/redact`) with 2xx without storing a delivery row. That tombstone is
- * our own design: Shopify's docs say nothing about reinstalls. See `.claude/rules/shopify-api-invariants.md`.
+ * Once a shop has been redacted a minimal tombstone (hash + timestamp) remains, and the consumer's admission step
+ * (`admitWebhook`) drops any later delivery for it (including a duplicate `shop/redact`) without storing a delivery
+ * row; the route still answers 2xx. That tombstone is our own design: Shopify's docs say nothing about reinstalls.
+ * See `.claude/rules/shopify-api-invariants.md`.
  */
 export const action = ({ request }: ActionFunctionArgs) => withWebhookFailureLog(request, () => receive(request));
 
@@ -48,28 +49,11 @@ async function receive(request: Request): Promise<Response> {
     return new Response(null, { status: 204 });
   }
 
-  const now = Date.now();
-  const startedAt = now;
-  const outcome = await ingestWebhook({
-    deliveries: webhookDeliveries(),
-    queue: { send: async (message) => { await getEnv().WEBHOOK_QUEUE.send(message); } },
-    now: Date.now,
-    hashPayload: sha256Json,
-    redaction: redactionGuard(),
-    log: async (webhook, result, latencyMs) => writeWebhookLog(await formatWebhookLog({ deliveryId: webhook.webhookId, topic: webhook.topic, shop: webhook.shop, handler: webhook.topic, outcome: result, attempts: 0, latencyMs })),
-  }, {
-    webhookId: authenticated.webhookId,
-    eventId: authenticated.eventId ?? authenticated.webhookId,
-    topic,
-    shop,
-    apiVersion: authenticated.apiVersion,
-    triggeredAt: parseTriggeredAt(authenticated.triggeredAt, now),
-    receivedAt: now,
-    payload: authenticated.payload,
-  });
+  const startedAt = Date.now();
+  await enqueueVerifiedWebhook(authenticated);
 
   // The duration to watch against Shopify's 5 s limit is now the enqueue, not the purge.
-  await shopLog("compliance.enqueued", shop, { topic, outcome, durationMs: Date.now() - startedAt });
+  await shopLog("compliance.enqueued", shop, { topic, durationMs: Date.now() - startedAt });
   return new Response(null, { status: 200 });
 }
 

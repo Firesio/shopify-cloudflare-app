@@ -1,150 +1,76 @@
 import { describe, expect, it } from "vitest";
-import { noRedaction } from "~/test/redaction";
-import {
-  ingestWebhook,
-  type WebhookIngestDependencies,
-} from "./webhook-ingest";
+import type { QueuedWebhook } from "~/ports/webhook-queue";
+import { enqueueWebhook, parseTriggeredAt, sha256Json, type AuthenticatedWebhook, type WebhookEnqueueDependencies } from "./webhook-ingest";
 
-function dependencies(): WebhookIngestDependencies & { readonly queued: string[] } {
-  const queued: string[] = [];
+const webhook: AuthenticatedWebhook = {
+  webhookId: "delivery-1", eventId: "event-1", topic: "app/uninstalled", shop: "example.myshopify.com",
+  apiVersion: "2026-10", triggeredAt: 100, receivedAt: 200, payload: { shop_id: 1 },
+};
+
+function dependencies(overrides: Partial<WebhookEnqueueDependencies> = {}): WebhookEnqueueDependencies & { readonly sent: QueuedWebhook[] } {
+  const sent: QueuedWebhook[] = [];
   return {
     now: () => 1_000,
-    deliveries: {
-      async claim() {
-        return "claimed" as const;
-      },
-      async get() { return undefined; },
-      async markQueued() {},
-    },
-    queue: { async send(message) { queued.push(`${message.shop}:${message.id}`); } },
+    queue: { async send(message) { sent.push(message); } },
     hashPayload: async () => "a".repeat(64),
-    redaction: noRedaction,
-    queued,
+    sent,
+    ...overrides,
   };
 }
 
-describe("ingestWebhook", () => {
-  it("retries received delivery through injected port", async () => {
-    const calls: string[] = [];
+describe("enqueueWebhook", () => {
+  it("puts one message on the queue carrying everything the consumer needs to write the inbox row", async () => {
     const deps = dependencies();
-    const deliveries = {
-      ...deps.deliveries,
-      async claim() { calls.push("claim"); return "duplicate" as const; },
-      async get() { calls.push("get"); return { status: "received" }; },
-      async markQueued() { calls.push("queued"); },
-    };
-    const result = await ingestWebhook({ ...deps, deliveries }, { webhookId: "id", eventId: "event", topic: "topic", shop: "shop.myshopify.com", apiVersion: "2026-10", triggeredAt: 1, receivedAt: 2, payload: {} });
-    expect({ result, calls }).toEqual({ result: "queued", calls: ["claim", "get", "queued"] });
-  });
-
-  it("claims, hashes, and queues an authenticated delivery", async () => {
-    const deps = dependencies();
-
-    const result = await ingestWebhook(deps, {
-      webhookId: "delivery-1",
-      eventId: "event-1",
-      topic: "app/uninstalled",
+    await enqueueWebhook(deps, webhook);
+    expect(deps.sent).toEqual([{
       shop: "example.myshopify.com",
-      apiVersion: "2026-10",
-      triggeredAt: 100,
-      receivedAt: 200,
-      payload: { shop_id: 1 },
-    });
-
-    expect(result).toBe("queued");
-    expect(deps.queued).toEqual(["example.myshopify.com:delivery-1"]);
+      id: "delivery-1",
+      intake: { topic: "app/uninstalled", eventId: "event-1", apiVersion: "2026-10", triggeredAt: 100, receivedAt: 200, payloadHash: "a".repeat(64), scopes: [] },
+    }]);
   });
 
   it("normalizes Shopify enum webhook topics for the consumer registry", async () => {
-    const claimed: string[] = [];
     const deps = dependencies();
-    const deliveries = {
-      ...deps.deliveries,
-      async claim(input: { topic: string }) {
-        claimed.push(input.topic);
-        return "claimed" as const;
-      },
-    };
-
-    await ingestWebhook({ ...deps, deliveries }, {
-      webhookId: "delivery-uninstall",
-      eventId: "event-uninstall",
-      topic: "APP_UNINSTALLED",
-      shop: "example.myshopify.com",
-      apiVersion: "2026-10",
-      triggeredAt: 100,
-      receivedAt: 200,
-      payload: {},
-    });
-
-    expect(claimed).toEqual(["app/uninstalled"]);
+    await enqueueWebhook(deps, { ...webhook, topic: "APP_UNINSTALLED" });
+    await enqueueWebhook(deps, { ...webhook, topic: "SHOP_REDACT" });
+    expect(deps.sent.map((message) => message.intake?.topic)).toEqual(["app/uninstalled", "shop/redact"]);
   });
 
-  it("persists typed payload values before queue handoff", async () => {
+  it("forwards the typed scope values sorted and de-duplicated, never the payload", async () => {
     const deps = dependencies();
-    const calls: string[] = [];
-
-    await ingestWebhook({ ...deps, beforeEnqueue: async () => { calls.push("stored"); } }, {
-      webhookId: "delivery-1", eventId: "event-1", topic: "app/scopes_update",
-      shop: "example.myshopify.com", apiVersion: "2026-10", triggeredAt: 100,
-      receivedAt: 200, payload: { current: ["read_products"] },
-    });
-
-    expect(calls).toEqual(["stored"]);
+    await enqueueWebhook(deps, { ...webhook, topic: "app/scopes_update", payload: { current: ["write_products", "read_products", "read_products"], secret: "x" }, scopes: ["write_products", "read_products", "read_products"] });
+    expect(deps.sent[0]?.intake?.scopes).toEqual(["read_products", "write_products"]);
+    expect(JSON.stringify(deps.sent[0])).not.toContain("secret");
   });
 
-  it("does not queue a duplicate Shopify webhook ID", async () => {
-    const deps = dependencies();
-    const deliveries = {
-      ...deps.deliveries,
-      async claim() {
-        return "duplicate" as const;
-      },
-    };
-
-    const result = await ingestWebhook({ ...deps, deliveries }, {
-      webhookId: "delivery-1",
-      eventId: "event-1",
-      topic: "app/uninstalled",
-      shop: "example.myshopify.com",
-      apiVersion: "2026-10",
-      triggeredAt: 100,
-      receivedAt: 200,
-      payload: {},
-    });
-
-    expect(result).toBe("duplicate");
-    expect(deps.queued).toEqual([]);
+  it("does not answer success when the queue refuses the message: the error reaches the route, so Shopify retries", async () => {
+    const deps = dependencies({ queue: { async send() { throw new Error("queue unavailable"); } } });
+    await expect(enqueueWebhook(deps, webhook)).rejects.toThrow("queue unavailable");
   });
 
-  it("retries queue handoff for a delivery left received by an earlier failure", async () => {
-    const deps = dependencies();
-    const deliveries = {
-      ...deps.deliveries,
-      async claim() { return "duplicate" as const; },
-      async get() { return { status: "received" as const }; },
-    };
-
-    const result = await ingestWebhook({ ...deps, deliveries }, {
-      webhookId: "delivery-1", eventId: "event-1", topic: "app/uninstalled",
-      shop: "example.myshopify.com", apiVersion: "2026-10", triggeredAt: 100,
-      receivedAt: 200, payload: {},
+  it("logs the latency only after the message is on the queue", async () => {
+    const events: string[] = [];
+    const deps = dependencies({
+      queue: { async send() { events.push("sent"); } },
+      log: async (_webhook, latencyMs) => { events.push(`logged:${latencyMs}`); },
     });
-
-    expect(result).toBe("queued");
-    expect(deps.queued).toEqual(["example.myshopify.com:delivery-1"]);
+    await enqueueWebhook(deps, webhook);
+    expect(events).toEqual(["sent", "logged:800"]);
   });
+});
 
-  it("acknowledges and drops a delivery for a redacted shop before any write", async () => {
-    const deps = dependencies();
-    let claimed = 0;
-    const result = await ingestWebhook({
-      ...deps,
-      deliveries: { ...deps.deliveries, async claim() { claimed += 1; return "claimed" as const; } },
-      redaction: { isSuppressed: async (_shop, source) => source === "webhook_delivery" },
-    }, { webhookId: "w", eventId: "e", topic: "app/uninstalled", shop: "gone.myshopify.com", apiVersion: "2026-07", triggeredAt: 1, receivedAt: 1, payload: {} });
-    expect(result).toBe("suppressed");
-    expect(claimed).toBe(0);
-    expect(deps.queued).toEqual([]);
+describe("parseTriggeredAt", () => {
+  it("reads the header, and falls back to receipt time for a missing or unparseable one", () => {
+    expect(parseTriggeredAt("2026-10-16T10:00:00.000Z", 5)).toBe(Date.parse("2026-10-16T10:00:00.000Z"));
+    expect(parseTriggeredAt(null, 5)).toBe(5);
+    expect(parseTriggeredAt("not a date", 5)).toBe(5);
+  });
+});
+
+describe("sha256Json", () => {
+  it("is a stable 64-character hex digest", async () => {
+    const digest = await sha256Json({ a: 1 });
+    expect(digest).toMatch(/^[0-9a-f]{64}$/);
+    expect(await sha256Json({ a: 1 })).toBe(digest);
   });
 });

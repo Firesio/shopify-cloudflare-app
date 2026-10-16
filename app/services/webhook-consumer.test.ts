@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   consumeWebhook,
   type WebhookConsumerDependencies,
@@ -100,6 +100,39 @@ describe("consumeWebhook", () => {
     await expect(consumeWebhook(failing, { shop: "example.myshopify.com", id: "delivery-1", attempts: 8 }))
       .rejects.toThrow("broken");
     expect(deadLetters).toEqual([]);
+  });
+
+  describe("telling the staff about a dead letter", () => {
+    const failingWith = (written: "applied" | "conflict", announced: string[], onDeadLetter?: WebhookConsumerDependencies["onDeadLetter"]) => {
+      const deps = dependencies();
+      return {
+        ...deps,
+        deliveries: { ...deps.deliveries, async markDeadLetter() { return written; } },
+        handlers: { ...deps.handlers, "app/uninstalled": async () => { throw new Error("broken"); } },
+        onDeadLetter: onDeadLetter ?? (async (deadLetter) => { announced.push(`${deadLetter.shop}:${deadLetter.id}:${deadLetter.topic}`); }),
+      };
+    };
+    const work = { shop: "example.myshopify.com", id: "delivery-1" };
+
+    it("announces once, with identity only, when this call dead-lettered the delivery", async () => {
+      const announced: string[] = [];
+      await expect(consumeWebhook(failingWith("applied", announced), { ...work, attempts: 9 })).rejects.toThrow("broken");
+      expect(announced).toEqual(["example.myshopify.com:delivery-1:app/uninstalled"]);
+    });
+
+    it("does not announce before the last attempt, or when another consumer already dead-lettered it", async () => {
+      const announced: string[] = [];
+      await expect(consumeWebhook(failingWith("applied", announced), { ...work, attempts: 8 })).rejects.toThrow("broken");
+      await expect(consumeWebhook(failingWith("conflict", announced), { ...work, attempts: 9 })).rejects.toThrow("broken");
+      expect(announced).toEqual([]);
+    });
+
+    it("still surfaces the handler's own error, and logs, when the announcement fails", async () => {
+      const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+      const failing = failingWith("applied", [], async () => { throw new Error("notification queue down"); });
+      await expect(consumeWebhook(failing, { ...work, attempts: 9 })).rejects.toThrow("broken");
+      expect(log.mock.calls.map((call) => String(call[0])).join("\n")).toContain("webhook.dead_letter_announce_failed");
+    });
   });
 
   it("dead-letters an unknown stored topic and returns unsupported on retries", async () => {
