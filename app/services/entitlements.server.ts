@@ -37,16 +37,14 @@ async function authoritative(deps: Dependencies, shop: string) {
       return { status: "UNKNOWN" as const, planHandle: null, revision: snapshot.revision, verifiedAt: snapshot.verifiedAt };
     }
   }
-  if (deps.cache) {
-    try {
-      await deps.cache.set(shop, snapshot, 60);
-    } catch {
-      // Cache is advisory; authoritative subscription data still wins.
-    }
-  }
   return snapshot;
 }
 
+/**
+ * The cache is read, and written, only here. `check` and the writes (`allocate`, `reserve`) go to the projection
+ * and never touch it: a KV put on every check was never read by anything, and concurrent checks of one shop wrote
+ * the same key several times in one request, which KV rate-limits to about one write per second per key.
+ */
 async function preview(deps: Dependencies, shop: string) {
   if (deps.cache) {
     try {
@@ -56,7 +54,15 @@ async function preview(deps: Dependencies, shop: string) {
       // Cache is advisory; fall through to the subscription projection.
     }
   }
-  return authoritative(deps, shop);
+  const snapshot = await authoritative(deps, shop);
+  if (deps.cache) {
+    try {
+      await deps.cache.set(shop, snapshot, 60);
+    } catch {
+      // Cache is advisory; authoritative subscription data still wins.
+    }
+  }
+  return snapshot;
 }
 function makeCheck(deps: Dependencies, now: () => number) {
   return async (shop: string, key: EntitlementKey): Promise<CheckResult> => {

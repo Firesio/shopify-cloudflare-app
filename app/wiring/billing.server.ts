@@ -5,11 +5,11 @@ import { resolveEffectivePlan } from "~/domain/plan-hierarchy";
 import type { ShopifyEventRepo } from "~/models/shopify-events.server";
 import type { ExistingQuotaOperation, SubscriptionPort } from "~/ports/entitlements";
 import { EntitlementRepo } from "~/models/entitlements.server";
-import { getEnv } from "~/request-context.server";
+import { forgetRequestMemo, getEnv, requestMemo } from "~/request-context.server";
 import { createEntitlements, type EntitlementService } from "~/services/entitlements.server";
 import { reconcileShopHistory } from "~/services/reconcile-shopify-history";
 import { refreshSubscription } from "~/services/reconcile-subscription";
-import { entitlementCachePort, invalidateEntitlements } from "~/wiring/entitlement-cache.server";
+import { entitlementCachePort, invalidateEntitlements, subscriptionMemoKey } from "~/wiring/entitlement-cache.server";
 import { redactionGuard } from "~/wiring/redaction.server";
 import { planGrants, shopifyEvents, shops, shopSubscriptions, shopSyncCheckpoints } from "~/wiring/repositories.server";
 import { appRuntime } from "~/wiring/runtime.server";
@@ -18,7 +18,7 @@ import { appRuntime } from "~/wiring/runtime.server";
 const redactedRefusal = { status: "failed", code: "SHOP_REDACTED", detail: "Shop was redacted; refresh suppressed" } as const;
 
 export function subscriptionsPort(): SubscriptionPort {
-  const current = async (shop: string) => {
+  const read = async (shop: string) => {
     const relationship = await shops().get(shop);
     if (!relationship || relationship.relationshipStatus !== "INSTALLED") return { status: "UNKNOWN" as const, planHandle: null, revision: 0 };
     const now = appRuntime().clock.now();
@@ -46,10 +46,15 @@ export function subscriptionsPort(): SubscriptionPort {
       cancellationEffectiveAt: projection?.cancellationEffectiveAt ?? undefined,
     };
   };
+  // One snapshot per shop per request: a page runs several entitlement checks and each used to repeat the three D1
+  // reads. A refresh or an invalidation drops it, so a check after a write in the same request sees the write.
+  const current = (shop: string) => requestMemo(subscriptionMemoKey(shop), () => read(shop));
   return { current, async refresh(shop) {
     const env = getEnv();
+    forgetRequestMemo(subscriptionMemoKey(shop));
     const result = await refreshShopSubscription(env, shop);
     if (result.status === "failed") throw new Error(result.detail);
+    forgetRequestMemo(subscriptionMemoKey(shop));
     return current(shop);
   } };
 }
@@ -98,12 +103,15 @@ export async function refreshShopSubscription(env: Env, shop: string, now = appR
     apiVersion: env.SHOPIFY_PARTNER_API_VERSION || "",
     fetch,
   });
-  return refreshSubscription({
+  const result = await refreshSubscription({
     partner,
     subscriptions: { upsertSubscriptionProjection: (tenant, observation) => shopSubscriptions().upsertObservation(tenant, observation) },
     clock: { now: () => now },
     appId: env.SHOPIFY_PARTNER_APP_ID || null,
   }, { shop, shopifyShopId: identity?.shopifyShopId ?? null, installedAt: identity?.installedAt ?? null }, now);
+  // The projection just changed: a check later in this request must not see the snapshot read before it.
+  forgetRequestMemo(subscriptionMemoKey(shop));
+  return result;
 }
 
 export async function refreshShopHistory(env: Env, shop: string, now = appRuntime().clock.now()) {

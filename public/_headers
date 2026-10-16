@@ -3,6 +3,21 @@
 # These apply to files served from the assets directory only, never to responses
 # the Worker generates (those get theirs from app/security/response-headers.ts).
 
+# The platform default for a static asset is `max-age=0, must-revalidate`, so without a rule every document load of
+# the embedded admin sends a conditional request for each of its ~20 JavaScript chunks before it can run them.
+# Vite names everything under /assets/ after its content, so a changed file has a new URL and these can never be
+# stale: the document (rendered by the Worker, never cached here) always points at the current names.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Stable URLs (the theme extension and emails link to some of them), so a day of freshness, then serve stale while
+# the new copy is fetched in the background.
+/illustrations/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+/plan-cards/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
 # The service worker is re-checked on every navigation so an update is picked up
 # immediately instead of waiting out a cache lifetime.
 /internal-sw.js

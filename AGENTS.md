@@ -178,6 +178,14 @@ otherwise.** Declare a binding when you need it, not before.
 the request writes nothing to D1; the queue consumer admits (dedupes), processes,
 retries and dead-letters. Handler rules and topic classes: `docs/webhooks.md`.
 
+**The merchant's request waits for nothing the page does not need.** `afterAuth` awaits only
+the redaction fence and `recordInstall` (the rest uses `runAfterResponse`); every outbound call
+has a timeout; an entitlement check never writes KV; a repeated read in one request is
+`requestMemo`; no page view scans a shop's whole history; polling is bounded; `/assets/*` is
+`immutable` in `public/_headers`; the Worker bundle is minified, so nothing may depend on a
+function or class name. Rules, measuring and the audit behind them: `docs/merchant-speed.md`.
+@.claude/rules/merchant-speed.md
+
 **Build and deploy are one step** (`npm run cf:deploy`): the Vite plugin bakes
 the environment into the build, so a deploy that reuses a dev build ships
 localhost vars and placeholder binding ids. Migrations land before the worker.

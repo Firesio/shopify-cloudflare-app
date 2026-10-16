@@ -11,7 +11,7 @@ import {
 import { apiVersion } from "./shopify-api-version";
 import { KVSessionStorage } from "./session-storage.server";
 import { persistShopIdentity, refreshShopSubscription } from "~/wiring.server";
-import { getEnv } from "~/request-context.server";
+import { getEnv, runAfterResponse } from "~/request-context.server";
 import { hashShop, shopLog } from "~/observability/shop-log";
 import { decideInstallAnnouncement } from "~/domain/shop-announcement";
 import type { ShopChange } from "~/services/announce-shop-change";
@@ -60,28 +60,37 @@ announce: (change: ShopChange) => Promise<void> = shopChangeAnnouncer()): Promis
   const announcement = decideInstallAnnouncement(await shops().get(session.shop));
   const installedAt = Date.now();
   await shops().recordInstall(session.shop, installedAt);
-  if (admin) {
+  // Everything from here on is decoration or is repaired elsewhere, so it runs after the response instead of in front
+  // of the merchant's page: this hook fires on every token mint (about once an hour per shop), and the page that
+  // happened to need the new token used to wait for the identity query, the announcement and the Partner API (which
+  // had no timeout). The layout loader still stores the identity itself when it is missing, and `shopSubscriptions`
+  // is refreshed again whenever an entitlement check finds it stale.
+  await runAfterResponse(async () => {
+    if (admin) {
+      try {
+        await persistShopIdentity(admin, session.shop);
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: "shop_identity.persist_failed",
+          shopHash: await hashShop(session.shop),
+          error: error instanceof Error ? error.message : String(error),
+        }));
+      }
+    }
+    // After the identity is stored, so the announcement can name the shop.
+    if (announcement.announce) await announceInstall(announce, { shop: session.shop, occasion: announcement.occasion, occurredAt: installedAt });
     try {
-      await persistShopIdentity(admin, session.shop);
+      await refresh(getEnv(), session.shop);
     } catch (error) {
       console.error(JSON.stringify({
-        event: "shop_identity.persist_failed",
+        event: "subscription.refresh_failed",
         shopHash: await hashShop(session.shop),
         error: error instanceof Error ? error.message : String(error),
       }));
     }
-  }
-  // After the identity is stored, so the announcement can name the shop.
-  if (announcement.announce) await announceInstall(announce, { shop: session.shop, occasion: announcement.occasion, occurredAt: installedAt });
-  try {
-    await refresh(getEnv(), session.shop);
-  } catch (error) {
-    console.error(JSON.stringify({
-      event: "subscription.refresh_failed",
-      shopHash: await hashShop(session.shop),
-      error: error instanceof Error ? error.message : String(error),
-    }));
-  }
+  }, async (error) => {
+    await shopLog("shop.after_auth_background_failed", session.shop, { error: error instanceof Error ? error.name : "unknown" });
+  });
 }
 
 /** Decoration: a failed announcement is logged by shop hash and never fails the install. */

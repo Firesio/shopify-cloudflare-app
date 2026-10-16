@@ -1,7 +1,10 @@
 import { createEntitlementCache, type EntitlementCacheAdapterPort } from "~/adapters/entitlement-cache.server";
 import { ENTITLEMENT_CATALOGUE } from "~/billing/entitlement-catalogue";
 import type { EntitlementCachePort } from "~/ports/entitlements";
-import { getEnv } from "~/request-context.server";
+import { forgetRequestMemo, getEnv } from "~/request-context.server";
+
+/** Key of the per-request memo of a shop's subscription snapshot (`subscriptionsPort().current`). */
+export const subscriptionMemoKey = (shop: string) => `subscription-snapshot:${shop}`;
 
 /** Advisory KV cache for entitlement previews; D1 remains authoritative. */
 export function entitlementCache(): EntitlementCacheAdapterPort {
@@ -18,6 +21,7 @@ export function entitlementCachePort(): EntitlementCachePort {
 }
 
 export async function invalidateEntitlements(shop: string): Promise<void> {
+  forgetRequestMemo(subscriptionMemoKey(shop));
   try {
     await entitlementCache().delete(shop);
   } catch (error) {

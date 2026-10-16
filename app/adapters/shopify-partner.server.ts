@@ -112,13 +112,22 @@ function activeSubscription(value: Record<string, unknown>): ActiveSubscription 
   };
 }
 
+/** Generous for the cron history sweep; the merchant-facing path runs it after the response (`afterAuth`). */
+const DEFAULT_TIMEOUT_MS = 10_000;
+
 export class ShopifyPartnerAdapter implements ShopifyPartnerPort {
   constructor(private readonly dependencies: {
     readonly token: string;
     readonly organizationId: string;
     readonly apiVersion: string;
     readonly fetch: typeof fetch;
+    /** Per request. A Partner API that hangs must not hold a merchant's page or a Worker for longer than this. */
+    readonly timeoutMs?: number;
   }) {}
+
+  private signal(): AbortSignal {
+    return AbortSignal.timeout(this.dependencies.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  }
 
   private endpoint(): string {
     const placeholder = /^(?:REPLACE_ME|TODO|CHANGE_ME)$/i;
@@ -137,6 +146,7 @@ export class ShopifyPartnerAdapter implements ShopifyPartnerPort {
         "X-Shopify-Access-Token": this.dependencies.token,
       },
       body: JSON.stringify({ query: activeSubscriptionQuery, variables: { appId, shopId } }),
+      signal: this.signal(),
     });
     if (!response.ok) throw new Error(`Partner API returned HTTP ${response.status}`);
     const data = graphqlData(await response.json());
@@ -172,6 +182,7 @@ export class ShopifyPartnerAdapter implements ShopifyPartnerPort {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": this.dependencies.token },
       body: JSON.stringify({ query: historicalEventsQuery, variables: { filter, cursor: input.cursor ?? null } }),
+      signal: this.signal(),
     });
     if (!response.ok) throw new Error(`Partner API returned HTTP ${response.status}`);
     const events = object(graphqlData(await response.json()).events);

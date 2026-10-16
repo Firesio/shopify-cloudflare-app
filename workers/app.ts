@@ -37,7 +37,7 @@ export default {
       const context = new RouterContextProvider();
       context.set(cloudflareContext, { env, ctx });
       return requestHandler(request, context);
-    });
+    }, ctx);
   },
 
   /** Cron work shares the request context used by HTTP routes. */

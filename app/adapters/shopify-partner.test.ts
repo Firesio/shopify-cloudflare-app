@@ -105,4 +105,18 @@ describe("ShopifyPartnerAdapter", () => {
     await expect(adapter.activeSubscription("app", "shop")).rejects.toThrow("organization, version, and token");
     expect(calls).toBe(0);
   });
+
+  it("gives up on a Partner API that never answers, instead of holding the caller", async () => {
+    const adapter = new ShopifyPartnerAdapter({
+      token: "token",
+      organizationId: "org-123",
+      apiVersion: "2026-07",
+      timeoutMs: 20,
+      fetch: (_input, init) => new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+      }),
+    });
+
+    await expect(adapter.activeSubscription("app", "shop")).rejects.toMatchObject({ name: "TimeoutError" });
+  });
 });

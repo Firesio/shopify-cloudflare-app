@@ -165,6 +165,25 @@ Looked up on 2026-10-16. Cloudflare pages were read directly; "implied" means th
 | A new receiver running against an **old consumer** during a rollout acknowledges new messages as `missing` (inferred from the old code, not observed) | Avoid gradual deployments for the release that introduces the queue-first receiver |
 | Latency of the request path on production | "Well under 5 s" is from the code path (HMAC plus one queue send), not measured |
 
+## Merchant load path (2026-10-16)
+
+Looked up or read in the installed sources on 2026-10-16 by an audit of this template and six apps built on it.
+Local timings are SQLite, not D1: only row counts transfer.
+
+| Finding | Source | Design consequence |
+|---|---|---|
+| The library calls `afterAuth` only when it **mints a session**: `!session || !session.isActive(...)` in `strategies/token-exchange.mjs`, so about hourly per active shop with expiring offline tokens (5-minute early window). The mint and the hook are **awaited inside `authenticate.admin`**, so the request that needs the token waits for every await in the hook | Read `token-exchange.mjs` in the installed `@shopify/shopify-app-react-router` | `afterAuth` awaits only what the page cannot work without; the rest uses `runAfterResponse`. The layout and the page loader both authenticate in parallel; the library dedupes the hook per session token but each parallel loader may still do its own exchange (inferred from the source, not observed) |
+| A Workers static asset gets `Cache-Control: public, max-age=0, must-revalidate` unless `_headers` says otherwise | [Static Assets headers](https://developers.cloudflare.com/workers/static-assets/headers/) (read by the audit agents; not re-read when this row was written) | `/assets/*` is `immutable` for a year: Vite content-hashes every file there |
+| KV: **one write per second to the same key**; further writes to it are rejected (HTTP 429) | [KV limits](https://developers.cloudflare.com/kv/platform/limits/) (confirmed in the docs by one audit agent, taken from memory by two others) | Never write KV on a read path or from several concurrent callers; an entitlement check does not write |
+| `ctx.waitUntil` gets about 30 s after the response, shared, then is cancelled (see the queue-first section) | Same lookup as above | `runAfterResponse` only for decoration and work another path repairs |
+| D1 executes one query at a time per database, so a heavy aggregate on one shop delays every other shop's queries | [D1 limits](https://developers.cloudflare.com/d1/platform/limits/) | Bound every page-view query by an index or a counter; see `docs/merchant-speed.md` rule 8 |
+| A minified server bundle renames classes, so `error.constructor.name === "ErrorResponseImpl"` in `boundary.error` fails and the App Bridge bounce page is rethrown | Observed earlier in this repo (see `thrownResponseHtml`) | Render a thrown non-error response through `thrownResponseHtml`; never branch on a name |
+
+| Unverified | Why it matters |
+|---|---|
+| That minifying the Worker (3.4 MB instead of 6 MB) shortens a cold start. Parse cost is inferred from size; `wrangler check startup` was not run | The change is cheap and safe, but the benefit is a guess until measured |
+| That Smart Placement or D1 read replication helps. The D1 region and the Worker's colo were not compared | Measure `wallTimeMs` against `cpuTimeMs` first (`docs/merchant-speed.md`) |
+
 ## Unverified — must be confirmed before anything depends on it
 
 Anything in this section stays labelled unverified until someone observes it

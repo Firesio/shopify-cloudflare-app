@@ -202,3 +202,43 @@ describe("announcing an install to the staff", () => {
     expect(JSON.stringify(bodies)).not.toContain("fake-service");
   });
 });
+
+/**
+ * `afterAuth` fires on a token mint, which is on the merchant's own request. Only what the page cannot work without
+ * (the redaction fence, the shop row) is awaited; the identity query, the announcement and the Partner API run after
+ * the response.
+ */
+describe("what a token mint makes the merchant wait for", () => {
+  it("records the install but returns before a slow Partner refresh and announcement finish", async () => {
+    const pending: Promise<unknown>[] = [];
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const order: string[] = [];
+    const slowRefresh = async () => { await gate; order.push("refreshed"); };
+    const slowAnnounce = async () => { await gate; order.push("announced"); };
+
+    const found = await runWithRequestContext(env, async () => {
+      await afterAuth(authOf(SHOP), slowRefresh, slowAnnounce);
+      return new ShopRepo().get(SHOP);
+    }, { waitUntil: (promise) => { pending.push(promise); } });
+
+    expect(found).toMatchObject({ shop: SHOP, uninstalledAt: null });
+    expect(order).toEqual([]);
+    expect(pending).toHaveLength(1);
+
+    release();
+    await Promise.all(pending);
+    expect(order).toEqual(["announced", "refreshed"]);
+  });
+
+  it("logs a refresh that fails after the response, by shop hash", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const pending: Promise<unknown>[] = [];
+    await runWithRequestContext(env, () => afterAuth(authOf(SHOP), async () => { throw new Error("Partner API unavailable"); }), { waitUntil: (promise) => { pending.push(promise); } });
+    await Promise.all(pending);
+
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(String(error.mock.calls[0]?.[0])).toContain('"event":"subscription.refresh_failed"');
+    error.mockRestore();
+  });
+});

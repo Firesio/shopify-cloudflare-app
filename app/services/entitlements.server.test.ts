@@ -42,26 +42,33 @@ describe("entitlements service", () => {
     expect(currentCalls).toBe(1);
   });
 
-  it("returns authoritative decisions when cache writes fail", async () => {
-    let currentCalls = 0;
+  it("never writes the cache on a check: nothing reads it, and KV rate-limits one key", async () => {
+    let writes = 0;
     const service = createEntitlements({
-      subscriptions: {
-        current: async () => {
-          currentCalls += 1;
-          return { status: "ACTIVE", planHandle: "free", revision: 1 };
-        },
-      },
-      cache: {
-        get: async () => null,
-        set: async () => { throw new Error("cache unavailable"); },
-        invalidate: async () => undefined,
-      },
+      subscriptions: { current: async () => ({ status: "ACTIVE", planHandle: "free", revision: 1 }) },
+      cache: { get: async () => null, set: async () => { writes += 1; }, invalidate: async () => undefined },
       catalogue: { version: 1, freePlan: "free", features: { x: { kind: "capability" } }, plans: { free: { x: { kind: "enabled" } } } },
       now: () => 0,
     });
 
-    await expect(service.check("shop", "x")).resolves.toEqual({ allowed: true, kind: "capability" });
-    expect(currentCalls).toBe(1);
+    await Promise.all([service.check("shop", "x"), service.check("shop", "x"), service.check("shop", "x")]);
+
+    expect(writes).toBe(0);
+  });
+
+  it("fills the cache from a preview miss, and a failing cache write does not fail the preview", async () => {
+    const stored: unknown[] = [];
+    const base = {
+      subscriptions: { current: async () => ({ status: "ACTIVE" as const, planHandle: "free", revision: 1 }) },
+      catalogue: { version: 1, freePlan: "free", features: { x: { kind: "capability" as const } }, plans: { free: { x: { kind: "enabled" as const } } } },
+      now: () => 0,
+    };
+    const writing = createEntitlements({ ...base, cache: { get: async () => null, set: async (_shop, snapshot) => { stored.push(snapshot); }, invalidate: async () => undefined } });
+    await expect(writing.preview("shop", "x")).resolves.toMatchObject({ allowed: true });
+    expect(stored).toHaveLength(1);
+
+    const failing = createEntitlements({ ...base, cache: { get: async () => null, set: async () => { throw new Error("cache unavailable"); }, invalidate: async () => undefined } });
+    await expect(failing.preview("shop", "x")).resolves.toMatchObject({ allowed: true });
   });
 
   it("allocates reusable capacity through the capacity port", async () => {

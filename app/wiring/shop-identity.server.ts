@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ShopRepo } from "~/models/shops.server";
 import { shopLog } from "~/observability/shop-log";
+import { forgetRequestMemo, requestMemo } from "~/request-context.server";
 import { recordShopifyIdentity } from "~/services/record-shopify-identity";
 import { resolveShopTimeZone } from "~/services/shop-time-zone";
 import { appRuntime } from "~/wiring/runtime.server";
@@ -24,6 +25,13 @@ const SHOP_TIME_ZONE_QUERY = `#graphql
   }
 `;
 
+/**
+ * The layout loader asks for the identity and the zone together, and both start by reading the same `shops` row.
+ * One read per request; every write below drops it so a later read in the same request sees the write.
+ */
+const shopRowKey = (shop: string) => `shop-row:${shop}`;
+const storedShop = (repository: ShopRepo, shop: string) => requestMemo(shopRowKey(shop), () => repository.get(shop));
+
 const timeZoneResponse = z.object({ data: z.object({ shop: z.object({ ianaTimezone: z.string() }) }) });
 
 /** The zone every date for this shop renders in; see `resolveShopTimeZone`. */
@@ -33,21 +41,27 @@ export function shopTimeZone(
 ): Promise<string> {
   const repository = new ShopRepo();
   return resolveShopTimeZone(shop, {
-    stored: async (domain) => (await repository.get(domain))?.timeZone ?? null,
+    stored: async (domain) => (await storedShop(repository, domain))?.timeZone ?? null,
     fetch: async () => {
       const response = await admin.graphql(SHOP_TIME_ZONE_QUERY);
       if (!response.ok) return null;
       const parsed = timeZoneResponse.safeParse(await response.json());
       return parsed.success ? parsed.data.data.shop.ianaTimezone : null;
     },
-    record: (domain, timeZone) => repository.recordTimeZone(domain, timeZone),
+    record: async (domain, timeZone) => {
+      try {
+        return await repository.recordTimeZone(domain, timeZone);
+      } finally {
+        forgetRequestMemo(shopRowKey(domain));
+      }
+    },
     unavailable: (domain) => shopLog("shop.time_zone_unavailable", domain),
   });
 }
 
 export async function persistShopIdentity(admin: { graphql: (query: string) => Promise<Response> }, shop: string, now = appRuntime().clock.now()) {
   const repository = new ShopRepo();
-  const existing = await repository.get(shop);
+  const existing = await storedShop(repository, shop);
   if (existing?.shopifyShopId) {
     return { status: "recorded", shopifyShopId: existing.shopifyShopId } as const;
   }
@@ -74,6 +88,12 @@ export async function persistShopIdentity(admin: { graphql: (query: string) => P
   return recordShopifyIdentity({
     shop,
     queryShop: async () => identity,
-    record: (tenant, shopifyShopId, at, details) => repository.recordAuthenticatedIdentity(tenant, shopifyShopId, at, details),
+    record: async (tenant, shopifyShopId, at, details) => {
+      try {
+        return await repository.recordAuthenticatedIdentity(tenant, shopifyShopId, at, details);
+      } finally {
+        forgetRequestMemo(shopRowKey(tenant));
+      }
+    },
   }, now);
 }

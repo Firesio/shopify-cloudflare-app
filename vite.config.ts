@@ -116,4 +116,16 @@ export default defineConfig(({ command }) => ({
   build: {
     assetsInlineLimit: 0,
   },
+  // The Worker (`ssr`) bundle ships unminified by default: ~6 MB that every cold isolate has to parse before its
+  // first request, and the merchant who lands on a cold isolate waits for it. Names are kept (`keepNames`) because
+  // the code logs `error.name` and compares class names.
+  environments: {
+    ssr: {
+      build: {
+        rolldownOptions: {
+          output: { minify: { compress: { keepNames: { function: true, class: true } }, mangle: { keepNames: { function: true, class: true } } } },
+        },
+      },
+    },
+  },
 }));
