@@ -46,6 +46,10 @@ export function getDb(): Db {
   return store.db;
 }
 
+function isPromiseOf<T>(value: unknown): value is Promise<T> {
+  return value instanceof Promise;
+}
+
 /**
  * Run `make` once per request for `key` and hand every caller the same promise. For a read that several independent
  * call sites in one request would otherwise repeat (the subscription snapshot is read once per entitlement check).
@@ -57,7 +61,8 @@ export function requestMemo<T>(key: string, make: () => Promise<T>): Promise<T> 
   if (!store) return make();
   store.memo ??= new Map();
   const existing = store.memo.get(key);
-  if (existing) return existing as Promise<T>;
+  // Entries are only ever written below, by the call that made them, so a hit for this key holds this call's kind of value.
+  if (isPromiseOf<T>(existing)) return existing;
   const created = make();
   store.memo.set(key, created);
   created.catch(() => { if (store.memo?.get(key) === created) store.memo.delete(key); });
