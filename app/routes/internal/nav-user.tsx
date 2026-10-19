@@ -42,8 +42,12 @@ function UserSummary({ user }: NavUserProps) {
 
 /** dashboard-01's footer account menu. */
 export function NavUser({ user }: NavUserProps) {
-  const { isMobile } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
   const submit = useSubmit();
+  // Same rule as the nav links: on a phone, leaving for another page closes the sidebar sheet.
+  const closeOnMobile = () => {
+    if (isMobile) setOpenMobile(false);
+  };
 
   return (
     <SidebarMenu>
@@ -72,13 +76,13 @@ export function NavUser({ user }: NavUserProps) {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <Link to="/internal/profile" prefetch="intent">
+                <Link to="/internal/profile" prefetch="intent" onClick={closeOnMobile}>
                   <UserCircle />
                   Account
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link to="/internal/notifications" prefetch="intent">
+                <Link to="/internal/notifications" prefetch="intent" onClick={closeOnMobile}>
                   <Bell />
                   Notifications
                 </Link>

@@ -11,6 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "~/internal/components/ui/sidebar";
 import { AppMark } from "~/internal/components";
 import { identity } from "~/identity";
@@ -24,13 +25,19 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 
 /** The console's sidebar: dashboard-01's shell, driven by INTERNAL_NAV. */
 export function AppSidebar({ pathname, user, ...props }: AppSidebarProps) {
+  // On a phone the sidebar is a sheet over the page: a nav tap must close it, or the
+  // new page loads hidden behind it. On desktop it is part of the layout and stays.
+  const { isMobile, setOpenMobile } = useSidebar();
+  const closeOnMobile = () => {
+    if (isMobile) setOpenMobile(false);
+  };
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:p-1.5!">
-              <Link to="/internal/dashboard" prefetch="intent">
+              <Link to="/internal/dashboard" prefetch="intent" onClick={closeOnMobile}>
                 <AppMark className="size-5!" />
                 <span className="text-base font-semibold">{identity.brandName}</span>
               </Link>
@@ -51,7 +58,7 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps) {
                       tooltip={item.title}
                       isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
                     >
-                      <Link to={item.href} prefetch="intent">
+                      <Link to={item.href} prefetch="intent" onClick={closeOnMobile}>
                         <item.icon />
                         <span>{item.title}</span>
                       </Link>
