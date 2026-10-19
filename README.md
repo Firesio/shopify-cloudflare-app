@@ -191,7 +191,9 @@ The same guard checks production `client_id`, app URL and callback drift against
 legal identity/contact/effective date, and public privacy/support/pricing copy.
 Template TODOs are intentional: replace them before launch. Required secrets are
 `SHOPIFY_API_SECRET`, `SHOP_CUSTOM_DOMAIN`, `INTERNAL_SESSION_SECRET`,
-`SHOPIFY_PARTNER_API_TOKEN`, and `ATTACHMENT_TOKEN_SECRET`; set them with
+`SHOPIFY_PARTNER_API_TOKEN`, `ATTACHMENT_TOKEN_SECRET`, and `STAFF_MFA_KEY` (encrypts
+staff two-step verification secrets; changing it forces every enrolled staff member
+to re-enroll); set them with
 `wrangler secret put` in production. `SHOPIFY_API_KEY` is a public client ID,
 not a secret.
 Create D1/KV/R2 resources first, copy IDs into `wrangler.jsonc`, then run

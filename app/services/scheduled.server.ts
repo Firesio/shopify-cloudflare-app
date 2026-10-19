@@ -1,5 +1,6 @@
 import type { SweepPlan } from "~/domain/cron-schedule";
 import type { ScheduledDependencies } from "~/ports/scheduled";
+import { pruneExpiredRecords } from "~/services/prune-expired-records";
 
 /** Keep spent and expired tokens around briefly, so a replay still reports accurately. */
 const TOKEN_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -27,6 +28,14 @@ async function runDailyMaintenance(now: number, dependencies: ScheduledDependenc
       now - TOKEN_RETENTION_MS,
     );
     return { deleted };
+  });
+  await sweep("retention", async () => {
+    const results = await pruneExpiredRecords(now, dependencies.retention);
+    return {
+      deleted: Object.fromEntries(results.map(({ target, outcome }) => [target, outcome.deleted])),
+      backlog: results.filter(({ outcome }) => outcome.status === "backlog").map(({ target }) => target),
+      failed: results.filter(({ outcome }) => outcome.status === "failed").map(({ target }) => target),
+    };
   });
   await sweep("pending_uploads", async () => {
     const uploads = await dependencies.uploads.listExpiredUploads(now);

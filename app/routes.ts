@@ -60,6 +60,8 @@ export default [
   // The install manifest must be fetchable without a session, so it is outside the layout too.
   route("internal/manifest.webmanifest", "routes/internal/manifest.webmanifest.ts"),
   route("internal/login", "routes/internal/login.tsx"),
+  // The second sign-in step, for staff with two-step verification on. Outside the layout: not signed in yet.
+  route("internal/login/mfa", "routes/internal/login/mfa.tsx"),
   route("internal/logout", "routes/internal/logout.tsx"),
   // Self-service recovery, also outside the layout: nobody is signed in yet.
   route("internal/forgot-password", "routes/internal/forgot-password.tsx"),

@@ -3,11 +3,13 @@ import { authClientKey } from "~/lib/auth-client-key";
 import { safeRedirectPath } from "~/services/admin-auth.server";
 import type { AuthAttemptLimiter } from "~/ports/auth-rate-limit";
 import type { LoginResult } from "~/services/admin-auth.server";
+import type { SafeAdminUser } from "~/ports/admin-users";
 
 type LoginActionDeps = {
   limiter: AuthAttemptLimiter;
   verifyCredentials: (email: string, password: string) => Promise<LoginResult>;
-  createSession: (userId: string, redirectTo: string) => Promise<Response>;
+  /** Into the console, or on to the second-factor step when the account has MFA on. */
+  signIn: (user: SafeAdminUser, redirectTo: string) => Promise<Response>;
   productionLike: boolean;
 };
 
@@ -33,7 +35,7 @@ export async function handleLoginAction(request: Request, deps: LoginActionDeps)
     const result = await deps.verifyCredentials(email, password);
     if (!result.ok) return data({ error: result.reason }, { status: 401 });
 
-    return await deps.createSession(result.user.id, next);
+    return await deps.signIn(result.user, next);
   } catch (error) {
     console.error(JSON.stringify({
       event: "admin_login.failed",

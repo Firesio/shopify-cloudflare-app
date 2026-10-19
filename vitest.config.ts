@@ -17,6 +17,7 @@ for (const [name, value] of Object.entries({
   INTERNAL_SESSION_SECRET: "test-internal-session-secret",
   SHOPIFY_PARTNER_API_TOKEN: "test-partner-token",
   ATTACHMENT_TOKEN_SECRET: "test-attachment-secret",
+  STAFF_MFA_KEY: "test-staff-mfa-key",
 })) {
   process.env[name] ??= value;
 }
@@ -146,6 +147,7 @@ export default defineConfig({
                 SHOPIFY_PARTNER_API_TOKEN: "test-partner-token",
                 SHOPIFY_APP_URL: "https://example.test",
                 INTERNAL_SESSION_SECRET: "test-internal-session-secret",
+                STAFF_MFA_KEY: "test-staff-mfa-key",
                 // Blank, like every other third-party credential: a local .dev.vars (which `npm run dev` fills with a
                 // throwaway VAPID pair) must not turn push on inside the suite. Tests that need push set their own.
                 VAPID_PUBLIC_KEY: "",

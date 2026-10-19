@@ -4,11 +4,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { useTranslation } from "react-i18next";
 
 import { pricingReturnDestination } from "~/billing/pricing-return";
-import {
-  ChannelsSection,
-  PerformanceSection,
-  RecentActivitySection,
-} from "~/components/dashboard/DashboardSections";
+import { SampleDashboard } from "~/components/dashboard/SampleDashboard";
 import { SetupGuide } from "~/components/dashboard/SetupGuide";
 import { authenticateAdmin } from "~/admin/require-merchant.server";
 import { settle } from "~/admin/settle.server";
@@ -36,18 +32,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   );
 
   return { shopDomain: session.shop, shopName };
-};
-
-const dashboardData = {
-  sales: 184_260,
-  orders: 328,
-  customers: 214,
-  conversion: 0.042,
-  channels: [
-    { key: "onlineStore", sales: 128_400, orders: 221 },
-    { key: "shopApp", sales: 42_360, orders: 76 },
-    { key: "social", sales: 13_500, orders: 31 },
-  ],
 };
 
 function Greeting({ shop }: { shop: string }) {
@@ -85,19 +69,12 @@ function DashboardHeader({ shopDomain, shopName }: { shopDomain: string; shopNam
 export default function Index() {
   const { shopDomain, shopName } = useLoaderData<typeof loader>();
   const { t } = useTranslation("admin");
-  const channels = [
-    { ...dashboardData.channels[0], label: t("dashboard.onlineStore") },
-    { ...dashboardData.channels[1], label: t("dashboard.shopApp") },
-    { ...dashboardData.channels[2], label: t("dashboard.social") },
-  ];
-
   return (
     <s-page heading={t("dashboard.heading")}>
       <DashboardHeader shopDomain={shopDomain} shopName={shopName} />
       <SetupGuide />
-      <PerformanceSection metrics={dashboardData} />
-      <ChannelsSection channels={channels} />
-      <RecentActivitySection />
+      {/* Placeholder: blocks a production deploy until replaced (see SampleDashboard). */}
+      <SampleDashboard />
 
       <s-stack direction="inline" gap="base" alignItems="center">
         <s-text color="subdued">{t("dashboard.needHelp")}</s-text>

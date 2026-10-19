@@ -3,6 +3,8 @@ import { validatePasswordStrength } from "~/lib/password-policy";
 import { normalizeEmail, type AdminUserPort } from "~/ports/admin-users";
 import type { AdminRole, SafeAdminUser } from "~/ports/admin-users";
 import type { Runtime } from "~/ports/runtime";
+import { recordStaffEvent, type StaffAuditDependencies } from "~/services/staff-audit";
+import { resetMfa, type StaffMfaDependencies } from "~/services/staff-mfa";
 
 /**
  * Staff management use cases. Pure decisions plus repo calls — every guard that
@@ -247,4 +249,25 @@ export async function changeOwnPassword(input: {
     deps.runtime.clock.now(),
   );
   return ok(null);
+}
+
+/**
+ * An owner turning off a colleague's two-step verification, for a lost phone
+ * with lost recovery codes. Never one's own (that needs a code, on the profile
+ * page). The colleague can then sign in with their password and enroll again.
+ */
+export async function resetAdminMfa(input: {
+  actorId: string;
+  targetId: string;
+}, deps: {
+  users: Pick<AdminUserPort, "findById">;
+  mfa: Pick<StaffMfaDependencies, "store">;
+  audit: StaffAuditDependencies;
+}): Promise<Result<SafeAdminUser>> {
+  if (input.actorId === input.targetId) return fail("notYourself");
+  const [actor, target] = await Promise.all([deps.users.findById(input.actorId), deps.users.findById(input.targetId)]);
+  if (!actor || !target) return fail("notFound");
+  await resetMfa(target.id, deps.mfa);
+  await recordStaffEvent("mfa_reset", actor, deps.audit, `/internal/admins/${target.id}`);
+  return ok(target);
 }

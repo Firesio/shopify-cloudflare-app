@@ -16,7 +16,10 @@ import { MIN_PASSWORD_LENGTH } from "~/lib/password-policy";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
 import type { Locale } from "~/i18n/config";
-import { adminUsers, adminSessionUsers, appRuntime } from "~/wiring.server";
+import { adminUsers, adminSessionUsers, appRuntime, staffAudit, staffMfa } from "~/wiring.server";
+import { mfaStatus, pendingMfaSetup } from "~/services/staff-mfa";
+import { handleProfileMfaIntent, isMfaIntent } from "./profile-mfa.server";
+import { MfaCard, MFA_ERRORS, MFA_SUCCESS, type MfaResult } from "./profile-mfa";
 import {
   AccountCard,
   PasswordCard,
@@ -51,7 +54,9 @@ const DIALOG_FOR_ERROR: Record<ProfileErrorReason, ProfileDialog> = {
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  return { user: await requireAdminUser(request, { users: adminSessionUsers() }) };
+  const user = await requireAdminUser(request, { users: adminSessionUsers() });
+  const mfa = await staffMfa();
+  return { user, mfa: await mfaStatus(user.id, mfa), pendingSetup: await pendingMfaSetup(user, mfa) };
 };
 
 type SuccessKey = "detailsSaved" | "passwordChanged";
@@ -86,12 +91,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       : data({ error: result.reason }, { status: 400 });
   }
 
+  if (isMfaIntent(intent)) {
+    return handleProfileMfaIntent(intent, user, form, { mfa: await staffMfa(), audit: staffAudit() });
+  }
+
   const notFound: ProfileErrorReason = "notFound";
   return data({ error: notFound }, { status: 400 });
 };
 
 export default function Profile() {
-  const { user } = useLoaderData<typeof loader>();
+  const { user, mfa, pendingSetup } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
 
@@ -114,7 +123,12 @@ export default function Profile() {
     setSeenResult(actionData);
     setOpenDialog(errorReason ? DIALOG_FOR_ERROR[errorReason] : null);
   }
-  useActionToast(actionData, { error: errorMessage, success: successMessage });
+  const mfaResult: MfaResult | undefined =
+    actionData && ("mfa" in actionData || "mfaError" in actionData) ? actionData : undefined;
+  useActionToast(actionData, {
+    error: errorMessage ?? (mfaResult && "mfaError" in mfaResult ? MFA_ERRORS[mfaResult.mfaError] : undefined),
+    success: successMessage ?? (mfaResult && "mfa" in mfaResult ? MFA_SUCCESS[mfaResult.mfa] : undefined),
+  });
 
   const errorFor = (dialog: ProfileDialog) =>
     errorReason && DIALOG_FOR_ERROR[errorReason] === dialog ? errorMessage : undefined;
@@ -138,6 +152,13 @@ export default function Profile() {
           busy={busyPassword}
           error={errorFor("password")}
           {...controlFor("password")}
+        />
+        <MfaCard
+          status={mfa}
+          pendingSetup={pendingSetup}
+          result={mfaResult}
+          busyIntent={typeof submittingIntent === "string" ? submittingIntent : undefined}
+          enabledOn={mfa.enabledAt ? formatDateTime(LOCALE, mfa.enabledAt, UTC) : undefined}
         />
       </div>
     </div>

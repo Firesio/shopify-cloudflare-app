@@ -25,7 +25,7 @@ async function submit(
     limiter,
     productionLike,
     verifyCredentials,
-    createSession: async () => new Response(null, { status: 302 }),
+    signIn: async () => new Response(null, { status: 302 }),
   });
   if (result instanceof Response) return { status: result.status };
   if (result && typeof result === "object" && "status" in result) return { status: Number(result.status) };

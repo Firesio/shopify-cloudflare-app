@@ -104,8 +104,8 @@ and evidence; a checked box is not a substitute for a tested implementation.
   set their production binding details in `wrangler.jsonc`; then run
   `npm run cf-typegen`.
 - Declare and provision every required secret: `SHOPIFY_API_SECRET`,
-  `ATTACHMENT_TOKEN_SECRET`, `INTERNAL_SESSION_SECRET`, `SHOP_CUSTOM_DOMAIN`,
-  and `SHOPIFY_PARTNER_API_TOKEN`. Secrets are never app configuration values.
+  `ATTACHMENT_TOKEN_SECRET`, `INTERNAL_SESSION_SECRET`, `STAFF_MFA_KEY`,
+  `SHOP_CUSTOM_DOMAIN`, and `SHOPIFY_PARTNER_API_TOKEN`. Secrets are never app configuration values.
 - Configure `EMAIL_FROM` and `EMAIL_FROM_NAME` only after authorizing the
   sending domain. Test password recovery without exposing reset links in a
   production response.

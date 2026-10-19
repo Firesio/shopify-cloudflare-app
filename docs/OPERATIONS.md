@@ -23,6 +23,7 @@ and current release before running them.
 ```bash
 # operator-run: prompts for the secret value
 npx wrangler secret put ATTACHMENT_TOKEN_SECRET --env production
+npx wrangler secret put STAFF_MFA_KEY --env production
 npx wrangler secret list --env production
 
 # operator-run: validates the populated production release contract
@@ -34,7 +35,10 @@ npm run cf:deploy
 
 The public Shopify client ID (`SHOPIFY_API_KEY`) is configuration, not a secret.
 `SHOPIFY_API_SECRET`, `ATTACHMENT_TOKEN_SECRET`, `INTERNAL_SESSION_SECRET`,
-`SHOP_CUSTOM_DOMAIN`, and `SHOPIFY_PARTNER_API_TOKEN` are secrets. Keep the
+`STAFF_MFA_KEY`, `SHOP_CUSTOM_DOMAIN`, and `SHOPIFY_PARTNER_API_TOKEN` are secrets.
+`STAFF_MFA_KEY` encrypts staff TOTP secrets at rest: rotating it makes every
+enrolled authenticator unreadable (sign-in fails closed), so an owner then resets
+two-step verification for each person on the Admins page and they enroll again. Keep the
 latter only in the secret store and local `.dev.vars`; their *names* belong in
 `wrangler.jsonc` so `Env` can be generated on a clean checkout.
 

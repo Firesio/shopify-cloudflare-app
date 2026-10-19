@@ -2,12 +2,13 @@ import type { AdminRole } from "~/db/schema";
 import {
   createAdmin,
   removeAdmin,
+  resetAdminMfa,
   resetAdminPassword,
   setAdminRole,
   setAdminStatus,
 } from "~/services/admin-management.server";
 import type { SuccessKey } from "./success-message";
-import { adminUsers, appRuntime } from "~/wiring.server";
+import { adminUsers, appRuntime, staffAudit, staffMfa } from "~/wiring.server";
 
 /**
  * The admin screen's intent dispatch, beside its route.
@@ -65,6 +66,12 @@ export const INTENTS = {
   async remove(form: FormData, actorId: string) {
     return removeAdmin({ actorId, targetId: String(form.get("id") ?? "") }, { users: adminUsers() });
   },
+  async resetMfa(form: FormData, actorId: string) {
+    return resetAdminMfa(
+      { actorId, targetId: String(form.get("id") ?? "") },
+      { users: adminUsers(), mfa: await staffMfa(), audit: staffAudit() },
+    );
+  },
   async resetPassword(form: FormData, actorId: string) {
     const result = await resetAdminPassword({
       actorId,
@@ -107,5 +114,6 @@ export const SUCCESS_KEY: Record<Intent, SuccessKey> = {
   makeOwner: "roleChanged",
   makeAdmin: "roleChanged",
   remove: "removed",
+  resetMfa: "mfaReset",
   resetPassword: "passwordReset",
 };

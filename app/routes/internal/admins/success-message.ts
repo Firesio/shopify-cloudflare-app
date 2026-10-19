@@ -12,7 +12,8 @@ export type SuccessKey =
   | "enabled"
   | "removed"
   | "roleChanged"
-  | "passwordReset";
+  | "passwordReset"
+  | "mfaReset";
 
 export function formatSuccessMessage(
   key: SuccessKey,
@@ -30,6 +31,8 @@ export function formatSuccessMessage(
       return `${name} was removed.`;
     case "roleChanged":
       return `${name} is now ${role}.`;
+    case "mfaReset":
+      return `Two-step verification is off for ${name}. They can sign in with their password and set it up again.`;
     case "passwordReset":
       return `Password reset for ${name}. Give them the new password directly.`;
   }

@@ -144,7 +144,8 @@
       "SHOP_CUSTOM_DOMAIN",
       "INTERNAL_SESSION_SECRET",
       "SHOPIFY_PARTNER_API_TOKEN",
-      "ATTACHMENT_TOKEN_SECRET"
+      "ATTACHMENT_TOKEN_SECRET",
+      "STAFF_MFA_KEY"
     ]
   },
 
@@ -263,7 +264,8 @@
           "SHOP_CUSTOM_DOMAIN",
           "INTERNAL_SESSION_SECRET",
           "SHOPIFY_PARTNER_API_TOKEN",
-          "ATTACHMENT_TOKEN_SECRET"
+          "ATTACHMENT_TOKEN_SECRET",
+          "STAFF_MFA_KEY"
         ]
       },
       "vars": {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { validateLaunchContract } from "./check-placeholders.mjs";
+import { launchWarnings, validateLaunchContract } from "./check-placeholders.mjs";
 
 function validFiles() {
   const production = {
@@ -14,7 +14,7 @@ function validFiles() {
       SHOPIFY_PARTNER_API_VERSION: "2026-07",
       AI_GATEWAY_ID: "",
     },
-    secrets: { required: ["SHOPIFY_PARTNER_API_TOKEN", "ATTACHMENT_TOKEN_SECRET"] },
+    secrets: { required: ["SHOPIFY_PARTNER_API_TOKEN", "ATTACHMENT_TOKEN_SECRET", "STAFF_MFA_KEY"] },
     r2_buckets: [{ binding: "UPLOADS", bucket_name: "uploads" }],
     send_email: [{ name: "EMAIL" }],
     ai: { binding: "AI" },
@@ -156,4 +156,50 @@ test("rejects a Partner API version that is not the template's Partner release",
   const files = validFiles();
   files.wrangler.env.production.vars.SHOPIFY_PARTNER_API_VERSION = "2026-10";
   assert.match(validateLaunchContract(files).join("\n"), /SHOPIFY_PARTNER_API_VERSION must be 2026-07/);
+});
+
+test("rejects a production app URL that is not https", () => {
+  const files = validFiles();
+  files.wrangler.env.production.vars.SHOPIFY_APP_URL = "http://app.example.org";
+  files.productionToml = files.productionToml.replaceAll("https://app.example.org", "http://app.example.org");
+  const issues = validateLaunchContract(files).join("\n");
+  assert.match(issues, /SHOPIFY_APP_URL must be an https:\/\/ URL/);
+  assert.match(issues, /application_url must be an https:\/\/ URL/);
+});
+
+test("rejects a route that still renders the sample dashboard, and only that route", () => {
+  const files = validFiles();
+  files.routeSources = [
+    { path: "app/routes/app/home.tsx", source: 'import { SampleDashboard } from "~/components/dashboard/SampleDashboard";' },
+    { path: "app/routes/app/billing.tsx", source: 'import { PerformanceSection } from "~/components/dashboard/DashboardSections";' },
+  ];
+  const issues = validateLaunchContract(files);
+  assert.equal(issues.length, 1);
+  assert.match(issues[0], /^app\/routes\/app\/home\.tsx renders the sample dashboard/);
+});
+
+test("does not require production to re-declare the local-only VAPID_PRIVATE_KEY var", () => {
+  const files = validFiles();
+  files.wrangler.vars.VAPID_PRIVATE_KEY = "";
+  assert.deepEqual(validateLaunchContract(files), []);
+  files.wrangler.vars.SOMETHING_ELSE = "x";
+  assert.match(validateLaunchContract(files).join("\n"), /production var SOMETHING_ELSE is missing/);
+});
+
+test("warns, without blocking, when the App Store handle is empty or malformed", () => {
+  const files = validFiles();
+  assert.match(launchWarnings(files).join("\n"), /SHOPIFY_APP_HANDLE is empty/);
+  files.wrangler.env.production.vars.SHOPIFY_APP_HANDLE = "  ";
+  assert.match(launchWarnings(files).join("\n"), /SHOPIFY_APP_HANDLE is empty/);
+  files.wrangler.env.production.vars.SHOPIFY_APP_HANDLE = "My App";
+  assert.match(launchWarnings(files).join("\n"), /not a valid App Store handle/);
+  files.wrangler.env.production.vars.SHOPIFY_APP_HANDLE = "my-app";
+  assert.deepEqual(launchWarnings(files), []);
+  assert.deepEqual(validateLaunchContract(files), []);
+});
+
+test("requires the staff MFA key to be a declared production secret", () => {
+  const files = validFiles();
+  files.wrangler.env.production.secrets.required = ["SHOPIFY_PARTNER_API_TOKEN", "ATTACHMENT_TOKEN_SECRET"];
+  assert.match(validateLaunchContract(files).join("\n"), /STAFF_MFA_KEY secret is not declared/);
 });

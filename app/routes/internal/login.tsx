@@ -10,9 +10,10 @@ import type {
   LoaderFunctionArgs,
   MetaFunction,
 } from "react-router";
-import { createAdminSession, getAdminUser, safeRedirectPath, verifyAdminCredentials, HOME_PATH } from "~/services/admin-auth.server";
+import { beginSignIn, getAdminUser, safeRedirectPath, verifyAdminCredentials, HOME_PATH } from "~/services/admin-auth.server";
+import { isMfaEnabled } from "~/services/staff-mfa";
 import { getEnv } from "~/request-context.server";
-import { adminUsers, appRuntime, authLimiters } from "~/wiring.server";
+import { adminUsers, appRuntime, authLimiters, staffMfa } from "~/wiring.server";
 import { isProductionLike } from "~/lib/deployment";
 import { handleLoginAction } from "./login.server";
 import { INTERNAL_FONT_LINKS } from "~/internal/components";
@@ -60,7 +61,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return handleLoginAction(request, {
     limiter: authLimiters().login,
     verifyCredentials: (email, password) => verifyAdminCredentials(email, password, { users, runtime: appRuntime() }),
-    createSession: createAdminSession,
+    signIn: async (user, next) => {
+      const mfa = await staffMfa();
+      return beginSignIn(user, next, {
+        mfaEnabled: (id) => isMfaEnabled(id, mfa),
+        now: appRuntime().clock.now(),
+      });
+    },
     productionLike: isProductionLike(getEnv().SHOPIFY_APP_URL ?? ""),
   });
 };

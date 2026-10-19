@@ -18,7 +18,7 @@ export type DashboardMetrics = {
 };
 
 /** Each export renders an `s-section`, a direct child of `s-page` once rendered. */
-export function PerformanceSection({ metrics }: { metrics: DashboardMetrics }) {
+export function PerformanceSection({ metrics, currency }: { metrics: DashboardMetrics; currency: string }) {
   const { t } = useTranslation("admin");
   const locale = useLocale();
   return (
@@ -34,7 +34,7 @@ export function PerformanceSection({ metrics }: { metrics: DashboardMetrics }) {
       >
         <MetricCard
           label={t("dashboard.sales")}
-          value={formatMoney(locale, metrics.sales, "USD")}
+          value={formatMoney(locale, metrics.sales, currency)}
           change={t("dashboard.salesChangeShort")}
           href="/admin/analytics"
         />
@@ -60,7 +60,13 @@ export function PerformanceSection({ metrics }: { metrics: DashboardMetrics }) {
   );
 }
 
-export function ChannelsSection({ channels }: { channels: readonly DashboardChannel[] }) {
+export function ChannelsSection({
+  channels,
+  currency,
+}: {
+  channels: readonly DashboardChannel[];
+  currency: string;
+}) {
   const { t } = useTranslation("admin");
   const locale = useLocale();
   return (
@@ -79,7 +85,7 @@ export function ChannelsSection({ channels }: { channels: readonly DashboardChan
           {channels.map((channel) => (
             <s-table-row key={channel.key}>
               <s-table-cell>{channel.label}</s-table-cell>
-              <s-table-cell>{formatMoney(locale, channel.sales, "USD")}</s-table-cell>
+              <s-table-cell>{formatMoney(locale, channel.sales, currency)}</s-table-cell>
               <s-table-cell>{formatNumber(locale, channel.orders)}</s-table-cell>
             </s-table-row>
           ))}
@@ -89,6 +95,7 @@ export function ChannelsSection({ channels }: { channels: readonly DashboardChan
   );
 }
 
+/** Sample activity only: rendered by `SampleDashboard`, replaced with the real app. */
 export function RecentActivitySection() {
   const { t } = useTranslation("admin");
   return (

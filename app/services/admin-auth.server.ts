@@ -1,5 +1,7 @@
 import { redirect } from "react-router";
-import { adminSessionStorage as sessionStorage } from "~/wiring.server";
+import { adminSessionStorage as sessionStorage, staffAudit } from "~/wiring.server";
+import { requestMemo } from "~/request-context.server";
+import { recordConsoleAccess, recordStaffEvent } from "~/services/staff-audit";
 import { normalizeEmail, type AdminUserPort } from "~/ports/admin-users";
 import {
   DEFAULT_ITERATIONS,
@@ -11,9 +13,17 @@ import type { AdminRole, SafeAdminUser } from "~/ports/admin-users";
 import type { Runtime } from "~/ports/runtime";
 
 export const LOGIN_PATH = "/internal/login";
+export const MFA_PATH = "/internal/login/mfa";
+/** How long the password step stays valid while the second factor is asked for. */
+export const MFA_CHALLENGE_MS = 5 * 60 * 1000;
 export const HOME_PATH = "/internal/dashboard";
 
 const USER_ID_KEY = "adminUserId";
+// Set after a correct password for someone with MFA on. Never USER_ID_KEY: until
+// the second factor checks out, nothing in the console treats them as signed in.
+const PENDING_MFA_USER_KEY = "pendingMfaUserId";
+const PENDING_MFA_AT_KEY = "pendingMfaAt";
+const PENDING_MFA_NEXT_KEY = "pendingMfaNext";
 
 export async function createAdminSession(userId: string, redirectTo: string) {
   const storage = sessionStorage();
@@ -24,9 +34,47 @@ export async function createAdminSession(userId: string, redirectTo: string) {
   });
 }
 
-export async function destroyAdminSession(request: Request) {
+/**
+ * After a correct password: straight into the console, or, when the account has
+ * MFA on, to the second-factor step with nothing signed in yet.
+ */
+export async function beginSignIn(
+  user: SafeAdminUser,
+  redirectTo: string,
+  deps: { readonly mfaEnabled: (adminUserId: string) => Promise<boolean>; readonly now: number },
+): Promise<Response> {
+  if (!(await deps.mfaEnabled(user.id))) return completeSignIn(user, redirectTo);
+  const storage = sessionStorage();
+  const session = await storage.getSession();
+  session.set(PENDING_MFA_USER_KEY, user.id);
+  session.set(PENDING_MFA_AT_KEY, deps.now);
+  session.set(PENDING_MFA_NEXT_KEY, redirectTo);
+  return redirect(MFA_PATH, { headers: { "Set-Cookie": await storage.commitSession(session) } });
+}
+
+/** The account waiting on its second factor, while the password step is still fresh. */
+export async function readMfaChallenge(
+  request: Request,
+  now: number,
+): Promise<{ readonly adminUserId: string; readonly next: string } | undefined> {
+  const session = await sessionStorage().getSession(request.headers.get("Cookie"));
+  const adminUserId = session.get(PENDING_MFA_USER_KEY);
+  const at = session.get(PENDING_MFA_AT_KEY);
+  if (typeof adminUserId !== "string" || typeof at !== "number" || now - at > MFA_CHALLENGE_MS || at > now) return undefined;
+  return { adminUserId, next: safeRedirectPath(session.get(PENDING_MFA_NEXT_KEY)) };
+}
+
+/** Both factors are done: record the sign-in and start a fresh session (which drops the pending one). */
+export async function completeSignIn(user: SafeAdminUser, redirectTo: string): Promise<Response> {
+  await recordStaffEvent("login", user, staffAudit());
+  return createAdminSession(user.id, redirectTo);
+}
+
+export async function destroyAdminSession(request: Request, deps: { users: Pick<AdminUserPort, "findById"> }) {
   const storage = sessionStorage();
   const session = await storage.getSession(request.headers.get("Cookie"));
+  const user = await getAdminUser(request, deps);
+  if (user) await recordStaffEvent("logout", user, staffAudit());
   return redirect(LOGIN_PATH, {
     headers: { "Set-Cookie": await storage.destroySession(session) },
   });
@@ -67,6 +115,9 @@ export async function requireAdminUser(
       { headers: { "Set-Cookie": await staleCookie() } },
     );
   }
+  // Every guarded console request leaves one audit row, however many loaders in
+  // the request call this guard (single fetch runs several in one request).
+  await requestMemo(`staff-audit:access:${user.id}`, () => recordConsoleAccess(request, user, staffAudit()));
   return user;
 }
 

@@ -1,3 +1,4 @@
+import { RetentionRepo } from "~/models/retention.server";
 import { shopHasher } from "~/adapters/shop-hasher";
 import { ShopifyPartnerAdapter } from "~/adapters/shopify-partner.server";
 import { ShopifyTokenRefresh } from "~/adapters/shopify-token-refresh.server";
@@ -142,6 +143,7 @@ export function scheduledDependencies() {
   const uploads = support();
   return {
     tokens: new PasswordResetTokenRepo(),
+    retention: new RetentionRepo(),
     uploads: {
       listExpiredUploads: (cutoff: number) => uploads.listExpiredUploads(cutoff),
       deleteExpiredUploads: (ids: readonly string[], cutoff: number) => uploads.deleteExpiredUploads(ids, cutoff),

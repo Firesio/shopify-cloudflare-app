@@ -2,12 +2,19 @@ import { cachedAdminLookup, createAdminSessionCache } from "~/adapters/admin-ses
 import { createAdminSessionCookieStorage } from "~/adapters/admin-session-cookie.server";
 import { AdminUserRepo } from "~/models/admin-users.server";
 import { PasswordResetTokenRepo } from "~/models/password-reset-tokens.server";
+import { StaffAuditLogRepo } from "~/models/staff-audit-logs.server";
+import { StaffMfaRepo } from "~/models/staff-mfa.server";
+import { identity } from "~/identity";
+import { deriveSecretBoxKey } from "~/lib/secret-box";
+import type { StaffMfaDependencies } from "~/services/staff-mfa";
 import type { AdminUserPort } from "~/ports/admin-users";
 import type { AuthAttemptLimiter } from "~/ports/auth-rate-limit";
 import type { PasswordResetTokenPort } from "~/ports/password-reset-tokens";
 import { getEnv } from "~/request-context.server";
 import type { PasswordResetNotifier } from "~/services/password-reset.server";
+import type { StaffAuditDependencies } from "~/services/staff-audit";
 import { queuedNotifier } from "~/wiring/notifications.server";
+import { appRuntime } from "~/wiring/runtime.server";
 
 /** The signed cookie store for the internal console's session (per request: the secret lives on `env`). */
 export function adminSessionStorage() {
@@ -74,4 +81,26 @@ export function passwordResetTokens(): PasswordResetTokenPort {
 
 export function passwordResetNotifier(): PasswordResetNotifier {
   return queuedNotifier();
+}
+
+/** The staff audit trail and what stamps its rows. */
+export function staffAudit(): StaffAuditDependencies {
+  return { log: new StaffAuditLogRepo(), runtime: appRuntime() };
+}
+
+/** HKDF purpose for the TOTP secrets' encryption key; changing it orphans every enrolled secret. */
+const STAFF_MFA_KEY_PURPOSE = "staff-totp-v1";
+
+/**
+ * Staff two-step verification. `key` is null without `STAFF_MFA_KEY`, and the use
+ * case then refuses enrollment and fails sign-in closed for anyone enrolled.
+ */
+export async function staffMfa(): Promise<StaffMfaDependencies> {
+  const secret = getEnv().STAFF_MFA_KEY;
+  return {
+    store: new StaffMfaRepo(),
+    key: secret ? await deriveSecretBoxKey(secret, STAFF_MFA_KEY_PURPOSE) : null,
+    runtime: appRuntime(),
+    issuer: identity.brandName,
+  };
 }

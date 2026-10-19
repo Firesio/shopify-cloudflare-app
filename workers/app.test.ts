@@ -100,7 +100,7 @@ describe("worker scheduled handler", () => {
   });
 
   it("the daily production cron runs the maintenance sweeps and the probe", async () => {
-    expect(await sweepsRunBy("30 3 * * *")).toEqual(["password_reset_tokens", "pending_uploads", "partner_history", "uninstall_reconciliation"]);
+    expect(await sweepsRunBy("30 3 * * *")).toEqual(["password_reset_tokens", "retention", "pending_uploads", "partner_history", "uninstall_reconciliation"]);
   });
 
   it("the local five-minute cron runs everything too", async () => {

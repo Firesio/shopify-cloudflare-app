@@ -24,6 +24,7 @@ import {
   mcpAuditLogs,
   redactedShops,
   shopPlanGrants,
+  staffAuditLogs,
 } from "~/db/schema";
 import type { RedactionTombstone } from "~/ports/redacted-shops";
 import { getDb } from "~/request-context.server";
@@ -43,6 +44,7 @@ const PURGED_SHOP_TABLES = [
   "shop_subscriptions",
   "shopify_events",
   "shops",
+  "staff_audit_logs",
   "support_attachments",
   "support_messages",
   "support_tickets",
@@ -91,6 +93,8 @@ export class TenantPurgeRepo {
       db.delete(notificationPreferences).where(eq(notificationPreferences.scope, shop)),
       db.delete(notificationOptOuts).where(eq(notificationOptOuts.scope, shop)),
       db.delete(mcpAuditLogs).where(eq(mcpAuditLogs.shop, shop)),
+      // Our staff's trail of looking at this shop names the shop, so it goes with the rest.
+      db.delete(staffAuditLogs).where(eq(staffAuditLogs.shop, shop)),
       // Per-shop sync bookkeeping is keyed by name (`{job}:{shop}`), not by a shop column, so the coverage check above
       // cannot see it; it is listed here so a redaction leaves no trace of the domain behind.
       db.delete(shopifySyncCheckpoints).where(inArray(shopifySyncCheckpoints.name, [`partner_history:${shop}`, `uninstall_probe:${shop}`])),

@@ -11,13 +11,25 @@
 //
 // Wired into `cf:deploy` before the build, so it fails in seconds rather than
 // after a full verify.
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 
 /** Anything that looks like "fill this in". */
 const PLACEHOLDER = /REPLACE|CHANGE_?ME|TODO|XXXX|your-?(domain|account)/i;
 const SHOPIFY_APP_GID = /^gid:\/\/shopify\/App\/[^/]+$/;
+/** The template's invented dashboard (App Store 1.1.4: no fabricated store data). */
+const SAMPLE_DASHBOARD_IMPORT = /components\/dashboard\/SampleDashboard\b/;
+/** Same rule as HANDLE_PATTERN in app/lib/install-target.ts (this script cannot import TypeScript). */
+const APP_HANDLE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
+
+function isHttpsUrl(value) {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Strip JSONC comments so the config can be parsed as JSON.
@@ -137,12 +149,20 @@ function bindingKeys(config) {
   }));
 }
 
+/**
+ * Top-level vars that production must NOT re-declare. VAPID_PRIVATE_KEY is an
+ * empty slot so wrangler loads it from .dev.vars locally; in production it is a
+ * secret, and a var of the same name would shadow it (.claude/rules/web-push.md).
+ */
+const LOCAL_ONLY_VARS = new Set(["VAPID_PRIVATE_KEY"]);
+
 function parityIssues(base, production) {
   const issues = [];
   for (const key of bindingKeys(base)) {
     if (!bindingKeys(production).has(key)) issues.push(`production binding ${key} is missing`);
   }
   for (const key of Object.keys(base.vars ?? {})) {
+    if (LOCAL_ONLY_VARS.has(key)) continue;
     if (!(key in (production.vars ?? {}))) issues.push(`production var ${key} is missing`);
   }
   for (const key of base.secrets?.required ?? []) {
@@ -194,8 +214,8 @@ export function validateLaunchContract(files) {
   if (!(production.secrets?.required ?? []).includes("SHOPIFY_PARTNER_API_TOKEN")) {
     issues.push("SHOPIFY_PARTNER_API_TOKEN secret is not declared");
   }
-  if (!(production.secrets?.required ?? []).includes("ATTACHMENT_TOKEN_SECRET")) {
-    issues.push("ATTACHMENT_TOKEN_SECRET secret is not declared");
+  for (const secret of ["ATTACHMENT_TOKEN_SECRET", "STAFF_MFA_KEY"]) {
+    if (!(production.secrets?.required ?? []).includes(secret)) issues.push(`${secret} secret is not declared`);
   }
 
   const requiredBindings = [
@@ -230,6 +250,10 @@ export function validateLaunchContract(files) {
   if (!clientId || PLACEHOLDER.test(clientId)) issues.push("shopify.app.toml client_id is missing or placeholder");
   if (!appUrl || PLACEHOLDER.test(appUrl) || appUrl === "https://example.com") issues.push("shopify.app.toml application_url is placeholder");
   if (redirects.length !== 1 || redirects[0] !== `${appUrl}/auth/callback`) issues.push("shopify.app.toml redirect_urls drift from application_url");
+  // App Store 3.1.1: the app is served over TLS. A plain-http production URL
+  // would put session tokens and merchant data on the wire in clear text.
+  if (vars.SHOPIFY_APP_URL && !isHttpsUrl(vars.SHOPIFY_APP_URL)) issues.push("SHOPIFY_APP_URL must be an https:// URL");
+  if (appUrl && !isHttpsUrl(appUrl)) issues.push("shopify.app.toml application_url must be an https:// URL");
   if (vars.SHOPIFY_APP_URL && appUrl && vars.SHOPIFY_APP_URL !== appUrl) issues.push("SHOPIFY_APP_URL drifts from shopify.app.toml application_url");
   if (vars.SHOPIFY_API_KEY && clientId && vars.SHOPIFY_API_KEY !== clientId) issues.push("SHOPIFY_API_KEY drifts from shopify.app.toml client_id");
 
@@ -262,7 +286,42 @@ export function validateLaunchContract(files) {
   }
   if (PLACEHOLDER.test(files.plans)) issues.push("Managed Pricing plan handle contains placeholder");
   if (PLACEHOLDER.test(files.publicCopy)) issues.push("public pricing/support/privacy copy contains TODO");
+  for (const { path, source } of files.routeSources ?? []) {
+    if (SAMPLE_DASHBOARD_IMPORT.test(source)) {
+      issues.push(`${path} renders the sample dashboard (invented store data); replace it with real data or an empty state`);
+    }
+  }
   return issues;
+}
+
+/**
+ * Not blocking, but worth reading before a release. An empty handle is right
+ * until the app has a listing: the manual shop-domain form is then the only way
+ * in. Once listed, App Store requirement 2.3.1 forbids that form, and the handle
+ * is what removes it (app/lib/install-target.ts).
+ */
+export function launchWarnings(files) {
+  const warnings = [];
+  const handle = (configForEnv(files.wrangler, "production")?.vars?.SHOPIFY_APP_HANDLE ?? "").trim();
+  if (handle === "") {
+    warnings.push(
+      "SHOPIFY_APP_HANDLE is empty: the landing page and /auth/login show a shop-domain form. " +
+        "Set it before the release that goes live on the App Store (requirement 2.3.1).",
+    );
+  } else if (!APP_HANDLE.test(handle)) {
+    warnings.push(`SHOPIFY_APP_HANDLE "${handle}" is not a valid App Store handle; the manual shop-domain form stays on.`);
+  }
+  return warnings;
+}
+
+/** Every .ts/.tsx file under `dir`, as `{ path, source }` with repo-relative paths. */
+function readSources(repoRoot, dir) {
+  return readdirSync(join(repoRoot, dir), { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && /\.tsx?$/.test(entry.name))
+    .map((entry) => {
+      const full = join(entry.parentPath, entry.name);
+      return { path: full.slice(repoRoot.length + 1), source: readFileSync(full, "utf8") };
+    });
 }
 
 /**
@@ -307,7 +366,9 @@ function main() {
     identity: readFileSync(join(repoRoot, "app/identity.ts"), "utf8"),
     plans: readFileSync(join(repoRoot, "app/billing/plans.ts"), "utf8"),
     publicCopy: readFileSync(join(repoRoot, "app/i18n/locales/en/public.json"), "utf8"),
+    routeSources: readSources(repoRoot, "app/routes"),
   };
+  for (const warning of launchWarnings(files)) console.warn(`warning: ${warning}`);
   const issues = validateLaunchContract(files);
   if (issues.length > 0) {
     console.error(

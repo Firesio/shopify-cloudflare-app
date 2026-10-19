@@ -51,6 +51,8 @@ export {
   authLimiters,
   passwordResetNotifier,
   passwordResetTokens,
+  staffAudit,
+  staffMfa,
 } from "~/wiring/admin.server";
 export { persistShopIdentity, shopTimeZone } from "~/wiring/shop-identity.server";
 export {

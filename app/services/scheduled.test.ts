@@ -6,6 +6,7 @@ describe("runScheduledSweeps", () => {
     const calls: string[] = [];
     await runScheduledSweeps(100, {
       tokens: { deleteExpiredBefore: async () => { calls.push("tokens"); return 0; } },
+      retention: { prune: async () => 0 },
       uploads: {
         listExpiredUploads: async () => { calls.push("uploads"); return []; },
         deleteUploadObjects: async () => undefined,
@@ -21,6 +22,7 @@ describe("runScheduledSweeps", () => {
     const calls: string[] = [];
     await runScheduledSweeps(200, {
       tokens: { deleteExpiredBefore: async () => 0 },
+      retention: { prune: async () => 0 },
       uploads: {
         listExpiredUploads: async (cutoff) => { calls.push(`list:${cutoff}`); return [{ id: "upload-1", r2Key: "r2/upload-1" }]; },
         deleteUploadObjects: async (keys) => { calls.push(`r2:${keys.join(",")}`); },
@@ -38,6 +40,7 @@ describe("runScheduledSweeps", () => {
     try {
       await runScheduledSweeps(200, {
         tokens: { deleteExpiredBefore: async () => 0 },
+        retention: { prune: async () => 0 },
         uploads: {
           listExpiredUploads: async () => [{ id: "upload-1", r2Key: "r2/upload-1" }],
           deleteUploadObjects: async () => { calls.push("r2"); throw new Error("R2 unavailable"); },
@@ -58,6 +61,7 @@ describe("runScheduledSweeps", () => {
     const calls: string[] = [];
     await runScheduledSweeps(200, {
       tokens: { deleteExpiredBefore: async () => 0 },
+      retention: { prune: async () => 0 },
       uploads: {
         listExpiredUploads: async () => [],
         deleteUploadObjects: async () => { calls.push("r2"); },
@@ -73,6 +77,7 @@ describe("runScheduledSweeps", () => {
     const calls: string[] = [];
     await runScheduledSweeps(300, {
       tokens: { deleteExpiredBefore: async () => { calls.push("tokens"); return 0; } },
+      retention: { prune: async () => 0 },
       uploads: {
         listExpiredUploads: async () => { calls.push("uploads"); return []; },
         deleteUploadObjects: async () => undefined,
@@ -89,6 +94,7 @@ describe("runScheduledSweeps", () => {
     try {
       await expect(runScheduledSweeps(300, {
         tokens: { deleteExpiredBefore: async () => 0 },
+        retention: { prune: async () => 0 },
         uploads: { listExpiredUploads: async () => [], deleteUploadObjects: async () => undefined, deleteExpiredUploads: async () => 0 },
         history: { reconcile: async () => ({ status: "succeeded", pages: 0, events: 0 }) },
         uninstallProbe: { run: async () => { throw new Error("d1 down"); } },
@@ -96,6 +102,30 @@ describe("runScheduledSweeps", () => {
       expect(error).toHaveBeenCalledWith(expect.stringContaining('"sweep":"uninstall_reconciliation"'));
     } finally {
       error.mockRestore();
+    }
+  });
+});
+
+describe("the retention sweep", () => {
+  it("runs on the daily tick, with the tick's time, and not on the hourly probe-only tick", async () => {
+    const cutoffs: number[] = [];
+    const deps = {
+      tokens: { deleteExpiredBefore: async () => 0 },
+      retention: { prune: async (_target: string, cutoff: number) => { cutoffs.push(cutoff); return 0; } },
+      uploads: { listExpiredUploads: async () => [], deleteUploadObjects: async () => undefined, deleteExpiredUploads: async () => 0 },
+      history: { reconcile: async () => ({ status: "succeeded" as const, pages: 0, events: 0 }) },
+      uninstallProbe: { run: async () => ({ examined: 0 }) },
+    };
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    try {
+      await runScheduledSweeps(5_000_000_000_000, deps, { includeDailyMaintenance: false });
+      expect(cutoffs).toEqual([]);
+      await runScheduledSweeps(5_000_000_000_000, deps);
+      expect(cutoffs.length).toBeGreaterThan(0);
+      expect(cutoffs.every((cutoff) => cutoff < 5_000_000_000_000)).toBe(true);
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('"sweep":"retention"'));
+    } finally {
+      log.mockRestore();
     }
   });
 });

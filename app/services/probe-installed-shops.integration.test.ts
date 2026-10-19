@@ -107,6 +107,7 @@ describe("uninstall reconciliation (real D1 + KV, fake Shopify)", () => {
     const calls: string[] = [];
     await runScheduledSweeps(1_000, {
       tokens: { deleteExpiredBefore: async () => { calls.push("tokens"); return 0; } },
+      retention: { prune: async () => 0 },
       uploads: { listExpiredUploads: async () => [], deleteExpiredUploads: async () => 0, deleteUploadObjects: async () => undefined },
       history: { reconcile: async () => ({ status: "succeeded", pages: 0, events: 0 }) },
       uninstallProbe: { run: async () => { throw new Error("probe exploded"); } },

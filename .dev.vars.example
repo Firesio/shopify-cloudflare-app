@@ -49,6 +49,14 @@ INTERNAL_SESSION_SECRET=dev-only-internal-session-secret-change-me
 # Generate with: `openssl rand -hex 32`
 ATTACHMENT_TOKEN_SECRET=dev-only-attachment-token-secret-change-me
 
+# Encrypts staff two-step verification (TOTP) secrets at rest in D1. Without it
+# staff cannot turn MFA on, and anyone already enrolled cannot sign in (it fails
+# closed). Generate with `openssl rand -hex 32`; in production:
+#   wrangler secret put STAFF_MFA_KEY --env production
+# Changing it later makes every enrolled authenticator unreadable: an owner then
+# resets MFA for each person (Admins page), and they enroll again.
+STAFF_MFA_KEY=dev-only-staff-mfa-key-change-me
+
 # Transactional email. The `send_email` binding is already declared, but nothing
 # sends until the domain is onboarded and EMAIL_FROM is set (in wrangler.jsonc
 # vars, per environment — it is not a secret):

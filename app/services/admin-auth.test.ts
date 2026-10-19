@@ -3,9 +3,14 @@ import { env } from "cloudflare:test";
 import { runWithRequestContext } from "~/request-context.server";
 import { setupTestDatabase } from "~/test/db";
 import { AdminUserRepo } from "~/models/admin-users.server";
+import { StaffAuditLogRepo } from "~/models/staff-audit-logs.server";
 import { hashPassword } from "~/lib/password";
 import { createAdmin } from "./admin-management.server";
 import {
+  beginSignIn,
+  MFA_CHALLENGE_MS,
+  MFA_PATH,
+  readMfaChallenge,
   createAdminSession,
   destroyAdminSession,
   getAdminUser,
@@ -219,9 +224,11 @@ describe("sessions round-trip", () => {
       const created = await createAdminSession(admin.id, HOME_PATH);
       const destroyed = await destroyAdminSession(
         request("/internal/logout", cookieFrom(created)),
+        authDeps,
       );
       return {
         location: destroyed.headers.get("Location"),
+        trail: (await new StaffAuditLogRepo().recent(10)).map(({ kind, actorEmail }) => ({ kind, actorEmail })),
         user: await getAdminUser(
           request("/internal/dashboard", cookieFrom(destroyed)),
           authDeps,
@@ -230,6 +237,7 @@ describe("sessions round-trip", () => {
     });
     expect(after.location).toBe(LOGIN_PATH);
     expect(after.user).toBeUndefined();
+    expect(after.trail).toEqual([{ kind: "logout", actorEmail: "bye@example.org" }]);
   });
 
   it("returns undefined with no cookie at all", async () => {
@@ -308,6 +316,89 @@ describe("requireAdminUser", () => {
       }
     });
     expect(thrown?.headers.get("Set-Cookie")).toBeTruthy();
+  });
+});
+
+describe("signing in with two-step verification on", () => {
+  const NOW = 1_800_000_000_000;
+
+  it("goes straight in, and records the sign-in, when MFA is off", async () => {
+    const result = await inRequest(async () => {
+      const admin = await seed("plain@example.org");
+      const response = await beginSignIn(admin, "/internal/ai", { mfaEnabled: async () => false, now: NOW });
+      return {
+        location: response.headers.get("Location"),
+        user: await getAdminUser(request("/internal/dashboard", cookieFrom(response)), authDeps),
+        trail: (await new StaffAuditLogRepo().recent(5)).map(({ kind }) => kind),
+      };
+    });
+    expect(result.location).toBe("/internal/ai");
+    expect(result.user?.email).toBe("plain@example.org");
+    expect(result.trail).toEqual(["login"]);
+  });
+
+  it("parks the account at the second step, NOT signed in, when MFA is on", async () => {
+    const result = await inRequest(async () => {
+      const admin = await seed("mfa@example.org");
+      const response = await beginSignIn(admin, "/internal/ai", { mfaEnabled: async () => true, now: NOW });
+      const cookie = cookieFrom(response);
+      return {
+        location: response.headers.get("Location"),
+        user: await getAdminUser(request("/internal/dashboard", cookie), authDeps),
+        challenge: await readMfaChallenge(request(MFA_PATH, cookie), NOW + 1_000),
+        expired: await readMfaChallenge(request(MFA_PATH, cookie), NOW + MFA_CHALLENGE_MS + 1),
+        id: admin.id,
+        trail: (await new StaffAuditLogRepo().recent(5)).length,
+      };
+    });
+    expect(result.location).toBe(MFA_PATH);
+    expect(result.user).toBeUndefined();
+    expect(result.challenge).toEqual({ adminUserId: result.id, next: "/internal/ai" });
+    expect(result.expired).toBeUndefined();
+    expect(result.trail).toBe(0);
+  });
+
+  it("has no challenge without the password step", async () => {
+    expect(await inRequest(() => readMfaChallenge(request(MFA_PATH), NOW))).toBeUndefined();
+  });
+});
+
+describe("the staff access trail", () => {
+  const trail = () => new StaffAuditLogRepo().recent(10);
+
+  it("records one access row per request, however many loaders call the guard", async () => {
+    const rows = await inRequest(async () => {
+      const admin = await seed("trail@example.org");
+      const cookie = cookieFrom(await createAdminSession(admin.id, HOME_PATH));
+      const viewing = request("/internal/shops/Acme.myshopify.com.data?q=buyer%40mail.com", cookie);
+      await requireAdminUser(viewing, authDeps);
+      await requireAdminUser(viewing, authDeps);
+      return trail();
+    });
+    expect(rows.map(({ kind, method, path, shop, actorEmail }) => ({ kind, method, path, shop, actorEmail }))).toEqual([
+      // The query string (a search for a buyer's email) is not kept; the shop is, so a redaction can erase the row.
+      { kind: "access", method: "GET", path: "/internal/shops/Acme.myshopify.com", shop: "acme.myshopify.com", actorEmail: "trail@example.org" },
+    ]);
+  });
+
+  it("records a separate row for each request", async () => {
+    const count = await inRequest(async () => {
+      const admin = await seed("two@example.org");
+      return cookieFrom(await createAdminSession(admin.id, HOME_PATH));
+    }).then(async (cookie) => {
+      await inRequest(() => requireAdminUser(request("/internal/dashboard", cookie), authDeps));
+      await inRequest(() => requireAdminUser(request("/internal/support", cookie), authDeps));
+      return inRequest(async () => (await trail()).length);
+    });
+    expect(count).toBe(2);
+  });
+
+  it("records nothing for a request that is not signed in", async () => {
+    const rows = await inRequest(async () => {
+      await requireAdminUser(request("/internal/dashboard"), authDeps).catch(() => undefined);
+      return trail();
+    });
+    expect(rows).toEqual([]);
   });
 });
 

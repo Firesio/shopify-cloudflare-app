@@ -43,7 +43,7 @@ function RowActions({ admin, busy, isPending, onRemove }: RowActionsProps) {
   const submit = useSubmit();
   const statusIntent: Intent = admin.status === "active" ? "disable" : "enable";
   const roleIntent: Intent = admin.role === "owner" ? "makeAdmin" : "makeOwner";
-  const pending = isPending(statusIntent, admin.id) || isPending(roleIntent, admin.id);
+  const pending = isPending(statusIntent, admin.id) || isPending(roleIntent, admin.id) || isPending("resetMfa", admin.id);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -70,6 +70,9 @@ function RowActions({ admin, busy, isPending, onRemove }: RowActionsProps) {
           <Link to={paths.internal.resetAdminPassword(admin.id)} prefetch="intent">
             Reset password
           </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void submit({ intent: "resetMfa", id: admin.id }, { method: "post" })}>
+          Reset two-step verification
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={() => onRemove(admin)}>
