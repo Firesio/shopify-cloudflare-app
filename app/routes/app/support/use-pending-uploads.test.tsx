@@ -34,7 +34,15 @@ class TestFileList implements FileList {
 function fileList(files: readonly File[]): FileList { return new TestFileList(files); }
 function uploadFile(name: string, type = "image/png"): File { return new File(["abc"], name, { type }); }
 
-afterEach(() => vi.restoreAllMocks());
+// The tests below replace `URL` with a stand-in that only has the two object-URL methods. `restoreAllMocks` does not undo
+// `stubGlobal`, and the dom project shares one jsdom per worker across files (`isolate: false`), so the original `URL` is
+// put back here or every later file in that worker loses its URL constructor. (`unstubAllGlobals` would also remove the
+// outbound-network guard that app/test/dom-outbound-guard.setup.ts stubs, so it is not used.)
+const originalUrl = globalThis.URL;
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.stubGlobal("URL", originalUrl);
+});
 
 describe("usePendingUploads", () => {
   it("uploads a file with streaming headers and stores preview metadata", async () => {

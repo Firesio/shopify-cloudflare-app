@@ -5,6 +5,7 @@ import "@shopify/shopify-api/adapters/cf-worker";
 
 import {
   AppDistribution,
+  LogSeverity,
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
 
@@ -114,6 +115,10 @@ function buildShopify(env: Env) {
     appUrl: env.SHOPIFY_APP_URL || "",
     authPathPrefix: "/auth",
     sessionStorage: new KVSessionStorage(env.SESSION),
+    // The library logs at Info by default: "Authenticating admin request" on every request, "Creating new session",
+    // "Running afterAuth hook", and "version ..." each time the app is built. That is a line per request in dev and a
+    // billed log line per request in production. Warnings and errors still print; set Info while debugging auth.
+    logger: { level: LogSeverity.Warning },
     distribution: AppDistribution.AppStore,
     hooks: { afterAuth },
     future: {

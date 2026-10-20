@@ -9,6 +9,7 @@ import { getEnv } from "~/request-context.server";
 import { i18nServer, getLocale } from "~/i18n/i18n.server";
 import { i18nOptions } from "~/i18n/options";
 import { onPromiseSettled } from "~/lib/promise-settlement";
+import { renderErrorLog } from "~/lib/render-error";
 import { applySecurityHeaders } from "~/security/response-headers";
 import { describeRequestError } from "~/observability/request-error";
 
@@ -65,7 +66,13 @@ export default async function handleRequest(
       signal: controller.signal,
       onError(error: unknown) {
         didError = true;
-        console.error(error);
+        const log = renderErrorLog(error, {
+          aborted: controller.signal.aborted,
+          pathname: new URL(request.url).pathname,
+          timeoutMs: streamTimeout + 1000,
+        });
+        if (log.kind === "timeout") console.error(log.line);
+        else console.error(log.error);
       },
     },
   );
