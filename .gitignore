@@ -43,7 +43,7 @@ database.sqlite
 .DS_Store
 *.log
 
-# Project-isolated Shopify CLI home (scripts/shopify.mjs) — holds a login session
+# Leftover from when scripts/shopify.mjs isolated the CLI login; no longer created
 .shopify-home/
 
 # NOTE: worker-configuration.d.ts IS committed on purpose — a fresh fork has to

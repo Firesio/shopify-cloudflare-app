@@ -118,20 +118,18 @@ creates its own pair, since `client_id` ships empty:
 Keep `[access_scopes]` and the webhook list in sync between them: a scope that
 exists in only one env produces bugs that reproduce in only one env.
 
-## The Shopify CLI is project-local
+## The Shopify CLI
 
 `scripts/shopify.mjs` wraps every CLI call, and all the `npm run` Shopify
-scripts go through it. It gives you two kinds of isolation:
+scripts go through it. It runs this repo's `@shopify/cli` devDependency (the
+version is pinned in `package.json`) instead of whatever `shopify` is on your
+`PATH`.
 
-- **The binary** — runs this repo's `@shopify/cli` devDependency, not whatever
-  `shopify` is on your `PATH`. The version is pinned in `package.json`.
-- **The login session** — repoints the CLI's `HOME` (and the XDG/Windows
-  equivalents) at a project-local `.shopify-home/`. So you can stay logged into
-  your company account globally and into a different account for this project
-  at the same time, with no logging in and out. `.shopify-home/` is gitignored.
-
-Your real `wrangler` credentials are symlinked into that isolated home, because
-wrangler runs inside `shopify app dev`.
+The login session is the **normal one**: the CLI uses your real `HOME`, so the
+account you are already logged into on this machine (`shopify auth login`) is
+the one this project uses, like any other Shopify app. There is no per-project
+login and no `.shopify-home/` any more; a leftover one from an older checkout is
+ignored and can be deleted.
 
 `npm run dev` checks the theme app extension server's default port (`9293`) and
 GraphiQL's default port (`3457`) before starting Shopify CLI. If another process
