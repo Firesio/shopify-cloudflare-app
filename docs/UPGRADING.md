@@ -5,6 +5,20 @@ and marks the steps that are **risky for an app already in production**.
 
 ---
 
+## 2026-10-21 Node 26
+
+Verified on this template, Node 26.12.0, npm 11.20, `@types/node` 26.6.5: `npm run verify` (typecheck, lint, 48 `node --test`,
+257 vitest files / 2398 tests) passes and `CLOUDFLARE_ENV=production npx react-router build` succeeds. Every locked
+dependency's `engines.node` accepts 26.12.0 except `@img/sharp-win32-ia32` (an optional Windows 32-bit binary).
+
+- **Develop on Node 24 or 26.** `engines` stays `>=24.15`, which admits both.
+- **`.nvmrc` stays `24` on purpose.** It also selects the Node version for CI and for Cloudflare Workers Builds (the build
+  that migrates and deploys). Workers Builds' default is Node 24.21.0 (changelog 2026-10-14) with 22 and 24 preinstalled, and
+  its docs do not mention Node 26, so pointing `.nvmrc` at 26 could break the production build. Node 26 was also still
+  "Current", not LTS, on nodejs.org on 2026-10-21 (`v26.12.0`, `lts: false`). When Workers Builds documents Node 26 (or you
+  have run a build with it), change `.nvmrc` and the `Runtime` row in the README together.
+- **`@types/node` follows the runtime you develop on** (`^26.6.5`); it only types scripts and tests, the Worker runs on workerd.
+
 ## 2026-10-09 template modernisation (Node 24, dependencies, Admin API 2026-10, workerd)
 
 Verified on this template, Node 24.21.0, npm 11.19: `npm run verify` (typecheck + lint + 27 `node --test`

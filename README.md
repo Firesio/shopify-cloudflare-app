@@ -12,7 +12,7 @@ link.)
 
 | Layer      | Choice                                                    |
 | ---------- | --------------------------------------------------------- |
-| Runtime    | Cloudflare Workers (workerd), via `@cloudflare/vite-plugin`; tooling on Node 24 LTS (`.nvmrc`, `engines >=24.15`) |
+| Runtime    | Cloudflare Workers (workerd), via `@cloudflare/vite-plugin`; tooling on Node 24 LTS (`.nvmrc`, `engines >=24.15`); verified on Node 26.12.0 (see `docs/UPGRADING.md`, "Node 26") |
 | Framework  | React Router 7 (SSR) + Vite 8, explicit nested route config |
 | Shopify    | `@shopify/shopify-app-react-router` v3, Admin API 2026-10  |
 | Admin UI   | Polaris **web components** + App Bridge (embedded only)    |
