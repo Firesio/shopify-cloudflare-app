@@ -7,13 +7,9 @@ import reactHooks from "eslint-plugin-react-hooks";
 export default tseslint.config(
   {
     ignores: [
-      // Vendored agent skills + editor/agent config — not our source.
-      ".agents/**",
+      // Claude config — not our source.
       ".claude/**",
-      ".cursor/**",
-      ".gemini/**",
       ".shopify-home/**",
-      "agent/**",
       "build/**",
       ".react-router/**",
       "node_modules/**",

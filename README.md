@@ -39,7 +39,7 @@ cd my-new-app
 Or hit **Use this template → Create a new repository** on GitHub. Then:
 
 ```bash
-npm install                         # also installs Claude/Codex skills
+npm install
 cp .dev.vars.example .dev.vars      # then READ it — an empty KEY= line is worse
                                     # than an absent one; it shadows what
                                     # `shopify app dev` injects
@@ -84,43 +84,23 @@ handler.
 
 ## AI-agent skills
 
+Skills are installed **once per machine**, globally, not into each project. `npm install` does not install them.
+
 ```bash
-npm run install:skill                          # install/refresh everything
-npm run install:skill -- --locked              # restore the committed skill set
-npm run install:skill -- --agent claude-code   # one host only
+npx skills add Shopify/shopify-ai-toolkit -g -a claude-code -s shopify -s ucp -y
+npx skills add remotion-dev/skills        -g -a claude-code -s '*' -y
 ```
 
-`npm install` automatically restores the committed skill set for Claude Code
-and Codex and verifies that every skill is available to both hosts without
-rewriting `skills-lock.json`. Run
-`npm run install:skill` manually when you intentionally want to refresh the
-lockfile from the upstream skill repositories.
-
-`skills-lock.json` is committed and lists every skill package this repo uses —
-**14 skills from two sources**:
+The CLI keeps the files in `~/.agents/skills/` and symlinks them into `~/.claude/skills/`, so every project on the
+machine sees the same set. Do not delete `~/.agents/skills/`: the symlinks point into it.
 
 | Source | What it gives an agent |
 | ------ | ---------------------- |
-| `Shopify/shopify-ai-toolkit` (2) | Unified Shopify API/CLI/Polaris lookup plus UCP — the lookups `@rules/shopify-and-ui.md` requires |
+| `Shopify/shopify-ai-toolkit` (2: `shopify`, `ucp`) | Unified Shopify API/CLI/Polaris lookup plus UCP — the lookups `@rules/shopify-and-ui.md` requires |
 | `remotion-dev/skills` (12) | React video, if a project needs it |
 
-Testing and verification rules are maintained in the repository itself, so the
-installer has no dependency on a separate workflow plugin.
-
-The installed skills are **not** committed — they are ~90 MB and fully
-reproducible from that lockfile, which is exactly why this command exists.
-Expect the first run to take several minutes.
-
-Where they land:
-
-- **`.agents/skills/`** — the universal store. Most hosts read it directly:
-  Codex, opencode, Amp, Cline, Cursor, Gemini CLI, Windsurf, Zed and others.
-- **`.claude/skills/`** — symlinks into that store, for Claude Code.
-- **`agent/`** — symlinks into that store, for Eve.
-
-All three are gitignored. To add a skill, `npx skills add <owner>/<repo>` once —
-it records the source in `skills-lock.json`, and every fork picks it up from
-`npm run install:skill` after that.
+The `shopify-plugin:*` skills `AGENTS.md` names come from the `shopify-ai-toolkit` Claude Code plugin, not from this
+install; enable that plugin separately.
 
 ## Two Shopify apps: dev and prod
 
@@ -674,7 +654,6 @@ is reused across shops and module state would leak between tenants.
 | `npm run db:migrate:local` | Apply migrations to local D1                    |
 | `npm run cf-typegen`     | Regenerate `worker-configuration.d.ts` (`Env`)     |
 | `npm run cf:deploy`      | Verify, production build, migrate, deploy          |
-| `npm run install:skill`  | Install every AI-agent skill, for every agent host |
 | `npm run check:placeholders` | Fail if production bindings still hold `REPLACE_ME` ids |
 
 ## Operating and adopting a derived app

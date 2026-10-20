@@ -5,19 +5,12 @@
     "**/*.tsx",
     ".react-router/types/**/*"
   ],
-  // Installed AI-agent skills ship their own example .ts/.tsx assets with
-  // dependencies this project does not have. They are documentation, not source
-  // — never let them into the typecheck. (`npm run install:skill` writes
-  // .agents/, .claude/skills/ and agent/.)
+  // Claude config is not source — keep it out of the typecheck.
   "exclude": [
     "node_modules",
     "build",
     "extensions",
-    ".agents",
-    ".claude",
-    ".cursor",
-    ".gemini",
-    "agent"
+    ".claude"
   ],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
