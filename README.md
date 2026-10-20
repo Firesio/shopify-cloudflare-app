@@ -131,6 +131,10 @@ the one this project uses, like any other Shopify app. There is no per-project
 login and no `.shopify-home/` any more; a leftover one from an older checkout is
 ignored and can be deleted.
 
+In dev the Workers AI binding is **off** by default (an AI call degrades to "no draft"), because it has no local
+simulation and turning it on opens a session on Cloudflare at every start. Use `DEV_REMOTE_BINDINGS=1 npm run dev` when
+you are working on an AI feature; it needs `wrangler login` and bills real usage.
+
 `npm run dev` checks the theme app extension server's default port (`9293`) and
 GraphiQL's default port (`3457`) before starting Shopify CLI. If another process
 owns either port, the wrapper passes the next available port via the matching

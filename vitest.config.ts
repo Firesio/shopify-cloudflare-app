@@ -4,6 +4,7 @@ import {
   cloudflareTest,
   readD1Migrations,
 } from "@cloudflare/vitest-plugin";
+import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 import path from "node:path";
 import { readdirSync, readFileSync } from "node:fs";
@@ -102,6 +103,25 @@ for (const file of allTestFiles) {
   }
 }
 
+// `@modelcontextprotocol/sdk` ships sourcemaps that point at sources it does not publish, and the workers pool bundles it
+// into every runtime: dozens of "Sourcemap for ... points to missing source files" warnings per run, from code we do not
+// own and cannot fix. Vitest replaces `customLogger`, so the filter is installed on the resolved config's logger. Only
+// that exact warning, for a file under node_modules, is dropped; every other warning still prints.
+const missingSourcemap = /^Sourcemap for ".*\/node_modules\/.*" points to missing source files$/;
+const quietMissingSourcemaps: Plugin = {
+  name: "quiet-missing-dependency-sourcemaps",
+  configResolved(config) {
+    const warn = config.logger.warn.bind(config.logger);
+    const warnOnce = config.logger.warnOnce.bind(config.logger);
+    config.logger.warn = (message, options) => {
+      if (!missingSourcemap.test(message)) warn(message, options);
+    };
+    config.logger.warnOnce = (message, options) => {
+      if (!missingSourcemap.test(message)) warnOnce(message, options);
+    };
+  },
+};
+
 export default defineConfig({
   test: {
     projects: [
@@ -111,6 +131,9 @@ export default defineConfig({
           name: "unit",
           include: unitFiles,
           environment: "node",
+          // Pure code with no shared binding state: modules are evaluated once per worker, not once per file.
+          isolate: false,
+          fsModuleCache: true,
         },
       },
       {
@@ -119,12 +142,16 @@ export default defineConfig({
           name: "dom",
           include: domFiles,
           environment: "jsdom",
+          // One jsdom per worker instead of one per file (13 files created it 13 times, a third of the project's time).
+          isolate: false,
+          fsModuleCache: true,
           setupFiles: ["app/test/dom-outbound-guard.setup.ts"],
         },
       },
       {
         resolve: { tsconfigPaths: true },
         plugins: [
+          quietMissingSourcemaps,
           cloudflareTest({
             // A stub entry: see app/test/worker-entry.ts for why not workers/app.ts.
             main: "./app/test/worker-entry.ts",
