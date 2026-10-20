@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Runs before `npm run dev` / `dev:local`: local D1 migrations, the local admin seed, the local VAPID pair.
+// Runs before `npm run dev`: local D1 migrations, the local admin seed, the local VAPID pair.
 //
 // Migrating and seeding each spawn wrangler (about 4 s and 3.5 s) and both are idempotent, so on a start where nothing
 // changed they only cost time. A stamp stored inside .wrangler/ (so wiping local state also wipes the stamp) records

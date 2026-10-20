@@ -100,7 +100,11 @@
   // NOT simulated by Miniflare: `npm run dev` reaches the real service, and
   // tests have no binding at all, which the adapter reports as `not_configured`
   // rather than failing obscurely.
-  "ai": { "binding": "AI" },
+  // `remote: true` states what is already the case (an AI binding always reaches the real service) and silences wrangler's
+  // "AI bindings always access remote resources" warning, which otherwise printed on every dev start and every test run.
+  // It does not open a session by itself: the Vite plugin (vite.config.ts) and the test pool both set remoteBindings
+  // false unless DEV_REMOTE_BINDINGS=1.
+  "ai": { "binding": "AI", "remote": true },
 
   // Ticket creation and uploads are merchant-triggered writes that cost us
   // database rows, storage and staff attention, so they are the two endpoints

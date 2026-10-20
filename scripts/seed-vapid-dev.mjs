@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Gives a LOCAL checkout working web push without any setup: if .dev.vars has no VAPID key pair, generate one and
-// append it. Runs before `npm run dev` / `dev:local` (predev), like db:seed does for the local admin.
+// append it. Runs before `npm run dev` (predev), like db:seed does for the local admin.
 //
 //   npm run push:seed-dev
 //

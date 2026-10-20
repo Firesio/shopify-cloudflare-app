@@ -49,11 +49,9 @@ Reflect.set(globalThis, configLoadsKey, configLoads);
 const isChildCompiler = configLoads > 1;
 
 export default defineConfig(({ command }) => ({
-  // Vite 8 resolves tsconfig `paths` (the `~/*` alias) natively — this replaces
-  // the vite-tsconfig-paths plugin the upstream template used.
+  // Vite 8 resolves tsconfig `paths` (the `~/*` alias) natively.
   resolve: { tsconfigPaths: true },
-  // Only constrain host/port when running behind the Shopify CLI tunnel; plain
-  // `npm run dev:local` uses Vite defaults. Do NOT add a custom
+  // Only constrain host/port when running behind the Shopify CLI tunnel. Do NOT add a custom
   // `server.hmr`/`server.cors` here — it breaks the @cloudflare/vite-plugin dev
   // runner (it fails to load the Worker entry).
   server: {

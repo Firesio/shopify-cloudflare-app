@@ -138,8 +138,7 @@ you are working on an AI feature; it needs `wrangler login` and bills real usage
 `npm run dev` checks the theme app extension server's default port (`9293`) and
 GraphiQL's default port (`3457`) before starting Shopify CLI. If another process
 owns either port, the wrapper passes the next available port via the matching
-CLI flag; Shopify CLI prints the selected URLs. `npm run dev:local` uses Vite's
-built-in port fallback.
+CLI flag; Shopify CLI prints the selected URLs.
 
 ## Deploying
 
@@ -649,9 +648,8 @@ is reused across shops and module state would leak between tenants.
 | Command                  | Does                                              |
 | ------------------------ | ------------------------------------------------- |
 | `npm run dev`            | `shopify app dev` against the dev app + tunnel     |
-| `npm run dev:local`      | Vite only, no tunnel or Shopify CLI                |
-| `npm run precommit`      | typecheck + lint — the **pre-commit** hook, ~5s     |
-| `npm run verify`         | typecheck + lint + test — the **pre-push** hook, ~35s |
+| `npm run precommit`      | lint staged files + incremental typecheck — the **pre-commit** hook, 0–15 s |
+| `npm run verify`         | full typecheck + lint + test, ~50 s — what CI runs |
 | `npm run db:generate`    | Drizzle schema → a new migration in `./drizzle`    |
 | `npm run db:migrate:local` | Apply migrations to local D1                    |
 | `npm run cf-typegen`     | Regenerate `worker-configuration.d.ts` (`Env`)     |
