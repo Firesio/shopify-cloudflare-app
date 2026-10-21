@@ -135,6 +135,16 @@ In dev the Workers AI binding is **off** by default (an AI call degrades to "no 
 simulation and turning it on opens a session on Cloudflare at every start. Use `DEV_REMOTE_BINDINGS=1 npm run dev` when
 you are working on an AI feature; it needs `wrangler login` and bills real usage.
 
+`npm run dev` hides wrangler's own warnings (`WRANGLER_LOG=error`, set by `scripts/shopify.mjs` for `app dev` only), chiefly
+"Missing required secrets": the Shopify CLI injects `SHOPIFY_API_SECRET` itself and the other names are optional locally;
+`secrets.required` still guards the production deploy. Run `WRANGLER_LOG=warn npm run dev` to see them again.
+
+Output that comes from tools and cannot be turned off from the app: the Shopify CLI's extension build lines, `app-logs | Error
+while polling app logs. Retrying in 5 seconds.` (the CLI starts log polling only when the app has a Function extension and
+repeats that line while Shopify's `app_logs/poll` endpoint answers 401, 429 or 5xx; there is no flag for it), Vite's
+"`envFile` option is deprecated" (from `@react-router/dev`), and `config.future.expiringOfflineAccessTokens true` (a stray
+`console.log` in `@shopify/shopify-app-react-router` 3.0.2's token exchange).
+
 `npm run dev` checks the theme app extension server's default port (`9293`) and
 GraphiQL's default port (`3457`) before starting Shopify CLI. If another process
 owns either port, the wrapper passes the next available port via the matching

@@ -23,6 +23,7 @@ import {
   DEFAULT_LOCALHOST_PORT,
   findAvailablePort,
 } from "./localhost-port.mjs";
+import { appDevEnv } from "./dev-env.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -97,6 +98,7 @@ const child = spawn(localBin, cliArgs, {
   env: {
     ...process.env,
     TUNNEL_TRANSPORT_PROTOCOL: process.env.TUNNEL_TRANSPORT_PROTOCOL ?? "http2",
+    ...appDevEnv(cliArgs, process.env),
   },
   shell: false,
 });

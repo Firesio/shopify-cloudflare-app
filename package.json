@@ -15,7 +15,7 @@
     "preview": "npm run build && vite preview",
     "typecheck": "react-router typegen && tsc --noEmit",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
-    "test": "node --test scripts/localhost-port.test.mjs scripts/ci-release/shopify-config-paths.test.mjs scripts/check-placeholders.test.mjs scripts/seed-vapid-dev.test.mjs scripts/predev.test.mjs scripts/precommit.test.mjs && vitest run",
+    "test": "node --test scripts/localhost-port.test.mjs scripts/ci-release/shopify-config-paths.test.mjs scripts/check-placeholders.test.mjs scripts/seed-vapid-dev.test.mjs scripts/predev.test.mjs scripts/precommit.test.mjs scripts/dev-env.test.mjs && vitest run",
     "test:watch": "vitest",
     "test:quick": "vitest run --changed",
     "cf-typegen": "wrangler types",

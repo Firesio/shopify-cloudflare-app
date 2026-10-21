@@ -10,6 +10,10 @@ import path from "node:path";
 import { readdirSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 
+// wrangler (inside the Workers pool) prints "Missing required secrets: ..." for every project start, and they are fake in
+// tests on purpose. Errors still print; set WRANGLER_LOG=warn to see the warnings.
+process.env.WRANGLER_LOG ??= "error";
+
 // Keep environment validation quiet and deterministic in the test process;
 // these values are never used for outbound calls (the worker pool blocks them).
 for (const [name, value] of Object.entries({
