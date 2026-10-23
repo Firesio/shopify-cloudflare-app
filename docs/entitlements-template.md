@@ -24,11 +24,15 @@ bounds and monthly periods use UTC `YYYY-MM` keys.
 
 ## Project handoff checklist
 
+- Define the catalogue with `defineCatalogue` (typed keys) and test it with `catalogueProblems`.
 - Add feature keys and explicit definitions to the catalogue.
 - Add plan grants and keep display names/prices separate.
 - Use stable allocation IDs and idempotency operation IDs.
 - Measure usage in safe integer units.
-- Run reconciliation from a cron/queue consumer for held rows.
+- The `entitlement_reconcile` sweep already runs on every cron tick; pass `decide` if releasing an old held item is wrong for your app.
+- Decide what a shop with no billing row, and a lapsed subscription, may do, and change `subscriptionSnapshot` (not the policy) to say it.
+- If shops already own the resource a capacity counts, `adopt` it once.
+- Give snapshots a `timeZone` if a monthly quota should reset at the merchant's midnight.
 - Invalidate snapshots after subscription projection changes and uninstall.
 - Deploy the entitlement migration with the rest of the D1 schema.
 

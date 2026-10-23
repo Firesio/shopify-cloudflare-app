@@ -7,7 +7,7 @@
 - [Operations runbook](OPERATIONS.md) - production operations and recovery.
 - [Receiving Shopify webhooks](webhooks.md) - the receiver/consumer design, handler rules, topic classes, how to add a topic.
 - [Merchant speed](merchant-speed.md) - what the embedded admin may wait for, the rules that keep it fast, how to measure.
-- [Entitlements](entitlements.md) - reusable billing and quota model.
+- [Entitlements](entitlements.md) - reusable billing and quota model: typed catalogue, usage, adopt, batch reads, scheduled reconciliation.
 - [Template audit](AUDIT.md) - architectural review and known seams.
 
 Historical status and engineering planning documents are retained for context;
