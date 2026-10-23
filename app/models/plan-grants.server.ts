@@ -1,4 +1,5 @@
-import { and, count, desc, eq, gt, isNull, lte } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, lte } from "drizzle-orm";
+import { chunk } from "~/lib/chunk";
 import { getDb } from "~/request-context.server";
 import {
   shopPlanGrants,
@@ -23,6 +24,23 @@ export class PlanGrantsRepo implements PlanGrantsPort {
       .orderBy(desc(shopPlanGrants.expiresAt))
       .limit(1);
     return rows[0] ?? null;
+  }
+
+  /**
+   * The active grant of each of these shops (the one ending last, as `findActiveGrant` picks). D1 binds at most 100
+   * parameters per statement, so the shops are read in chunks of 90: a few queries, never one per shop.
+   */
+  async findActiveGrants(shopDomains: readonly string[], now: number): Promise<ReadonlyMap<string, ShopPlanGrant>> {
+    const found = new Map<string, ShopPlanGrant>();
+    for (const slice of chunk([...new Set(shopDomains)], 90)) {
+      const rows = await getDb()
+        .select()
+        .from(shopPlanGrants)
+        .where(and(inArray(shopPlanGrants.shop, [...slice]), lte(shopPlanGrants.startsAt, now), gt(shopPlanGrants.expiresAt, now), isNull(shopPlanGrants.revokedAt)))
+        .orderBy(desc(shopPlanGrants.expiresAt));
+      for (const row of rows) if (!found.has(row.shop)) found.set(row.shop, row);
+    }
+    return found;
   }
 
   async listGrantsForShop(shop: string): Promise<ShopPlanGrant[]> {

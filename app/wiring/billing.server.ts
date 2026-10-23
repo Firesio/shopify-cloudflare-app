@@ -1,7 +1,8 @@
 import { ShopifyPartnerAdapter } from "~/adapters/shopify-partner.server";
 import { ENTITLEMENT_CATALOGUE } from "~/billing/entitlement-catalogue";
 import { PLAN_LIST } from "~/billing/plans";
-import { resolveEffectivePlan } from "~/domain/plan-hierarchy";
+import type { SubscriptionSnapshot } from "~/domain/entitlement-policy";
+import { subscriptionSnapshot } from "~/domain/subscription-snapshot";
 import type { ShopifyEventRepo } from "~/models/shopify-events.server";
 import type { ExistingQuotaOperation, SubscriptionPort } from "~/ports/entitlements";
 import { EntitlementRepo } from "~/models/entitlements.server";
@@ -18,38 +19,30 @@ import { appRuntime } from "~/wiring/runtime.server";
 const redactedRefusal = { status: "failed", code: "SHOP_REDACTED", detail: "Shop was redacted; refresh suppressed" } as const;
 
 export function subscriptionsPort(): SubscriptionPort {
-  const read = async (shop: string) => {
-    const relationship = await shops().get(shop);
-    if (!relationship || relationship.relationshipStatus !== "INSTALLED") return { status: "UNKNOWN" as const, planHandle: null, revision: 0 };
+  const readOne = async (shop: string): Promise<SubscriptionSnapshot> => {
     const now = appRuntime().clock.now();
-    const [projection, activeGrant] = await Promise.all([
-      shopSubscriptions().currentForShop(shop),
-      planGrants().findActiveGrant(shop, now),
-    ]);
-    const effective = resolveEffectivePlan(
-      projection?.planHandle,
-      projection?.status,
-      activeGrant,
-      PLAN_LIST,
-      now,
-    );
-    const effectiveStatus = effective.source === "promo"
-      ? ("ACTIVE" as const)
-      : (projection?.status ?? ("UNKNOWN" as const));
-
-    return {
-      status: effectiveStatus,
-      planHandle: effective.planHandle,
-      revision: projection?.revision ?? 0,
-      periodStart: projection?.currentPeriodStartsAt ?? activeGrant?.startsAt ?? undefined,
-      periodEnd: projection?.currentPeriodEndsAt ?? activeGrant?.expiresAt ?? undefined,
-      cancellationEffectiveAt: projection?.cancellationEffectiveAt ?? undefined,
-    };
+    const relationship = await shops().get(shop);
+    // Not installed: nothing else is read, and the answer does not depend on what billing still holds.
+    if (relationship?.relationshipStatus !== "INSTALLED") return subscriptionSnapshot({ installed: false, projection: undefined, grant: null, timeZone: null }, PLAN_LIST, now);
+    const [projection, grant] = await Promise.all([shopSubscriptions().currentForShop(shop), planGrants().findActiveGrant(shop, now)]);
+    return subscriptionSnapshot({ installed: true, projection, grant, timeZone: relationship.timeZone }, PLAN_LIST, now);
+  };
+  // Three batched reads for any number of shops. `listCurrentForShops` lists each shop's current subscription first.
+  const readMany = async (shopDomains: readonly string[]): Promise<ReadonlyMap<string, SubscriptionSnapshot>> => {
+    const now = appRuntime().clock.now();
+    const [rows, projections, grants] = await Promise.all([shops().getMany(shopDomains), shopSubscriptions().listCurrentForShops(shopDomains), planGrants().findActiveGrants(shopDomains, now)]);
+    const currentOf = new Map<string, (typeof projections)[number]>();
+    for (const projection of projections) if (!currentOf.has(projection.shop)) currentOf.set(projection.shop, projection);
+    return new Map([...new Set(shopDomains)].map((shop): [string, SubscriptionSnapshot] => {
+      const relationship = rows.get(shop);
+      const installed = relationship?.relationshipStatus === "INSTALLED";
+      return [shop, subscriptionSnapshot({ installed, projection: installed ? currentOf.get(shop) : undefined, grant: installed ? grants.get(shop) : null, timeZone: relationship?.timeZone ?? null }, PLAN_LIST, now)];
+    }));
   };
   // One snapshot per shop per request: a page runs several entitlement checks and each used to repeat the three D1
   // reads. A refresh or an invalidation drops it, so a check after a write in the same request sees the write.
-  const current = (shop: string) => requestMemo(subscriptionMemoKey(shop), () => read(shop));
-  return { current, async refresh(shop) {
+  const current = (shop: string) => requestMemo(subscriptionMemoKey(shop), () => readOne(shop));
+  return { current, currentForShops: readMany, async refresh(shop) {
     const env = getEnv();
     forgetRequestMemo(subscriptionMemoKey(shop));
     const result = await refreshShopSubscription(env, shop);
@@ -74,6 +67,7 @@ export function entitlements(): EntitlementService {
         return operation;
       },
       reserve: (input) => repo.reserve(input),
+      readUsage: (shop, key, period) => repo.readUsage(shop, key, period),
       commit: async (input) => {
         const result = await repo.commit(input);
         return "reason" in result
@@ -87,7 +81,7 @@ export function entitlements(): EntitlementService {
           : { allowed: true, operationId: input.operationId, state: result.state === "committed" ? "committed" : "released", ...(result.replayed ? { replayed: true } : {}) };
       },
     },
-    capacity: { allocate: (input) => repo.allocate(input), confirmAllocation: (input) => repo.confirmAllocation(input), deallocate: (input) => repo.deallocate(input) },
+    capacity: { allocate: (input) => repo.allocate(input), confirmAllocation: (input) => repo.confirmAllocation(input), deallocate: (input) => repo.deallocate(input), adopt: (input) => repo.adopt(input), readAllocations: (shop, key) => repo.readAllocations(shop, key) },
     cache: entitlementCachePort(),
     catalogue: ENTITLEMENT_CATALOGUE,
   });

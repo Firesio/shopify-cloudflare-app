@@ -16,7 +16,7 @@ import { invalidateEntitlements } from "~/wiring/entitlement-cache.server";
 import { appRuntime } from "~/wiring/runtime.server";
 
 /** Adapter factories are the only production boundary to repository classes. */
-export type ShopsPort = Pick<ShopRepo, "get" | "recordAuthenticatedIdentity" | "recordInstall" | "updateShopIdentity" | "applyUninstall" | "markReconciled" | "listAll" | "setDevStatus">;
+export type ShopsPort = Pick<ShopRepo, "get" | "getMany" | "recordAuthenticatedIdentity" | "recordInstall" | "updateShopIdentity" | "applyUninstall" | "markReconciled" | "listAll" | "setDevStatus">;
 export type SupportPort = Pick<SupportRepo, "find" | "findForStaff" | "stageUpload" | "adoptPendingUploads" | "findAttachment" | "listForShop" | "listOpenForStaff" | "listKnownContacts" | "replyAsStaff" | "closeAsStaff" | "markReadAsStaff" | "setCcEmails" | "attachMany" | "open" | "openAsStaff" | "reply" | "markRead" | "listExpiredUploads" | "deleteExpiredUploads">;
 export type ShopSubscriptionsPort = Pick<ShopSubscriptionRepo, "currentForShop" | "listCurrentForShops" | "upsertObservation">;
 export type ShopifyEventsPort = Pick<ShopifyEventRepo, "listSubscriptionEvents" | "listRelationshipEvents" | "listRecentSubscriptionEvents" | "recordPartnerRelationship" | "recordPartnerSubscription" | "listAllUninstallFeedback">;
