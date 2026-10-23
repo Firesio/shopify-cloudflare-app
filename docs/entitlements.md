@@ -163,6 +163,11 @@ date active. The model supports the second: a shop that has no `shop_subscriptio
 then; any other revision, or revision 0 once a row exists, is a stale snapshot and is refused). `NONE` is an admitting state for both `allocate`
 and `reserve`.
 
+The write also re-checks the STORED row: `allocate` and `reserve` are admitted only while `shop_subscriptions.status` is `NONE`, `ACTIVE` or
+`CANCELLATION_SCHEDULED` and its revision is the snapshot's. An app that reads a lapsed subscription as the free plan must list those stored
+states too, or such a shop is refused a slot or a quota the policy just granted it:
+`new EntitlementRepo(clock, { admittingStatuses: ["NONE", "ACTIVE", "CANCELLATION_SCHEDULED", "FROZEN", "CANCELED", "PENDING", "UNKNOWN"] })`.
+
 ## Internal AI
 
 The template's current AI is an internal admin/staff tool and is intentionally not entitlement-gated. A future merchant-facing AI flow should use quota reserve/commit/release exactly like any other consumable operation.

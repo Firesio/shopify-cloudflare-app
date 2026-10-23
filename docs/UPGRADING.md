@@ -34,6 +34,8 @@ template: `npm run verify` (typecheck, lint, 51 `node --test`, 274 vitest files 
   stay held longer (a very long stream), raise `maxAgeMs` or pass `decide`.
 - `subscriptionsPort()` builds its snapshot through `subscriptionSnapshot` and adds the shop's `timeZone`; the UNKNOWN snapshot has
   `planHandle: null` instead of the effective plan. The KV cache refuses a snapshot whose `timeZone` is not a string.
+- `EntitlementRepo` takes an optional `{ admittingStatuses }` (the stored subscription states a write is admitted under; the default is unchanged).
+  An app that reads a lapsed subscription as the free plan needs to list those states, see `docs/entitlements.md`.
 - `app/billing/gates.ts`: the old `Entitlements` type said `deallocate` returns only a failure, so the real service was not assignable to it.
   It now uses the service's own result types.
 

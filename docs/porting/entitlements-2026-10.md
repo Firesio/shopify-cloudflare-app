@@ -48,9 +48,9 @@ the sweep rides the existing cron ticks.
   `subscription-snapshot`).
 - Ports: `app/ports/entitlements.ts` (`UsageResult`, `AdoptResult`, `QuotaUsage`, `CapacityUsage`, optional `readUsage` / `readAllocations` /
   `adopt` / `currentForShops`), `app/ports/plan-grants.ts` (`findActiveGrants`).
-- Models: `app/models/entitlements.server.ts` (`readUsage`, `readAllocations`, `adopt`, the revision-0 guard, `NONE` for reserve),
+- Models: `app/models/entitlements.server.ts` (`readUsage`, `readAllocations`, `adopt`, the revision-0 guard, `NONE` for reserve, `EntitlementRepoOptions.admittingStatuses`),
   `plan-grants.server.ts` (`findActiveGrants`), `shops.server.ts` (`getMany`), `shop-subscriptions.server.ts` (ordering). Tests:
-  `entitlements-no-projection`, `entitlements-usage-adopt`, `plan-grants-batch`, `shops-batch`, `shop-subscriptions-batch`.
+  `entitlements-no-projection`, `entitlements-admitting-statuses`, `entitlements-usage-adopt`, `plan-grants-batch`, `shops-batch`, `shop-subscriptions-batch`.
 - Service: `app/services/entitlements.server.ts` (`usage`, `adopt`, `resolveMany`, generic `EntitlementService<K>`), test `entitlements-extensions.server.test.ts`;
   `app/services/entitlements.server.test.ts` only declares one catalogue as `EntitlementCatalogue`.
 - Adapters and billing: `app/adapters/entitlement-cache.server.ts` (+ `entitlement-cache-timezone.test.ts`), `app/billing/gates.ts`.

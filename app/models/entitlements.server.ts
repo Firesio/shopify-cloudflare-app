@@ -3,6 +3,7 @@ import { and, count, desc, eq, inArray, exists, lt, lte, gte, notExists, or, sql
 import { entitlementAllocations, entitlementOperations, entitlementUsage, shopSubscriptions } from "~/db/schema";
 import type { AdoptResult, AllocateResult, CapacityUsage, DeallocateResult, QuotaUsage, ReserveResult, EntitlementOperationFailure } from "~/ports/entitlements";
 import type { HeldItem, ReconciliationResult } from "~/ports/entitlement-reconciliation";
+import type { SubscriptionStatus } from "~/domain/subscription-lifecycle";
 import type { Clock } from "~/ports/runtime";
 
 async function d1Count(shop: string, key: string): Promise<number> {
@@ -23,8 +24,16 @@ async function usageRemaining(shop: string, key: string, period: string, maximum
   return Math.max(0, maximum - Number(row?.committed ?? 0) - Number(row?.held ?? 0));
 }
 
-/** Subscription states that may allocate or reserve: the same set the policy treats as active (NONE is the free plan). */
-const ADMITTING_STATUSES = ["NONE", "ACTIVE", "CANCELLATION_SCHEDULED"] as const;
+/**
+ * Stored subscription states that may allocate or reserve by default: the ones the policy treats as active (NONE is the free
+ * plan). An app that reads a lapsed subscription as the free plan lists those states too (`EntitlementRepoOptions`).
+ */
+const DEFAULT_ADMITTING_STATUSES: readonly SubscriptionStatus[] = ["NONE", "ACTIVE", "CANCELLATION_SCHEDULED"];
+
+export interface EntitlementRepoOptions {
+  /** The stored `shop_subscriptions.status` values under which a write is admitted. Default: NONE, ACTIVE, CANCELLATION_SCHEDULED. */
+  readonly admittingStatuses?: readonly SubscriptionStatus[];
+}
 
 /**
  * Whether the subscription snapshot a decision was made from is still the current one. A projection row must carry that
@@ -32,9 +41,9 @@ const ADMITTING_STATUSES = ["NONE", "ACTIVE", "CANCELLATION_SCHEDULED"] as const
  * that as "no subscription yet, the free plan" hands over revision 0, and that snapshot is current only while the shop
  * still has no row. Any other revision, with or without a row, is stale.
  */
-function projectionAdmits(db: ReturnType<typeof getDb>, shop: string, revision: number) {
+function projectionAdmits(db: ReturnType<typeof getDb>, shop: string, revision: number, statuses: readonly SubscriptionStatus[]) {
   const current = exists(db.select({ shop: shopSubscriptions.shop }).from(shopSubscriptions).where(and(
-    eq(shopSubscriptions.shop, shop), eq(shopSubscriptions.revision, revision), inArray(shopSubscriptions.status, ADMITTING_STATUSES),
+    eq(shopSubscriptions.shop, shop), eq(shopSubscriptions.revision, revision), inArray(shopSubscriptions.status, [...statuses]),
   )));
   if (revision !== 0) return current;
   return or(current, notExists(db.select({ shop: shopSubscriptions.shop }).from(shopSubscriptions).where(eq(shopSubscriptions.shop, shop))));
@@ -49,7 +58,11 @@ function isOperationState(value: string): value is OperationState {
 
 /** D1 adapter for quota reservations and reusable concurrent allocations. */
 export class EntitlementRepo {
-  constructor(private readonly clock: Clock) {}
+  private readonly admittingStatuses: readonly SubscriptionStatus[];
+
+  constructor(private readonly clock: Clock, options: EntitlementRepoOptions = {}) {
+    this.admittingStatuses = options.admittingStatuses ?? DEFAULT_ADMITTING_STATUSES;
+  }
 
   async findOperation(shop: string, operationId: string) {
     const [row] = await getDb().select({ key: entitlementOperations.key, requestedAmount: entitlementOperations.requestedAmount, period: entitlementOperations.period, subscriptionRevision: entitlementOperations.subscriptionRevision, state: entitlementOperations.state }).from(entitlementOperations).where(and(eq(entitlementOperations.shop, shop), eq(entitlementOperations.operationId, operationId))).limit(1);
@@ -200,7 +213,7 @@ export class EntitlementRepo {
       state: sql<string>`${"held"}`.as("state"), createdAt: sql<number>`${now}`.as("created_at"), updatedAt: sql<number>`${now}`.as("updated_at"),
     // A one-row source: the guard below is the whole condition, and a shop with no projection row has no row to select from.
     }).from(sql`(select 1)`).where(and(
-      projectionAdmits(db, input.shop, input.subscriptionRevision), lt(capacity, input.maximum),
+      projectionAdmits(db, input.shop, input.subscriptionRevision, this.admittingStatuses), lt(capacity, input.maximum),
     )).limit(1)).onConflictDoNothing();
     if (held.meta.changes !== 1) {
       const [projection] = await getDb().select({ revision: shopSubscriptions.revision }).from(shopSubscriptions).where(eq(shopSubscriptions.shop, input.shop)).orderBy(desc(shopSubscriptions.appliedOccurredAt), desc(shopSubscriptions.appliedExternalId), desc(shopSubscriptions.subscriptionId)).limit(1);
@@ -253,7 +266,7 @@ export class EntitlementRepo {
         state: sql<string>`${"held"}`.as("state"), createdAt: sql<number>`${now}`.as("created_at"), updatedAt: sql<number>`${now}`.as("updated_at"),
       }).from(entitlementUsage).where(and(usageScope,
         lte(sql`${entitlementUsage.committed} + ${entitlementUsage.held} + ${input.amount}`, input.maximum),
-        projectionAdmits(db, input.shop, input.subscriptionRevision),
+        projectionAdmits(db, input.shop, input.subscriptionRevision, this.admittingStatuses),
       ))).onConflictDoNothing(),
       // The dependent update stays inside the atomic batch for replay safety.
       db.update(entitlementUsage).set({ held: sql`${entitlementUsage.held} + ${input.amount}`, updatedAt: now }).where(and(usageScope, eq(sql<number>`changes()`, 1))),
