@@ -1,0 +1,2 @@
+CREATE INDEX `entitlement_allocations_held_idx` ON `entitlement_allocations` (`created_at`) WHERE "entitlement_allocations"."state" = 'held';--> statement-breakpoint
+CREATE INDEX `entitlement_operations_held_idx` ON `entitlement_operations` (`created_at`) WHERE "entitlement_operations"."state" = 'held';

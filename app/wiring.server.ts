@@ -6,6 +6,7 @@
  *   repositories               D1 repositories behind their ports
  *   entitlement-cache          advisory KV cache for entitlement previews
  *   entitlement-reconciliation held-usage reconciliation port
+ *   entitlement-held-sweep     the cron sweep that settles held usage a crash left behind
  *   admin                      staff session, users, auth limiters, reset tokens
  *   shop-identity              shop identity and time zone
  *   billing                    subscriptions, entitlements, Partner refresh
@@ -44,6 +45,7 @@ export {
 } from "~/wiring/repositories.server";
 export { entitlementCache, entitlementCachePort, invalidateEntitlements } from "~/wiring/entitlement-cache.server";
 export { entitlementReconciliationPort } from "~/wiring/entitlement-reconciliation.server";
+export { entitlementHeldSweep } from "~/wiring/entitlement-held-sweep.server";
 export {
   adminSessionStorage,
   adminSessionUsers,

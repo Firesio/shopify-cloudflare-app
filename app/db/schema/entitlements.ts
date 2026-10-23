@@ -32,6 +32,11 @@ export const entitlementOperations = sqliteTable(
       table.period,
       table.state,
     ),
+    // The held-usage sweep (`HeldSweepRepo`): held rows only, across shops, oldest first. Partial, so it stays tiny
+    // while settled rows pile up. The query must repeat the literal condition (a bound parameter cannot use it).
+    index("entitlement_operations_held_idx")
+      .on(table.createdAt)
+      .where(sql`${table.state} = 'held'`),
     check(
       "entitlement_operations_amounts_check",
       sql`typeof(${table.requestedAmount}) = 'integer' AND typeof(${table.reservedAmount}) = 'integer' AND ${table.requestedAmount} >= 0 AND ${table.requestedAmount} <= 9007199254740991 AND ${table.reservedAmount} >= 0 AND ${table.reservedAmount} <= 9007199254740991 AND (${table.actualAmount} IS NULL OR (typeof(${table.actualAmount}) = 'integer' AND ${table.actualAmount} >= 0 AND ${table.actualAmount} <= 9007199254740991 AND ${table.actualAmount} <= ${table.reservedAmount}))`,
@@ -79,6 +84,10 @@ export const entitlementAllocations = sqliteTable(
       table.key,
       table.state,
     ),
+    // The held-usage sweep (`HeldSweepRepo`), as for operations.
+    index("entitlement_allocations_held_idx")
+      .on(table.createdAt)
+      .where(sql`${table.state} = 'held'`),
     check(
       "entitlement_allocations_state_check",
       sql`${table.state} IN ('held', 'allocated', 'released')`,
