@@ -11,7 +11,7 @@ function filesUnder(prefixes: readonly string[]): [string, string][] {
 describe("two audiences stay apart", () => {
   it("audience renders (emails, notifications, public pages) never read the request language themselves", () => {
     const forbidden = /i18n\.server|getFixedT|getLanguage\b|getMerchantLanguage|requestEvidence|languageCookie|searchParams\.get\(["'](?:locale|lng)["']\)/;
-    const offenders = filesUnder(["../emails/", "../notifications/", "../routes/public/"])
+    const offenders = filesUnder(["../emails/", "../notifications/", "../routes/public/", "../components/"])
       .filter(([, source]) => forbidden.test(source))
       .map(([file]) => file);
     expect(offenders).toEqual([]);
@@ -49,11 +49,11 @@ describe("two audiences stay apart", () => {
   });
 });
 
-describe("negotiation and digests are server only", () => {
-  // The CLDR table and the digests would otherwise be downloaded by every visitor. A `.server.ts` module cannot reach a
+describe("negotiation is server only", () => {
+  // The CLDR table would otherwise be downloaded by every visitor. A `.server.ts` module cannot reach a
   // browser bundle; anything else may.
-  it("no file that a browser can reach imports the negotiator, the CLDR table, the digests or the validator", () => {
-    const serverOnly = /from\s+["'](?:~\/lib\/language\/(?:negotiate|parent-locales\.generated|text-validator|text-digest)|~\/i18n\/digests\.generated\.server|\.{1,2}\/(?:negotiate|parent-locales\.generated|digests\.generated\.server))["']/;
+  it("no file that a browser can reach imports the negotiator, the CLDR table or the validator", () => {
+    const serverOnly = /from\s+["'](?:~\/lib\/language\/(?:negotiate|parent-locales\.generated|text-validator)|\.{1,2}\/(?:negotiate|parent-locales\.generated))["']/;
     const offenders = filesUnder(["../"])
       .filter(([file]) => !file.endsWith(".server.ts") && !file.startsWith("../lib/language/"))
       .filter(([, source]) => serverOnly.test(source))

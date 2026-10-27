@@ -63,6 +63,8 @@ describe("switching language", () => {
     ["a slash and a backslash", "/\\/evil.test"],
     ["a tab inside the slashes (the URL parser drops it)", "/\t/evil.test"],
     ["a newline inside the slashes", "/\n/evil.test"],
+    ["dot segments that collapse to //host", "/.//evil.test"],
+    ["a parent segment that collapses to //host", "/x/..//evil.test"],
     ["a scheme", "javascript:alert(1)"],
     ["no leading slash", "evil.test/x"],
     ["nothing", ""],

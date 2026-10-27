@@ -150,6 +150,31 @@ describe("deepFreeze", () => {
   });
 });
 
+describe("a string the validator approves renders as plain text", () => {
+  it("through a real translator, with its values escaped and nothing evaluated", async () => {
+    const { validateText } = await import("./text-validator");
+    const approved = ["Hello {{name}}, ticket {{ticketNumber}} is ready", "Visit https://shop.com/help. Thanks {{name}}!", "Costs 4.99 {{name}}"];
+    for (const text of approved) expect(validateText(text, { allowed: ["name", "ticketNumber"], maxLength: 200, sourceText: "https://shop.com/help" }).ok, text).toBe(true);
+    const layer = layerOf("l", { m: { "a.b": approved[0] ?? "", c: approved[1] ?? "" } });
+    const instance = createTranslator("en", [layer], KEYS, BASE);
+    expect(translateKey(instance, "en", "m", "a.b", { name: "<b>O'Brien</b>", ticketNumber: 7 })).toBe("Hello &lt;b&gt;O&#39;Brien&lt;&#x2F;b&gt;, ticket 7 is ready");
+    expect(translateKey(instance, "en", "m", "c", { name: "x" })).toBe("Visit https://shop.com/help. Thanks x!");
+  });
+});
+
+describe("deepFreeze reaches under frozen objects", () => {
+  it("freezes a child that sits inside an already frozen parent, and survives a cycle", () => {
+    const child = { leaf: { value: 1 } };
+    const parent = Object.freeze({ child });
+    deepFreeze(parent);
+    expect(Object.isFrozen(child)).toBe(true);
+    expect(Object.isFrozen(child.leaf)).toBe(true);
+    const loop: { self?: object } = {};
+    loop.self = loop;
+    expect(() => deepFreeze(loop)).not.toThrow();
+  });
+});
+
 describe("defaults an app replaces", () => {
   it("return the original text, one piece at a time, and the shipped languages", async () => {
     expect(await identityContentLocalizer<"es">().localize({ kind: "k", id: "1", field: "f", original: "Hola" }, "es")).toBe("Hola");

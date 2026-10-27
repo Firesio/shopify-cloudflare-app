@@ -49,7 +49,7 @@ describe("safeReturnPath", () => {
     expect(safeReturnPath("/support?topic=billing#x")).toBe("/support?topic=billing#x");
     expect(safeReturnPath("/a/../b")).toBe("/b");
   });
-  it.each(["//evil.test/x", "/\\evil.test", "/\\/evil.test", "/\t/evil.test", "/\r\n/evil.test", "https://evil.test", "javascript:alert(1)", "evil.test", "", " /pricing", 42, null, undefined])(
+  it.each(["//evil.test/x", "/\\evil.test", "/\\/evil.test", "/.//evil.test", "/x/..//evil.test", "/./\\evil.test", "/\t/evil.test", "/\r\n/evil.test", "https://evil.test", "javascript:alert(1)", "evil.test", "", " /pricing", 42, null, undefined])(
     "refuses %j",
     (value) => {
       expect(safeReturnPath(value)).toBe("/");

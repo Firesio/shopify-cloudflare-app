@@ -26,5 +26,8 @@ const RESOLUTION_ORIGIN = "https://this-site.invalid";
 export function safeReturnPath(value: unknown, fallback = "/"): string {
   if (typeof value !== "string" || !value.startsWith("/") || !URL.canParse(value, RESOLUTION_ORIGIN)) return fallback;
   const resolved = new URL(value, RESOLUTION_ORIGIN);
-  return resolved.origin === RESOLUTION_ORIGIN ? `${resolved.pathname}${resolved.search}${resolved.hash}` : fallback;
+  // `/.//evil.com` and `/x/..//evil.com` stay on this origin as URLs but their path begins with `//`, which a redirect
+  // header makes a protocol-relative address. The path that is RETURNED must itself be safe, so it is checked.
+  const path = `${resolved.pathname}${resolved.search}${resolved.hash}`;
+  return resolved.origin === RESOLUTION_ORIGIN && !path.startsWith("//") ? path : fallback;
 }

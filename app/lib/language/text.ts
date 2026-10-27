@@ -156,10 +156,15 @@ export function translateKey(
   return typeof result === "string" ? result : key;
 }
 
-/** Freeze a value and everything inside it: the catalogues are built once and shared by every request of every shop. */
-export function deepFreeze<T extends object>(value: T): Readonly<T> {
+/**
+ * Freeze a value and everything inside it: the catalogues are built once and shared by every request of every shop. It
+ * descends into objects that are ALREADY frozen (a frozen parent can hold an unfrozen child), once each, so a cycle ends.
+ */
+export function deepFreeze<T extends object>(value: T, seen: WeakSet<object> = new WeakSet()): Readonly<T> {
+  if (seen.has(value)) return value;
+  seen.add(value);
   for (const child of Object.values(value)) {
-    if (typeof child === "object" && child !== null && !Object.isFrozen(child)) deepFreeze(child);
+    if (typeof child === "object" && child !== null) deepFreeze(child, seen);
   }
   return Object.freeze(value);
 }

@@ -2,7 +2,7 @@
 // Such a string is DATA: plain text plus `{{allowedName}}` placeholders and nothing else. i18next would otherwise act on
 // `{{- x}}` (unescaped), `$t(key)` (nesting, which can pull in any other string) and `{{x, format}}`.
 // Extension point: the template stores no merchant text, so only tests call it; an app's save path, AI draft and import
-// all go through it. Whether a text is outdated is NOT decided here (see `text-digest.ts`).
+// all go through it. Whether a text is outdated is NOT decided here: an app compares the `source_text` it stored with the current source.
 
 export type TextRejection =
   | "empty"
@@ -60,13 +60,21 @@ const PLACEHOLDER = /\{\{([^{}]*)\}\}/g;
 const NAME = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*$/;
 
 /**
- * Anything that reads as a link: `https://...`, `www....`, and a BARE domain (`evil.com/pay`: no scheme, but a mail client
- * or a phone makes it tappable). A bare domain is labels, a dot and a 2+ letter top-level label, so `3.5`, `e.g.` and
- * `v1.2` are not links; `Done.Thanks` (no space after the full stop) is, which is the price of not missing `evil.com`.
+ * Anything that reads as a link, found TOKEN BY TOKEN so the scan is linear in the length of the text (one regex over the
+ * whole text backtracked quadratically): `https://...`, `www....`, a BARE domain (`evil.com/pay`: no scheme, but a mail
+ * client or a phone makes it tappable) and a bare IPv4 address. A bare domain is labels, a dot and a 2+ letter top-level
+ * label, so `3.5`, `e.g.` and `v1.2` are not links; `Done.Thanks` (no space after the full stop) is, which is the price
+ * of not missing `evil.com`. Fullwidth and ideographic dots count as dots, and the joiners ZWJ/ZWNJ, which are allowed in
+ * text, are ignored inside a token so they cannot hide a domain.
  */
-const LINK_LIKE = /(?:https?:\/\/|www\.)[^\s]+|(?:[\p{L}\p{N}-]+\.)+\p{L}{2,}(?::\d+)?(?:[/?#][^\s]*)?/giu;
-const TRAILING_PUNCTUATION = /[.,;:!?)\]}"'»”’>]+$/u;
-const LEADING_PUNCTUATION = /^[([{"'«“‘<]+/u;
+const TOKEN_SEPARATORS = /[\s,;()<>"“”«»[\]{}]+/u;
+const DOT_LOOKALIKES = /[。．｡]/gu;
+const JOINERS = /[\u200C\u200D]/g;
+const SCHEME_LINK = /^(?:https?:\/\/|www\.)\S+$/iu;
+const BARE_DOMAIN = /^(?:[\p{L}\p{N}-]+\.)+\p{L}{2,}(?::\d+)?(?:[/?#]\S*)?$/u;
+const BARE_IPV4 = /^\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?(?:[/?#]\S*)?$/;
+const TRAILING_PUNCTUATION = /[.:!?'’]+$/u;
+const LEADING_PUNCTUATION = /^['‘]+/u;
 
 /**
  * The address a link points at, so two spellings of one address compare equal: lower case, no scheme, no `www.`, no
@@ -75,15 +83,21 @@ const LEADING_PUNCTUATION = /^[([{"'«“‘<]+/u;
 function normaliseLink(link: string): string {
   return link
     .toLowerCase()
-    .replace(LEADING_PUNCTUATION, "")
-    .replace(TRAILING_PUNCTUATION, "")
     .replace(/^https?:\/\//, "")
     .replace(/^www\./, "")
     .replace(/\/+$/, "");
 }
 
 function linksOf(text: string): readonly string[] {
-  return (text.replace(PLACEHOLDER, " ").match(LINK_LIKE) ?? []).map(normaliseLink).filter((link) => link.includes("."));
+  return text
+    .replace(PLACEHOLDER, " ")
+    .replace(DOT_LOOKALIKES, ".")
+    .replace(JOINERS, "")
+    .split(TOKEN_SEPARATORS)
+    .map((token) => token.replace(LEADING_PUNCTUATION, "").replace(TRAILING_PUNCTUATION, ""))
+    .filter((token) => SCHEME_LINK.test(token) || BARE_DOMAIN.test(token) || BARE_IPV4.test(token))
+    .map(normaliseLink)
+    .filter((link) => link.includes("."));
 }
 
 function placeholderProblem(text: string, spec: TextSpec): TextVerdict | null {
@@ -96,6 +110,8 @@ function placeholderProblem(text: string, spec: TextSpec): TextVerdict | null {
     if (RESERVED_NAMES.has(name) && !(name === "count" && spec.plural === true)) return { ok: false, reason: "reserved_placeholder", detail: name };
     if (!spec.allowed.includes(name)) return { ok: false, reason: "unknown_placeholder", detail: name };
   }
+  // `{{{x}}}` is i18next's triple-brace spelling of an unescaped value, whatever is inside it.
+  if (text.includes("{{{") || text.includes("}}}")) return { ok: false, reason: "malformed_placeholder" };
   // Whatever `{{` or `}}` is left after removing the well-formed ones is a broken placeholder.
   if (/\{\{|\}\}/.test(text.replace(PLACEHOLDER, ""))) return { ok: false, reason: "malformed_placeholder" };
   return null;

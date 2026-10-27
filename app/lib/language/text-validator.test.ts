@@ -68,6 +68,26 @@ describe("validateText", () => {
     expect(reason("ouvrez exemple.fr/pay")).toBe("new_url");
   });
 
+  it("sees links that hide in other spellings: fullwidth dots, joiners, bare IPs", () => {
+    expect(reason("pay at evil。com/pay")).toBe("new_url");
+    expect(reason("pay at evil．com")).toBe("new_url");
+    expect(reason("pay at evil\u200D.com")).toBe("new_url");
+    expect(reason("pay at 192.168.0.1/pay")).toBe("new_url");
+    expect(reason("pay at http://10.0.0.1:8080")).toBe("new_url");
+  });
+
+  it("refuses triple braces", () => {
+    expect(reason("Hi {{{name}}}")).toBe("malformed_placeholder");
+  });
+
+  it("scans in linear time, not quadratic", () => {
+    const hostile = "a.".repeat(100_000);
+    const started = performance.now();
+    reason(hostile, { maxLength: 1_000_000 });
+    reason("a".repeat(200_000), { maxLength: 1_000_000 });
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
   it("does not take ordinary text for a link", () => {
     for (const text of ["Version 3.5 is out", "e.g. this", "i.e. that", "Ready at 10.30 today", "Costs 4.99.", "wait... what"]) expect(reason(text), text).toBe("ok");
   });

@@ -150,7 +150,6 @@ describe("a new language folder needs no edit anywhere (temp folder proof)", () 
     expect(generated).toContain('"fr": { name: "Français", script: "Latn", direction: "ltr" }');
     expect(generated).toContain('export type CommonKey =\n  | "hello"');
     expect(generated).toContain('"ext-checkout": "server"');
-    expect(readFileSync(join(root, "app/i18n/digests.generated.server.ts"), "utf8")).toContain('"common:hello":');
 
     // The browser loads `common` per language, and `ext-checkout` (a server namespace) is not even listed.
     const loaders = readFileSync(join(root, "app/i18n/browser-loaders.generated.ts"), "utf8");
@@ -246,15 +245,5 @@ describe("a new language folder needs no edit anywhere (temp folder proof)", () 
     rmSync(join(root, "extensions"), { recursive: true });
     expect(sync({ root, check: false }).problems).toEqual([]);
     expect(() => statSync(join(root, "extensions"))).toThrow();
-  });
-});
-
-describe("generated digests (a server-only extension point)", () => {
-  it("has a digest for every en string, and the digest is SHA-256 of the text", async () => {
-    const { SOURCE_DIGESTS } = await import("./digests.generated.server");
-    const text = "This email was sent by {{appName}} support.";
-    const bytes = new TextEncoder().encode(text);
-    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
-    expect(SOURCE_DIGESTS["email:senderDisclosure"]).toBe(hash);
   });
 });
