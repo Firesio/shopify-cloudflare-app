@@ -6,7 +6,7 @@ import {
   ScrollRestoration,
   useLoaderData,
 } from "react-router";
-import type { LoaderFunctionArgs } from "react-router";
+import type { LoaderFunctionArgs, ShouldRevalidateFunction } from "react-router";
 import { getLanguage } from "~/i18n/i18n.server";
 import { directionOf } from "~/i18n/config";
 import "@shopify/app-bridge-types";
@@ -19,6 +19,13 @@ import "@shopify/app-bridge-types";
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   return { language: await getLanguage(request) };
 };
+
+/**
+ * The document's language is chosen when the document is loaded and does not change while the app is open: in-app links
+ * and search changes must not re-run this loader (a client navigation can drop `?locale=` and would flip `<html lang dir>`).
+ * The language switcher reloads the page, which is the one way it changes.
+ */
+export const shouldRevalidate: ShouldRevalidateFunction = () => false;
 
 export default function App() {
   // Root reads its own loader data. Everything BELOW root uses useLanguage() from

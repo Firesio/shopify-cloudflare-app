@@ -24,7 +24,7 @@ describe("notification envelope", () => {
       cc: { email: ["boss@workmanjsc.vn"] },
       scope: "shop.myshopify.com",
       dedupeKey: "k",
-      payload: { recipientName: "M", subject: "s", excerpt: "e", threadUrl: "https://x/y", staffName: "Sam" },
+      payload: { recipientName: "M", subject: "s", excerpt: "e", threadUrl: "https://x/y", staffName: "Sam", ticketId: "t" },
     };
     expect(parseEnvelope(onTheWire(toEnvelope(withCopies)))).toEqual({ ok: true, value: withCopies });
   });
@@ -95,5 +95,18 @@ describe("notification envelope", () => {
     expect(parseEnvelope(body("not a tag!"))).toMatchObject({ ok: false, reason: "invalid_payload" });
     expect(parseEnvelope(body(7))).toMatchObject({ ok: false, reason: "invalid_payload" });
     expect(parseEnvelope(body(undefined))).toMatchObject({ ok: true });
+  });
+
+  // One release of grace: a message queued before `locale` was renamed `language` keeps its language.
+  it("accepts the old `locale` field as the language, and prefers `language` when both are there", () => {
+    const body = (extra: Record<string, unknown>) => ({ v: 1, event: "push_test", to: { push: "d1" }, dedupeKey: "k", payload: { recipientName: "S", ...extra } });
+    expect(parseEnvelope(body({ locale: "es_MX" }))).toMatchObject({ ok: true, value: { payload: { language: "es-MX" } } });
+    expect(parseEnvelope(body({ locale: "es", language: "en" }))).toMatchObject({ ok: true, value: { payload: { language: "en" } } });
+    expect(parseEnvelope(body({ locale: "not a tag!" }))).toMatchObject({ ok: false, reason: "invalid_payload" });
+  });
+
+  it("parses a staff reply queued before it carried the ticket id", () => {
+    const body = { v: 1, event: "support_staff_reply", to: { email: "m@x.co" }, dedupeKey: "k", payload: { recipientName: "M", subject: "s", excerpt: "e", threadUrl: "https://x/y", staffName: "Sam" } };
+    expect(parseEnvelope(body)).toMatchObject({ ok: true, value: { payload: { ticketId: "" } } });
   });
 });

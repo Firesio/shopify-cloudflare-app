@@ -1,7 +1,7 @@
 import { composeEmailMessage } from "./channels/email/compose";
 import { composePushMessage } from "./channels/push/compose";
 import { copyRecipients } from "./copy-recipients";
-import type { AudienceTextFor } from "~/i18n/audience";
+import type { TextBuilders } from "~/i18n/audience";
 import type { NotifyRequest } from "~/ports/notifier";
 import { dispatch, type DispatchResult } from "./dispatch.server";
 import { recordableRefusals, resolveEligibility } from "./eligibility/resolve";
@@ -25,7 +25,7 @@ export interface NotifyDependencies {
   /** The push sender and device store; absent when push is not configured, and then `push` is not an available channel. */
   readonly push?: PushTransport;
   /** The composition root's one builder of the reader's `AudienceText`; emails are rendered in its language. */
-  readonly audienceTextFor: AudienceTextFor;
+  readonly texts: TextBuilders;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -61,7 +61,9 @@ interface Composer {
      * field every Message kind has to carry.
      */
     cc: readonly string[],
-    audienceTextFor: AudienceTextFor,
+    texts: TextBuilders,
+    /** The shop the notification is about, for text that needs per-shop seams. */
+    shop?: string,
   ): Promise<Message>;
 }
 
@@ -165,7 +167,8 @@ async function dispatchAllowed<E extends NotificationEvent>(
         scope: input.scope,
         settings: dependencies.settings,
       }),
-      dependencies.audienceTextFor,
+      dependencies.texts,
+      input.scope,
     );
 
     dispatched.push(

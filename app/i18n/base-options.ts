@@ -22,6 +22,8 @@ export const DEFAULT_VARIABLES: Readonly<Record<string, string>> = { appName: id
 export const baseI18nOptions = {
   supportedLngs: [...LANGUAGE_CODES],
   fallbackLng: false,
+  // Only the language itself: `es` never also loads a base language, so a regional tag cannot trigger a second download.
+  load: "currentOnly",
   defaultNS: DEFAULT_NAMESPACE,
   ns: [...NAMESPACES],
   // React already escapes interpolated values; letting i18next escape them too

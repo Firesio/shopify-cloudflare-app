@@ -20,7 +20,7 @@ export async function supportStaffReplyEmail(
 ): Promise<RenderedEmail> {
   const t = text.fixedT("email");
   // The ticket's subject is the app's own stored text: the reader sees it in their language when the app can translate it.
-  const subject = await text.content({ kind: "support-ticket", id: p.threadUrl, field: "subject", original: p.subject });
+  const subject = await text.content({ kind: "support-ticket", id: p.ticketId, field: "subject", original: p.subject });
 
   // The same localized subject on the subject line and as the heading, so the two can never disagree.
   return renderEmail(

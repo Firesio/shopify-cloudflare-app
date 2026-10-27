@@ -14,7 +14,7 @@ vi.mock("react-router", async (importOriginal) => {
   };
 });
 
-import Root from "./root";
+import Root, { shouldRevalidate } from "./root";
 
 function renderRootDocument() {
   const html = renderToStaticMarkup(<Root />);
@@ -35,5 +35,13 @@ describe("root document assets", () => {
     );
     expect(html).not.toContain("styles/public/public.scss");
     expect(html).not.toContain("internal.tailwind.css");
+  });
+});
+
+describe("root language", () => {
+  it("is chosen once per document: an in-app navigation (which can drop ?locale) never re-runs the root loader", () => {
+    const args = { defaultShouldRevalidate: true, formMethod: undefined, currentUrl: new URL("https://x.test/app?locale=es"), nextUrl: new URL("https://x.test/app/support?x=1") };
+    expect(Reflect.apply(shouldRevalidate, undefined, [args])).toBe(false);
+    expect(Reflect.apply(shouldRevalidate, undefined, [{ ...args, formMethod: "post" }])).toBe(false);
   });
 });

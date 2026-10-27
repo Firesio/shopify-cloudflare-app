@@ -29,12 +29,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // The public client_id, read from the Worker's env binding — there is no
   // process.env in workerd.
   //
-  // The LOCALE needs no handling here: Shopify appends its `locale` parameter to
-  // every GET it makes to an embedded app, and app/i18n/i18n.server.ts reads it
-  // first in the detection order. So the app follows whatever language the
-  // merchant picked in the Shopify admin, automatically. Do NOT add a language
-  // switcher to this surface — the app would then be able to disagree with the
-  // admin around it.
+  // The LANGUAGE needs no handling here: Shopify puts its `locale` parameter on the request that LOADS the embedded app,
+  // and the root loader reads it once, for the document (`root.tsx` never revalidates, so a later in-app navigation that
+  // drops the parameter cannot change `<html lang>`). A form that must store the merchant's language posts it with the
+  // form (`useLanguage()`, parsed on the server with `languageCodeOf`), because an in-app request may not carry `?locale=`.
+  // Do NOT add a language switcher to this surface — the app would then be able to disagree with the admin around it.
   return { apiKey: env.SHOPIFY_API_KEY || "", timeZone };
 };
 

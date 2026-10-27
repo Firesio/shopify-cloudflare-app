@@ -11,6 +11,7 @@ const PAYLOAD = {
   subject: "Question",
   excerpt: "We can help.",
   threadUrl: "https://example.org/support/1",
+  ticketId: "1",
   staffName: "Support",
 } as const;
 

@@ -8,7 +8,10 @@ import { parseLanguageTag, type LanguageTag } from "~/lib/language/tag";
 import { isUnitComplete, type TextLayer } from "~/lib/language/text";
 import { SAMPLE_PAYLOADS } from "~/test/notification-payloads";
 import { pseudoLayer } from "~/test/pseudo-locale";
-import { createAudienceTextFor, defaultAudienceDeps, audienceTextFor, audienceTextForRequest } from "./audience.server";
+import { audienceLanguage, merchantLanguage } from "~/i18n/roles";
+import type { AudienceT } from "~/i18n/audience";
+import { supportStaffReplyEmail } from "~/emails/templates/support-staff-reply";
+import { createAudienceTextFor, createMerchantTextFor, defaultAudienceDeps, defaultMerchantDeps, audienceTextFor, audienceTextForRequest, textBuilders } from "./audience.server";
 
 function evidence(...values: readonly string[]): readonly LanguageTag[] {
   return values.flatMap((value) => {
@@ -45,7 +48,7 @@ describe("audienceTextFor (default: shipped catalogues only)", () => {
   });
 
   it("uses a language it is told to (a fixed language), whatever else is known", async () => {
-    const text = await audienceTextFor({ unit: "email.layout", fixed: "es" });
+    const text = await audienceTextFor({ unit: "email.layout", fixed: audienceLanguage("es") });
     expect(text.language.code).toBe("es");
   });
 
@@ -144,11 +147,11 @@ function visibleText(html: string): string[] {
 describe("the pseudo-locale: a translated email has no hard-coded visible text", () => {
   it("renders the support reply with every catalogue string pseudo-localised", async () => {
     // The pseudo layer stands in for Spanish, so the language is a shipped one (the union is closed).
-    const pseudoFor = createAudienceTextFor({
-      ...defaultAudienceDeps(),
+    const pseudoFor = createMerchantTextFor({
+      ...defaultMerchantDeps(),
       layersFor: (language) => Promise.resolve([language === "es" ? pseudoLayer(shippedLayer("en")) : shippedLayer(language)]),
     });
-    const email = await buildEmail("support_staff_reply", payload, pseudoFor);
+    const email = await buildEmail("support_staff_reply", payload, { ...textBuilders, merchantTextFor: pseudoFor });
     expect(email.html).toContain('lang="es"');
 
     // Text that comes from the payload (the merchant's and staff's own words, a URL) and the brand are not catalogue copy.
@@ -156,16 +159,22 @@ describe("the pseudo-locale: a translated email has no hard-coded visible text",
     const offenders = visibleText(email.html).filter((line) => !own.has(line) && !(line.startsWith("[") && line.includes("]")));
     expect(offenders).toEqual([]);
     // The same email in English has every one of those strings unbracketed (so the test can fail).
-    const plain = await buildEmail("support_staff_reply", { ...payload, language: undefined }, audienceTextFor);
+    const plain = await buildEmail("support_staff_reply", { ...payload, language: undefined }, textBuilders);
     expect(visibleText(plain.html).filter((line) => !own.has(line) && !(line.startsWith("[") && line.includes("]"))).length).toBeGreaterThan(3);
   });
 });
 
 describe("which language each event's email is written in", () => {
-  it("writes the merchant's reply in the recipient's language, subject line and heading alike", async () => {
-    const email = await buildEmail("support_staff_reply", payload, audienceTextFor);
+  it("writes the merchant's reply in the merchant's language, subject line and heading alike", async () => {
+    const email = await buildEmail("support_staff_reply", payload, textBuilders);
     expect(email.html).toContain('lang="es"');
     expect(email.html).toContain("Este correo fue enviado por el soporte de");
+  });
+
+  it("falls back to the default language for a merchant language it does not ship", async () => {
+    const de = parseLanguageTag("de");
+    const email = await buildEmail("support_staff_reply", { ...payload, ...(de === null ? {} : { language: de }) }, textBuilders);
+    expect(email.html).toContain('lang="en"');
   });
 
   it("writes every staff-facing email in the default language, whatever the payload says", async () => {
@@ -176,35 +185,79 @@ describe("which language each event's email is written in", () => {
       ["shop_uninstalled", SAMPLE_PAYLOADS.shop_uninstalled],
       ["webhook_dead_letter", SAMPLE_PAYLOADS.webhook_dead_letter],
     ] as const) {
-      const email = await buildEmail(event, { ...sample, ...(es === null ? {} : { language: es }) }, audienceTextFor);
+      const email = await buildEmail(event, { ...sample, ...(es === null ? {} : { language: es }) }, textBuilders);
       expect(email.html, event).toContain('lang="en"');
       expect(email.html, event).toContain("This email was sent by");
     }
   });
 });
 
+describe("the merchant is not a customer", () => {
+  const overrides: TextLayer = { name: "customer overrides", get: (namespace, key) => (namespace === "email" && key === "support.reply.cta" ? "Abrir el caso ahora" : undefined) };
+  const customerDeps = {
+    ...defaultAudienceDeps(),
+    layersFor: (language: string) => Promise.resolve([...(language === "es" ? [overrides] : []), shippedLayer(language === "es" ? "es" : "en")]),
+  };
+
+  it("a customer-facing override and the shop's customer languages change what a CUSTOMER reads", async () => {
+    const customers = createAudienceTextFor({ ...customerDeps, localizer: { localize: (ref) => Promise.resolve(`${ref.original} (traducido)`) } });
+    const text = await customers({ unit: "email.support-reply", evidence: evidence("es"), shop: "a.myshopify.com" });
+    expect(text.fixedT("email")("support.reply.cta")).toBe("Abrir el caso ahora");
+    expect(await text.content({ kind: "k", id: "1", field: "f", original: "x" })).toBe("x (traducido)");
+  });
+
+  it("but never the reply sent to the MERCHANT, which has its own builder over the shipped catalogue", async () => {
+    const asMerchant = await textBuilders.merchantTextFor({ unit: "email.support-reply", language: merchantLanguage("es") });
+    expect(asMerchant.fixedT("email")("support.reply.cta")).toBe("Leer y responder");
+    expect(asMerchant.language).toEqual({ role: "merchant", code: "es" });
+    const email = await buildEmail("support_staff_reply", payload, { ...textBuilders, audienceTextFor: createAudienceTextFor(customerDeps) }, "a.myshopify.com");
+    expect(email.html).not.toContain("Abrir el caso ahora");
+  });
+
+  it("cannot be handed the other's language: the role is a parameter type", async () => {
+    // @ts-expect-error a merchant language is not an audience language
+    await textBuilders.audienceTextFor({ unit: "email.layout", fixed: merchantLanguage("es") });
+    // @ts-expect-error an audience language is not a merchant language
+    await textBuilders.merchantTextFor({ unit: "email.layout", language: audienceLanguage("es") });
+  });
+
+  it("passes the shop to a customer's text, and none to the merchant's", async () => {
+    const seen: (string | undefined)[] = [];
+    const watching = createAudienceTextFor({ ...defaultAudienceDeps(), shopLanguages: { forShop: (shop) => { seen.push(shop); return Promise.resolve({ primary: null, available: ["en"] }); } } });
+    await buildEmail("shop_installed", SAMPLE_PAYLOADS.shop_installed, { ...textBuilders, audienceTextFor: watching }, "a.myshopify.com");
+    expect(seen).toEqual(["a.myshopify.com"]);
+  });
+});
+
+describe("plural keys take a count and plain keys do not", () => {
+  it("is a type error to omit the count of a plural key, or to pass one to a plain key", () => {
+    const t: AudienceT<"plain", "items"> = (key) => key;
+    t("plain");
+    t("items", 3);
+    // @ts-expect-error a plural key needs its count
+    t("items");
+    // @ts-expect-error a plain key has no count
+    t("plain", 3);
+  });
+
+  it("renders the form for the count it is given, through the real builder", async () => {
+    const units = { ...TEXT_UNITS, "email.layout": [{ namespace: "email", key: "items", plural: true }] } as const;
+    const layer: TextLayer = { name: "p", get: (ns, key) => (ns === "email" ? { items_one: "{{count}} item", items_other: "{{count}} items" }[key] : undefined) };
+    const text = await createAudienceTextFor({ ...defaultAudienceDeps(), units, layersFor: () => Promise.resolve([layer]) })({ unit: "email.layout", evidence: evidence("en") });
+    // The unit above is swapped at run time, so its keys are not in the static type: call through Reflect.
+    const t = text.fixedT("email");
+    expect(Reflect.apply(t, undefined, ["items", 1])).toBe("1 item");
+    expect(Reflect.apply(t, undefined, ["items", 5])).toBe("5 items");
+  });
+});
+
 describe("proof: an app adds an override layer and a content localizer in its own wiring, no email code changes", () => {
-  it("changes the rendered email", async () => {
-    const before = await buildEmail("support_staff_reply", payload, audienceTextFor);
-
-    const overrides: TextLayer = { name: "overrides", get: (namespace, key) => (namespace === "email" && key === "support.reply.cta" ? "Abrir el caso ahora" : undefined) };
+  it("changes a customer's text, and the localized subject reaches both the subject line and the heading", async () => {
     const localizer: ContentLocalizer<(typeof LANGUAGE_CODES)[number]> = { localize: (ref) => Promise.resolve(`${ref.original} (traducido)`) };
-    const customised = createAudienceTextFor({
-      ...defaultAudienceDeps(),
-      shopLanguages: shippedShopLanguages(LANGUAGE_CODES),
-      layersFor: (language) => Promise.resolve([...(language === "es" ? [overrides] : []), shippedLayer(language)]),
-      localizer,
-    });
-    const after = await buildEmail("support_staff_reply", payload, customised);
-
-    expect(before.html).not.toContain("Abrir el caso ahora");
-    expect(after.html).toContain("Abrir el caso ahora");
-    // B6: the localized subject is on the subject line AND the heading.
-    expect(after.subject).toBe(`Re: ${payload.subject} (traducido)`);
-    expect(after.html).toContain(`${payload.subject} (traducido)`);
-    expect(before.subject).toBe(`Re: ${payload.subject}`);
-    // The shared shipped catalogue was not touched by the override: the default wiring still renders the shipped text.
-    const again = await buildEmail("support_staff_reply", payload, audienceTextFor);
-    expect(again.html).toBe(before.html);
+    const customers = createAudienceTextFor({ ...defaultAudienceDeps(), shopLanguages: shippedShopLanguages(LANGUAGE_CODES), localizer });
+    const text = await customers({ unit: "email.support-reply", evidence: evidence("es") });
+    const email = await supportStaffReplyEmail(payload, text);
+    expect(email.subject).toBe(`Re: ${payload.subject} (traducido)`);
+    expect(email.html).toContain(`${payload.subject} (traducido)`);
   });
 });

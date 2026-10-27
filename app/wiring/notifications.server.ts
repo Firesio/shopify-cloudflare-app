@@ -1,6 +1,6 @@
 import { CloudflareNotificationQueue } from "~/adapters/notification-queue.server";
-import { audienceTextFor } from "~/wiring/audience.server";
-import type { AudienceTextFor } from "~/i18n/audience";
+import { textBuilders } from "~/wiring/audience.server";
+import type { TextBuilders } from "~/i18n/audience";
 import { notify } from "~/notifications/notify.server";
 import type { ImmediateNotifier, Notifier } from "~/ports/notifier";
 import type { PushTransport } from "~/ports/push-transport";
@@ -25,7 +25,7 @@ export function notificationDependencies(): {
   readonly runtime: Pick<Runtime, "clock" | "ids">;
   readonly availableChannels: readonly ChannelKey[];
   readonly push?: PushTransport;
-  readonly audienceTextFor: AudienceTextFor;
+  readonly texts: TextBuilders;
 } {
   const push = pushTransport();
   return {
@@ -33,7 +33,7 @@ export function notificationDependencies(): {
     settings: notificationSettings(),
     runtime: appRuntime(),
     availableChannels: availableChannels(getEnv(), { push: push !== undefined }),
-    audienceTextFor,
+    texts: textBuilders,
     ...(push ? { push } : {}),
   };
 }

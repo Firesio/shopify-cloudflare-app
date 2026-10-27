@@ -63,6 +63,8 @@ export interface SupportMerchantActivityPayload extends SupportPayload {
 export interface SupportStaffReplyPayload extends SupportPayload {
   /** Who answered, so the merchant sees a person rather than an app. */
   staffName: string;
+  /** The ticket's own id: the stable identity of the stored text (its subject) that a localizer may translate. */
+  ticketId: string;
 }
 
 /** Shared by both shop notifications: the same shop, a different thing that happened to it. */

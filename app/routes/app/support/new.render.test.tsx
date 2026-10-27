@@ -34,6 +34,11 @@ describe("streaming the new-ticket form", () => {
     expect(field).not.toContain("value=");
   });
 
+  it("posts the language the form is drawn in, so the ticket stores it even when the request has no ?locale", async () => {
+    expect(await form(never, "pending", "es")).toMatch(/<input[^>]*name="language"[^>]*value="es"/);
+    expect(await form(never, "pending", "en")).toMatch(/<input[^>]*name="language"[^>]*value="en"/);
+  });
+
   it("translates the pending copy", async () => {
     const html = await form(never, "pending", "es");
     expect(html).toContain("Cargando el correo de contacto de tu tienda");

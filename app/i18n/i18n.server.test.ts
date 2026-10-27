@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getLanguage, getMerchantLanguage, languageCookie, requestEvidence } from "./i18n.server";
+import { getLanguage, getMerchantLanguage, languageCookie, requestEvidence, submittedMerchantLanguage } from "./i18n.server";
 
 const url = (path: string) => `https://example.test${path}`;
 const accept = (value: string) => ({ "Accept-Language": value });
@@ -74,5 +74,18 @@ describe("the language inside the Shopify admin (the merchant reads it)", () => 
   it("the merchant's language for a stored value is Shopify's parameter and nothing else", () => {
     expect(getMerchantLanguage(new Request(url("/app?locale=es-MX&lng=en"), { headers: accept("en") }))).toEqual({ role: "merchant", code: "es" });
     expect(getMerchantLanguage(new Request(url("/app"), { headers: accept("es") }))).toEqual({ role: "merchant", code: "en" });
+  });
+
+  // An in-app navigation can drop `?locale=`: what the form was drawn in decides, so a Spanish merchant is not stored as English.
+  it("a submission stores the language its form was drawn in, even when this request carries no ?locale", () => {
+    const bare = new Request(url("/app/support/new"), { method: "POST" });
+    expect(submittedMerchantLanguage("es", bare)).toEqual({ role: "merchant", code: "es" });
+    expect(submittedMerchantLanguage("es", new Request(url("/app/support/new?locale=en")))).toEqual({ role: "merchant", code: "es" });
+  });
+
+  it("falls back to Shopify's parameter when the form posted nothing usable", () => {
+    const withLocale = new Request(url("/app/support/new?locale=es"));
+    for (const posted of [null, undefined, "", "de", "es-MX", 5]) expect(submittedMerchantLanguage(posted, withLocale), String(posted)).toEqual({ role: "merchant", code: "es" });
+    expect(submittedMerchantLanguage(null, new Request(url("/app/support/new")))).toEqual({ role: "merchant", code: "en" });
   });
 });

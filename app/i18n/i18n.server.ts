@@ -1,8 +1,10 @@
 import { createCookie } from "react-router";
 import { DEFAULT_LANGUAGE, LANGUAGE_CODES, type LanguageCode } from "./catalogues.generated";
+import { languageCodeOf } from "./config";
 import { merchantLanguage, type MerchantLanguage } from "./roles";
 import { parseAcceptLanguage } from "~/lib/language/accept-language";
 import { negotiate } from "~/lib/language/negotiate";
+import { requestMemo } from "~/request-context.server";
 import { parseLanguageTag, type LanguageTag } from "~/lib/language/tag";
 
 /**
@@ -42,10 +44,13 @@ function parsed(values: readonly unknown[]): readonly LanguageTag[] {
  * It never contains Shopify's `?locale=`: that is the language of the Shopify admin USER, which says nothing about a
  * customer or a visitor.
  */
-export async function requestEvidence(request: Request): Promise<readonly LanguageTag[]> {
-  const url = new URL(request.url);
-  const remembered: unknown = await languageCookie.parse(request.headers.get("Cookie"));
-  return [...parsed([url.searchParams.get("lng"), remembered]), ...parseAcceptLanguage(request.headers.get("Accept-Language"))];
+export function requestEvidence(request: Request): Promise<readonly LanguageTag[]> {
+  // Once per request: the page's language and every audience text built in the same request read the same evidence.
+  return requestMemo("language:evidence", async () => {
+    const url = new URL(request.url);
+    const remembered: unknown = await languageCookie.parse(request.headers.get("Cookie"));
+    return [...parsed([url.searchParams.get("lng"), remembered]), ...parseAcceptLanguage(request.headers.get("Accept-Language"))];
+  });
 }
 
 /** Shopify's `locale` parameter, which the merchant's own screens obey. */
@@ -67,10 +72,13 @@ export function languageOf(value: unknown): LanguageCode {
  *
  * Shopify sends regional tags (`es-ES`, `pt-BR`); the negotiator is script-aware and never answers `zh-TW` with Simplified.
  */
-export async function getLanguage(request: Request): Promise<LanguageCode> {
-  const evidence = await requestEvidence(request);
-  const merchant = surfaceOf(new URL(request.url)) === "admin" ? shopifyLocale(request) : [];
-  return negotiate([...merchant, ...evidence], LANGUAGE_CODES, DEFAULT_LANGUAGE);
+export function getLanguage(request: Request): Promise<LanguageCode> {
+  // Once per request: the root loader and the entry both ask.
+  return requestMemo("language:page", async () => {
+    const evidence = await requestEvidence(request);
+    const merchant = surfaceOf(new URL(request.url)) === "admin" ? shopifyLocale(request) : [];
+    return negotiate([...merchant, ...evidence], LANGUAGE_CODES, DEFAULT_LANGUAGE);
+  });
 }
 
 /**
@@ -79,4 +87,14 @@ export async function getLanguage(request: Request): Promise<LanguageCode> {
  */
 export function getMerchantLanguage(request: Request): MerchantLanguage {
   return merchantLanguage(negotiate(shopifyLocale(request), LANGUAGE_CODES, DEFAULT_LANGUAGE));
+}
+
+/**
+ * The merchant's language for something they SUBMIT. An in-app request may not carry Shopify's `?locale=` (a client
+ * navigation drops it), so the form posts the language it was drawn in (`useLanguage()`); it is parsed exactly (a code we
+ * wrote), and only when the form sent none does Shopify's parameter on this request decide.
+ */
+export function submittedMerchantLanguage(posted: unknown, request: Request): MerchantLanguage {
+  const code = languageCodeOf(posted);
+  return code === null ? getMerchantLanguage(request) : merchantLanguage(code);
 }

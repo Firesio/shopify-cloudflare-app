@@ -268,6 +268,7 @@ export class SupportService {
         // none, or one that no longer parses, has no language and the email falls back to the app default.
         language: parseLanguageTag(ticket.locale) ?? undefined,
         staffName,
+        ticketId: ticket.id,
         subject: ticket.subject,
         excerpt: excerpt(body),
         threadUrl: threadUrls(this.dependencies.appUrl, ticket.id).merchant,
