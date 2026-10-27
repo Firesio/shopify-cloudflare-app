@@ -16,6 +16,10 @@ import type { ReactNode } from "react";
 import { styles } from "./tokens";
 import { identity } from "~/identity";
 import type { AudienceText } from "~/i18n/audience";
+import type { UnitKeys } from "~/i18n/text-units";
+
+/** What the layout and the call-to-action read: the keys of the `email.layout` unit. A text built for a bigger email unit fits. */
+export type EmailText = AudienceText<UnitKeys<"email.layout">>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THE email layout. Every email in this app composes this one component plus the
@@ -43,7 +47,7 @@ export interface EmailLayoutProps {
   /** Overrides the sender disclosure (default: `email:senderDisclosure`, in the reader's language). */
   footer?: string;
   /** The reader's language: `<html lang>`, `dir`, the sender disclosure and the link line follow it. */
-  text: AudienceText;
+  text: EmailText;
 }
 
 export function EmailLayout({
@@ -57,7 +61,7 @@ export function EmailLayout({
 }: EmailLayoutProps) {
   const resolvedFooter = footer ?? text.fixedT("email")("senderDisclosure");
   return (
-    <Html lang={text.language} dir={text.direction}>
+    <Html lang={text.language.code} dir={text.direction}>
       <Head />
       <Preview>{preview}</Preview>
       <Body style={styles.body}>
@@ -94,7 +98,7 @@ export function Muted({ children }: { children: ReactNode }) {
  * can still copy. It is also what makes the plain-text rendering useful, since a
  * button with no text URL becomes a dead word there.
  */
-export function Cta({ href, text, children }: { href: string; text: AudienceText; children: ReactNode }) {
+export function Cta({ href, text, children }: { href: string; text: EmailText; children: ReactNode }) {
   return (
     <>
       <Section style={styles.buttonSection}>

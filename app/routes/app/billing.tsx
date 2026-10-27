@@ -12,7 +12,7 @@ import { getEnv } from "~/request-context.server";
 import { currentAppInstallationSchema } from "~/schemas/current-app-installation";
 import { readAppHandle } from "./billing-app-handle.server";
 import { ShopifyAppIdentityAdapter } from "~/adapters/shopify-app-identity.server";
-import { useLocale } from "~/i18n/useLocale";
+import { useLanguage } from "~/i18n/useLanguage";
 import { formatDateTime } from "~/i18n/format";
 import { useTimeZone } from "~/i18n/useTimeZone";
 import { formatMoney } from "~/money";
@@ -210,10 +210,10 @@ function PlanAction({ status, planLink }: Pick<Plan, "status"> & { planLink: Pla
 
 function PlanSummary({ status, promo, planLink }: Pick<Plan, "status" | "promo"> & { planLink: PlanLink }) {
   const { t } = useTranslation(["admin", "common"]);
-  const locale = useLocale();
+  const language = useLanguage();
   const timeZone = useTimeZone();
   const cycleCopy =
-    status.kind === "subscribed" ? billingCycleCopy(locale, timeZone, status) : null;
+    status.kind === "subscribed" ? billingCycleCopy(language, timeZone, status) : null;
   const priceLine = planPriceLine(status);
 
   return (
@@ -227,7 +227,7 @@ function PlanSummary({ status, promo, planLink }: Pick<Plan, "status" | "promo">
         {priceLine && (
           <s-text color="subdued">
             {t(PRICE_CADENCE_KEY[priceLine.cadence], {
-              price: formatMoney(locale, priceLine.price),
+              price: formatMoney(language, priceLine.price),
             })}
           </s-text>
         )}
@@ -385,20 +385,20 @@ type BillingCycleKey =
 
 /** Returns a [key, params] pair, spread straight into `t(...)` by the caller. */
 function billingCycleCopy(
-  locale: Parameters<typeof formatDateTime>[0],
+  language: Parameters<typeof formatDateTime>[0],
   timeZone: string,
   status: Subscribed,
 ): readonly [BillingCycleKey, { date: string; price?: string }] {
-  const price = status.price ? formatMoney(locale, status.price) : undefined;
+  const price = status.price ? formatMoney(language, status.price) : undefined;
 
   if (status.trialEndsAt) {
-    const date = formatDateTime(locale, status.trialEndsAt, timeZone);
+    const date = formatDateTime(language, status.trialEndsAt, timeZone);
     return price
       ? ["billing.current.trial", { date, price }]
       : ["billing.current.trialUnknownPrice", { date }];
   }
 
-  const date = formatDateTime(locale, status.periodEnd, timeZone);
+  const date = formatDateTime(language, status.periodEnd, timeZone);
   return price
     ? ["billing.current.renews", { date, price }]
     : ["billing.current.renewsUnknownPrice", { date }];

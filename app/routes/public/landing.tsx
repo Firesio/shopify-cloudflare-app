@@ -1,8 +1,9 @@
 import { Link, redirect } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { useTranslation } from "react-i18next";
+import { identity } from "~/identity";
 import { audienceTextForRequest } from "~/wiring/audience.server";
-import { useLocale } from "~/i18n/useLocale";
+import { useLanguage } from "~/i18n/useLanguage";
 import { formatMoney } from "~/money";
 import { FEATURED_PLAN_HANDLE, PLANS } from "~/billing/plans";
 import { paths } from "~/urls";
@@ -25,9 +26,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const text = await audienceTextForRequest(request, "public.landing");
   const t = text.fixedT("public");
-  const common = text.fixedT("common");
   return {
-    title: `${common("appName")} — ${t("landing.heading")}`,
+    title: `${identity.name} — ${t("landing.heading")}`,
     description: t("landing.lead"),
   };
 };
@@ -69,7 +69,7 @@ function InstallCall() {
 
 export default function Landing() {
   const { t } = useTranslation("public");
-  const locale = useLocale();
+  const language = useLanguage();
 
   return (
     <>
@@ -102,7 +102,7 @@ export default function Landing() {
           <h2>{t("landing.pricingTeaser.heading")}</h2>
           <p className="lead">
             {t("landing.pricingTeaser.body", {
-              price: formatMoney(locale, PLANS[FEATURED_PLAN_HANDLE].priceMonthly),
+              price: formatMoney(language, PLANS[FEATURED_PLAN_HANDLE].priceMonthly),
             })}
           </p>
           <Link to="/pricing" className="btn btn--secondary">

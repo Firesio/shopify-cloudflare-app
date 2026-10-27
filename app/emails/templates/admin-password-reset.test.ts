@@ -65,7 +65,7 @@ describe("the password-reset email", () => {
   });
 
   it("announces its language, so a translated email reads correctly", async () => {
-    const email = await adminPasswordResetEmail({ ...PROPS, locale: "es" }, await audienceTextOf("es"));
+    const email = await adminPasswordResetEmail(PROPS, await audienceTextOf("es"));
     expect(email.html).toContain('lang="es"');
   });
 

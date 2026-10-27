@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { useTranslation } from "react-i18next";
 import { audienceTextForRequest } from "~/wiring/audience.server";
-import { useLocale } from "~/i18n/useLocale";
+import { useLanguage } from "~/i18n/useLanguage";
 import { formatDate } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
 import { identity } from "~/identity";
@@ -11,9 +11,8 @@ export const handle = { i18n: ["common", "public"] };
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const text = await audienceTextForRequest(request, "public.terms");
   const t = text.fixedT("public");
-  const common = text.fixedT("common");
   return {
-    title: `${t("legal.terms.heading")} · ${common("appName")}`,
+    title: `${t("legal.terms.heading")} · ${identity.name}`,
   };
 };
 
@@ -34,12 +33,11 @@ const SECTION_KEYS = [
 
 export default function TermsOfService() {
   const { t } = useTranslation("public");
-  const { t: common } = useTranslation("common");
-  const locale = useLocale();
+  const language = useLanguage();
 
   const updated = Number.isNaN(Date.parse(identity.legal.effectiveDate))
     ? identity.legal.effectiveDate
-    : formatDate(locale, new Date(identity.legal.effectiveDate), UTC, { dateStyle: "long" });
+    : formatDate(language, new Date(identity.legal.effectiveDate), UTC, { dateStyle: "long" });
 
   return (
     <section className="section">
@@ -51,7 +49,6 @@ export default function TermsOfService() {
 
         <p>
           {t("legal.terms.intro", {
-            appName: common("appName"),
             company: identity.companyName,
           })}
         </p>

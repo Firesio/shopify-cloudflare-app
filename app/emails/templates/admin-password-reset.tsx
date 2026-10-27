@@ -1,6 +1,5 @@
-import type { AudienceText } from "~/i18n/audience";
 import type { AdminPasswordResetPayload } from "~/notifications/payloads";
-import { Cta, EmailLayout, Muted, P } from "../layout";
+import { Cta, EmailLayout, Muted, P, type EmailText } from "../layout";
 import { renderEmail, type RenderedEmail } from "../render";
 
 /**
@@ -15,7 +14,7 @@ import { renderEmail, type RenderedEmail } from "../render";
  */
 export function adminPasswordResetEmail(
   p: AdminPasswordResetPayload,
-  text: AudienceText,
+  text: EmailText,
 ): Promise<RenderedEmail> {
   return renderEmail(
     "Reset your password",

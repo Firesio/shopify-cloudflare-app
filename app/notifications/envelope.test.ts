@@ -86,4 +86,14 @@ describe("notification envelope", () => {
     const body = { v: 1, event: "shop_uninstalled", to: { push: "d1" }, dedupeKey: "k", payload: { recipientName: "S", shopName: "A", occurredAt: "x", adminUrl: "y" } };
     expect(parseEnvelope(body)).toMatchObject({ ok: false, reason: "invalid_payload" });
   });
+
+  // The recipient's language is parsed at the queue's edge into a canonical tag, so nothing inward sees `es_mx`.
+  it("parses the payload's language into a canonical tag and refuses one that is not a tag", () => {
+    const body = (language: unknown) => ({ v: 1, event: "push_test", to: { push: "d1" }, dedupeKey: "k", payload: { recipientName: "S", language } });
+    const parsed = parseEnvelope(body("es_mx"));
+    expect(parsed).toMatchObject({ ok: true, value: { payload: { language: "es-MX" } } });
+    expect(parseEnvelope(body("not a tag!"))).toMatchObject({ ok: false, reason: "invalid_payload" });
+    expect(parseEnvelope(body(7))).toMatchObject({ ok: false, reason: "invalid_payload" });
+    expect(parseEnvelope(body(undefined))).toMatchObject({ ok: true });
+  });
 });

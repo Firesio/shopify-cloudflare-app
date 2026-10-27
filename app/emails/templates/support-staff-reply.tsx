@@ -1,4 +1,5 @@
 import type { AudienceText } from "~/i18n/audience";
+import type { UnitKeys } from "~/i18n/text-units";
 import type { SupportStaffReplyPayload } from "~/notifications/payloads";
 import { Cta, EmailLayout, Muted, P } from "../layout";
 import { renderEmail, type RenderedEmail } from "../render";
@@ -15,17 +16,18 @@ import { renderEmail, type RenderedEmail } from "../render";
  */
 export async function supportStaffReplyEmail(
   p: SupportStaffReplyPayload,
-  text: AudienceText,
+  text: AudienceText<UnitKeys<"email.support-reply">>,
 ): Promise<RenderedEmail> {
   const t = text.fixedT("email");
   // The ticket's subject is the app's own stored text: the reader sees it in their language when the app can translate it.
-  const [subject] = await text.content([{ kind: "support-ticket", id: p.threadUrl, field: "subject", original: p.subject }]);
+  const subject = await text.content({ kind: "support-ticket", id: p.threadUrl, field: "subject", original: p.subject });
 
+  // The same localized subject on the subject line and as the heading, so the two can never disagree.
   return renderEmail(
-    t("support.reply.subject", { subject: p.subject }),
+    t("support.reply.subject", { subject }),
     <EmailLayout
       preview={p.excerpt}
-      heading={subject ?? p.subject}
+      heading={subject}
       logoUrl={p.logoUrl}
       text={text}
     >

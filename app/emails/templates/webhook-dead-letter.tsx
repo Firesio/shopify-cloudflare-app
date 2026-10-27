@@ -1,6 +1,5 @@
-import type { AudienceText } from "~/i18n/audience";
 import type { WebhookDeadLetterPayload } from "~/notifications/payloads";
-import { Cta, EmailLayout, Muted, P } from "../layout";
+import { Cta, EmailLayout, Muted, P, type EmailText } from "../layout";
 import { renderEmail, type RenderedEmail } from "../render";
 
 /**
@@ -10,7 +9,7 @@ import { renderEmail, type RenderedEmail } from "../render";
  * and the delivery id is in the body because it is how the delivery is found in the failures API. No payload and no
  * failure text: ids and names only.
  */
-export function webhookDeadLetterEmail(p: WebhookDeadLetterPayload, text: AudienceText): Promise<RenderedEmail> {
+export function webhookDeadLetterEmail(p: WebhookDeadLetterPayload, text: EmailText): Promise<RenderedEmail> {
   return renderEmail(
     `Webhook failed: ${p.topic}`,
     <EmailLayout preview={`${p.topic} for ${p.shop} will not be retried`} heading={`Webhook failed: ${p.topic}`} logoUrl={p.logoUrl} text={text}>

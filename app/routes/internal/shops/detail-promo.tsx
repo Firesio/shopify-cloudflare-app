@@ -29,10 +29,10 @@ import { Spinner } from "~/internal/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/internal/components/ui/table";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 
 /** The internal console is staff-only and English-only — no i18n here. */
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 /** id of the hidden revoke form that the confirmation dialog submits. */
 const REVOKE_FORM_ID = "revoke-promo";
@@ -186,7 +186,7 @@ function GrantRow({ grant, now, onRevoke }: { grant: PromoGrant; now: number; on
       </TableCell>
       <TableCell className="max-w-xs truncate text-muted-foreground">{grant.reason}</TableCell>
       <TableCell className="text-muted-foreground">{grant.grantedBy}</TableCell>
-      <TableCell className="text-muted-foreground tabular-nums">{formatDateTime(LOCALE, grant.expiresAt, UTC)}</TableCell>
+      <TableCell className="text-muted-foreground tabular-nums">{formatDateTime(LANGUAGE, grant.expiresAt, UTC)}</TableCell>
       <TableCell className="pr-4 text-right">
         {isActive && (
           <Button

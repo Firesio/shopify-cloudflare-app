@@ -4,8 +4,9 @@ import { installTarget } from "~/lib/install-target";
 import { InstallLink } from "./install-button";
 import type { LinksFunction } from "react-router";
 import { useTranslation } from "react-i18next";
-import { useLocale } from "~/i18n/useLocale";
-import { LocaleSwitcher } from "~/i18n/LocaleSwitcher";
+import { identity } from "~/identity";
+import { useLanguage } from "~/i18n/useLanguage";
+import { LanguageSwitcher } from "~/i18n/LanguageSwitcher";
 // The public stylesheet is loaded HERE, by this layout's links(), so it ships
 // only while a public route is matched. It must never reach the embedded admin,
 // whose Polaris web components bring their own styling.
@@ -38,9 +39,7 @@ export const handle = { i18n: ["common", "public"] };
 
 export default function PublicLayout() {
   const { t } = useTranslation("common");
-  const locale = useLocale();
-
-  const appName = t("appName");
+  const language = useLanguage();
 
   return (
     <div className="shell">
@@ -51,14 +50,14 @@ export default function PublicLayout() {
       <header className="header">
         <div className="header__inner">
           <Link to="/" className="header__brand">
-            {appName}
+            {identity.name}
           </Link>
           <nav className="header__nav" aria-label={t("nav.home")}>
             <div className="header__nav-secondary">
               <Link to="/pricing">{t("nav.pricing")}</Link>
               <Link to="/support">{t("nav.support")}</Link>
             </div>
-            <LocaleSwitcher current={locale} />
+            <LanguageSwitcher current={language} />
             <InstallLink className="btn btn--primary">{t("actions.install")}</InstallLink>
           </nav>
         </div>
@@ -73,7 +72,6 @@ export default function PublicLayout() {
           <span>
             {t("footer.copyright", {
               year: new Date().getFullYear(),
-              appName,
             })}
           </span>
           <div className="footer__links">

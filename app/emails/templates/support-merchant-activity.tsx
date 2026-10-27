@@ -1,6 +1,5 @@
-import type { AudienceText } from "~/i18n/audience";
 import type { SupportMerchantActivityPayload } from "~/notifications/payloads";
-import { Cta, EmailLayout, Muted, P } from "../layout";
+import { Cta, EmailLayout, Muted, P, type EmailText } from "../layout";
 import { renderEmail, type RenderedEmail } from "../render";
 
 /**
@@ -14,7 +13,7 @@ import { renderEmail, type RenderedEmail } from "../render";
  */
 export function supportMerchantActivityEmail(
   p: SupportMerchantActivityPayload,
-  text: AudienceText,
+  text: EmailText,
 ): Promise<RenderedEmail> {
   const lead = p.isNew ? "New ticket" : "New reply";
 

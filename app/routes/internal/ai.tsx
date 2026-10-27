@@ -22,7 +22,7 @@ import { findCatalogueModel } from "~/ai/catalogue";
 import { recommendedChain } from "~/ai/ranking";
 import { useActionToast } from "~/internal/use-action-toast";
 import { formatNumber } from "~/i18n/format";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 import { Deferred, StatRowSkeleton } from "~/internal/components";
 import { streamRegion } from "~/internal/stream-region.server";
 import { PurposeCard } from "./ai/purpose-card";
@@ -30,7 +30,7 @@ import { buildPurpose, summarizeRun } from "./ai/purposes";
 import { RecentCallsTable } from "./ai/recent-calls-table";
 
 /** The internal console is staff-only and English-only — no i18n here. */
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -191,7 +191,7 @@ function UsageStats({
           <CardHeader>
             <CardDescription>{label}</CardDescription>
             <CardTitle className="text-2xl font-semibold tabular-nums">
-              {formatNumber(LOCALE, value)}
+              {formatNumber(LANGUAGE, value)}
             </CardTitle>
             <CardAction>
               <Icon className="size-4 text-muted-foreground" />

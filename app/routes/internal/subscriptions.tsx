@@ -17,11 +17,11 @@ import { streamRegion } from "~/internal/stream-region.server";
 import { planForShopifyHandle } from "~/billing/plans";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 import type { SubscriptionStatus } from "~/domain/subscription-lifecycle";
 
 /** The internal console is staff-only and English-only — no i18n here. */
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 /** How many rows of history to show before this needs its own pagination. */
 const RECENT_LIMIT = 200;
@@ -105,7 +105,7 @@ const COLUMNS: ColumnDef<SubscriptionEvent>[] = [
     ),
     cell: ({ row }) => (
       <div className="text-right text-muted-foreground tabular-nums">
-        {formatDateTime(LOCALE, row.original.occurredAt, UTC)}
+        {formatDateTime(LANGUAGE, row.original.occurredAt, UTC)}
       </div>
     ),
     // Newest first, the order a history is read in.

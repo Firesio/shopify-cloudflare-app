@@ -8,10 +8,8 @@ export const handle = { i18n: ["common", "public"] };
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const text = await audienceTextForRequest(request, "public.support");
   const t = text.fixedT("public");
-  const common = text.fixedT("common");
   return {
-    title: `${t("support.heading")} — ${common("appName")}`,
-    appName: common("appName"),
+    title: `${t("support.heading")} — ${identity.name}`,
   };
 };
 
@@ -27,14 +25,12 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => [
  */
 export default function Support() {
   const { t } = useTranslation("public");
-  const { t: common } = useTranslation("common");
-  const appName = common("appName");
 
   return (
     <section className="section">
       <div className="prose stack">
         <h1>{t("support.heading")}</h1>
-        <p className="muted">{t("support.subheading", { appName })}</p>
+        <p className="muted">{t("support.subheading")}</p>
 
         <p className="notice notice--warning">{t("support.warning")}</p>
 

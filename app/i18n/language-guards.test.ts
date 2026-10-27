@@ -10,11 +10,26 @@ function filesUnder(prefixes: readonly string[]): [string, string][] {
 
 describe("two audiences stay apart", () => {
   it("audience renders (emails, notifications, public pages) never read the request language themselves", () => {
-    const forbidden = /i18n\.server|i18nServer|getFixedT|getLocale\b|getMerchantLanguage|searchParams\.get\(["']locale["']\)/;
+    const forbidden = /i18n\.server|getFixedT|getLanguage\b|getMerchantLanguage|requestEvidence|languageCookie|searchParams\.get\(["'](?:locale|lng)["']\)/;
     const offenders = filesUnder(["../emails/", "../notifications/", "../routes/public/"])
       .filter(([, source]) => forbidden.test(source))
       .map(([file]) => file);
     expect(offenders).toEqual([]);
+  });
+
+  // D7: Shopify's `?locale=` is the language of the admin user. The audience builder's only door to a request is `requestEvidence`.
+  it("the audience builder reads a request only through requestEvidence, never Shopify's ?locale", () => {
+    const source = String(sources["../wiring/audience.server.ts"]);
+    expect(source).toContain("requestEvidence(request)");
+    expect(source).not.toMatch(/getLanguage\b|getMerchantLanguage|["']locale["']/);
+  });
+
+  it("the only code that reads Shopify's `locale` parameter is the language server module", () => {
+    const readers = filesUnder(["../"])
+      .filter(([file]) => !/\.(?:generated)\./.test(file))
+      .filter(([, source]) => /searchParams\.get\(\s*["']locale["']\s*\)|get\(\s*["']locale["']\s*\)/.test(source))
+      .map(([file]) => file);
+    expect(readers.filter((file) => !["../i18n/i18n.server.ts", "../routes/resources/locale.tsx"].includes(file))).toEqual([]);
   });
 
   it("admin routes and admin code never use the audience translator", () => {
@@ -31,5 +46,22 @@ describe("two audiences stay apart", () => {
       .map(([file]) => file)
       .filter((file) => !file.startsWith("../lib/language/"));
     expect(builders).toEqual(["../wiring/audience.server.ts"]);
+  });
+});
+
+describe("negotiation and digests are server only", () => {
+  // The CLDR table and the digests would otherwise be downloaded by every visitor. A `.server.ts` module cannot reach a
+  // browser bundle; anything else may.
+  it("no file that a browser can reach imports the negotiator, the CLDR table, the digests or the validator", () => {
+    const serverOnly = /from\s+["'](?:~\/lib\/language\/(?:negotiate|parent-locales\.generated|text-validator|text-digest)|~\/i18n\/digests\.generated\.server|\.{1,2}\/(?:negotiate|parent-locales\.generated|digests\.generated\.server))["']/;
+    const offenders = filesUnder(["../"])
+      .filter(([file]) => !file.endsWith(".server.ts") && !file.startsWith("../lib/language/"))
+      .filter(([, source]) => serverOnly.test(source))
+      .map(([file]) => file);
+    expect(offenders).toEqual([]);
+  });
+
+  it("remix-i18next is not used: the matched routes' namespaces are read by our own function", () => {
+    expect(filesUnder(["../", "../../workers/"]).filter(([, source]) => source.includes("remix-i18next")).map(([file]) => file)).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { formatMoney, formatNumber } from "~/i18n/format";
-import { useLocale } from "~/i18n/useLocale";
+import { useLanguage } from "~/i18n/useLanguage";
 import { MetricCard } from "./MetricCard";
 
 export type DashboardChannel = {
@@ -20,7 +20,7 @@ export type DashboardMetrics = {
 /** Each export renders an `s-section`, a direct child of `s-page` once rendered. */
 export function PerformanceSection({ metrics, currency }: { metrics: DashboardMetrics; currency: string }) {
   const { t } = useTranslation("admin");
-  const locale = useLocale();
+  const language = useLanguage();
   return (
     <s-section
       heading={t("dashboard.performanceWithPeriod", {
@@ -34,21 +34,21 @@ export function PerformanceSection({ metrics, currency }: { metrics: DashboardMe
       >
         <MetricCard
           label={t("dashboard.sales")}
-          value={formatMoney(locale, metrics.sales, currency)}
+          value={formatMoney(language, metrics.sales, currency)}
           change={t("dashboard.salesChangeShort")}
           href="/admin/analytics"
         />
         <s-divider direction="block"></s-divider>
         <MetricCard
           label={t("dashboard.orders")}
-          value={formatNumber(locale, metrics.orders)}
+          value={formatNumber(language, metrics.orders)}
           change={t("dashboard.ordersChangeShort")}
           href="/admin/orders"
         />
         <s-divider direction="block"></s-divider>
         <MetricCard
           label={t("dashboard.conversion")}
-          value={formatNumber(locale, metrics.conversion, {
+          value={formatNumber(language, metrics.conversion, {
             style: "percent",
             minimumFractionDigits: 1,
           })}
@@ -68,7 +68,7 @@ export function ChannelsSection({
   currency: string;
 }) {
   const { t } = useTranslation("admin");
-  const locale = useLocale();
+  const language = useLanguage();
   return (
     <s-section padding="none">
       <s-table variant="auto">
@@ -85,8 +85,8 @@ export function ChannelsSection({
           {channels.map((channel) => (
             <s-table-row key={channel.key}>
               <s-table-cell>{channel.label}</s-table-cell>
-              <s-table-cell>{formatMoney(locale, channel.sales, currency)}</s-table-cell>
-              <s-table-cell>{formatNumber(locale, channel.orders)}</s-table-cell>
+              <s-table-cell>{formatMoney(language, channel.sales, currency)}</s-table-cell>
+              <s-table-cell>{formatNumber(language, channel.orders)}</s-table-cell>
             </s-table-row>
           ))}
         </s-table-body>

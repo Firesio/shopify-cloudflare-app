@@ -22,7 +22,7 @@ import type { RawUninstallFeedback } from "~/domain/uninstall-feedback";
 import { formatNumber } from "~/i18n/format";
 import { UninstallFeedbackList } from "./UninstallFeedbackList";
 import { UninstallReasonsChart } from "./UninstallReasonsChart";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 
 /**
  * Every chart on the dashboard, in ONE module with a default export, so
@@ -36,7 +36,7 @@ import type { Locale } from "~/i18n/config";
  *
  * The internal console is staff-only and English-only, so no i18n.
  */
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 /** Neutral-theme chart colours (dashboard-01): the primary ink and one lighter step, legible in both themes. */
 const GROWTH_CONFIG = {
@@ -133,7 +133,7 @@ function GrowthChart({ trend }: { trend: readonly MerchantMonth[] }) {
         <CardTitle>Merchant growth</CardTitle>
         <CardDescription>
           <span className="hidden @[540px]/card:block">
-            {`${formatNumber(LOCALE, current)} ${current === 1 ? "shop" : "shops"} with the app installed at the end of the last month`}
+            {`${formatNumber(LANGUAGE, current)} ${current === 1 ? "shop" : "shops"} with the app installed at the end of the last month`}
           </span>
           <span className="@[540px]/card:hidden">Installed shops</span>
         </CardDescription>
@@ -170,7 +170,7 @@ function MovementChart({ trend }: { trend: readonly MerchantMonth[] }) {
       <CardHeader>
         <CardTitle>Installs and uninstalls</CardTitle>
         <CardDescription>
-          {`${formatNumber(LOCALE, installs)} installed, ${formatNumber(LOCALE, uninstalls)} left over ${trend.length} ${trend.length === 1 ? "month" : "months"}`}
+          {`${formatNumber(LANGUAGE, installs)} installed, ${formatNumber(LANGUAGE, uninstalls)} left over ${trend.length} ${trend.length === 1 ? "month" : "months"}`}
         </CardDescription>
       </CardHeader>
       <CardContent>

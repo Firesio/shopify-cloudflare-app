@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { authenticateAdmin } from "~/admin/require-merchant.server";
 import { settle } from "~/admin/settle.server";
 import { Deferred, FailedSection, PendingSection } from "~/components/admin/Deferred";
-import { useLocale } from "~/i18n/useLocale";
+import { useLanguage } from "~/i18n/useLanguage";
 import { formatDate } from "~/i18n/format";
 import { useTimeZone } from "~/i18n/useTimeZone";
 import { supportService } from "~/wiring.server";
@@ -68,7 +68,7 @@ type TicketRows = Awaited<ReturnType<typeof readTickets>>;
  */
 function TicketTable({ tickets }: { tickets: TicketRows }) {
   const { t } = useTranslation(["admin", "common"]);
-  const locale = useLocale();
+  const language = useLanguage();
   const timeZone = useTimeZone();
 
   return (
@@ -99,7 +99,7 @@ function TicketTable({ tickets }: { tickets: TicketRows }) {
                   {t(`support.status.${ticket.status}`)}
                 </s-badge>
               </s-table-cell>
-              <s-table-cell>{formatDate(locale, ticket.lastMessageAt, timeZone)}</s-table-cell>
+              <s-table-cell>{formatDate(language, ticket.lastMessageAt, timeZone)}</s-table-cell>
             </s-table-row>
           ))}
         </s-table-body>

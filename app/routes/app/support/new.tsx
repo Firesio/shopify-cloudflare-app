@@ -95,7 +95,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Shopify puts the merchant's chosen admin language on every embedded
     // request, and this is the only moment we have it: staff answer later from
     // the internal console, which knows nothing about them (@rules/i18n.md).
-    locale: getMerchantLanguage(request),
+    locale: getMerchantLanguage(request).code,
     merchantEmail: parsed.data.merchantEmail,
     ccEmails: parsed.data.ccEmails,
     category: parsed.data.category,

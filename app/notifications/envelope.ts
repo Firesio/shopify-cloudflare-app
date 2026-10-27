@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { languageTagSchema } from "~/lib/language/tag";
 import { err, ok, type Result } from "~/lib/result";
 import type { NotifyRequest } from "~/ports/notifier";
 import type { PayloadByEvent } from "./payloads";
@@ -16,7 +17,7 @@ import type { NotificationEvent } from "./types";
 
 const basePayload = {
   recipientName: z.string(),
-  locale: z.string().optional(),
+  language: languageTagSchema.optional(),
   logoUrl: z.string().optional(),
 };
 

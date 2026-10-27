@@ -5,12 +5,12 @@ import type { ThreadMessage } from "~/components/support/Thread";
 import { Conversation } from "./conversation";
 import { formatDateTime, formatNumber } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 import type { SupportStatus } from "~/support/status";
 import { STATUS_LABEL, STATUS_VARIANT } from "./status-display";
 
 /** The internal console is staff-only and English-only — no i18n here. */
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 function Detail({ label, children }: { readonly label: string; readonly children: ReactNode }) {
   return (
@@ -32,14 +32,14 @@ export function ConversationCard({
     <Card>
       <CardHeader>
         <CardTitle>Conversation</CardTitle>
-        <CardDescription>{`${formatNumber(LOCALE, messages.length)} ${messages.length === 1 ? "message" : "messages"}`}</CardDescription>
+        <CardDescription>{`${formatNumber(LANGUAGE, messages.length)} ${messages.length === 1 ? "message" : "messages"}`}</CardDescription>
       </CardHeader>
       <CardContent>
         <Conversation
           messages={messages}
           merchantLabel={merchantLabel}
-          formatFileSize={(sizeBytes) => `${formatNumber(LOCALE, Math.max(1, Math.round(sizeBytes / 1024)))} KB`}
-          formatWhen={(at) => formatDateTime(LOCALE, at, UTC)}
+          formatFileSize={(sizeBytes) => `${formatNumber(LANGUAGE, Math.max(1, Math.round(sizeBytes / 1024)))} KB`}
+          formatWhen={(at) => formatDateTime(LANGUAGE, at, UTC)}
         />
       </CardContent>
     </Card>
@@ -69,7 +69,7 @@ export function DetailsCard({ status, shop, plan, createdAt, merchantEmail, ccEm
           <Detail label="Shop">{shop}</Detail>
           <Detail label="Plan">{plan ? `${plan.name} · ${plan.status}` : "Free"}</Detail>
           {plan && <Detail label="Subscription">{plan.status}</Detail>}
-          <Detail label="Opened">{formatDateTime(LOCALE, createdAt, UTC)}</Detail>
+          <Detail label="Opened">{formatDateTime(LANGUAGE, createdAt, UTC)}</Detail>
           <Detail label="Reply to">{merchantEmail ?? "In-app only"}</Detail>
           <Detail label="Copied">{ccEmails.length > 0 ? ccEmails.join(", ") : "—"}</Detail>
         </dl>

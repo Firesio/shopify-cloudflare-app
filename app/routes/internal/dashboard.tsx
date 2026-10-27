@@ -21,10 +21,10 @@ import { ChartsSkeleton, HealthPanel, HealthSkeleton, StatCardsSkeleton } from "
 import { Deferred } from "~/internal/components";
 import { streamRegion } from "~/internal/stream-region.server";
 import { unwrap } from "~/lib/result";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 
 /** The internal console is staff-only and English-only — no i18n here. */
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 /** Only used when nobody has paid yet — there's no real currency to show, so USD is a display default, not a business decision. */
 const NO_REVENUE = zero(unwrap(toCurrency("USD")));
 
@@ -163,8 +163,8 @@ function SectionCards({ admins, stats, trend }: { admins: number; stats: Stats; 
   const paidShare = stats.totalShops > 0 ? Math.round((stats.paidShops / stats.totalShops) * 100) : 0;
   const mrr =
     stats.mrrByCurrency.length === 0
-      ? formatMoney(LOCALE, NO_REVENUE)
-      : stats.mrrByCurrency.map((m) => formatMoney(LOCALE, m)).join(" + ");
+      ? formatMoney(LANGUAGE, NO_REVENUE)
+      : stats.mrrByCurrency.map((m) => formatMoney(LANGUAGE, m)).join(" + ");
 
   return (
     <div className={CARDS_GRID}>
@@ -174,7 +174,7 @@ function SectionCards({ admins, stats, trend }: { admins: number; stats: Stats; 
         trending={current ? { change: percentChange(previous?.active, current.active), goodWhen: "up" } : undefined}
         headline={
           current
-            ? `${formatNumber(LOCALE, current.installs)} installed, ${formatNumber(LOCALE, current.uninstalls)} left in ${current.month}`
+            ? `${formatNumber(LANGUAGE, current.installs)} installed, ${formatNumber(LANGUAGE, current.uninstalls)} left in ${current.month}`
             : "No monthly data yet"
         }
         detail="Shops with the app currently installed"
@@ -183,21 +183,21 @@ function SectionCards({ admins, stats, trend }: { admins: number; stats: Stats; 
         label="Paid shops"
         value={String(stats.paidShops)}
         badge={<Badge variant="outline">{`${paidShare}% of shops`}</Badge>}
-        headline={`${formatNumber(LOCALE, stats.freeShops)} shops on a free plan`}
+        headline={`${formatNumber(LANGUAGE, stats.freeShops)} shops on a free plan`}
         detail="Merchants with an active paid subscription"
       />
       <StatCard
         label="Monthly recurring revenue"
         value={mrr}
-        headline={`From ${formatNumber(LOCALE, stats.paidShops)} paid ${stats.paidShops === 1 ? "shop" : "shops"}`}
+        headline={`From ${formatNumber(LANGUAGE, stats.paidShops)} paid ${stats.paidShops === 1 ? "shop" : "shops"}`}
         detail="Recurring revenue at current plan prices"
       />
       <StatCard
         label="Uninstalls this month"
         value={String(current?.uninstalls ?? 0)}
         trending={current ? { change: percentChange(previous?.uninstalls, current.uninstalls), goodWhen: "down" } : undefined}
-        headline={previous ? `${formatNumber(LOCALE, previous.uninstalls)} in ${previous.month}` : "No earlier month to compare"}
-        detail={`${formatNumber(LOCALE, admins)} ${admins === 1 ? "admin account" : "admin accounts"} on this console`}
+        headline={previous ? `${formatNumber(LANGUAGE, previous.uninstalls)} in ${previous.month}` : "No earlier month to compare"}
+        detail={`${formatNumber(LANGUAGE, admins)} ${admins === 1 ? "admin account" : "admin accounts"} on this console`}
       />
     </div>
   );
@@ -220,7 +220,7 @@ function PlansCard({ stats }: { stats: Stats }) {
             <div key={plan.handle} className="flex flex-col gap-2">
               <div className="flex items-baseline justify-between gap-2 text-sm">
                 <span className="font-medium">{`${title} plan`}</span>
-                <span className="text-muted-foreground tabular-nums">{`${formatNumber(LOCALE, count)} · ${pct}%`}</span>
+                <span className="text-muted-foreground tabular-nums">{`${formatNumber(LANGUAGE, count)} · ${pct}%`}</span>
               </div>
               <Progress value={pct} aria-label={`${title} plan share`} />
             </div>

@@ -7,10 +7,10 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from "~/internal
 import { Spinner } from "~/internal/components/ui/spinner";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 
 /** The internal console is staff-only and English-only — no i18n here. */
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 interface SummaryShop {
   readonly contactEmail: string | null;
@@ -83,9 +83,9 @@ export function ShopSummaryCard({ shop }: { shop: SummaryShop }) {
           <Fact label="Store Type (Revenue Tracking)">
             <StoreTypeControl isDevStore={shop.isDevStore} />
           </Fact>
-          <Fact label="Installed">{formatDateTime(LOCALE, shop.installedAt, UTC)}</Fact>
+          <Fact label="Installed">{formatDateTime(LANGUAGE, shop.installedAt, UTC)}</Fact>
           <Fact label="Uninstalled">
-            {shop.uninstalledAt === null ? "—" : formatDateTime(LOCALE, shop.uninstalledAt, UTC)}
+            {shop.uninstalledAt === null ? "—" : formatDateTime(LANGUAGE, shop.uninstalledAt, UTC)}
           </Fact>
         </dl>
       </CardContent>

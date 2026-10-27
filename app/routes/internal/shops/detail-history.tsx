@@ -4,12 +4,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~
 import { planForShopifyHandle } from "~/billing/plans";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 import type { SubscriptionStatus } from "~/domain/subscription-lifecycle";
 import type { EventHistoryRow } from "./detail-events";
 
 /** The internal console is staff-only and English-only — no i18n here. */
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 const STATUS_LABEL: Record<SubscriptionStatus, string> = {
   ACTIVE: "Active",
@@ -44,7 +44,7 @@ function EventRow({ event }: { event: EventHistoryRow }) {
       </TableCell>
       <TableCell className="max-w-md whitespace-normal text-muted-foreground">{event.detail}</TableCell>
       <TableCell className="pr-4 text-right text-muted-foreground tabular-nums">
-        {formatDateTime(LOCALE, event.occurredAt, UTC)}
+        {formatDateTime(LANGUAGE, event.occurredAt, UTC)}
       </TableCell>
     </TableRow>
   );
@@ -104,7 +104,7 @@ function SubscriptionRow({ event }: { event: SubscriptionHistoryItem }) {
         </Badge>
       </TableCell>
       <TableCell className="pr-4 text-right text-muted-foreground tabular-nums">
-        {formatDateTime(LOCALE, event.occurredAt, UTC)}
+        {formatDateTime(LANGUAGE, event.occurredAt, UTC)}
       </TableCell>
     </TableRow>
   );

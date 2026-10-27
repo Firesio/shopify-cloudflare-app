@@ -23,7 +23,6 @@ export function pseudoLocalize(text: string): string {
 export function pseudoLayer(source: TextLayer): TextLayer {
   return {
     name: `pseudo:${source.name}`,
-    keys: (namespace) => source.keys(namespace),
     get: (namespace, key) => {
       const text = source.get(namespace, key);
       return text === undefined ? undefined : pseudoLocalize(text);

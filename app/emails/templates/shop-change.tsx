@@ -1,6 +1,5 @@
-import type { AudienceText } from "~/i18n/audience";
 import type { ShopInstalledPayload, ShopUninstalledPayload } from "~/notifications/payloads";
-import { Cta, EmailLayout, Muted, P } from "../layout";
+import { Cta, EmailLayout, Muted, P, type EmailText } from "../layout";
 import { renderEmail, type RenderedEmail } from "../render";
 
 /**
@@ -11,7 +10,7 @@ import { renderEmail, type RenderedEmail } from "../render";
  */
 function shopChangeEmail(
   p: ShopInstalledPayload | ShopUninstalledPayload,
-  text: AudienceText,
+  text: EmailText,
   words: { readonly subject: string; readonly happened: string },
 ): Promise<RenderedEmail> {
   return renderEmail(
@@ -34,10 +33,10 @@ function shopChangeEmail(
   );
 }
 
-export function shopInstalledEmail(p: ShopInstalledPayload, text: AudienceText): Promise<RenderedEmail> {
+export function shopInstalledEmail(p: ShopInstalledPayload, text: EmailText): Promise<RenderedEmail> {
   return shopChangeEmail(p, text, { subject: "New install", happened: "installed the app" });
 }
 
-export function shopUninstalledEmail(p: ShopUninstalledPayload, text: AudienceText): Promise<RenderedEmail> {
+export function shopUninstalledEmail(p: ShopUninstalledPayload, text: EmailText): Promise<RenderedEmail> {
   return shopChangeEmail(p, text, { subject: "Uninstall", happened: "uninstalled the app" });
 }
