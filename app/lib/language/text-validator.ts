@@ -1,7 +1,8 @@
 // The ONE validator for text a merchant (or an AI draft, or an import) may put into a string the app renders for others.
 // Such a string is DATA: plain text plus `{{allowedName}}` placeholders and nothing else. i18next would otherwise act on
 // `{{- x}}` (unescaped), `$t(key)` (nesting, which can pull in any other string) and `{{x, format}}`.
-import type { TextKey } from "./text";
+// Extension point: the template stores no merchant text, so only tests call it; an app's save path, AI draft and import
+// all go through it. Whether a text is outdated is NOT decided here (see `text-digest.ts`).
 
 export type TextRejection =
   | "empty"
@@ -11,9 +12,9 @@ export type TextRejection =
   | "unescaped_placeholder"
   | "formatted_placeholder"
   | "malformed_placeholder"
+  | "reserved_placeholder"
   | "unknown_placeholder"
-  | "new_url"
-  | "outdated";
+  | "new_url";
 
 export type TextVerdict = { readonly ok: true } | { readonly ok: false; readonly reason: TextRejection; readonly detail?: string };
 
@@ -22,78 +23,94 @@ export interface TextSpec {
   readonly allowed: readonly string[];
   /** Maximum length in characters (code points). */
   readonly maxLength: number;
-  /** Allow line breaks (a body, not a subject line). */
+  /** Allow line breaks and tabs (a body, not a subject line). */
   readonly multiline?: boolean;
+  /** The string is a plural form, so `{{count}}` is the number it is about. Otherwise `count` is refused like the other option names. */
+  readonly plural?: boolean;
   /** The text this one was written against: URLs present there may stay, any other URL is refused. */
   readonly sourceText?: string;
-  /** The digest the editor held (`given`) against the current source's (`current`): a mismatch is "outdated". */
-  readonly digest?: { readonly given: string; readonly current: string };
 }
 
-/** C0 controls (except tab, line feed, carriage return, which `multiline` governs) and DEL. */
-function hasControlCharacter(text: string): boolean {
+/** i18next's own option names. A placeholder named like one invites a collision with how the lookup works, so none is allowed. */
+const RESERVED_NAMES: ReadonlySet<string> = new Set([
+  "count", "context", "defaultValue", "ordinal", "replace", "lng", "lngs", "fallbackLng", "ns", "keySeparator", "nsSeparator",
+  "returnObjects", "returnDetails", "joinArrays", "postProcess", "interpolation", "skipInterpolation", "nest",
+]);
+
+const ALLOWED_FORMAT_CHARACTERS: ReadonlySet<string> = new Set(["‌", "‍"]); // ZWNJ and ZWJ: needed by Persian, Hindi, emoji
+const CONTROL = /^[\p{Cc}\p{Cs}]$/u;
+const FORMAT = /^\p{Cf}$/u;
+const SEPARATOR = /^[\p{Zl}\p{Zp}]$/u;
+const LINE_BREAKS = new Set(["\t", "\n", "\r"]);
+
+/**
+ * Characters that must never reach a reader as text: controls (C0, C1, DEL), lone surrogates, format characters other than
+ * the joiners (zero-width space, bidi overrides, the BOM, which can hide or reorder what a reader sees), and the Unicode
+ * line and paragraph separators. Tab, line feed and carriage return are line structure, allowed only when `multiline`.
+ */
+function hasForbiddenCharacter(text: string, multiline: boolean): boolean {
   return [...text].some((char) => {
-    const code = char.charCodeAt(0);
-    return (code < 0x20 && code !== 0x09 && code !== 0x0a && code !== 0x0d) || code === 0x7f;
+    if (LINE_BREAKS.has(char)) return !multiline;
+    if (CONTROL.test(char) || SEPARATOR.test(char)) return true;
+    return FORMAT.test(char) && !ALLOWED_FORMAT_CHARACTERS.has(char);
   });
 }
-const LINE_BREAK = /[\r\n\t]/;
+
 const PLACEHOLDER = /\{\{([^{}]*)\}\}/g;
 const NAME = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*$/;
-const URL_LIKE = /(?:https?:\/\/|www\.)[^\s]+/gi;
 
-/** URLs a text carries, lower-cased, so the same address in different case is not "new". */
-function urlsOf(text: string): readonly string[] {
-  return (text.match(URL_LIKE) ?? []).map((url) => url.toLowerCase());
+/**
+ * Anything that reads as a link: `https://...`, `www....`, and a BARE domain (`evil.com/pay`: no scheme, but a mail client
+ * or a phone makes it tappable). A bare domain is labels, a dot and a 2+ letter top-level label, so `3.5`, `e.g.` and
+ * `v1.2` are not links; `Done.Thanks` (no space after the full stop) is, which is the price of not missing `evil.com`.
+ */
+const LINK_LIKE = /(?:https?:\/\/|www\.)[^\s]+|(?:[\p{L}\p{N}-]+\.)+\p{L}{2,}(?::\d+)?(?:[/?#][^\s]*)?/giu;
+const TRAILING_PUNCTUATION = /[.,;:!?)\]}"'»”’>]+$/u;
+const LEADING_PUNCTUATION = /^[([{"'«“‘<]+/u;
+
+/**
+ * The address a link points at, so two spellings of one address compare equal: lower case, no scheme, no `www.`, no
+ * punctuation the sentence put around it (`https://shop.com.` is `shop.com`) and no trailing slash.
+ */
+function normaliseLink(link: string): string {
+  return link
+    .toLowerCase()
+    .replace(LEADING_PUNCTUATION, "")
+    .replace(TRAILING_PUNCTUATION, "")
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/+$/, "");
 }
 
-function placeholderProblem(text: string, allowed: readonly string[]): TextVerdict | null {
+function linksOf(text: string): readonly string[] {
+  return (text.replace(PLACEHOLDER, " ").match(LINK_LIKE) ?? []).map(normaliseLink).filter((link) => link.includes("."));
+}
+
+function placeholderProblem(text: string, spec: TextSpec): TextVerdict | null {
   for (const match of text.matchAll(PLACEHOLDER)) {
     const inner = match[1] ?? "";
     if (inner.trimStart().startsWith("-")) return { ok: false, reason: "unescaped_placeholder", detail: match[0] };
     if (inner.includes(",")) return { ok: false, reason: "formatted_placeholder", detail: match[0] };
     const name = NAME.exec(inner)?.[1];
     if (name === undefined) return { ok: false, reason: "malformed_placeholder", detail: match[0] };
-    if (!allowed.includes(name)) return { ok: false, reason: "unknown_placeholder", detail: name };
+    if (RESERVED_NAMES.has(name) && !(name === "count" && spec.plural === true)) return { ok: false, reason: "reserved_placeholder", detail: name };
+    if (!spec.allowed.includes(name)) return { ok: false, reason: "unknown_placeholder", detail: name };
   }
   // Whatever `{{` or `}}` is left after removing the well-formed ones is a broken placeholder.
   if (/\{\{|\}\}/.test(text.replace(PLACEHOLDER, ""))) return { ok: false, reason: "malformed_placeholder" };
   return null;
 }
 
-/** Validate one merchant-editable string. Pure; the digest (async) is computed by the caller with `sourceDigest`. */
+/** Validate one merchant-editable string. Pure. */
 export function validateText(text: string, spec: TextSpec): TextVerdict {
   if (text.trim() === "") return { ok: false, reason: "empty" };
   if ([...text].length > spec.maxLength) return { ok: false, reason: "too_long" };
-  if (hasControlCharacter(text) || (spec.multiline !== true && LINE_BREAK.test(text))) return { ok: false, reason: "control_character" };
+  if (hasForbiddenCharacter(text, spec.multiline === true)) return { ok: false, reason: "control_character" };
   if (text.includes("$t(")) return { ok: false, reason: "nesting" };
-  const placeholder = placeholderProblem(text, spec.allowed);
+  const placeholder = placeholderProblem(text, spec);
   if (placeholder !== null) return placeholder;
-  const known = urlsOf(spec.sourceText ?? "");
-  const added = urlsOf(text).find((url) => !known.includes(url));
+  const known = new Set(linksOf(spec.sourceText ?? ""));
+  const added = linksOf(text).find((link) => !known.has(link));
   if (added !== undefined) return { ok: false, reason: "new_url", detail: added };
-  if (spec.digest !== undefined && spec.digest.given !== spec.digest.current) return { ok: false, reason: "outdated" };
   return { ok: true };
-}
-
-/**
- * SHA-256 of a source string, lower-case hex: what an override stores as the source it was written against. The
- * generated `SOURCE_DIGESTS` map holds the same value for every shipped string, so "outdated" (the digest differs from
- * the current source) is a comparison at render, with no query.
- */
-export async function sourceDigest(text: string): Promise<string> {
-  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-/** Keys of a unit whose stored digest no longer matches the current source (an override written against older text). */
-export function outdatedKeys(
-  keys: readonly TextKey[],
-  stored: (key: TextKey) => string | undefined,
-  current: (key: TextKey) => string | undefined,
-): readonly TextKey[] {
-  return keys.filter((key) => {
-    const was = stored(key);
-    return was !== undefined && was !== current(key);
-  });
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { RouterContextProvider } from "react-router";
 import { action } from "./locale";
-import { getLocale } from "~/i18n/i18n.server";
+import { getLanguage } from "~/i18n/i18n.server";
 
 const LOCALE_URL = "https://example.test/locale";
 
@@ -34,7 +34,7 @@ describe("switching language", () => {
     const next = new Request("https://example.test/pricing", {
       headers: { Cookie: cookie ?? "" },
     });
-    expect(await getLocale(next)).toBe("es");
+    expect(await getLanguage(next)).toBe("es");
   });
 
   it("returns the visitor to the page they switched from", async () => {
@@ -58,11 +58,29 @@ describe("switching language", () => {
     expect(response.headers.get("Location")).toBe("/");
   });
 
-  it("falls back to the default locale for an unsupported choice", async () => {
+  it.each([
+    ["a backslash (browsers read it as a slash)", "/\\evil.test/x"],
+    ["a slash and a backslash", "/\\/evil.test"],
+    ["a tab inside the slashes (the URL parser drops it)", "/\t/evil.test"],
+    ["a newline inside the slashes", "/\n/evil.test"],
+    ["a scheme", "javascript:alert(1)"],
+    ["no leading slash", "evil.test/x"],
+    ["nothing", ""],
+  ])("refuses %s as the return path", async (_name, returnTo) => {
+    const response = await submit({ locale: "es", returnTo });
+    expect(response.headers.get("Location")).toBe("/");
+  });
+
+  it("returns only the resolved path, so a spelling that lands on this site is kept in its plain form", async () => {
+    const response = await submit({ locale: "es", returnTo: "/legal/../pricing?x=1#top" });
+    expect(response.headers.get("Location")).toBe("/pricing?x=1#top");
+  });
+
+  it("falls back to the default language for an unsupported choice", async () => {
     const response = await submit({ locale: "zz", returnTo: "/" });
     const next = new Request("https://example.test/", {
       headers: { Cookie: response.headers.get("Set-Cookie") ?? "" },
     });
-    expect(await getLocale(next)).toBe("en");
+    expect(await getLanguage(next)).toBe("en");
   });
 });

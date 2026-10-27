@@ -14,3 +14,17 @@ export function isSameOriginRequest(originHeader: string | null, requestUrl: str
   // real address). The configured app URL is this site's own origin, so it is accepted too.
   return appUrl !== undefined && URL.canParse(appUrl) && origin === new URL(appUrl).origin;
 }
+
+const RESOLUTION_ORIGIN = "https://this-site.invalid";
+
+/**
+ * A path on THIS site that is safe to redirect to, or `fallback`. The value is RESOLVED the way a browser resolves it (the
+ * URL standard treats `\` as `/`, drops tabs and newlines, and reads `//host` as another site), and accepted only when the
+ * result is still on this origin; what is returned is the resolved path, so no spelling of another site can survive.
+ * `"/\\evil.com"` and `"//evil.com"` resolve to another origin and are refused; `"/pricing?x=1"` is kept.
+ */
+export function safeReturnPath(value: unknown, fallback = "/"): string {
+  if (typeof value !== "string" || !value.startsWith("/") || !URL.canParse(value, RESOLUTION_ORIGIN)) return fallback;
+  const resolved = new URL(value, RESOLUTION_ORIGIN);
+  return resolved.origin === RESOLUTION_ORIGIN ? `${resolved.pathname}${resolved.search}${resolved.hash}` : fallback;
+}

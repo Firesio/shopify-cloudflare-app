@@ -1,20 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { audienceLanguageOf, merchantLanguageOf } from "./roles";
-import { createTranslator, isUnitComplete, resolveText, translateKey, type TextLayer, type TextUnits } from "./text";
-import { outdatedKeys, sourceDigest, validateText } from "./text-validator";
+import { createTranslator, deepFreeze, isUnitComplete, resolveText, translateKey, type TextKey, type TextLayer, type TextUnits } from "./text";
 import { identityContentLocalizer, shippedShopLanguages } from "./audience";
-import { parseLanguageTag } from "./tag";
 
 function layerOf(name: string, data: Record<string, Record<string, string>>): TextLayer {
-  return {
-    name,
-    keys: (namespace) => Object.keys(data[namespace] ?? {}),
-    get: (namespace, key) => data[namespace]?.[key],
-  };
+  return { name, get: (namespace, key) => data[namespace]?.[key] };
 }
 
 const BASE = { namespaces: ["m"], defaultNamespace: "m" } as const;
-const KEYS = [{ namespace: "m", key: "a.b" }, { namespace: "m", key: "c" }];
+const KEYS: readonly TextKey[] = [{ namespace: "m", key: "a.b" }, { namespace: "m", key: "c" }];
 
 describe("resolveText / isUnitComplete", () => {
   const top = layerOf("top", { m: { c: "top C" } });
@@ -27,9 +20,47 @@ describe("resolveText / isUnitComplete", () => {
     expect(resolveText([top], "m", "a.b")).toBeUndefined();
   });
   it("a unit is complete only when every key resolves; an unknown unit is not", () => {
-    expect(isUnitComplete(units, "u", [top, bottom])).toBe(true);
-    expect(isUnitComplete(units, "u", [top])).toBe(false);
-    expect(isUnitComplete(units, "nope", [top, bottom])).toBe(false);
+    expect(isUnitComplete(units, "u", [top, bottom], "en")).toBe(true);
+    expect(isUnitComplete(units, "u", [top], "en")).toBe(false);
+    expect(isUnitComplete(units, "nope", [top, bottom], "en")).toBe(false);
+  });
+
+  // B4: "has text" is defined once. An empty string is not text, so it is neither complete nor a shadow.
+  it("an empty string is missing: not complete, and it does not hide the layer below", () => {
+    const blank = layerOf("blank", { m: { "a.b": "", c: "" } });
+    expect(resolveText([blank], "m", "c")).toBeUndefined();
+    expect(isUnitComplete({ u: KEYS }, "u", [blank], "en")).toBe(false);
+    expect(resolveText([blank, bottom], "m", "c")).toBe("bottom C");
+    expect(isUnitComplete({ u: KEYS }, "u", [blank, bottom], "en")).toBe(true);
+  });
+  it("an empty string never renders as an empty string or as the key of a unit that was called complete", () => {
+    const blank = layerOf("blank", { m: { "a.b": "", c: "C" } });
+    expect(isUnitComplete({ u: KEYS }, "u", [blank], "en")).toBe(false);
+  });
+});
+
+// B5: a plural key is a GROUP; its strings are one per category of the language.
+describe("plural groups in a unit", () => {
+  const units: TextUnits = { u: [{ namespace: "m", key: "items", plural: true }] };
+  const english = layerOf("en", { m: { items_one: "{{count}} item", items_other: "{{count}} items" } });
+  const arabic = layerOf("ar", { m: { items_zero: "z", items_one: "o", items_two: "t", items_few: "f", items_many: "m", items_other: "x" } });
+
+  it("is complete in English with two forms and in Arabic only with all six", () => {
+    expect(isUnitComplete(units, "u", [english], "en")).toBe(true);
+    expect(isUnitComplete(units, "u", [english], "ar")).toBe(false);
+    expect(isUnitComplete(units, "u", [arabic], "ar")).toBe(true);
+  });
+  it("is incomplete when one category is missing", () => {
+    expect(isUnitComplete(units, "u", [layerOf("x", { m: { items_other: "x" } })], "en")).toBe(false);
+  });
+  it("renders the form for the count, with the count as a placeholder", () => {
+    const keys = units.u ?? [];
+    const instance = createTranslator("en", [english], keys, BASE);
+    expect(translateKey(instance, "en", "m", "items", {}, 1)).toBe("1 item");
+    expect(translateKey(instance, "en", "m", "items", {}, 5)).toBe("5 items");
+    const arabicInstance = createTranslator("ar", [arabic], keys, BASE);
+    expect(translateKey(arabicInstance, "ar", "m", "items", {}, 2)).toBe("t");
+    expect(translateKey(arabicInstance, "ar", "m", "items", {}, 11)).toBe("m");
   });
 });
 
@@ -54,12 +85,23 @@ describe("createTranslator", () => {
     expect(JSON.stringify(data)).toBe(snapshot);
   });
 
-  it("treats layer text as data: no nesting, no unescaped values, no formatters", () => {
-    const layer = layerOf("l", { m: { "a.b": "$t(m:c) {{- name}} {{name, uppercase}}", c: "SECRET" } });
+  it("treats layer text as data: no nesting, no unescaped values", () => {
+    const layer = layerOf("l", { m: { "a.b": "$t(m:c) {{- name}}", c: "SECRET" } });
     const out = translateKey(createTranslator("en", [layer], KEYS, BASE), "en", "m", "a.b", { name: "<b>x</b>" });
     expect(out).not.toContain("SECRET");
     expect(out).toContain("$t(m:c)");
     expect(out).not.toContain("<b>x</b>");
+  });
+
+  // i18next ships real formatters (`number`, `currency`, `datetime`, `list`...). A merchant string must not be able to run one.
+  it("runs no formatter: `{{n, number}}` and `{{n, currency(USD)}}` stay as written", () => {
+    const layer = layerOf("l", { m: { "a.b": "{{n, number}} | {{n, currency(USD)}}", c: "C" } });
+    const instance = createTranslator("en", [layer], KEYS, BASE);
+    expect(instance.services.formatter?.format(1234567, "number", "en")).toBe("1,234,567"); // the formatter exists and WOULD run
+    const out = translateKey(instance, "en", "m", "a.b", { n: 1234567 });
+    expect(out).not.toContain("1,234,567");
+    expect(out).not.toContain("$1,234,567");
+    expect(out).toContain("{{n, number}}");
   });
 
   it("escapes interpolated values unless the caller's renderer already does", () => {
@@ -68,13 +110,26 @@ describe("createTranslator", () => {
     expect(translateKey(createTranslator("en", [layer], KEYS, { ...BASE, escapeValue: false }), "en", "m", "a.b", { name: "O'Brien" })).toBe("Hi O'Brien");
   });
 
-  it("an empty string is missing, and a key naming the prototype is refused", () => {
-    const layer = layerOf("l", { m: { "a.b": "", c: "C", "__proto__.polluted": "x", "constructor.prototype.p": "y" } });
-    const instance = createTranslator("en", [layer], [...KEYS, { namespace: "m", key: "__proto__.polluted" }, { namespace: "m", key: "constructor.prototype.p" }], BASE);
-    expect(translateKey(instance, "en", "m", "a.b")).toBe("a.b");
-    expect(translateKey(instance, "en", "m", "c")).toBe("C");
+  // D2: keys are flat, so `x` and `x.y` are two unrelated keys, and a key that names a prototype is only a name.
+  it("keeps `x` and `x.y` apart, and a prototype-shaped key is just a name", () => {
+    const keys: readonly TextKey[] = [
+      { namespace: "m", key: "x" }, { namespace: "m", key: "x.y" },
+      { namespace: "m", key: "__proto__.polluted" }, { namespace: "m", key: "constructor.prototype.p" },
+    ];
+    const layer = layerOf("l", { m: { x: "X", "x.y": "XY", "__proto__.polluted": "p1", "constructor.prototype.p": "p2" } });
+    const instance = createTranslator("en", [layer], keys, BASE);
+    expect(translateKey(instance, "en", "m", "x")).toBe("X");
+    expect(translateKey(instance, "en", "m", "x.y")).toBe("XY");
+    expect(translateKey(instance, "en", "m", "__proto__.polluted")).toBe("p1");
     expect("polluted" in {}).toBe(false);
     expect("p" in {}).toBe(false);
+  });
+
+  // D1: placeholder values and i18next options live apart, so a value named like an option cannot steer the lookup.
+  it("a value named like an i18next option is just a value", () => {
+    const layer = layerOf("l", { m: { "a.b": "Hi {{lng}} {{ns}} {{context}}", c: "C" } });
+    const out = translateKey(createTranslator("en", [layer], KEYS, BASE), "en", "m", "a.b", { lng: "fr", ns: "other", context: "male" });
+    expect(out).toBe("Hi fr other male");
   });
 
   it("uses default variables", () => {
@@ -83,68 +138,21 @@ describe("createTranslator", () => {
   });
 });
 
-describe("two audiences, two types", () => {
-  it("the merchant's language comes from Shopify's parameter, the reader's from evidence", () => {
-    expect(merchantLanguageOf("es-ES", ["en", "es"], "en")).toBe("es");
-    expect(merchantLanguageOf(null, ["en", "es"], "en")).toBe("en");
-    expect(audienceLanguageOf([undefined, "de", "es-MX"], ["en", "es"], "en")).toBe("es");
-    expect(audienceLanguageOf([], ["en", "es"], "en")).toBe("en");
+describe("deepFreeze", () => {
+  it("freezes every level, so a shared catalogue cannot be changed by any request", () => {
+    const shared = deepFreeze({ en: { common: { hello: "Hi" } } });
+    expect(Object.isFrozen(shared.en.common)).toBe(true);
+    expect(() => {
+      Reflect.set(shared.en.common, "hello", "Hacked");
+    }).not.toThrow();
+    expect(shared.en.common.hello).toBe("Hi");
+    expect(Reflect.set(shared.en.common, "hello", "Hacked")).toBe(false);
   });
-  it("defaults are the original text and the shipped languages", async () => {
-    const tag = parseLanguageTag("es");
-    expect(tag).not.toBeNull();
-    if (tag === null) return;
-    expect(await identityContentLocalizer.localize([{ kind: "k", id: "1", field: "f", original: "Hola" }], tag)).toEqual(["Hola"]);
+});
+
+describe("defaults an app replaces", () => {
+  it("return the original text, one piece at a time, and the shipped languages", async () => {
+    expect(await identityContentLocalizer<"es">().localize({ kind: "k", id: "1", field: "f", original: "Hola" }, "es")).toBe("Hola");
     expect(await shippedShopLanguages(["en", "es"]).forShop("a.myshopify.com")).toEqual({ primary: null, available: ["en", "es"] });
-  });
-});
-
-describe("validateText", () => {
-  const spec = { allowed: ["name", "ticketNumber"], maxLength: 80 };
-  const reason = (text: string, extra = {}) => {
-    const verdict = validateText(text, { ...spec, ...extra });
-    return verdict.ok ? "ok" : verdict.reason;
-  };
-
-  it("accepts plain text and allowed placeholders", () => {
-    expect(reason("Hello {{name}}, ticket {{ ticketNumber }} is ready")).toBe("ok");
-  });
-  it("rejects the i18next syntax that is not plain placeholders", () => {
-    expect(reason("Hi {{- name}}")).toBe("unescaped_placeholder");
-    expect(reason("Hi $t(email:support.reply.cta)")).toBe("nesting");
-    expect(reason("Hi {{name, uppercase}}")).toBe("formatted_placeholder");
-    expect(reason("Hi {{secret}}")).toBe("unknown_placeholder");
-    expect(reason("Hi {{name")).toBe("malformed_placeholder");
-    expect(reason("Hi {{ na me }}")).toBe("malformed_placeholder");
-    expect(reason("Hi }} there")).toBe("malformed_placeholder");
-  });
-  it("rejects control characters, line breaks on a single line, emptiness and length", () => {
-    expect(reason("a\u0000b")).toBe("control_character");
-    expect(reason("a\u0001b")).toBe("control_character");
-    expect(reason("a\nb")).toBe("control_character");
-    expect(reason("a\nb", { multiline: true })).toBe("ok");
-    expect(reason("   ")).toBe("empty");
-    expect(reason("x".repeat(81))).toBe("too_long");
-    expect(reason("😀".repeat(80))).toBe("ok");
-  });
-  it("rejects a URL the source did not have", () => {
-    expect(reason("see https://evil.example/x")).toBe("new_url");
-    expect(reason("see www.evil.example")).toBe("new_url");
-    expect(reason("see https://ok.example/a", { sourceText: "go to HTTPS://OK.example/a" })).toBe("ok");
-  });
-  it("rejects a text written against an older source", () => {
-    expect(reason("fine", { digest: { given: "a", current: "b" } })).toBe("outdated");
-    expect(reason("fine", { digest: { given: "a", current: "a" } })).toBe("ok");
-  });
-});
-
-describe("sourceDigest", () => {
-  it("is the SHA-256 hex of the UTF-8 text", async () => {
-    expect(await sourceDigest("abc")).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
-    expect(await sourceDigest("")).toBe("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
-  });
-  it("finds the keys written against older text", () => {
-    const outdated = outdatedKeys(KEYS, (key) => (key.key === "c" ? "old" : undefined), () => "new");
-    expect(outdated).toEqual([KEYS[1]]);
   });
 });
