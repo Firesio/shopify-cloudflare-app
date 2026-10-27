@@ -15,7 +15,7 @@ import {
 import type { ReactNode } from "react";
 import { styles } from "./tokens";
 import { identity } from "~/identity";
-import { toLocale } from "~/i18n/config";
+import { negotiateLocale, LOCALE_DIRECTION } from "~/i18n/config";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THE email layout. Every email in this app composes this one component plus the
@@ -40,7 +40,8 @@ export interface EmailLayoutProps {
    */
   logoUrl?: string;
   brandName?: string;
-  footer?: string;
+  /** The translated sender disclosure (`email:senderDisclosure`), written by the template that has the translator. */
+  footer: string;
   /** Overrides `<html lang>`, so a translated email announces its language. */
   locale?: string;
 }
@@ -54,11 +55,9 @@ export function EmailLayout({
   footer,
   locale = "en",
 }: EmailLayoutProps) {
-  const resolvedLocale = toLocale(locale);
-  const resolvedFooter =
-    footer ?? identity.copy.emailSenderDisclosure[resolvedLocale];
+  const resolvedLocale = negotiateLocale(locale);
   return (
-    <Html lang={resolvedLocale}>
+    <Html lang={resolvedLocale} dir={LOCALE_DIRECTION[resolvedLocale]}>
       <Head />
       <Preview>{preview}</Preview>
       <Body style={styles.body}>
@@ -70,7 +69,7 @@ export function EmailLayout({
           <Heading style={styles.heading}>{heading}</Heading>
           {children}
           <Hr style={styles.hr} />
-          <Text style={styles.footer}>{resolvedFooter}</Text>
+          <Text style={styles.footer}>{footer}</Text>
         </Container>
       </Body>
     </Html>

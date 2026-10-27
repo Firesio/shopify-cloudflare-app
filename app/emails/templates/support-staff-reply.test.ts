@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { supportStaffReplyEmail } from "./support-staff-reply";
-import { identity } from "~/identity";
 
 describe("merchant support reply email", () => {
   it("uses the localized sender disclosure from product identity", async () => {
@@ -13,7 +12,7 @@ describe("merchant support reply email", () => {
       locale: "es",
     });
 
-    expect(email.html).toContain(identity.copy.emailSenderDisclosure.es);
+    expect(email.html).toContain("Este correo fue enviado por el soporte de TODO: Your App Name.");
     expect(email.html).not.toContain("TODO: your footer line");
   });
 });

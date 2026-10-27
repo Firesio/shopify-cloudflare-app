@@ -1,7 +1,7 @@
 import { redirect } from "react-router";
 import type { ActionFunctionArgs } from "react-router";
 import { localeCookie } from "~/i18n/i18n.server";
-import { toLocale } from "~/i18n/config";
+import { negotiateLocale } from "~/i18n/config";
 
 /**
  * Persists a language choice from the public switcher, then returns the visitor
@@ -10,7 +10,7 @@ import { toLocale } from "~/i18n/config";
 export const action = async ({ request }: ActionFunctionArgs) => {
   const form = await request.formData();
   // Untrusted input from a form — narrow it, never trust the raw value.
-  const locale = toLocale(form.get("locale"));
+  const locale = negotiateLocale(form.get("locale"));
 
   const raw = form.get("returnTo");
   // Only allow same-site paths back: an absolute URL here would be an open

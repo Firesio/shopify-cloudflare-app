@@ -28,6 +28,7 @@ export async function supportStaffReplyEmail(
       heading={p.subject}
       logoUrl={p.logoUrl}
       locale={p.locale}
+      footer={t("senderDisclosure")}
     >
       <P>{t("support.reply.greeting", { name: p.recipientName })}</P>
       <P>{t("support.reply.intro", { staffName: p.staffName })}</P>

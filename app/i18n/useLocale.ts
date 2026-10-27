@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { toLocale, type Locale } from "./config";
+import { negotiateLocale, type Locale } from "./config";
 
 /**
  * The locale the current render is using.
@@ -12,5 +12,5 @@ import { toLocale, type Locale } from "./config";
  */
 export function useLocale(): Locale {
   const { i18n } = useTranslation();
-  return toLocale(i18n.resolvedLanguage ?? i18n.language);
+  return negotiateLocale(i18n.resolvedLanguage ?? i18n.language);
 }

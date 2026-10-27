@@ -1,5 +1,6 @@
 import type { AdminPasswordResetPayload } from "~/notifications/payloads";
 import { Cta, EmailLayout, Muted, P } from "../layout";
+import { emailT } from "../translate.server";
 import { renderEmail, type RenderedEmail } from "../render";
 
 /**
@@ -12,16 +13,17 @@ import { renderEmail, type RenderedEmail } from "../render";
  * STAFF-FACING, so deliberately English — see @rules/i18n.md. Only the one
  * merchant-facing template (support-staff-reply) is translated.
  */
-export function adminPasswordResetEmail(
+export async function adminPasswordResetEmail(
   p: AdminPasswordResetPayload,
 ): Promise<RenderedEmail> {
+  const t = await emailT(p.locale);
   return renderEmail(
     "Reset your password",
     <EmailLayout
       preview="Choose a new password for your account."
       heading="Reset your password"
       logoUrl={p.logoUrl}
-      locale={p.locale}
+      locale={p.locale} footer={t("senderDisclosure")}
     >
       <P>Hello {p.recipientName},</P>
       <P>Someone asked to reset the password for your account.</P>

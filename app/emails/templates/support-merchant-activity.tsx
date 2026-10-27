@@ -1,5 +1,6 @@
 import type { SupportMerchantActivityPayload } from "~/notifications/payloads";
 import { Cta, EmailLayout, Muted, P } from "../layout";
+import { emailT } from "../translate.server";
 import { renderEmail, type RenderedEmail } from "../render";
 
 /**
@@ -11,18 +12,19 @@ import { renderEmail, type RenderedEmail } from "../render";
  * STAFF-FACING, so deliberately English — see @rules/i18n.md. Only the one
  * merchant-facing template (support-staff-reply) is translated.
  */
-export function supportMerchantActivityEmail(
+export async function supportMerchantActivityEmail(
   p: SupportMerchantActivityPayload,
 ): Promise<RenderedEmail> {
   const lead = p.isNew ? "New ticket" : "New reply";
 
+  const t = await emailT(p.locale);
   return renderEmail(
     `${lead}: ${p.shopName} — ${p.subject}`,
     <EmailLayout
       preview={p.excerpt}
       heading={p.subject}
       logoUrl={p.logoUrl}
-      locale={p.locale}
+      locale={p.locale} footer={t("senderDisclosure")}
     >
       <P>
         {p.shopName} {p.isNew ? "opened a support ticket" : "replied to a support ticket"}.

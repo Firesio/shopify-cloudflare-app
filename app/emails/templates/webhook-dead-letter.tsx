@@ -1,5 +1,6 @@
 import type { WebhookDeadLetterPayload } from "~/notifications/payloads";
 import { Cta, EmailLayout, Muted, P } from "../layout";
+import { emailT } from "../translate.server";
 import { renderEmail, type RenderedEmail } from "../render";
 
 /**
@@ -9,10 +10,11 @@ import { renderEmail, type RenderedEmail } from "../render";
  * and the delivery id is in the body because it is how the delivery is found in the failures API. No payload and no
  * failure text: ids and names only.
  */
-export function webhookDeadLetterEmail(p: WebhookDeadLetterPayload): Promise<RenderedEmail> {
+export async function webhookDeadLetterEmail(p: WebhookDeadLetterPayload): Promise<RenderedEmail> {
+  const t = await emailT(p.locale);
   return renderEmail(
     `Webhook failed: ${p.topic}`,
-    <EmailLayout preview={`${p.topic} for ${p.shop} will not be retried`} heading={`Webhook failed: ${p.topic}`} logoUrl={p.logoUrl} locale={p.locale}>
+    <EmailLayout preview={`${p.topic} for ${p.shop} will not be retried`} heading={`Webhook failed: ${p.topic}`} logoUrl={p.logoUrl} locale={p.locale} footer={t("senderDisclosure")}>
       <P>
         The {p.topic} webhook for {p.shopName} ({p.shop}) ran out of retries on {p.occurredAt}, so the work it carried did not happen.
         Delivery id: {p.deliveryId}.

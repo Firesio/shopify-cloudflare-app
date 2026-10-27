@@ -19,7 +19,9 @@ const TYPES_SHAPERS = new Set(["tsconfig.json", "package.json", "wrangler.jsonc"
 export function selectChecks(staged) {
   const lint = staged.filter((file) => LINTABLE.test(file) && file !== "worker-configuration.d.ts");
   const typecheck = staged.some((file) => /\.tsx?$/.test(file) || TYPES_SHAPERS.has(file));
-  return { lint, typecheck };
+  // A translation folder or the sync script can make app/i18n/catalogues.generated.ts stale.
+  const i18n = staged.some((file) => file.startsWith("app/i18n/locales/") || file === "scripts/i18n-sync.mjs" || file === "app/i18n/catalogues.generated.ts");
+  return { lint, typecheck, i18n };
 }
 
 function run(label, command, args) {
@@ -40,7 +42,8 @@ function stagedFiles() {
 }
 
 function main() {
-  const { lint, typecheck } = selectChecks(stagedFiles());
+  const { lint, typecheck, i18n } = selectChecks(stagedFiles());
+  if (i18n) run("i18n catalogues", process.execPath, [join(repoRoot, "scripts/i18n-sync.mjs"), "--check"]);
   if (lint.length > 0) {
     run(`lint ${lint.length} file(s)`, join(repoRoot, "node_modules/.bin/eslint"), [
       "--cache", "--cache-location", "./node_modules/.cache/eslint", "--no-warn-ignored", "--", ...lint,
@@ -52,7 +55,7 @@ function main() {
       "--noEmit", "--incremental", "--tsBuildInfoFile", "./node_modules/.cache/tsc.tsbuildinfo",
     ]);
   }
-  if (lint.length === 0 && !typecheck) console.log("precommit: nothing to check");
+  if (lint.length === 0 && !typecheck && !i18n) console.log("precommit: nothing to check");
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) main();

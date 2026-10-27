@@ -1,40 +1,41 @@
 import { describe, it, expect } from "vitest";
 import {
-  toLocale,
+  negotiateLocale,
   isSupportedLocale,
   SUPPORTED_LOCALES,
   LOCALE_LABELS,
   LOCALE_DIRECTION,
   DEFAULT_LOCALE,
+  NAMESPACES,
 } from "./config";
 import { resources } from "./resources";
 
 describe("locale narrowing", () => {
   it("accepts a supported locale", () => {
-    expect(toLocale("es")).toBe("es");
+    expect(negotiateLocale("es")).toBe("es");
   });
 
   it("falls back for an unsupported language", () => {
-    expect(toLocale("de")).toBe(DEFAULT_LOCALE);
+    expect(negotiateLocale("de")).toBe(DEFAULT_LOCALE);
   });
 
   it("falls back for junk input", () => {
-    expect(toLocale(undefined)).toBe(DEFAULT_LOCALE);
-    expect(toLocale(null)).toBe(DEFAULT_LOCALE);
-    expect(toLocale(42)).toBe(DEFAULT_LOCALE);
-    expect(toLocale("")).toBe(DEFAULT_LOCALE);
+    expect(negotiateLocale(undefined)).toBe(DEFAULT_LOCALE);
+    expect(negotiateLocale(null)).toBe(DEFAULT_LOCALE);
+    expect(negotiateLocale(42)).toBe(DEFAULT_LOCALE);
+    expect(negotiateLocale("")).toBe(DEFAULT_LOCALE);
   });
 
   it("matches the base language of a REGIONAL tag", () => {
     // Shopify sends es-ES / es-MX in the admin's `locale` parameter. Without
     // this, a Spanish merchant silently gets English.
-    expect(toLocale("es-ES")).toBe("es");
-    expect(toLocale("es-419")).toBe("es");
-    expect(toLocale("en-GB")).toBe("en");
+    expect(negotiateLocale("es-ES")).toBe("es");
+    expect(negotiateLocale("es-419")).toBe("es");
+    expect(negotiateLocale("en-GB")).toBe("en");
   });
 
   it("is case-insensitive on the base language", () => {
-    expect(toLocale("ES-es")).toBe("es");
+    expect(negotiateLocale("ES-es")).toBe("es");
   });
 
   it("narrows correctly", () => {
@@ -66,7 +67,7 @@ function keys(value: object, prefix = ""): string[] {
 }
 
 describe("translation completeness", () => {
-  const namespaces = ["common", "public", "admin"] as const;
+  const namespaces = NAMESPACES;
 
   it.each(namespaces)(
     "%s has identical keys in every locale",
@@ -116,7 +117,7 @@ describe("translation completeness", () => {
     };
 
     for (const locale of SUPPORTED_LOCALES) {
-      for (const ns of ["common", "public", "admin"] as const) {
+      for (const ns of NAMESPACES) {
         walk(resources[DEFAULT_LOCALE][ns], resources[locale][ns], `${locale}/${ns} `);
       }
     }

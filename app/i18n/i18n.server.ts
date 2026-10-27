@@ -3,9 +3,10 @@ import { RemixI18Next } from "remix-i18next/server";
 import {
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
-  toLocale,
+  negotiateLocale,
   type Locale,
 } from "./config";
+
 import { i18nOptions } from "./options";
 
 /**
@@ -35,13 +36,13 @@ export const localeCookie = createCookie("locale", {
  *  4. `Accept-Language` — a sensible first guess.
  *  5. `en`.
  *
- * Shopify sends regional tags (`es-ES`), so `toLocale` matches the base language
+ * Shopify sends regional tags (`es-ES`), so `negotiateLocale` matches the base language
  * before falling back.
  */
 async function findLocale(request: Request): Promise<string | null> {
   const shopifyLocale = new URL(request.url).searchParams.get("locale");
   if (!shopifyLocale) return null;
-  return toLocale(shopifyLocale);
+  return negotiateLocale(shopifyLocale);
 }
 
 /**
@@ -63,5 +64,5 @@ export const i18nServer = new RemixI18Next({
 
 /** The resolved locale for this request, narrowed to a supported one. */
 export async function getLocale(request: Request): Promise<Locale> {
-  return toLocale(await i18nServer.getLocale(request));
+  return negotiateLocale(await i18nServer.getLocale(request));
 }
