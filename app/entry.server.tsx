@@ -6,7 +6,9 @@ import { I18nextProvider, initReactI18next } from "react-i18next";
 
 import { createShopify } from "~/shopify.server";
 import { getEnv } from "~/request-context.server";
-import { i18nServer, getLocale } from "~/i18n/i18n.server";
+import { bootstrapScriptFor } from "~/i18n/bootstrap.server";
+import { getLanguage } from "~/i18n/i18n.server";
+import { routeNamespaces } from "~/i18n/route-namespaces";
 import { i18nOptions } from "~/i18n/options";
 import { onPromiseSettled } from "~/lib/promise-settlement";
 import { renderErrorLog } from "~/lib/render-error";
@@ -43,15 +45,15 @@ export default async function handleRequest(
   createShopify(getEnv()).addDocumentResponseHeaders(request, responseHeaders);
   applySecurityHeaders(request, responseHeaders);
 
-  const locale = await getLocale(request);
+  const language = await getLanguage(request);
+  // Only the namespaces the matched routes actually declare, so a public page does not ship the admin strings.
+  const namespaces = routeNamespaces(reactRouterContext);
   const instance = createInstance();
 
   await instance.use(initReactI18next).init({
     ...i18nOptions,
-    lng: locale,
-    // Only the namespaces the matched routes actually declare, so a public page
-    // does not ship the admin strings.
-    ns: i18nServer.getRouteNamespaces(reactRouterContext),
+    lng: language,
+    ns: [...namespaces],
   });
 
   const controller = new AbortController();
@@ -63,6 +65,8 @@ export default async function handleRequest(
       <ServerRouter context={reactRouterContext} url={request.url} />
     </I18nextProvider>,
     {
+      // The language and text the browser needs to hydrate, in the page itself: no request to make, none to fail.
+      bootstrapScriptContent: bootstrapScriptFor(language, namespaces),
       signal: controller.signal,
       onError(error: unknown) {
         didError = true;

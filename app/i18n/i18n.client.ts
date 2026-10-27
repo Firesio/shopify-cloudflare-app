@@ -1,29 +1,56 @@
-import i18next from "i18next";
+import { createInstance, type BackendModule, type i18n } from "i18next";
 import { initReactI18next } from "react-i18next";
 import { baseI18nOptions } from "./base-options";
-import { loadBrowserResources } from "./client-loaders";
-import { BROWSER_NAMESPACES, negotiateLocale } from "./config";
+import { BOOTSTRAP_GLOBAL, parseBootstrap } from "./bootstrap";
+import { BROWSER_LOADERS } from "./browser-loaders.generated";
+import { BROWSER_NAMESPACES, DEFAULT_LANGUAGE } from "./catalogues.generated";
+import { jsonOf } from "./catalogue-modules";
+import { browserNamespaceOf, languageCodeOf } from "./config";
 
 /**
- * Initialise i18next in the browser with the locale the server already used.
- *
- * The locale is read from `<html lang>` rather than re-detected: the server has
- * already resolved it (including Shopify's `locale` parameter), and detecting
- * again client-side could disagree and cause a hydration mismatch. Only that
- * language (and the default, as the fallback) is downloaded.
+ * The browser's only way to load a namespace the server did not send: a navigation to a route that declares another one,
+ * or a page that came without its bootstrap. One lazy chunk per language and BROWSER namespace (generated, so a server
+ * namespace such as mail is not even listed). A failed request asks i18next to retry (`callback(error, true)`).
  */
-export async function initClientI18n(): Promise<typeof i18next> {
-  if (i18next.isInitialized) return i18next;
+const browserBackend: BackendModule = {
+  type: "backend",
+  init: () => undefined,
+  read(language, namespace, callback) {
+    const code = languageCodeOf(language);
+    const name = browserNamespaceOf(namespace);
+    if (code === null || name === null) {
+      callback(new Error(`no browser namespace "${namespace}" for language "${language}"`), false);
+      return;
+    }
+    BROWSER_LOADERS[code][name]().then(
+      (module) => callback(null, jsonOf(module)),
+      (error: unknown) => callback(error instanceof Error ? error : new Error(String(error)), true),
+    );
+  },
+};
 
-  const lng = negotiateLocale(document.documentElement.lang);
-  const resources = await loadBrowserResources(lng);
+/**
+ * Create the browser's i18next instance (one per page load, like the server's one per request) with the language and text
+ * the server already used, which it put in the page (`bootstrap.ts`): nothing is downloaded to hydrate, and no language is
+ * detected again (which could disagree with the server and cause a hydration mismatch). Without a usable bootstrap it
+ * falls back to `<html lang>` and loads the browser namespaces of that language only, retrying a failed chunk.
+ */
+export async function initClientI18n(): Promise<i18n> {
+  const bootstrap = parseBootstrap(Reflect.get(window, BOOTSTRAP_GLOBAL));
+  const language = bootstrap?.language ?? languageCodeOf(document.documentElement.lang) ?? DEFAULT_LANGUAGE;
+  const sent = bootstrap?.resources ?? {};
 
-  await i18next.use(initReactI18next).init({
-    ...baseI18nOptions,
-    lng,
-    ns: [...BROWSER_NAMESPACES],
-    resources,
-  });
+  const instance = createInstance();
+  await instance
+    .use(initReactI18next)
+    .use(browserBackend)
+    .init({
+      ...baseI18nOptions,
+      lng: language,
+      ns: bootstrap === null ? [...BROWSER_NAMESPACES] : Object.keys(sent),
+      resources: { [language]: sent },
+      partialBundledLanguages: true,
+    });
 
-  return i18next;
+  return instance;
 }

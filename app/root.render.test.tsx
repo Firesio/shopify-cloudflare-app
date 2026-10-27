@@ -10,7 +10,7 @@ vi.mock("react-router", async (importOriginal) => {
     Outlet: () => <main>Home</main>,
     Scripts: () => null,
     ScrollRestoration: () => null,
-    useLoaderData: () => ({ locale: "en" }),
+    useLoaderData: () => ({ language: "en" }),
   };
 });
 

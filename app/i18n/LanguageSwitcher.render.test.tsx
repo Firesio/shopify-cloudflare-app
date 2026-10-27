@@ -9,7 +9,7 @@ import {
 import { createInstance } from "i18next";
 import { I18nextProvider, initReactI18next } from "react-i18next";
 import { i18nOptions } from "./options";
-import { LocaleSwitcher } from "./LocaleSwitcher";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 /**
  * Renders the switcher through the real SSR path.
@@ -23,7 +23,7 @@ async function renderAt(path: string) {
   await instance.use(initReactI18next).init({ ...i18nOptions, lng: "en" });
 
   const routes: RouteObject[] = [
-    { path: "*", Component: () => <LocaleSwitcher current="en" /> },
+    { path: "*", Component: () => <LanguageSwitcher current="en" /> },
   ];
 
   const handler = createStaticHandler(routes);

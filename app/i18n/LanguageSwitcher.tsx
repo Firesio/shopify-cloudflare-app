@@ -1,6 +1,6 @@
 import { Form, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
-import { LOCALE_LABELS, SUPPORTED_LOCALES, type Locale } from "./config";
+import { LANGUAGES, LANGUAGE_CODES, type LanguageCode } from "./catalogues.generated";
 
 /**
  * Language switcher for the PUBLIC pages.
@@ -23,7 +23,7 @@ import { LOCALE_LABELS, SUPPORTED_LOCALES, type Locale } from "./config";
  * in the `locale` parameter. Offering a second switch there would let the app
  * disagree with the surrounding Shopify admin.
  */
-export function LocaleSwitcher({ current }: { current: Locale }) {
+export function LanguageSwitcher({ current }: { current: LanguageCode }) {
   const { t } = useTranslation("common");
   // useLocation, not `window`: it resolves identically on the server and the
   // client. Reading `window` here rendered "/" into the value on the server,
@@ -53,9 +53,9 @@ export function LocaleSwitcher({ current }: { current: Locale }) {
           // form still has a submit button for that case.
           onChange={(event) => event.currentTarget.form?.requestSubmit()}
         >
-          {SUPPORTED_LOCALES.map((locale) => (
-            <option key={locale} value={locale}>
-              {LOCALE_LABELS[locale]}
+          {LANGUAGE_CODES.map((code) => (
+            <option key={code} value={code}>
+              {LANGUAGES[code].name}
             </option>
           ))}
         </select>
