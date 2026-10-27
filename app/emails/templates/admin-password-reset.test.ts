@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { audienceTextOf } from "~/test/audience";
 import { adminPasswordResetEmail } from "./admin-password-reset";
 import { palette } from "../tokens";
 
@@ -10,7 +11,7 @@ const PROPS = {
 
 describe("the password-reset email", () => {
   it("renders both an HTML and a text part", async () => {
-    const email = await adminPasswordResetEmail(PROPS);
+    const email = await adminPasswordResetEmail(PROPS, await audienceTextOf());
 
     expect(email.subject).toBe("Reset your password");
     // An HTML-only message is penalised by essentially every spam filter, and
@@ -21,7 +22,7 @@ describe("the password-reset email", () => {
   });
 
   it("puts the reset URL in BOTH parts", async () => {
-    const email = await adminPasswordResetEmail(PROPS);
+    const email = await adminPasswordResetEmail(PROPS, await audienceTextOf());
     // A link that only survives in the HTML is unreachable for anyone reading
     // the text part, which is the whole reason the CTA shows the raw URL too.
     expect(email.html).toContain(PROPS.resetUrl);
@@ -29,27 +30,27 @@ describe("the password-reset email", () => {
   });
 
   it("greets the recipient in both parts", async () => {
-    const email = await adminPasswordResetEmail(PROPS);
+    const email = await adminPasswordResetEmail(PROPS, await audienceTextOf());
     expect(email.html).toContain("Ada Lovelace");
     expect(email.text).toContain("Ada Lovelace");
   });
 
   it("styles inline — email clients strip <style> blocks", async () => {
-    const email = await adminPasswordResetEmail(PROPS);
+    const email = await adminPasswordResetEmail(PROPS, await audienceTextOf());
     expect(email.html).toContain("style=");
     expect(email.html).not.toMatch(/<style[\s>]/);
     expect(email.html).not.toContain("<link");
   });
 
   it("uses the shared palette rather than an ad-hoc colour", async () => {
-    const email = await adminPasswordResetEmail(PROPS);
+    const email = await adminPasswordResetEmail(PROPS, await audienceTextOf());
     // The CTA background comes from tokens.ts, which tokens.test.ts pins to the
     // site's SCSS. So a brand change reaches the email.
     expect(email.html.toLowerCase()).toContain(palette.accent);
   });
 
   it("carries a preview line, so the inbox snippet is not 'Hello Name,'", async () => {
-    const email = await adminPasswordResetEmail(PROPS);
+    const email = await adminPasswordResetEmail(PROPS, await audienceTextOf());
     expect(email.html).toContain("Choose a new password for your account.");
   });
 
@@ -57,19 +58,19 @@ describe("the password-reset email", () => {
     const email = await adminPasswordResetEmail({
       ...PROPS,
       recipientName: '<script>alert("x")</script>',
-    });
+    }, await audienceTextOf());
     // React escapes by construction; this asserts nothing bypasses it.
     expect(email.html).not.toContain("<script>alert");
     expect(email.html).toContain("&lt;script&gt;");
   });
 
   it("announces its language, so a translated email reads correctly", async () => {
-    const email = await adminPasswordResetEmail({ ...PROPS, locale: "es" });
+    const email = await adminPasswordResetEmail({ ...PROPS, locale: "es" }, await audienceTextOf("es"));
     expect(email.html).toContain('lang="es"');
   });
 
   it("renders with no logo, since clients block remote images by default", async () => {
-    const email = await adminPasswordResetEmail(PROPS);
+    const email = await adminPasswordResetEmail(PROPS, await audienceTextOf());
     // The brand name must be present as text, not only as an <img alt>.
     expect(email.html).not.toContain("<img");
     expect(email.html).toContain("TODO: Your App Name");
@@ -82,7 +83,7 @@ describe("the password-reset email", () => {
     const email = await adminPasswordResetEmail({
       ...PROPS,
       logoUrl: "https://example.test/logo.png",
-    });
+    }, await audienceTextOf());
     expect(email.html).toContain("https://example.test/logo.png");
   });
 });

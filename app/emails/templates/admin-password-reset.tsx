@@ -1,6 +1,6 @@
+import type { AudienceText } from "~/i18n/audience";
 import type { AdminPasswordResetPayload } from "~/notifications/payloads";
 import { Cta, EmailLayout, Muted, P } from "../layout";
-import { emailT } from "../translate.server";
 import { renderEmail, type RenderedEmail } from "../render";
 
 /**
@@ -10,24 +10,24 @@ import { renderEmail, type RenderedEmail } from "../render";
  * Pure apart from rendering — no `getEnv()`, no database, no clock. Everything it
  * needs arrives on the payload, which is what makes it renderable in a test with
  * no request context.
- * STAFF-FACING, so deliberately English — see @rules/i18n.md. Only the one
+ * STAFF-FACING, so English by this app's choice (@rules/i18n.md). Only the
  * merchant-facing template (support-staff-reply) is translated.
  */
-export async function adminPasswordResetEmail(
+export function adminPasswordResetEmail(
   p: AdminPasswordResetPayload,
+  text: AudienceText,
 ): Promise<RenderedEmail> {
-  const t = await emailT(p.locale);
   return renderEmail(
     "Reset your password",
     <EmailLayout
       preview="Choose a new password for your account."
       heading="Reset your password"
       logoUrl={p.logoUrl}
-      locale={p.locale} footer={t("senderDisclosure")}
+      text={text}
     >
       <P>Hello {p.recipientName},</P>
       <P>Someone asked to reset the password for your account.</P>
-      <Cta href={p.resetUrl}>Choose a new password</Cta>
+      <Cta href={p.resetUrl} text={text}>Choose a new password</Cta>
       <Muted>
         This link expires in {p.expiresIn} and can only be used once.
       </Muted>

@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { useTranslation } from "react-i18next";
-import { i18nServer } from "~/i18n/i18n.server";
+import { audienceTextForRequest } from "~/wiring/audience.server";
 import { useLocale } from "~/i18n/useLocale";
 import { formatDate } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
@@ -9,8 +9,9 @@ import { identity } from "~/identity";
 export const handle = { i18n: ["common", "public"] };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const t = await i18nServer.getFixedT(request, "public");
-  const common = await i18nServer.getFixedT(request, "common");
+  const text = await audienceTextForRequest(request, "public.privacy");
+  const t = text.fixedT("public");
+  const common = text.fixedT("common");
   return {
     title: `${t("legal.privacy.heading")} · ${common("appName")}`,
     appName: common("appName"),

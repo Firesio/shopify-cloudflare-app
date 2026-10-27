@@ -6,11 +6,14 @@
  *   node scripts/i18n-sync.mjs --check   # exit 1 if any generated file is stale or a folder is malformed
  *
  * The source of truth is `app/i18n/locales/<code>/`: one folder per language, one JSON file per namespace, plus
- * `language.json` ({ "name": "<endonym>", "direction": "ltr" | "rtl" }). Adding a language is adding a folder and running
+ * `language.json` ({ "name": "<endonym>", "script": "Latn", "direction": "ltr" | "rtl" }; the script must be the one
+ * `Intl.Locale(<code>).maximize()` gives, so a folder cannot claim a script it is not written in). Adding a language is adding a folder and running
  * this script; no code file lists the codes.
  *
  * Output:
- *   - app/i18n/catalogues.generated.ts: the codes, endonyms, directions, namespaces and the `Resources` type.
+ *   - app/i18n/catalogues.generated.ts: the codes, endonyms, scripts, directions, namespaces, the `Resources` type, the
+ *     FLAT key union of each namespace (plural groups collapsed to the base key, as i18next types them) and a digest map
+ *     (SHA-256 of every `en` string, for the "outdated" rule of an app's overrides: docs/i18n.md).
  *   - OPTIONAL, only when an `extensions/` folder exists: for every `extensions/<name>/locales/` folder, the locale files
  *     of that extension, one per catalogue language, taken from the namespace `ext-<name>` (so the app has one place
  *     for every string). The platform's size limit is checked; a file over it FAILS the sync (nothing is silently
@@ -18,6 +21,7 @@
  *
  * `--check` is part of `npm run typecheck`, so CI and the pre-commit gate fail on a stale generated file.
  */
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -69,6 +73,7 @@ export function readCatalogues(root) {
 
   const names = {};
   const directions = {};
+  const scripts = {};
   for (const code of codes) {
     if (!isCanonicalTag(code)) problems.push(`${code}: the folder name is not a canonical BCP-47 tag (use "pt-BR", not "pt_br")`);
     const files = readdirSync(join(base, code)).filter((file) => file.endsWith(".json")).sort();
@@ -86,18 +91,50 @@ export function readCatalogues(root) {
       problems.push(`${code}/${LANGUAGE_FILE}.json: "direction" must be "ltr" or "rtl"`);
       continue;
     }
+    const maximal = isCanonicalTag(code) ? new Intl.Locale(code).maximize().script : undefined;
+    if (typeof language.script !== "string" || language.script !== maximal) {
+      problems.push(`${code}/${LANGUAGE_FILE}.json: "script" must be "${maximal}" (the script ${code} is written in)`);
+      continue;
+    }
+    scripts[code] = language.script;
     names[code] = language.name;
     directions[code] = language.direction;
   }
-  return { model: { codes, namespaces, names, directions }, problems };
+  const source = {};
+  for (const ns of namespaces) {
+    const path = join(base, DEFAULT_CODE, `${ns}.json`);
+    const json = existsSync(path) ? readJson(path, problems) : null;
+    if (json !== null) source[ns] = leaves(json);
+  }
+  return { model: { codes, namespaces, names, scripts, directions, source }, problems };
 }
 
+/** Every string of a JSON file as [dotted key, text]. */
+function leaves(value, prefix = "") {
+  return Object.entries(value).flatMap(([key, child]) => {
+    if (typeof child === "string") return [[`${prefix}${key}`, child]];
+    if (typeof child === "object" && child !== null) return leaves(child, `${prefix}${key}.`);
+    return [];
+  });
+}
+
+const PLURAL_SUFFIX = /^(.+)_(zero|one|two|few|many|other)$/;
+/** Names a namespace's keys the way `t()` is typed: one entry per plural group, no category suffix. */
+const INJECTED_KEYS = Object.freeze({ common: ["appName"] });
+function flatKeys(ns, entries) {
+  const keys = new Set(INJECTED_KEYS[ns] ?? []);
+  for (const [key] of entries) keys.add(key.replace(PLURAL_SUFFIX, "$1"));
+  return [...keys].sort();
+}
+const digest = (text) => createHash("sha256").update(text, "utf8").digest("hex");
+
 const q = JSON.stringify;
+const keyTypeName = (ns) => `${ns.replace(/(^|[^A-Za-z0-9]+)([A-Za-z0-9])/g, (_, _sep, c) => c.toUpperCase())}Key`;
 const ident = (ns) => `en_${ns.replace(/[^A-Za-z0-9]/g, "_")}`;
 
 /** The generated TypeScript. Deterministic: the same folders always give the same bytes. */
 export function renderGenerated(model) {
-  const { codes, namespaces, names, directions } = model;
+  const { codes, namespaces, names, scripts, directions, source } = model;
   const imports = namespaces.map((ns) => `import type ${ident(ns)} from "./locales/${DEFAULT_CODE}/${ns}.json";`);
   const record = (map) => codes.map((code) => `  ${q(code)}: ${q(map[code])},`).join("\n");
   return [
@@ -111,6 +148,9 @@ export function renderGenerated(model) {
     "/** Each language written in itself (from its language.json). */",
     `export const LANGUAGE_NAMES = {\n${record(names)}\n} as const;`,
     "",
+    "/** The script each language is written in (from each language.json, checked against Intl). */",
+    `export const LANGUAGE_SCRIPTS = {\n${record(scripts)}\n} as const;`,
+    "",
     "/** Writing direction (from each language.json). */",
     `export const LANGUAGE_DIRECTIONS = {\n${record(directions)}\n} as const;`,
     "",
@@ -120,6 +160,18 @@ export function renderGenerated(model) {
     "/** The default language is the key source: every other language is checked against it. */",
     "export type CatalogueResources = {",
     ...namespaces.map((ns) => `  ${q(ns)}: typeof ${ident(ns)};`),
+    "};",
+    "",
+    "/** The keys of each namespace as t() takes them (flat; a plural group is its base key). */",
+    ...namespaces.map((ns) => `export type ${keyTypeName(ns)} =\n${flatKeys(ns, source[ns] ?? []).map((key) => `  | ${q(key)}`).join("\n") || "  never"};`),
+    "",
+    "export type CatalogueKeys = {",
+    ...namespaces.map((ns) => `  ${q(ns)}: ${keyTypeName(ns)};`),
+    "};",
+    "",
+    "/** SHA-256 (hex, of the UTF-8 text) of every default-language string, keyed `namespace:key`. */",
+    "export const SOURCE_DIGESTS: Readonly<Record<string, string>> = {",
+    ...namespaces.flatMap((ns) => (source[ns] ?? []).map(([key, text]) => `  ${q(`${ns}:${key}`)}: ${q(digest(text))},`)),
     "};",
     "",
   ].join("\n");

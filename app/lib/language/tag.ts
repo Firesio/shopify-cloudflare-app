@@ -1,4 +1,5 @@
 // Language tags. Pure: this module imports nothing from the app, so it can be lifted into any other project unchanged.
+import { PARENT_LOCALES } from "./parent-locales.generated";
 
 declare const languageTagBrand: unique symbol;
 
@@ -29,30 +30,55 @@ export function parseLanguageTag(value: unknown): LanguageTag | null {
   }
 }
 
+/** The tag with its likely script and region filled in (`zh-TW` -> `zh-Hant-TW`, `pt` -> `pt-Latn-BR`). */
+function maximal(tag: string): Intl.Locale {
+  return new Intl.Locale(tag).maximize();
+}
+
+/** One step up: drop the region, then the script. Null at the bare language. */
+function truncate(tag: string): string | null {
+  const { language, script, region } = new Intl.Locale(tag);
+  if (region !== undefined) return script === undefined ? language : `${language}-${script}`;
+  return script === undefined ? null : language;
+}
+
 /**
- * The tags to try for one tag, most specific first: `zh-Hant-TW` -> `zh-Hant-TW`, `zh-Hant`, `zh`; `es-MX` -> `es-MX`,
- * `es`. Extensions (`-u-ca-...`) and variants are dropped: they never decide which language a person reads.
+ * The tags to try for one tag, most specific first, SCRIPT-AWARE: `es-MX` -> `es-MX`, `es-419`, `es`; `pt-AO` -> `pt-AO`,
+ * `pt-PT`, `pt`; `zh-TW` -> `zh-TW`, `zh-Hant`. A step is the CLDR parent where CLDR names one (`parentLocales`, which
+ * also says "stop" for script variants such as `sr-Latn`), else truncation; a tag in another script than the request is
+ * never in the chain, so `zh-TW` is never answered with Simplified Chinese. Extensions and variants are dropped.
  */
 export function lookupChain(tag: LanguageTag): readonly LanguageTag[] {
-  const { language, script, region } = new Intl.Locale(tag);
-  if (language === "und") return [];
-  const specific = [
-    [language, script, region],
-    [language, script],
-    [language, region],
-    [language],
-  ];
+  const start = new Intl.Locale(tag);
+  if (start.language === "und") return [];
+  const wanted = start.maximize();
   const chain: LanguageTag[] = [];
-  for (const parts of specific) {
-    const candidate = parseLanguageTag(parts.filter((part) => part !== undefined).join("-"));
-    if (candidate !== null && !chain.includes(candidate)) chain.push(candidate);
+  const add = (value: string): void => {
+    const parsed = parseLanguageTag(value);
+    if (parsed !== null && !chain.includes(parsed) && maximal(parsed).script === wanted.script) chain.push(parsed);
+  };
+  let current: string | null = start.baseName;
+  const seen = new Set<string>();
+  while (current !== null && !seen.has(current)) {
+    seen.add(current);
+    add(current);
+    const parent: string | undefined = PARENT_LOCALES[current] ?? PARENT_LOCALES[maximal(current).baseName];
+    if (parent === "und") break;
+    current = parent ?? truncate(current);
+  }
+  // The language in the request's own script (`zh-HK` -> `zh-Hant`), so a catalogue written for that script matches.
+  if (wanted.script !== undefined) {
+    const scripted = `${wanted.language}-${wanted.script}`;
+    if (!chain.some((entry) => maximal(entry).toString() === maximal(scripted).toString())) add(scripted);
   }
   return chain;
 }
 
 /**
- * Pick one of `available` for an untrusted request: the most specific entry of the lookup chain that is available, else
- * `fallback`. Behaviour for a language the app ships: `es-ES`, `es_MX` and `ES-es` all give `es`; `de-DE` gives the fallback.
+ * Pick one of `available` for an untrusted request: the first entry of the lookup chain that is available. A candidate
+ * matches a chain entry when both resolve to the same language, script and region (`pt` matches `pt-BR`, `zh` matches
+ * `zh-CN`, `zh-TW` matches `zh-Hant`), so LANGUAGE and SCRIPT must be equal and the region is preferred exact, then CLDR
+ * parent, then the language's own default. Else `fallback`.
  */
 export function negotiate<T extends string>(
   requested: unknown,
@@ -66,10 +92,14 @@ export function negotiate<T extends string>(
 export function matchLanguage<T extends string>(requested: unknown, available: readonly T[]): T | null {
   const tag = parseLanguageTag(requested);
   if (tag === null) return null;
-  for (const candidate of lookupChain(tag)) {
-    const wanted: string = candidate;
-    const match = available.find((code) => code === wanted);
-    if (match !== undefined) return match;
+  const candidates = available.flatMap((code) => {
+    const parsed = parseLanguageTag(code);
+    return parsed === null ? [] : [{ code, key: maximal(parsed).toString() }];
+  });
+  for (const step of lookupChain(tag)) {
+    const key = maximal(step).toString();
+    const match = candidates.find((candidate) => candidate.key === key);
+    if (match !== undefined) return match.code;
   }
   return null;
 }

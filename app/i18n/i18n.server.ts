@@ -8,6 +8,7 @@ import {
 } from "./config";
 
 import { i18nOptions } from "./options";
+import { merchantLanguageOf, type MerchantLanguage } from "~/lib/language/roles";
 
 /**
  * Cookie holding the visitor's chosen language on the PUBLIC pages.
@@ -65,4 +66,14 @@ export const i18nServer = new RemixI18Next({
 /** The resolved locale for this request, narrowed to a supported one. */
 export async function getLocale(request: Request): Promise<Locale> {
   return negotiateLocale(await i18nServer.getLocale(request));
+}
+
+/**
+ * The MERCHANT's language in the embedded admin: Shopify's `locale` parameter and nothing else (no cookie, no
+ * `Accept-Language`, no `?lng`), because the merchant already chose a language in Shopify and the app must match it.
+ * Admin code reads this; code that renders for an end customer or any other reader gets an `AudienceText` instead.
+ */
+export function getMerchantLanguage(request: Request): MerchantLanguage {
+  const requested = new URL(request.url).searchParams.get("locale");
+  return merchantLanguageOf(requested, SUPPORTED_LOCALES, DEFAULT_LOCALE);
 }

@@ -8,5 +8,8 @@
       "footer": "Replying in the app keeps the whole conversation in one place, so whoever picks it up next has the history."
     }
   },
-  "senderDisclosure": "This email was sent by {{appName}} support."
+  "senderDisclosure": "This email was sent by {{appName}} support.",
+  "cta": {
+    "copyLink": "Or copy this link:"
+  }
 }

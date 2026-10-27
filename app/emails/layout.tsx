@@ -15,7 +15,7 @@ import {
 import type { ReactNode } from "react";
 import { styles } from "./tokens";
 import { identity } from "~/identity";
-import { negotiateLocale, LOCALE_DIRECTION } from "~/i18n/config";
+import type { AudienceText } from "~/i18n/audience";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THE email layout. Every email in this app composes this one component plus the
@@ -40,10 +40,10 @@ export interface EmailLayoutProps {
    */
   logoUrl?: string;
   brandName?: string;
-  /** The translated sender disclosure (`email:senderDisclosure`), written by the template that has the translator. */
-  footer: string;
-  /** Overrides `<html lang>`, so a translated email announces its language. */
-  locale?: string;
+  /** Overrides the sender disclosure (default: `email:senderDisclosure`, in the reader's language). */
+  footer?: string;
+  /** The reader's language: `<html lang>`, `dir`, the sender disclosure and the link line follow it. */
+  text: AudienceText;
 }
 
 export function EmailLayout({
@@ -53,11 +53,11 @@ export function EmailLayout({
   logoUrl,
   brandName = identity.brandName,
   footer,
-  locale = "en",
+  text,
 }: EmailLayoutProps) {
-  const resolvedLocale = negotiateLocale(locale);
+  const resolvedFooter = footer ?? text.fixedT("email")("senderDisclosure");
   return (
-    <Html lang={resolvedLocale} dir={LOCALE_DIRECTION[resolvedLocale]}>
+    <Html lang={text.language} dir={text.direction}>
       <Head />
       <Preview>{preview}</Preview>
       <Body style={styles.body}>
@@ -69,7 +69,7 @@ export function EmailLayout({
           <Heading style={styles.heading}>{heading}</Heading>
           {children}
           <Hr style={styles.hr} />
-          <Text style={styles.footer}>{footer}</Text>
+          <Text style={styles.footer}>{resolvedFooter}</Text>
         </Container>
       </Body>
     </Html>
@@ -94,7 +94,7 @@ export function Muted({ children }: { children: ReactNode }) {
  * can still copy. It is also what makes the plain-text rendering useful, since a
  * button with no text URL becomes a dead word there.
  */
-export function Cta({ href, children }: { href: string; children: ReactNode }) {
+export function Cta({ href, text, children }: { href: string; text: AudienceText; children: ReactNode }) {
   return (
     <>
       <Section style={styles.buttonSection}>
@@ -103,7 +103,7 @@ export function Cta({ href, children }: { href: string; children: ReactNode }) {
         </Button>
       </Section>
       <Text style={styles.fallback}>
-        Or copy this link: <Link href={href}>{href}</Link>
+        {text.fixedT("email")("cta.copyLink")} <Link href={href}>{href}</Link>
       </Text>
     </>
   );

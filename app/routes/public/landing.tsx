@@ -1,7 +1,7 @@
 import { Link, redirect } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { useTranslation } from "react-i18next";
-import { i18nServer } from "~/i18n/i18n.server";
+import { audienceTextForRequest } from "~/wiring/audience.server";
 import { useLocale } from "~/i18n/useLocale";
 import { formatMoney } from "~/money";
 import { FEATURED_PLAN_HANDLE, PLANS } from "~/billing/plans";
@@ -13,7 +13,7 @@ export const handle = { i18n: ["common", "public"] };
 /**
  * Titles and meta descriptions are rendered on the server before React runs, so
  * they cannot use the `useTranslation` hook — the loader translates them with
- * `getFixedT` and passes the result through.
+ * the audience text (`audienceTextForRequest`) and passes the result through.
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
@@ -23,8 +23,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
 
-  const t = await i18nServer.getFixedT(request, "public");
-  const common = await i18nServer.getFixedT(request, "common");
+  const text = await audienceTextForRequest(request, "public.landing");
+  const t = text.fixedT("public");
+  const common = text.fixedT("common");
   return {
     title: `${common("appName")} — ${t("landing.heading")}`,
     description: t("landing.lead"),

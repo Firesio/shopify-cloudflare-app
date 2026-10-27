@@ -1,4 +1,5 @@
 {
   "name": "Español",
-  "direction": "ltr"
+  "direction": "ltr",
+  "script": "Latn"
 }

@@ -100,8 +100,8 @@ describe("a new language folder needs no edit anywhere (temp folder proof)", () 
       mkdirSync(join(root, path, ".."), { recursive: true });
       writeFileSync(join(root, path), JSON.stringify(value));
     };
-    for (const [code, name, direction, hello] of [["en", "English", "ltr", "Hello"], ["fr", "Français", "ltr", "Bonjour"], ["ar", "العربية", "rtl", "مرحبا"]] as const) {
-      put(`app/i18n/locales/${code}/language.json`, { name, direction });
+    for (const [code, name, script, direction, hello] of [["en", "English", "Latn", "ltr", "Hello"], ["fr", "Français", "Latn", "ltr", "Bonjour"], ["ar", "العربية", "Arab", "rtl", "مرحبا"]] as const) {
+      put(`app/i18n/locales/${code}/language.json`, { name, script, direction });
       put(`app/i18n/locales/${code}/common.json`, { hello });
       put(`app/i18n/locales/${code}/ext-checkout.json`, { hello });
     }
@@ -118,6 +118,9 @@ describe("a new language folder needs no edit anywhere (temp folder proof)", () 
     expect(generated).toContain('CATALOGUE_CODES = ["en", "ar", "fr"]');
     expect(generated).toContain('"ar": "rtl"');
     expect(generated).toContain('"fr": "Français"');
+    expect(generated).toContain('"ar": "Arab"');
+    expect(generated).toContain('export type CommonKey =\n  | "appName"\n  | "hello"');
+    expect(generated).toContain('"common:hello":');
 
     const files = readdirSync(join(root, "extensions/checkout/locales")).sort();
     expect(files).toEqual(["ar.json", "en.default.json", "fr.json"]);
@@ -148,6 +151,12 @@ describe("a new language folder needs no edit anywhere (temp folder proof)", () 
     expect(sync({ root, check: true }).problems.join("\n")).toContain("fr: files are");
   });
 
+  it("refuses a language.json whose script is not the one the language is written in", () => {
+    const root = fixture();
+    writeFileSync(join(root, "app/i18n/locales/fr/language.json"), JSON.stringify({ name: "Français", script: "Cyrl", direction: "ltr" }));
+    expect(sync({ root, check: false }).problems.join("\n")).toContain('"script" must be "Latn"');
+  });
+
   it("refuses an extension locale file over the platform limit instead of omitting strings", () => {
     const root = fixture();
     writeFileSync(join(root, "app/i18n/locales/fr/ext-checkout.json"), JSON.stringify({ hello: "x".repeat(30_000) }));
@@ -159,5 +168,17 @@ describe("a new language folder needs no edit anywhere (temp folder proof)", () 
     rmSync(join(root, "extensions"), { recursive: true });
     expect(sync({ root, check: false }).problems).toEqual([]);
     expect(() => statSync(join(root, "extensions"))).toThrow();
+  });
+});
+
+describe("generated keys and digests", () => {
+  it("has a key union entry and a digest for every en string, and the digest is SHA-256 of the text", async () => {
+    const { SOURCE_DIGESTS } = await import("./catalogues.generated");
+    const en = resources.en?.email;
+    expect(en).toBeDefined();
+    const text = "This email was sent by {{appName}} support.";
+    const bytes = new TextEncoder().encode(text);
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
+    expect(SOURCE_DIGESTS["email:senderDisclosure"]).toBe(hash);
   });
 });

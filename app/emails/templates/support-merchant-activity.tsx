@@ -1,6 +1,6 @@
+import type { AudienceText } from "~/i18n/audience";
 import type { SupportMerchantActivityPayload } from "~/notifications/payloads";
 import { Cta, EmailLayout, Muted, P } from "../layout";
-import { emailT } from "../translate.server";
 import { renderEmail, type RenderedEmail } from "../render";
 
 /**
@@ -9,28 +9,28 @@ import { renderEmail, type RenderedEmail } from "../render";
  * The shop name goes in the SUBJECT line, because this lands in a shared inbox
  * where the only triage signal is that line — "Support: Alpha Store — checkout
  * is broken" is actionable in a list, "New support ticket" is not.
- * STAFF-FACING, so deliberately English — see @rules/i18n.md. Only the one
+ * STAFF-FACING, so English by this app's choice (@rules/i18n.md). Only the
  * merchant-facing template (support-staff-reply) is translated.
  */
-export async function supportMerchantActivityEmail(
+export function supportMerchantActivityEmail(
   p: SupportMerchantActivityPayload,
+  text: AudienceText,
 ): Promise<RenderedEmail> {
   const lead = p.isNew ? "New ticket" : "New reply";
 
-  const t = await emailT(p.locale);
   return renderEmail(
     `${lead}: ${p.shopName} — ${p.subject}`,
     <EmailLayout
       preview={p.excerpt}
       heading={p.subject}
       logoUrl={p.logoUrl}
-      locale={p.locale} footer={t("senderDisclosure")}
+      text={text}
     >
       <P>
         {p.shopName} {p.isNew ? "opened a support ticket" : "replied to a support ticket"}.
       </P>
       <P>{p.excerpt}</P>
-      <Cta href={p.threadUrl}>Open the ticket</Cta>
+      <Cta href={p.threadUrl} text={text}>Open the ticket</Cta>
       <Muted>
         You are getting this because support notifications are on for your
         account. Turn them off under Support in the internal console.

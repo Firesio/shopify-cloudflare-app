@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { useTranslation } from "react-i18next";
-import { i18nServer } from "~/i18n/i18n.server";
+import { audienceTextForRequest } from "~/wiring/audience.server";
 import { useLocale } from "~/i18n/useLocale";
 import { formatMoney } from "~/money";
 import { FEATURED_PLAN_HANDLE, PLAN_LIST } from "~/billing/plans";
@@ -10,8 +10,9 @@ import { InstallLink } from "./install-button";
 export const handle = { i18n: ["common", "public"] };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const t = await i18nServer.getFixedT(request, "public");
-  const common = await i18nServer.getFixedT(request, "common");
+  const text = await audienceTextForRequest(request, "public.pricing");
+  const t = text.fixedT("public");
+  const common = text.fixedT("common");
   return { title: `${t("pricing.heading")} — ${common("appName")}` };
 };
 

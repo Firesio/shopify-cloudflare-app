@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { composeEmailMessage } from "./compose";
+import { audienceTextFor } from "~/wiring/audience.server";
 
 const payload = {
   recipientName: "Alpha Store",
@@ -10,7 +11,7 @@ const payload = {
 };
 
 const compose = (cc: readonly string[]) =>
-  composeEmailMessage("support_staff_reply", payload, "owner@shop.test", cc);
+  composeEmailMessage("support_staff_reply", payload, "owner@shop.test", cc, audienceTextFor);
 
 /**
  * The hop that used to be missing entirely: `EmailMessage.cc` was declared and

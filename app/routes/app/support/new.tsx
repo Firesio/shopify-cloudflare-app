@@ -13,7 +13,7 @@ import { authenticateAdmin } from "~/admin/require-merchant.server";
 import { settle } from "~/admin/settle.server";
 import type { Outcome } from "~/admin/outcome";
 import { Deferred } from "~/components/admin/Deferred";
-import { getLocale } from "~/i18n/i18n.server";
+import { getMerchantLanguage } from "~/i18n/i18n.server";
 import { supportService } from "~/wiring.server";
 import {
   createTicketSchema,
@@ -95,7 +95,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Shopify puts the merchant's chosen admin language on every embedded
     // request, and this is the only moment we have it: staff answer later from
     // the internal console, which knows nothing about them (@rules/i18n.md).
-    locale: await getLocale(request),
+    locale: getMerchantLanguage(request),
     merchantEmail: parsed.data.merchantEmail,
     ccEmails: parsed.data.ccEmails,
     category: parsed.data.category,

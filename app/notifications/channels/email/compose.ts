@@ -1,4 +1,5 @@
 import { buildEmail } from "~/emails/registry.server";
+import type { AudienceTextFor } from "~/i18n/audience";
 import type { PayloadByEvent } from "../../payloads";
 import type { EmailMessage, NotificationEvent } from "../../types";
 
@@ -21,8 +22,9 @@ export async function composeEmailMessage<E extends NotificationEvent>(
   payload: PayloadByEvent[E],
   to: string,
   cc: readonly string[],
+  audienceTextFor: AudienceTextFor,
 ): Promise<EmailMessage> {
-  const rendered = await buildEmail(event, payload);
+  const rendered = await buildEmail(event, payload, audienceTextFor);
 
   return {
     kind: "email",

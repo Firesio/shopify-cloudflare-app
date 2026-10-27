@@ -578,7 +578,8 @@ app/i18n/
 ├── useLocale.ts             the render's locale, read from i18next
 ├── format.ts                Intl date / number / money / list helpers
 └── i18next.d.ts             types t() against the en files
-app/lib/language/tag.ts      pure: parseLanguageTag, lookupChain, negotiate
+app/lib/language/            pure: tag (script-aware negotiate), roles, text layers + translator, validator
+app/i18n/audience.ts         the AudienceText contract (built only in app/wiring/audience.server.ts)
 ```
 
 Namespaces split by surface, so the admin bundle never ships marketing and legal
@@ -620,7 +621,7 @@ a special case.
 
 ### Adding a language
 
-1. Create `app/i18n/locales/<code>/` with `language.json` (`name`, `direction`) and one JSON per namespace.
+1. Create `app/i18n/locales/<code>/` with `language.json` (`name`, `script`, `direction`) and one JSON per namespace.
 2. `npm run i18n:sync` (regenerates `catalogues.generated.ts`; `--check` runs inside `npm run typecheck`).
 3. `npm run verify`: identical key sets, no empty strings, identical `{{placeholders}}`, plural categories per
    `Intl.PluralRules`, and a current generated file.
