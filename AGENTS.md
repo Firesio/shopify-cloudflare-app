@@ -91,8 +91,8 @@ Everything enters through `~/money`; never `* 100`, never `.toFixed`, never
 
 **Every user-visible string is translated**, on the public pages _and_ in the
 embedded admin. No hardcoded copy, no hand-formatted dates or money — use
-`app/i18n/format.ts`. In the admin the locale comes from Shopify's `locale`
-request parameter and is authoritative; never add a language switcher there.
+`app/i18n/format.ts`. In the admin the language comes from Shopify's `locale`
+request parameter and is authoritative; everywhere else it never does. Never add a language switcher there.
 @.claude/rules/i18n.md
 @.claude/rules/money.md
 
