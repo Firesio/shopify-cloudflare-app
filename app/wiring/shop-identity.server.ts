@@ -4,6 +4,7 @@ import { shopLog } from "~/observability/shop-log";
 import { forgetRequestMemo, requestMemo } from "~/request-context.server";
 import { recordShopifyIdentity } from "~/services/record-shopify-identity";
 import { resolveShopTimeZone } from "~/services/shop-time-zone";
+import { syncDevStoreStatus } from "~/services/sync-dev-store-status";
 import { appRuntime } from "~/wiring/runtime.server";
 
 const SHOP_IDENTITY_QUERY = `#graphql
@@ -24,6 +25,16 @@ const SHOP_TIME_ZONE_QUERY = `#graphql
     shop { ianaTimezone }
   }
 `;
+
+const SHOP_PLAN_QUERY = `#graphql
+  query AuthenticatedShopPlan {
+    shop { plan { partnerDevelopment } }
+  }
+`;
+
+const planResponse = z.object({
+  data: z.object({ shop: z.object({ plan: z.object({ partnerDevelopment: z.boolean() }) }) }),
+});
 
 /**
  * The layout loader asks for the identity and the zone together, and both start by reading the same `shops` row.
@@ -96,4 +107,34 @@ export async function persistShopIdentity(admin: { graphql: (query: string) => P
       }
     },
   }, now);
+}
+
+/** Mirror Shopify's `plan.partnerDevelopment` into `shops.is_dev_store`; see `syncDevStoreStatus`. */
+export function persistDevStoreStatus(
+  admin: { graphql: (query: string) => Promise<Response> },
+  shop: string,
+  now = appRuntime().clock.now(),
+) {
+  const repository = new ShopRepo();
+  return syncDevStoreStatus(shop, now, {
+    stored: async (domain) => {
+      const row = await storedShop(repository, domain);
+      return row ? { isDevStore: row.isDevStore, checkedAt: row.devStatusCheckedAt } : null;
+    },
+    fetch: async () => {
+      const response = await admin.graphql(SHOP_PLAN_QUERY);
+      if (!response.ok) return null;
+      const parsed = planResponse.safeParse(await response.json());
+      return parsed.success ? parsed.data.data.shop.plan.partnerDevelopment : null;
+    },
+    record: async (domain, isDevStore, checkedAt) => {
+      try {
+        await repository.recordDevStatus(domain, isDevStore, checkedAt);
+      } finally {
+        forgetRequestMemo(shopRowKey(domain));
+      }
+    },
+    unavailable: (domain) => shopLog("shop.dev_status_unavailable", domain),
+    changed: (domain, isDevStore) => shopLog("shop.dev_status_changed", domain, { isDevStore }),
+  });
 }

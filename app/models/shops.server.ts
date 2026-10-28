@@ -156,8 +156,9 @@ export class ShopRepo {
     await getDb().update(shops).set({ lastReconciledAt: now }).where(eq(shops.shop, shop));
   }
 
-  async setDevStatus(shop: string, isDevStore: boolean): Promise<void> {
-    await getDb().update(shops).set({ isDevStore }).where(eq(shops.shop, shop));
+  /** Store Shopify's answer and when it was given. */
+  async recordDevStatus(shop: string, isDevStore: boolean, checkedAt: number): Promise<void> {
+    await getDb().update(shops).set({ isDevStore, devStatusCheckedAt: checkedAt }).where(eq(shops.shop, shop));
   }
 
   /**

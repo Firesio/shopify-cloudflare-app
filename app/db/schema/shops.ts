@@ -52,10 +52,12 @@ export const shops = sqliteTable(
     lastAuthenticatedAt: integer("last_authenticated_at"),
     lastWebhookAt: integer("last_webhook_at"),
     lastReconciledAt: integer("last_reconciled_at"),
-    /** True if this is a development / partner test store. Excluded from real MRR. */
+    /** True if Shopify says this is a development / partner test store (`plan.partnerDevelopment`). Excluded from real MRR. */
     isDevStore: integer("is_dev_store", { mode: "boolean" })
       .notNull()
       .default(false),
+    /** When Shopify last answered for `isDevStore`; null until it has. Tells "never checked" from "checked, a real store". */
+    devStatusCheckedAt: integer("dev_status_checked_at"),
   },
   (table) => [
     index("shops_uninstalled_at_idx").on(table.uninstalledAt),

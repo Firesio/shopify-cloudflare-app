@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader } from "~/internal/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "~/internal/components/ui/empty";
 import { Skeleton } from "~/internal/components/ui/skeleton";
 import { requireAdminUser } from "~/services/admin-auth.server";
-import { setShopDevStatus, grantShopPromoPlan, revokeShopPromoPlan } from "~/services/internal-admin/ops.server";
+import { grantShopPromoPlan, revokeShopPromoPlan } from "~/services/internal-admin/ops.server";
 import { Deferred, TableSkeleton } from "~/internal/components";
 import { streamRegion } from "~/internal/stream-region.server";
 import { loadShopDetail } from "./detail-data.server";
@@ -46,9 +46,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "");
-  if (intent === "toggle_dev_status") {
-    await setShopDevStatus(shopDomain, !shop.isDevStore);
-  } else if (intent === "grant_promo") {
+  if (intent === "grant_promo") {
     await grantShopPromoPlan(shopDomain, {
       planHandle: String(form.get("planHandle") ?? ""),
       durationDays: Number(form.get("durationDays") ?? 7),
@@ -66,8 +64,6 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 /** What the merchant-facing outcome of each intent is called in its confirmation toast. */
 function intentToastMessage(intent: string): string | undefined {
   switch (intent) {
-    case "toggle_dev_status":
-      return "Store type updated.";
     case "grant_promo":
       return "Promo granted.";
     case "revoke_promo":

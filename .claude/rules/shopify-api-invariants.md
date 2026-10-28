@@ -184,6 +184,16 @@ Local timings are SQLite, not D1: only row counts transfer.
 | That minifying the Worker (3.4 MB instead of 6 MB) shortens a cold start. Parse cost is inferred from size; `wrangler check startup` was not run | The change is cheap and safe, but the benefit is a guess until measured |
 | That Smart Placement or D1 read replication helps. The D1 region and the Worker's colo were not compared | Measure `wallTimeMs` against `cpuTimeMs` first (`docs/merchant-speed.md`) |
 
+## Development store detection (2026-10-29)
+
+| Finding | Verified how | Design consequence |
+|---|---|---|
+| **Admin API 2026-10 `shop.plan.partnerDevelopment` is a non-null `Boolean`: "whether the shop is a partner development shop for testing purposes".** `plan.displayName` is deprecated in favour of `publicDisplayName` (which has a `Development` value) | Docs lookup and `validate` against 2026-10, 2026-10-29 — [ShopPlan](https://shopify.dev/docs/api/admin-graphql/2026-10/objects/ShopPlan) | `shops.is_dev_store` is set only from this field (`persistDevStoreStatus`, called from `afterAuth` after the response); there is no manual toggle. `dev_status_checked_at` separates "never asked" from "asked, a real store" |
+
+| Our design decision (not a Shopify rule) | Consequence |
+|---|---|
+| A shop is asked once, a real store is never asked again, a development store is asked at most once a day (`shouldCheckDevStatus`). A failed call writes nothing | A dev store that upgrades while its merchant never opens the app stays excluded from MRR until the next `afterAuth`. **Unverified against a real store**: whether the `shop` query needs a scope beyond what the app already has, and how fast `partnerDevelopment` flips after an upgrade |
+
 ## Unverified — must be confirmed before anything depends on it
 
 Anything in this section stays labelled unverified until someone observes it

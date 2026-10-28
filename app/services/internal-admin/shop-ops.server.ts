@@ -141,14 +141,6 @@ export async function getShopDossier(shopDomain: string) {
   };
 }
 
-/** Set or override a shop's development store status. */
-export async function setShopDevStatus(shopDomain: string, isDevStore: boolean) {
-  const shop = await shops().get(shopDomain);
-  if (!shop) return false;
-  await shops().setDevStatus(shopDomain, isDevStore);
-  return true;
-}
-
 /** Shop webhook status & scopes. */
 export async function getShopWebhookStatus(shopDomain: string) {
   const [shop, scopes] = await Promise.all([

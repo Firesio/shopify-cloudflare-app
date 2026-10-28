@@ -11,7 +11,7 @@ import {
 
 import { apiVersion } from "./shopify-api-version";
 import { KVSessionStorage } from "./session-storage.server";
-import { persistShopIdentity, refreshShopSubscription } from "~/wiring.server";
+import { persistDevStoreStatus, persistShopIdentity, refreshShopSubscription } from "~/wiring.server";
 import { getEnv, runAfterResponse } from "~/request-context.server";
 import { hashShop, shopLog } from "~/observability/shop-log";
 import { decideInstallAnnouncement } from "~/domain/shop-announcement";
@@ -76,6 +76,11 @@ announce: (change: ShopChange) => Promise<void> = shopChangeAnnouncer()): Promis
           shopHash: await hashShop(session.shop),
           error: error instanceof Error ? error.message : String(error),
         }));
+      }
+      try {
+        await persistDevStoreStatus(admin, session.shop);
+      } catch (error) {
+        await shopLog("shop.dev_status_failed", session.shop, { error: error instanceof Error ? error.name : "unknown" });
       }
     }
     // After the identity is stored, so the announcement can name the shop.
