@@ -1,6 +1,10 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type { AllocateResult, CheckResult, CommitResult, DeallocateResult, ReleaseResult, ReserveResult } from "~/ports/entitlements";
+import type { EntitlementCatalogue } from "~/domain/entitlement-policy";
 import { createEntitlements } from "./entitlements.server";
+
+/** A catalogue typed as the plain one, so its keys are any string: these tests probe keys the catalogue does not define. */
+const plainCatalogue: EntitlementCatalogue = { version: 1, freePlan: "free", features: {}, plans: { free: {} } };
 
 describe("entitlements service", () => {
   it("exposes closed result contracts for every public operation", () => {
@@ -143,7 +147,7 @@ describe("entitlements service", () => {
       subscriptions: { current: async () => ({ status: "ACTIVE", planHandle: "free", revision: 1 }) },
       usage: { reserve: async (input) => ({ allowed: true as const, operationId: input.operationId, amount: input.amount, period: input.period, subscriptionRevision: input.subscriptionRevision, remaining: 0 }), commit: async (input) => ({ allowed: true as const, operationId: input.operationId, state: "committed" as const }), release: async (input) => ({ allowed: true as const, operationId: input.operationId, state: "released" as const }) },
       capacity: { confirmAllocation: async (input) => ({ allowed: true as const, allocationId: input.allocationId, state: "allocated" as const }), allocate: async (input) => ({ allowed: true as const, allocationId: input.allocationId, operationId: input.operationId, subscriptionRevision: input.subscriptionRevision, remaining: 0, state: "held" as const }), deallocate: async (input) => ({ allowed: true as const, allocationId: input.allocationId, operationId: input.operationId, state: "released" as const }) },
-      catalogue: { version: 1, freePlan: "free", features: {}, plans: { free: {} } },
+      catalogue: plainCatalogue,
     });
     expect(await service.commit({ shop: "shop", operationId: "op", actualAmount: 2 })).toEqual({ allowed: true, operationId: "op", state: "committed" });
     expect(await service.release({ shop: "shop", operationId: "op" })).toEqual({ allowed: true, operationId: "op", state: "released" });

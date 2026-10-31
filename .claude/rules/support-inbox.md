@@ -36,7 +36,7 @@ Read from the Cloudflare Email Service docs ([headers](https://developers.cloudf
 
 - `support_tickets.shop` and `support_messages.shop` are **nullable**. A NULL never equals a shop, so every shop-scoped query and `purgeShop` pass over unassigned rows by construction. `SupportInboundRepo.assignShop` is the only way from NULL to a shop, and it refuses a thread that already has one. `support_attachments.shop` stays NOT NULL: files need an owner, so staff attachments on an unassigned thread are refused before the reply is written.
 - `support_messages.external_id` (the mail's own `Message-ID`, normalised) is UNIQUE: the same mail arriving twice is one message.
-- Migration `0032` was **edited by hand** after `drizzle-kit generate`: the generated one selected columns the old tables lack, and dropped the parent table first, which on D1 (foreign keys enforced, `PRAGMA foreign_keys` ignored) would cascade-delete messages and attachments. It backs up and drops children first. Verified against SQLite with foreign keys on and real rows. Not run on a real D1.
+- Migration `0034` was **edited by hand** after `drizzle-kit generate`: the generated one selected columns the old tables lack, and dropped the parent table first, which on D1 (foreign keys enforced, `PRAGMA foreign_keys` ignored) would cascade-delete messages and attachments. It backs up and drops children first. Verified against SQLite with foreign keys on and real rows. Not run on a real D1.
 
 ## Receiving mail
 
@@ -68,7 +68,7 @@ Read from the Cloudflare Email Service docs ([headers](https://developers.cloudf
 curl -X POST 'http://localhost:5179/cdn-cgi/local/email?from=jane@buyer.example&to=support@vip.firesio.app' --data-binary @mail.eml
 ```
 
-Verified 2026-10-31: that opened an `email` ticket in the local D1 (`Worker successfully processed email`), and migration `0032` applied on the local D1. The app URL locally is a tunnel that cannot receive mail, so there is no `support+<id>@` address and mail is matched only by `In-Reply-To`/`References`. To exercise the address, put `SUPPORT_MAIL_DOMAIN=<domain>` in `.dev.vars`, reply to a ticket in the console, and send a mail to the `Reply-To` it printed. Email Sending itself is not simulated locally: a staff reply is queued and the channel refuses without `EMAIL_FROM`.
+Verified 2026-10-31: that opened an `email` ticket in the local D1 (`Worker successfully processed email`), and migration `0034` applied on the local D1. The app URL locally is a tunnel that cannot receive mail, so there is no `support+<id>@` address and mail is matched only by `In-Reply-To`/`References`. To exercise the address, put `SUPPORT_MAIL_DOMAIN=<domain>` in `.dev.vars`, reply to a ticket in the console, and send a mail to the `Reply-To` it printed. Email Sending itself is not simulated locally: a staff reply is queued and the channel refuses without `EMAIL_FROM`.
 
 ## Unverified — confirm before relying on it
 

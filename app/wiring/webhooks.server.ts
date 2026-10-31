@@ -23,6 +23,7 @@ import { appUninstalledHandler } from "~/services/webhook-handlers/app-uninstall
 import { complianceHandler } from "~/services/webhook-handlers/compliance";
 import { historyLedger, refreshShopHistory, refreshShopSubscription } from "~/wiring/billing.server";
 import { invalidateEntitlements } from "~/wiring/entitlement-cache.server";
+import { entitlementHeldSweep } from "~/wiring/entitlement-held-sweep.server";
 import { shops, shopSyncCheckpoints, support, webhookDeliveryRepository, webhookScopeObservations } from "~/wiring/repositories.server";
 import { redactionGuard } from "~/wiring/redaction.server";
 import { shopChangeAnnouncer, webhookDeadLetterAnnouncer } from "~/wiring/shop-announcements.server";
@@ -166,6 +167,8 @@ export function scheduledDependencies() {
         redaction: redactionGuard(),
       }, now),
     },
+    // Default policy: release what has been held for 30 minutes. Pass `{ decide, maxAgeMs }` to change it per app.
+    entitlementReconcile: entitlementHeldSweep(),
     uninstallProbe: {
       run: (now: number) => probeInstalledShops({
         probes: new ShopTokenProbeRepo(),

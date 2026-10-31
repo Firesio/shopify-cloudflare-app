@@ -5,10 +5,10 @@ import { Skeleton } from "~/internal/components/ui/skeleton";
 import { cn } from "~/internal/lib/utils";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 
 /** The internal console is staff-only and English-only — no i18n here. */
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 export interface DashboardHealth {
   readonly failedWebhooks: number;
@@ -51,7 +51,7 @@ export function HealthPanel({ health }: { health: DashboardHealth }) {
         <CardDescription>
           Last sync:{" "}
           {health.checkpoint?.lastSucceededAt
-            ? formatDateTime(LOCALE, health.checkpoint.lastSucceededAt, UTC)
+            ? formatDateTime(LANGUAGE, health.checkpoint.lastSucceededAt, UTC)
             : "Not yet completed"}
         </CardDescription>
         <CardAction>

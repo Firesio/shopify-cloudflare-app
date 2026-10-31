@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { composeEmailMessage } from "./compose";
+import { textBuilders } from "~/wiring/audience.server";
 
 const payload = {
   recipientName: "Alpha Store",
@@ -7,10 +8,11 @@ const payload = {
   subject: "Checkout is broken",
   excerpt: "It fails at payment.",
   threadUrl: "https://example.test/app/support/t1",
+  ticketId: "t1",
 };
 
 const compose = (cc: readonly string[]) =>
-  composeEmailMessage("support_staff_reply", payload, "owner@shop.test", cc);
+  composeEmailMessage("support_staff_reply", payload, "owner@shop.test", cc, textBuilders);
 
 /**
  * The hop that used to be missing entirely: `EmailMessage.cc` was declared and
@@ -60,6 +62,7 @@ describe("composing a conversation reply", () => {
   const conversation = {
     ...payload,
     threadUrl: undefined,
+    ticketId: "t1",
     body: "First paragraph.\n\nSecond paragraph.",
     from: "support@vip.firesio.app",
     replyTo: "support+abcd1234@vip.firesio.app",
@@ -67,21 +70,21 @@ describe("composing a conversation reply", () => {
   };
 
   it("carries the sender, the way back and the threading headers onto the message", async () => {
-    const message = await composeEmailMessage("support_staff_reply", conversation, "jane@buyer.example", []);
+    const message = await composeEmailMessage("support_staff_reply", conversation, "jane@buyer.example", [], textBuilders);
     expect(message.from).toBe("support@vip.firesio.app");
     expect(message.replyTo).toBe("support+abcd1234@vip.firesio.app");
     expect(message.headers).toEqual({ "In-Reply-To": "<a@x>", References: "<a@x>" });
   });
 
   it("shows the whole reply, one paragraph per blank line, and no portal link", async () => {
-    const message = await composeEmailMessage("support_staff_reply", conversation, "jane@buyer.example", []);
+    const message = await composeEmailMessage("support_staff_reply", conversation, "jane@buyer.example", [], textBuilders);
     expect(message.text).toContain("First paragraph.");
     expect(message.text).toContain("Second paragraph.");
     expect(message.html).not.toContain("example.test/app/support");
   });
 
   it("adds none of them when the reply does not ask for any", async () => {
-    const message = await composeEmailMessage("support_staff_reply", payload, "owner@shop.test", []);
+    const message = await composeEmailMessage("support_staff_reply", payload, "owner@shop.test", [], textBuilders);
     for (const key of ["from", "replyTo", "headers"]) expect(key in message, key).toBe(false);
   });
 });

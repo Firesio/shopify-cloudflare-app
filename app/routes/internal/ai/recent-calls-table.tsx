@@ -3,11 +3,11 @@ import { Badge } from "~/internal/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "~/internal/components/ui/empty";
 import { DataTable, SortableHeader } from "~/internal/components/data-table";
 import { formatNumber } from "~/i18n/format";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 import { RightAlignedSortableHeader } from "../table-columns";
 import type { RecentRun } from "./purposes";
 
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 const COLUMNS: ColumnDef<RecentRun>[] = [
   {
@@ -41,7 +41,7 @@ const COLUMNS: ColumnDef<RecentRun>[] = [
     id: "tokens",
     accessorFn: (run) => run.tokens,
     header: ({ column }) => <RightAlignedSortableHeader column={column} title="Tokens" />,
-    cell: ({ row }) => <div className="text-right tabular-nums">{formatNumber(LOCALE, row.original.tokens)}</div>,
+    cell: ({ row }) => <div className="text-right tabular-nums">{formatNumber(LANGUAGE, row.original.tokens)}</div>,
   },
   {
     id: "latency",
@@ -50,7 +50,7 @@ const COLUMNS: ColumnDef<RecentRun>[] = [
     header: ({ column }) => <RightAlignedSortableHeader column={column} title="Latency" />,
     cell: ({ row }) => (
       <div className="text-right tabular-nums text-muted-foreground">
-        {row.original.latencyMs === null ? "—" : `${formatNumber(LOCALE, row.original.latencyMs)} ms`}
+        {row.original.latencyMs === null ? "—" : `${formatNumber(LANGUAGE, row.original.latencyMs)} ms`}
       </div>
     ),
   },

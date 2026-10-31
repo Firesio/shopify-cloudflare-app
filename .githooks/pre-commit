@@ -1,10 +1,11 @@
 #!/bin/sh
-# Fast gate: typecheck + lint, about 7 seconds.
+# Fast gate, scoped to what is staged (scripts/precommit.mjs): lint the staged files, and typecheck incrementally only
+# when TypeScript or a file that shapes the types changed. A docs-only commit costs nothing; a typical code commit
+# takes a few seconds.
 #
-# Tests are NOT here on purpose. The full suite takes ~1.5 minutes (real workerd,
-# real D1, SSR renders), and a hook that slow gets bypassed with --no-verify — at which point
-# it protects nothing. They run in the pre-push hook and in CI instead, so nothing
-# untested reaches a shared branch.
+# Tests are NOT here on purpose: the full suite takes about 40 s (real workerd, real D1, SSR renders), and a hook that
+# slow gets bypassed with --no-verify, at which point it protects nothing. `npm run verify` runs everything, and CI runs
+# it on every push to main and every pull request.
 #
 # Never bypass this with --no-verify; fix what it reports.
-npm run precommit
+npm run -s precommit

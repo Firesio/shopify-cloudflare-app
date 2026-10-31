@@ -1,67 +1,100 @@
 import { createCookie } from "react-router";
-import { RemixI18Next } from "remix-i18next/server";
-import {
-  DEFAULT_LOCALE,
-  SUPPORTED_LOCALES,
-  toLocale,
-  type Locale,
-} from "./config";
-import { i18nOptions } from "./options";
+import { DEFAULT_LANGUAGE, LANGUAGE_CODES, type LanguageCode } from "./catalogues.generated";
+import { languageCodeOf } from "./config";
+import { merchantLanguage, type MerchantLanguage } from "./roles";
+import { parseAcceptLanguage } from "~/lib/language/accept-language";
+import { negotiate } from "~/lib/language/negotiate";
+import { requestMemo } from "~/request-context.server";
+import { parseLanguageTag, type LanguageTag } from "~/lib/language/tag";
 
 /**
- * Cookie holding the visitor's chosen language on the PUBLIC pages.
+ * Cookie holding the visitor's chosen language on the PUBLIC pages. The name `locale` is a wire name (a cookie already in
+ * a visitor's browser), kept as is.
  *
  * Not `httpOnly`: the language switcher is allowed to be a plain link, and there
  * is nothing secret in a language choice. One year, because a preference that
  * expires is worse than no preference.
  */
-export const localeCookie = createCookie("locale", {
+export const languageCookie = createCookie("locale", {
   path: "/",
   sameSite: "lax",
   httpOnly: false,
   maxAge: 60 * 60 * 24 * 365,
 });
 
-/**
- * Where the locale comes from, highest priority first:
- *
- *  1. `?locale=` — SHOPIFY'S OWN PARAMETER. Apps rendered in the Shopify admin
- *     receive the merchant's chosen locale in the `locale` request parameter, so
- *     inside the embedded app this is authoritative: the merchant already picked
- *     a language in Shopify and the app must match it, not second-guess it.
- *     https://shopify.dev/docs/apps/build/localize-your-app
- *  2. `?lng=` — an explicit switch on the public pages.
- *  3. Cookie — the visitor's remembered public choice.
- *  4. `Accept-Language` — a sensible first guess.
- *  5. `en`.
- *
- * Shopify sends regional tags (`es-ES`), so `toLocale` matches the base language
- * before falling back.
- */
-async function findLocale(request: Request): Promise<string | null> {
-  const shopifyLocale = new URL(request.url).searchParams.get("locale");
-  if (!shopifyLocale) return null;
-  return toLocale(shopifyLocale);
+/** Which of the two audiences a request is for: the merchant inside the Shopify admin (`/app/**`), or everyone else. */
+export type Surface = "admin" | "public";
+
+export function surfaceOf(url: URL): Surface {
+  return url.pathname === "/app" || url.pathname.startsWith("/app/") ? "admin" : "public";
+}
+
+function parsed(values: readonly unknown[]): readonly LanguageTag[] {
+  return values.flatMap((value) => {
+    const tag = parseLanguageTag(value);
+    return tag === null ? [] : [tag];
+  });
 }
 
 /**
- * Holds only immutable configuration — no per-request or per-shop state — so a
- * module-level constant is safe in a reused isolate. It creates a fresh i18next
- * instance per call; nothing is shared between requests.
+ * What a request says about the language of whoever is reading, best first: `?lng=` (an explicit switch), the cookie (the
+ * visitor's remembered choice), then the `Accept-Language` header by weight. This is the evidence for EVERY reader who is
+ * not the merchant in Shopify's admin: public pages, the customer pages, mail built from a request.
+ *
+ * It never contains Shopify's `?locale=`: that is the language of the Shopify admin USER, which says nothing about a
+ * customer or a visitor.
  */
-export const i18nServer = new RemixI18Next({
-  detection: {
-    supportedLanguages: [...SUPPORTED_LOCALES],
-    fallbackLanguage: DEFAULT_LOCALE,
-    cookie: localeCookie,
-    searchParamKey: "lng",
-    order: ["custom", "searchParams", "cookie", "header"],
-    findLocale,
-  },
-  i18next: i18nOptions,
-});
+export function requestEvidence(request: Request): Promise<readonly LanguageTag[]> {
+  // Once per request: the page's language and every audience text built in the same request read the same evidence.
+  return requestMemo("language:evidence", async () => {
+    const url = new URL(request.url);
+    const remembered: unknown = await languageCookie.parse(request.headers.get("Cookie"));
+    return [...parsed([url.searchParams.get("lng"), remembered]), ...parseAcceptLanguage(request.headers.get("Accept-Language"))];
+  });
+}
 
-/** The resolved locale for this request, narrowed to a supported one. */
-export async function getLocale(request: Request): Promise<Locale> {
-  return toLocale(await i18nServer.getLocale(request));
+/** Shopify's `locale` parameter, which the merchant's own screens obey. */
+function shopifyLocale(request: Request): readonly LanguageTag[] {
+  return parsed([new URL(request.url).searchParams.get("locale")]);
+}
+
+/** The shipped language for any one value (a form field, a stored column): the negotiator over one piece of evidence. */
+export function languageOf(value: unknown): LanguageCode {
+  return negotiate(parsed([value]), LANGUAGE_CODES, DEFAULT_LANGUAGE);
+}
+
+/**
+ * The language the PAGE is drawn in for this request, which `<html lang>`, the server render and the browser share.
+ *
+ *  - Inside the Shopify admin (`/app/**`) the MERCHANT reads it: Shopify's `?locale=` is authoritative (the merchant
+ *    already chose a language in Shopify and the app must match it), then the same evidence as everywhere else.
+ *  - Everywhere else a VISITOR reads it: only `requestEvidence`. `?locale=` is ignored on purpose.
+ *
+ * Shopify sends regional tags (`es-ES`, `pt-BR`); the negotiator is script-aware and never answers `zh-TW` with Simplified.
+ */
+export function getLanguage(request: Request): Promise<LanguageCode> {
+  // Once per request: the root loader and the entry both ask.
+  return requestMemo("language:page", async () => {
+    const evidence = await requestEvidence(request);
+    const merchant = surfaceOf(new URL(request.url)) === "admin" ? shopifyLocale(request) : [];
+    return negotiate([...merchant, ...evidence], LANGUAGE_CODES, DEFAULT_LANGUAGE);
+  });
+}
+
+/**
+ * The MERCHANT's language: Shopify's `locale` parameter and nothing else (no cookie, no `Accept-Language`, no `?lng`).
+ * Code that renders for an end customer or any other reader gets an `AudienceText` instead and never this.
+ */
+export function getMerchantLanguage(request: Request): MerchantLanguage {
+  return merchantLanguage(negotiate(shopifyLocale(request), LANGUAGE_CODES, DEFAULT_LANGUAGE));
+}
+
+/**
+ * The merchant's language for something they SUBMIT. An in-app request may not carry Shopify's `?locale=` (a client
+ * navigation drops it), so the form posts the language it was drawn in (`useLanguage()`); it is parsed exactly (a code we
+ * wrote), and only when the form sent none does Shopify's parameter on this request decide.
+ */
+export function submittedMerchantLanguage(posted: unknown, request: Request): MerchantLanguage {
+  const code = languageCodeOf(posted);
+  return code === null ? getMerchantLanguage(request) : merchantLanguage(code);
 }

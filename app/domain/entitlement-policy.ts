@@ -1,4 +1,5 @@
 import type { SubscriptionStatus } from "./subscription-lifecycle";
+import { isValidTimeZone, monthWindowInZone } from "./zone-day";
 export type { SubscriptionStatus } from "./subscription-lifecycle";
 
 export type UsagePeriod = "lifetime" | "calendar_month" | "billing_period";
@@ -8,8 +9,15 @@ export type UsageWindow =
   | { readonly kind: "calendar_month" | "billing_period"; readonly key: string; readonly start: number; readonly end: number };
 export type FeatureDefinition = { readonly kind: "capability" } | { readonly kind: "capacity" } | { readonly kind: "quota"; readonly period: UsagePeriod };
 export type EntitlementGrant = { readonly kind: "disabled" } | { readonly kind: "enabled" } | { readonly kind: "unlimited" } | { readonly kind: "limit"; readonly maximum: number };
-export interface EntitlementCatalogue { readonly version: number; readonly freePlan: string; readonly features: Readonly<Record<string, FeatureDefinition>>; readonly plans: Readonly<Record<string, Readonly<Record<string, EntitlementGrant>>>>; }
-export interface SubscriptionSnapshot { readonly status: SubscriptionStatus; readonly planHandle: string | null; readonly revision: number; readonly verifiedAt?: number; readonly cancellationEffectiveAt?: number; readonly periodStart?: number; readonly periodEnd?: number; }
+export interface EntitlementCatalogue<K extends string = string> { readonly version: number; readonly freePlan: string; /** Plan handles cheapest first; what "the first plan that grants X" scans. Defaults to the order of `plans`. */ readonly ladder?: readonly string[]; readonly features: Readonly<Record<K, FeatureDefinition>>; readonly plans: Readonly<Record<string, Readonly<Record<K, EntitlementGrant>>>>; }
+
+/**
+ * Types a catalogue by the keys its `features` define: every plan must then grant every key (a missing grant is a compile error,
+ * as it was when each feature was a field of the plan), and a service built on it accepts only those keys. Returns the catalogue
+ * unchanged. A plain `EntitlementCatalogue` (keys are any string) keeps working everywhere.
+ */
+export function defineCatalogue<const K extends string>(catalogue: EntitlementCatalogue<K>): EntitlementCatalogue<K> { return catalogue; }
+export interface SubscriptionSnapshot { readonly status: SubscriptionStatus; readonly planHandle: string | null; readonly revision: number; readonly verifiedAt?: number; readonly cancellationEffectiveAt?: number; readonly periodStart?: number; readonly periodEnd?: number; /** IANA zone a `calendar_month` quota resets in (the merchant's own midnight). Absent means UTC. */ readonly timeZone?: string; }
 export type EntitlementDenialReason = "inactive_subscription" | "unknown_feature" | "unknown_plan" | "invalid_grant" | "invalid_usage_window" | "disabled" | "invalid_catalogue";
 export type ResolvedEntitlement =
   | { readonly allowed: true; readonly kind: "capability" }
@@ -21,6 +29,10 @@ export function resolveUsageWindow(period: UsagePeriod, now: number, subscriptio
   if (!Number.isSafeInteger(now)) return null;
   if (period === "lifetime") return { kind: "lifetime", key: "lifetime" };
   if (period === "calendar_month") {
+    if (subscription.timeZone !== undefined) {
+      if (!isValidTimeZone(subscription.timeZone)) return null;
+      return { kind: "calendar_month", ...monthWindowInZone(now, subscription.timeZone) };
+    }
     const date = new Date(now);
     const year = date.getUTCFullYear();
     const month = date.getUTCMonth();

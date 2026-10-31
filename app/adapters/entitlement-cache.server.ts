@@ -19,7 +19,7 @@ function valid(value: unknown, now: number, ttl: number, catalogueVersion: numbe
   if (record.catalogueVersion !== catalogueVersion || !Number.isSafeInteger(record.catalogueVersion) || !nonNegativeSafe(record.cachedAt) || record.cachedAt > now || now - record.cachedAt > ttl * 1000 || !snapshot || typeof snapshot !== "object") return false;
   const s: Record<string, unknown> = Object.fromEntries(Object.entries(snapshot));
   const timestamps = [s.cancellationEffectiveAt, s.periodStart, s.periodEnd].filter((v) => v !== undefined);
-  return typeof s.status === "string" && STATUSES.has(s.status) && (typeof s.planHandle === "string" || s.planHandle === null) && nonNegativeSafe(s.revision) && timestamps.every(nonNegativeSafe) && (s.periodStart === undefined || s.periodEnd === undefined || (nonNegativeSafe(s.periodStart) && nonNegativeSafe(s.periodEnd) && s.periodStart < s.periodEnd));
+  return typeof s.status === "string" && STATUSES.has(s.status) && (typeof s.planHandle === "string" || s.planHandle === null) && nonNegativeSafe(s.revision) && timestamps.every(nonNegativeSafe) && (s.timeZone === undefined || typeof s.timeZone === "string") && (s.periodStart === undefined || s.periodEnd === undefined || (nonNegativeSafe(s.periodStart) && nonNegativeSafe(s.periodEnd) && s.periodStart < s.periodEnd));
 }
 export function createEntitlementCache(kv: EntitlementKv, options: { now?: () => number; ttlSeconds?: number; catalogueVersion?: number } = {}): EntitlementCacheAdapterPort {
   const now = options.now ?? Date.now;

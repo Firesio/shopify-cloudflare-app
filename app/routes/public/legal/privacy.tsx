@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { useTranslation } from "react-i18next";
-import { i18nServer } from "~/i18n/i18n.server";
-import { useLocale } from "~/i18n/useLocale";
+import { audienceTextForRequest } from "~/wiring/audience.server";
+import { useLanguage } from "~/i18n/useLanguage";
 import { formatDate } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
 import { identity } from "~/identity";
@@ -10,11 +10,10 @@ import { useSupportEmail } from "../support-email";
 export const handle = { i18n: ["common", "public"] };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const t = await i18nServer.getFixedT(request, "public");
-  const common = await i18nServer.getFixedT(request, "common");
+  const text = await audienceTextForRequest(request, "public.privacy");
+  const t = text.fixedT("public");
   return {
-    title: `${t("legal.privacy.heading")} · ${common("appName")}`,
-    appName: common("appName"),
+    title: `${t("legal.privacy.heading")} · ${identity.name}`,
   };
 };
 
@@ -41,16 +40,14 @@ const SECTION_KEYS = [
 
 export default function PrivacyPolicy() {
   const { t } = useTranslation("public");
-  const { t: common } = useTranslation("common");
+  const language = useLanguage();
   const supportEmail = useSupportEmail();
-  const locale = useLocale();
-  const appName = common("appName");
 
   // A date is formatted, never printed raw: 1/2/2026 means different days in
   // different locales.
   const updated = Number.isNaN(Date.parse(identity.legal.effectiveDate))
     ? identity.legal.effectiveDate
-    : formatDate(locale, new Date(identity.legal.effectiveDate), UTC, { dateStyle: "long" });
+    : formatDate(language, new Date(identity.legal.effectiveDate), UTC, { dateStyle: "long" });
 
   return (
     <section className="section">
@@ -60,7 +57,7 @@ export default function PrivacyPolicy() {
 
         <p className="notice notice--warning">{t("legal.privacy.warning")}</p>
 
-        <p>{t("legal.privacy.intro", { company: identity.companyName, appName })}</p>
+        <p>{t("legal.privacy.intro", { company: identity.companyName })}</p>
 
         {SECTION_KEYS.map((key) => (
           <section key={key}>

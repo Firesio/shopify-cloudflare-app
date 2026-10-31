@@ -5,12 +5,13 @@ import "@shopify/shopify-api/adapters/cf-worker";
 
 import {
   AppDistribution,
+  LogSeverity,
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
 
 import { apiVersion } from "./shopify-api-version";
 import { KVSessionStorage } from "./session-storage.server";
-import { persistShopIdentity, refreshShopSubscription } from "~/wiring.server";
+import { persistDevStoreStatus, persistShopIdentity, refreshShopSubscription } from "~/wiring.server";
 import { getEnv, runAfterResponse } from "~/request-context.server";
 import { hashShop, shopLog } from "~/observability/shop-log";
 import { decideInstallAnnouncement } from "~/domain/shop-announcement";
@@ -76,6 +77,11 @@ announce: (change: ShopChange) => Promise<void> = shopChangeAnnouncer()): Promis
           error: error instanceof Error ? error.message : String(error),
         }));
       }
+      try {
+        await persistDevStoreStatus(admin, session.shop);
+      } catch (error) {
+        await shopLog("shop.dev_status_failed", session.shop, { error: error instanceof Error ? error.name : "unknown" });
+      }
     }
     // After the identity is stored, so the announcement can name the shop.
     if (announcement.announce) await announceInstall(announce, { shop: session.shop, occasion: announcement.occasion, occurredAt: installedAt });
@@ -114,6 +120,10 @@ function buildShopify(env: Env) {
     appUrl: env.SHOPIFY_APP_URL || "",
     authPathPrefix: "/auth",
     sessionStorage: new KVSessionStorage(env.SESSION),
+    // The library logs at Info by default: "Authenticating admin request" on every request, "Creating new session",
+    // "Running afterAuth hook", and "version ..." each time the app is built. That is a line per request in dev and a
+    // billed log line per request in production. Warnings and errors still print; set Info while debugging auth.
+    logger: { level: LogSeverity.Warning },
     distribution: AppDistribution.AppStore,
     hooks: { afterAuth },
     future: {

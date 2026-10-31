@@ -7,11 +7,11 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "~/
 import { DataTable, SortableHeader } from "~/internal/components/data-table";
 import { formatDate } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 import type { loader } from "./index";
 
 /** The internal console is staff-only and English-only — no i18n here. */
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 type ShopListItem = Awaited<Awaited<ReturnType<typeof loader>>["shops"]>[number];
 
@@ -91,7 +91,7 @@ const COLUMNS: ColumnDef<ShopListItem>[] = [
     ),
     cell: ({ row }) => (
       <div className="text-right text-muted-foreground tabular-nums">
-        {formatDate(LOCALE, row.original.installedAt, UTC)}
+        {formatDate(LANGUAGE, row.original.installedAt, UTC)}
       </div>
     ),
   },

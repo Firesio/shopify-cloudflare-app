@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { languageTagSchema } from "~/lib/language/tag";
 import { err, ok, type Result } from "~/lib/result";
 import type { NotifyRequest } from "~/ports/notifier";
 import type { PayloadByEvent } from "./payloads";
@@ -16,7 +17,7 @@ import type { NotificationEvent } from "./types";
 
 const basePayload = {
   recipientName: z.string(),
-  locale: z.string().optional(),
+  language: languageTagSchema.optional(),
   logoUrl: z.string().optional(),
 };
 
@@ -61,6 +62,8 @@ const PAYLOAD_SCHEMAS: { [E in NotificationEvent]: z.ZodType<PayloadByEvent[E]> 
     from: z.string().optional(),
     replyTo: z.string().optional(),
     threadHeaders: z.record(z.string(), z.string()).optional(),
+    // A message queued before the field existed has none: it still renders, with an empty id.
+    ticketId: z.string().default(""),
   }),
   shop_installed: z.object(shopChangePayload),
   shop_uninstalled: z.object(shopChangePayload),
@@ -117,6 +120,17 @@ export type QueuedNotification = NotifyRequest & { readonly dedupeKey: string };
 
 export type EnvelopeFailure = "malformed" | "unknown_event" | "invalid_payload";
 
+/**
+ * ONE RELEASE OF GRACE (remove after it has shipped): the payload's language used to be called `locale`, and messages
+ * queued before the rename are still in flight. `locale` is read as `language` when `language` is absent, so they keep
+ * their language; both are parsed as a language tag by the schema.
+ */
+function withLegacyLanguage(payload: unknown): unknown {
+  if (typeof payload !== "object" || payload === null || !("locale" in payload) || "language" in payload) return payload;
+  const { locale, ...rest } = payload;
+  return { ...rest, language: locale };
+}
+
 /** The JSON-safe message body for one notification. */
 export function toEnvelope(request: QueuedNotification) {
   return {
@@ -149,7 +163,7 @@ export function parseEnvelope(body: unknown): Result<QueuedNotification, Envelop
   const { event } = envelope.data;
   if (!isNotificationEvent(event)) return err("unknown_event");
 
-  const payload = PAYLOAD_SCHEMAS[event].safeParse(envelope.data.payload);
+  const payload = PAYLOAD_SCHEMAS[event].safeParse(withLegacyLanguage(envelope.data.payload));
   if (!payload.success) return err("invalid_payload");
 
   return ok({

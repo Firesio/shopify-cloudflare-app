@@ -110,7 +110,6 @@ export default [
     route("shops/recent", "routes/api/v1/shops/recent.ts"),
     route("shops", "routes/api/v1/shops/index.ts"),
     route("shops/detail", "routes/api/v1/shops/detail.ts"),
-    route("shops/dev-status", "routes/api/v1/shops/dev-status.ts"),
     route("webhooks/failures", "routes/api/v1/webhooks/failures.ts"),
     route("tickets", "routes/api/v1/tickets/index.ts"),
     route("tickets/detail", "routes/api/v1/tickets/detail.ts"),

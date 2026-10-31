@@ -6,7 +6,6 @@ import { RouterContextProvider, type ActionFunctionArgs, type LoaderFunctionArgs
 import { loader as healthLoader } from "./health";
 import { loader as revenueLoader } from "./metrics/revenue";
 import { loader as shopsLoader } from "./shops/index";
-import { action as devStatusAction } from "./shops/dev-status";
 import { action as ticketsAction } from "./tickets/index";
 import { action as replyAction } from "./tickets/reply";
 import { action as uploadAction } from "./support/upload";
@@ -69,17 +68,17 @@ describe("Reusable REST API (/api/v1/*) Integration", () => {
 
       // 2. Insufficient scope -> 403
       const { rawToken: readOnlyToken } = await createStaffAndToken(["mcp:read"]);
-      const writeReq = new Request("http://localhost/api/v1/shops/dev-status", {
+      const writeReq = new Request("http://localhost/api/v1/tickets", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${readOnlyToken}`,
         },
-        body: JSON.stringify({ shop: "shop.myshopify.com", is_dev_store: true }),
+        body: JSON.stringify({ shop: "shop.myshopify.com" }),
       });
 
       await expect(
-        devStatusAction(asActionArgs(writeReq)),
+        ticketsAction(asActionArgs(writeReq)),
       ).rejects.toSatisfy((resp: unknown) => resp instanceof Response && resp.status === 403);
     });
   });
@@ -93,7 +92,7 @@ describe("Reusable REST API (/api/v1/*) Integration", () => {
 
       await shopRepo.recordInstall("production-paid.myshopify.com", Date.now());
       await shopRepo.recordInstall("test-partner.myshopify.com", Date.now());
-      await shopRepo.setDevStatus("test-partner.myshopify.com", true);
+      await shopRepo.recordDevStatus("test-partner.myshopify.com", true, Date.now());
 
       await subRepo.upsertObservation("production-paid.myshopify.com", {
         type: "CREATED",
@@ -134,37 +133,20 @@ describe("Reusable REST API (/api/v1/*) Integration", () => {
     });
   });
 
-  it("updates dev status via POST /api/v1/shops/dev-status and lists directory", async () => {
+  it("lists dev stores with type=dev", async () => {
     await inRequest(async () => {
       const { rawToken } = await createStaffAndToken();
       const shopRepo = new ShopRepo();
-      await shopRepo.recordInstall("toggle-shop.myshopify.com", Date.now());
+      await shopRepo.recordInstall("dev-shop.myshopify.com", Date.now());
+      await shopRepo.recordDevStatus("dev-shop.myshopify.com", true, Date.now());
 
-      // Update dev status to true
-      const postReq = new Request("http://localhost/api/v1/shops/dev-status", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${rawToken}`,
-        },
-        body: JSON.stringify({ shop: "toggle-shop.myshopify.com", is_dev_store: true }),
-      });
-
-      const postResp = await devStatusAction(asActionArgs(postReq));
-      expect(postResp.status).toBe(200);
-
-      const updatedShop = await shopRepo.get("toggle-shop.myshopify.com");
-      expect(updatedShop?.isDevStore).toBe(true);
-
-      // List shops with type=dev filter
       const listReq = new Request("http://localhost/api/v1/shops?type=dev", {
         headers: { Authorization: `Bearer ${rawToken}` },
       });
-
       const listResp = await shopsLoader(asLoaderArgs(listReq));
       expect(listResp.status).toBe(200);
       const listJson = (await listResp.json()) as Array<{ shop: string }>;
-      expect(listJson.some((s: { shop: string }) => s.shop === "toggle-shop.myshopify.com")).toBe(true);
+      expect(listJson.some((s) => s.shop === "dev-shop.myshopify.com")).toBe(true);
     });
   });
 

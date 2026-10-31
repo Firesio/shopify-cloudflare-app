@@ -12,10 +12,10 @@ import { DataTable, SortableHeader } from "~/internal/components/data-table";
 import type { listRecentAuditLogs } from "~/services/mcp/audit.server";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 import { RightAlignedSortableHeader } from "../table-columns";
 
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 type AuditLog = Awaited<ReturnType<typeof listRecentAuditLogs>>[number];
 
@@ -31,7 +31,7 @@ const COLUMNS: ColumnDef<AuditLog>[] = [
     enableHiding: false,
     cell: ({ row }) => (
       <span className="text-xs whitespace-nowrap tabular-nums text-muted-foreground">
-        {formatDateTime(LOCALE, row.original.createdAt, UTC)}
+        {formatDateTime(LANGUAGE, row.original.createdAt, UTC)}
       </span>
     ),
   },

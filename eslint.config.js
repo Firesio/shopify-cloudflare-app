@@ -7,13 +7,9 @@ import reactHooks from "eslint-plugin-react-hooks";
 export default tseslint.config(
   {
     ignores: [
-      // Vendored agent skills + editor/agent config — not our source.
-      ".agents/**",
+      // Claude config — not our source.
       ".claude/**",
-      ".cursor/**",
-      ".gemini/**",
       ".shopify-home/**",
-      "agent/**",
       "build/**",
       ".react-router/**",
       "node_modules/**",
@@ -29,6 +25,14 @@ export default tseslint.config(
   // `configs["recommended-latest"]` is still eslintrc-shaped (plugins as an
   // array), which ESLint 10 rejects.
   reactHooks.configs.flat["recommended-latest"],
+  {
+    // `react-hooks/incompatible-library` warns that React Compiler will skip memoizing a component that calls a library
+    // whose functions it cannot memoize safely. This app does not use React Compiler, so the warning has nothing to
+    // protect; the one place it fires is the console's DataTable (`useReactTable`). Scoped to that file, not global:
+    // any other component that trips the rule is a real signal. Turn it back on here if the compiler is ever adopted.
+    files: ["app/internal/components/data-table.tsx"],
+    rules: { "react-hooks/incompatible-library": "off" },
+  },
   {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {

@@ -17,6 +17,10 @@ export async function runScheduledSweeps(
   plan: SweepPlan = { includeDailyMaintenance: true },
 ): Promise<void> {
   if (plan.includeDailyMaintenance) await runDailyMaintenance(now, dependencies);
+  // A quota reservation or capacity slot a crashed run left `held` is only settled here (docs/entitlements.md). It is a
+  // cheap D1 sweep, so it runs on every tick, the hourly probe-only one included: a stuck slot clears within about an
+  // hour of crossing the age limit, not a day. Before the probe, whose network calls take the longest.
+  await sweep("entitlement_reconcile", async () => ({ ...(await dependencies.entitlementReconcile.run(now)) }));
   // Shopify tells apps not to rely on webhooks alone; this is what finds an uninstall whose webhook was lost.
   // It runs on every tick, including the hourly probe-only one.
   await sweep("uninstall_reconciliation", async () => ({ ...(await dependencies.uninstallProbe.run(now)) }));

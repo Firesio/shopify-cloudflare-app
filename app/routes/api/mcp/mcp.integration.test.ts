@@ -70,7 +70,7 @@ describe("MCP HTTP JSON-RPC Server Integration", () => {
       await shopRepo.recordInstall("real-merchant.myshopify.com", Date.now());
       await shopRepo.recordInstall("partner-test-store.myshopify.com", Date.now());
       // Mark dev store
-      await shopRepo.setDevStatus("partner-test-store.myshopify.com", true);
+      await shopRepo.recordDevStatus("partner-test-store.myshopify.com", true, Date.now());
 
       // Seed subscriptions
       await subRepo.upsertObservation("real-merchant.myshopify.com", {
@@ -116,7 +116,7 @@ describe("MCP HTTP JSON-RPC Server Integration", () => {
         result?: { tools: Array<{ name: string; description: string }> };
       };
       expect(listJson.result?.tools).toBeDefined();
-      expect(listJson.result?.tools.length).toBe(17);
+      expect(listJson.result?.tools.length).toBe(16);
 
       // 2. tools/call get_revenue_and_plans (verify dev store excluded from MRR)
       const callReq = new Request("http://localhost/api/mcp", {

@@ -7,5 +7,9 @@
       "cta": "Leer y responder",
       "footer": "Responder en la app mantiene toda la conversación en un mismo sitio, para que quien la retome después tenga el historial."
     }
+  },
+  "senderDisclosure": "Este correo fue enviado por el soporte de {{appName}}.",
+  "cta": {
+    "copyLink": "O copia este enlace:"
   }
 }

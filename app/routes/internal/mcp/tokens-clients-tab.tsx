@@ -14,12 +14,12 @@ import type { listPersonalAccessTokens } from "~/services/mcp/tokens.server";
 import type { listOAuthClients } from "~/services/mcp/oauth.server";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 import { RightAlignedSortableHeader } from "../table-columns";
 import { CreateTokenDialog } from "./create-token-dialog";
 import { RevokeAction } from "./revoke-action";
 
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 type Token = Awaited<ReturnType<typeof listPersonalAccessTokens>>[number];
 type Client = Awaited<ReturnType<typeof listOAuthClients>>[number];
@@ -94,7 +94,7 @@ const TOKEN_COLUMNS: ColumnDef<Token>[] = [
     header: ({ column }) => <RightAlignedSortableHeader column={column} title="Last used" />,
     cell: ({ row }) => (
       <div className="text-right text-xs tabular-nums text-muted-foreground">
-        {row.original.lastUsedAt ? formatDateTime(LOCALE, row.original.lastUsedAt, UTC) : "Never"}
+        {row.original.lastUsedAt ? formatDateTime(LANGUAGE, row.original.lastUsedAt, UTC) : "Never"}
       </div>
     ),
   },
@@ -196,7 +196,7 @@ const CLIENT_COLUMNS: ColumnDef<Client>[] = [
     header: ({ column }) => <RightAlignedSortableHeader column={column} title="Registered" />,
     cell: ({ row }) => (
       <div className="text-right text-xs tabular-nums text-muted-foreground">
-        {formatDateTime(LOCALE, row.original.createdAt, UTC)}
+        {formatDateTime(LANGUAGE, row.original.createdAt, UTC)}
       </div>
     ),
   },

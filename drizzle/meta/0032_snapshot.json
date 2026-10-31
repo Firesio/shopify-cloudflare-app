@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "2da97e8a-a332-462b-a790-eac3a10bdb3c",
+  "id": "be96c6a6-1f42-4150-a8e4-f7aec5bda69b",
   "prevId": "d31759a4-a41f-477d-8989-3a4c56930c52",
   "tables": {
     "shops": {
@@ -1007,7 +1007,7 @@
           "name": "shop",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
         "author": {
@@ -1031,20 +1031,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "external_id": {
-          "name": "external_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "mail_id": {
-          "name": "mail_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -1054,20 +1040,6 @@
         }
       },
       "indexes": {
-        "support_messages_external_id_idx": {
-          "name": "support_messages_external_id_idx",
-          "columns": [
-            "external_id"
-          ],
-          "isUnique": true
-        },
-        "support_messages_mail_id_idx": {
-          "name": "support_messages_mail_id_idx",
-          "columns": [
-            "mail_id"
-          ],
-          "isUnique": false
-        },
         "support_messages_ticket_idx": {
           "name": "support_messages_ticket_idx",
           "columns": [
@@ -1117,22 +1089,7 @@
           "name": "shop",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
-          "default": "'app_portal'"
-        },
-        "reply_address": {
-          "name": "reply_address",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "shop_name": {
@@ -2413,6 +2370,14 @@
           ],
           "isUnique": false
         },
+        "entitlement_allocations_held_idx": {
+          "name": "entitlement_allocations_held_idx",
+          "columns": [
+            "created_at"
+          ],
+          "isUnique": false,
+          "where": "\"entitlement_allocations\".\"state\" = 'held'"
+        },
         "entitlement_allocations_active_resource_unique": {
           "name": "entitlement_allocations_active_resource_unique",
           "columns": [
@@ -2533,6 +2498,14 @@
             "state"
           ],
           "isUnique": false
+        },
+        "entitlement_operations_held_idx": {
+          "name": "entitlement_operations_held_idx",
+          "columns": [
+            "created_at"
+          ],
+          "isUnique": false,
+          "where": "\"entitlement_operations\".\"state\" = 'held'"
         }
       },
       "foreignKeys": {},

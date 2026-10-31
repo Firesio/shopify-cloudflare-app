@@ -1,8 +1,9 @@
 import { Link } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { useTranslation } from "react-i18next";
-import { i18nServer } from "~/i18n/i18n.server";
-import { useLocale } from "~/i18n/useLocale";
+import { identity } from "~/identity";
+import { audienceTextForRequest } from "~/wiring/audience.server";
+import { useLanguage } from "~/i18n/useLanguage";
 import { formatMoney } from "~/money";
 import { FEATURED_PLAN_HANDLE, PLAN_LIST } from "~/billing/plans";
 import { InstallLink } from "./install-button";
@@ -10,9 +11,9 @@ import { InstallLink } from "./install-button";
 export const handle = { i18n: ["common", "public"] };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const t = await i18nServer.getFixedT(request, "public");
-  const common = await i18nServer.getFixedT(request, "common");
-  return { title: `${t("pricing.heading")} — ${common("appName")}` };
+  const text = await audienceTextForRequest(request, "public.pricing");
+  const t = text.fixedT("public");
+  return { title: `${t("pricing.heading")} — ${identity.name}` };
 };
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
@@ -33,7 +34,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => [
  */
 export default function Pricing() {
   const { t } = useTranslation(["public", "common"]);
-  const locale = useLocale();
+  const language = useLanguage();
 
   return (
     <section className="section">
@@ -57,7 +58,7 @@ export default function Pricing() {
                 </div>
                 <p>
                   <strong className="price-amount">
-                    {formatMoney(locale, plan.priceMonthly)}
+                    {formatMoney(language, plan.priceMonthly)}
                   </strong>{" "}
                   <span className="muted">
                     {free ? t("pricing.forever") : t("pricing.perMonth")}

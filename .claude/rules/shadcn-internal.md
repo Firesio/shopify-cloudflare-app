@@ -32,7 +32,7 @@ hand-rolled replacement for something shadcn ships.
   per docs/shadcn/components/data-table.md): toolbar (view switcher left; Columns menu +
   page action right), bordered table with muted header, rows-per-page / page x of y /
   first-prev-next-last footer. Define `ColumnDef`s per page; do not hand-roll a `<Table>`
-  for a list. `useReactTable` triggers one known react-hooks/incompatible-library lint warning.
+  for a list. `useReactTable` would trip react-hooks/incompatible-library (a React Compiler advisory; this app does not use the compiler), so `eslint.config.js` turns that one rule off for `data-table.tsx` only.
 - Colours come from the neutral tokens in `app/styles/internal/internal.tailwind.css`.
   Charts use `var(--primary)` and `var(--chart-2)` as in dashboard-01; no extra palette.
 - App Bridge's global types add a `variant` to `React.ButtonHTMLAttributes`, which

@@ -6,9 +6,8 @@ import {
   listNewStores,
   listShopsDirectory,
   listWebhookFailures,
-  setShopDevStatus,
 } from "~/services/internal-admin/ops.server";
-import { mcpMutation, mcpRead, MUTATION, READ_ONLY, type McpActorContext } from "../helpers";
+import { mcpRead, READ_ONLY, type McpActorContext } from "../helpers";
 
 function registerListNewStores(server: McpServer, ctx: McpActorContext) {
   server.registerTool(
@@ -75,27 +74,6 @@ function registerGetShopDossier(server: McpServer, ctx: McpActorContext) {
   );
 }
 
-function registerSetShopDevStatus(server: McpServer, ctx: McpActorContext) {
-  server.registerTool(
-    "set_shop_dev_status",
-    {
-      title: "Set Development Store Status",
-      description:
-        "Tag or untag a store as a development/test store. Dev stores are excluded from real MRR and production counts.",
-      inputSchema: {
-        shop: z.string().min(1).describe("Shop domain (e.g. 'mystore.myshopify.com')"),
-        isDevStore: z.boolean().describe("Whether this store is a development/test store"),
-      },
-      annotations: MUTATION,
-    },
-    mcpMutation("set_shop_dev_status", "mcp:shops:write", ctx, async (args) => {
-      const success = await setShopDevStatus(args.shop, args.isDevStore);
-      if (!success) throw new Error(`Shop '${args.shop}' not found`);
-      return { success: true, shop: args.shop, isDevStore: args.isDevStore };
-    }),
-  );
-}
-
 function registerGetShopWebhookStatus(server: McpServer, ctx: McpActorContext) {
   server.registerTool(
     "get_shop_webhook_status",
@@ -144,7 +122,6 @@ export function registerShopTools(server: McpServer, ctx: McpActorContext) {
   registerListNewStores(server, ctx);
   registerListShops(server, ctx);
   registerGetShopDossier(server, ctx);
-  registerSetShopDevStatus(server, ctx);
   registerGetShopWebhookStatus(server, ctx);
   registerListWebhookFailures(server, ctx);
 }

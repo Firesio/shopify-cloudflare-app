@@ -553,7 +553,7 @@ describe("what the service asks the notifier to send", () => {
     });
 
     expect(notifier.onlyFor("support_staff_reply").payload).toMatchObject({
-      locale: "es",
+      language: "es",
     });
   });
 
@@ -568,7 +568,19 @@ describe("what the service asks the notifier to send", () => {
       return notifier;
     });
 
-    expect(notifier.onlyFor("support_staff_reply").payload.locale).toBeUndefined();
+    expect(notifier.onlyFor("support_staff_reply").payload.language).toBeUndefined();
+  });
+
+  it("never hands a stored value that is not a language tag to the email as a language", async () => {
+    const shop = newShop();
+    const notifier = await inRequest(async () => {
+      const { notifier, service } = withFake();
+      const created = await openTicket(service, shop, { locale: "not a tag!" });
+      await service.replyAsStaff({ ticketId: created.id, staffName: "Sam", body: "Fixed." });
+      return notifier;
+    });
+
+    expect(notifier.onlyFor("support_staff_reply").payload.language).toBeUndefined();
   });
 
   it("names the staff member who answered, so the merchant sees a person", async () => {

@@ -13,7 +13,8 @@ import {
   useTranslation,
 } from "react-i18next";
 import { i18nOptions } from "./options";
-import { SUPPORTED_LOCALES, type Locale } from "./config";
+import { LANGUAGE_CODES, type LanguageCode } from "./catalogues.generated";
+import { identity } from "~/identity";
 import Pricing from "~/routes/public/pricing";
 import PrivacyPolicy from "~/routes/public/legal/privacy";
 import Terms from "~/routes/public/legal/terms";
@@ -29,15 +30,15 @@ import Terms from "~/routes/public/legal/terms";
  * (The Worker entry itself cannot be rendered here: it imports the Vite virtual
  * module `virtual:react-router/server-build`, which exists only in a real build.)
  */
-async function renderAt(locale: Locale, Component: () => React.ReactNode) {
+async function renderAt(language: LanguageCode, Component: () => React.ReactNode) {
   const instance = createInstance();
-  await instance.use(initReactI18next).init({ ...i18nOptions, lng: locale });
+  await instance.use(initReactI18next).init({ ...i18nOptions, lng: language });
 
   const routes: RouteObject[] = [
     {
       path: "/",
       Component,
-      // Pages read their title from a loader; the locale comes from i18next.
+      // Pages read their title from a loader; the language comes from i18next.
       loader: () => ({ title: "t", appName: "app" }),
     },
   ];
@@ -72,7 +73,7 @@ const PAGES = [
   ["terms", Terms],
 ] as const;
 
-describe("pages render in the locale they are given", () => {
+describe("pages render in the language they are given", () => {
   it("renders the pricing page in English", async () => {
     const html = await renderAt("en", Pricing);
     expect(html).toContain("Pricing");
@@ -107,9 +108,9 @@ describe("no page leaks untranslated output", () => {
     "%s never renders a raw key path",
     async (_name, Component) => {
       // A missing key renders as "pricing.getStarted" — visible nonsense.
-      for (const locale of SUPPORTED_LOCALES) {
-        const html = await renderAt(locale, Component);
-        expect(html, locale).not.toMatch(
+      for (const language of LANGUAGE_CODES) {
+        const html = await renderAt(language, Component);
+        expect(html, language).not.toMatch(
           /\b(pricing|legal|landing|support|home|login)\.[a-zA-Z]+\.[a-zA-Z.]+/,
         );
       }
@@ -119,9 +120,9 @@ describe("no page leaks untranslated output", () => {
   it.each(PAGES)(
     "%s interpolates rather than printing braces",
     async (_n, Component) => {
-      for (const locale of SUPPORTED_LOCALES) {
-        const html = await renderAt(locale, Component);
-        expect(html, locale).not.toContain("{{");
+      for (const language of LANGUAGE_CODES) {
+        const html = await renderAt(language, Component);
+        expect(html, language).not.toContain("{{");
       }
     },
   );
@@ -148,17 +149,17 @@ describe("admin namespace resolves too", () => {
 
 describe("product identity resources", () => {
   it.each([
-    ["en", "TODO: Your App Name", "TODO: Your localized product tagline"],
-    ["es", "TODO: Your App Name", "TODO: El eslogan localizado de tu producto"],
+    ["en", "TODO: Your localized product tagline"],
+    ["es", "TODO: El eslogan localizado de tu producto"],
   ] as const)(
-    "provides the canonical name and %s tagline",
-    async (locale, name, tagline) => {
+    "provides the canonical name (a default variable, in no catalogue) and the %s tagline",
+    async (language, tagline) => {
       const instance = createInstance();
       await instance
         .use(initReactI18next)
-        .init({ ...i18nOptions, lng: locale });
+        .init({ ...i18nOptions, lng: language });
 
-      expect(instance.t("appName", { ns: "common" })).toBe(name);
+      expect(instance.t("footer.copyright", { ns: "common", year: 2026 })).toContain(identity.name);
       expect(instance.t("tagline", { ns: "common" })).toBe(tagline);
     },
   );

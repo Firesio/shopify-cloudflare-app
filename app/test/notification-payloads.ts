@@ -25,6 +25,7 @@ export const SAMPLE_PAYLOADS: { readonly [E in NotificationEvent]: PayloadByEven
     subject: "Checkout is broken",
     excerpt: "Fixed.",
     threadUrl: "https://app.workmanjsc.vn/app/support/t-1",
+    ticketId: "t-1",
   },
   shop_installed: {
     recipientName: "Sam",

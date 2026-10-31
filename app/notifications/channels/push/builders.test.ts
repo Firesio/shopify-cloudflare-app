@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildEmail } from "~/emails/registry.server";
+import { textBuilders } from "~/wiring/audience.server";
 import { SAMPLE_PAYLOADS } from "~/test/notification-payloads";
 import { allEvents, supportsChannel } from "../../catalogue";
 import type { PayloadByEvent } from "../../payloads";
@@ -16,7 +17,7 @@ describe("the push builders agree with the catalogue", () => {
   });
 
   it.each(allEvents())("%s: email is renderable exactly when the catalogue lists it", async (event) => {
-    const rendered = buildEmail(event, SAMPLE_PAYLOADS[event]);
+    const rendered = buildEmail(event, SAMPLE_PAYLOADS[event], textBuilders);
     if (supportsChannel(event, "email")) await expect(rendered).resolves.toMatchObject({ subject: expect.any(String) });
     else await expect(rendered).rejects.toThrow(/no email template/);
   });

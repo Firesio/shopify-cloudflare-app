@@ -18,13 +18,13 @@ import { SUPPORT_SOURCES, toSupportSource, type SupportSource } from "~/support/
 import { CATEGORY_LABEL_EN, type SupportCategory } from "~/support/categories";
 import { formatDateTime, formatNumber } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 import { RightAlignedSortableHeader } from "../table-columns";
 import { SOURCE_LABEL } from "./source-display";
 import { STATUS_LABEL, STATUS_VARIANT } from "./status-display";
 
 /** The internal console is staff-only and English-only — no i18n here. */
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 export interface TicketRowData {
   readonly id: string;
@@ -150,7 +150,7 @@ const COLUMNS: ColumnDef<TicketRowData>[] = [
     header: ({ column }) => <RightAlignedSortableHeader column={column} title="Last activity" />,
     cell: ({ row }) => (
       <div className="text-right tabular-nums text-muted-foreground">
-        {formatDateTime(LOCALE, row.original.lastMessageAt, UTC)}
+        {formatDateTime(LANGUAGE, row.original.lastMessageAt, UTC)}
       </div>
     ),
   },
@@ -181,7 +181,7 @@ function ViewTab({ view, label, count }: { view: View; label: string; count: num
     <TabsTrigger value={view}>
       {label}
       <Badge variant="secondary" className="rounded-full px-1.5">
-        {formatNumber(LOCALE, count)}
+        {formatNumber(LANGUAGE, count)}
       </Badge>
     </TabsTrigger>
   );
@@ -224,7 +224,7 @@ export function TicketTable({
             <SelectContent>
               {VIEWS.map((option) => (
                 <SelectItem key={option} value={option}>
-                  {`${VIEW_LABEL[option]} (${formatNumber(LOCALE, count(option))})`}
+                  {`${VIEW_LABEL[option]} (${formatNumber(LANGUAGE, count(option))})`}
                 </SelectItem>
               ))}
             </SelectContent>

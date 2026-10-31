@@ -27,7 +27,15 @@ describe("entitlement schema", () => {
     ]);
     expect(usageChecks).toEqual(["entitlement_usage_amounts_check"]);
     expect(allocationChecks).toEqual(["entitlement_allocations_state_check"]);
-    expect(getTableConfig(entitlementAllocations).indexes).toHaveLength(2);
+    expect(getTableConfig(entitlementAllocations).indexes.map(({ config }) => config.name).sort()).toEqual([
+      "entitlement_allocations_active_resource_unique",
+      "entitlement_allocations_held_idx",
+      "entitlement_allocations_lookup_idx",
+    ]);
+    expect(getTableConfig(entitlementOperations).indexes.map(({ config }) => config.name).sort()).toEqual([
+      "entitlement_operations_held_idx",
+      "entitlement_operations_lookup_idx",
+    ]);
   });
 
   it("rejects amounts above Number.MAX_SAFE_INTEGER at the database boundary", async () => {

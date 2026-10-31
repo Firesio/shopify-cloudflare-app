@@ -1,3 +1,4 @@
+import { parseLanguageTag } from "~/lib/language/tag";
 import { err, ok, type Result } from "~/lib/result";
 import type { Notifier } from "~/ports/notifier";
 import type { StaffNotificationRecipients } from "~/ports/staff-notifications";
@@ -230,10 +231,11 @@ export class SupportService {
       dedupeKey: `support-staff-reply:${messageId}`,
       payload: {
         recipientName: ticket.shopName,
-        // Answer them in the language they asked in. `undefined` rather than
-        // null so the email falls back to the app default.
-        locale: ticket.locale ?? undefined,
+        // Answer them in the language they asked in: the ticket's stored value, parsed here at the edge. A ticket with
+        // none, or one that no longer parses, has no language and the email falls back to the app default.
+        language: parseLanguageTag(ticket.locale) ?? undefined,
         staffName,
+        ticketId: ticket.id,
         subject: ticket.subject,
         excerpt: excerpt(body),
         ...(hasPortal

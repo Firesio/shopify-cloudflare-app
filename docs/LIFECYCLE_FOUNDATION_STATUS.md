@@ -16,7 +16,7 @@ Required source-of-truth rules:
 - Every projection is tenant-scoped, ordered, and idempotent.
 - D1 access stays in models; services use ports; core logic stays framework-free.
 - Money uses integer minor units plus currency.
-- Claude Code and Codex receive identical project contract, skills, and Shopify MCP.
+- Claude Code receives the project contract and the Shopify MCP; skills are installed globally, per machine.
 - Production deployment stops until template placeholders are replaced.
 
 ## Done
@@ -106,12 +106,10 @@ Required source-of-truth rules:
 ### Agent setup and launch safety
 
 - `AGENTS.md` is source of truth; `CLAUDE.md` points to it.
-- `npm install` runs agent setup.
-- Locked skills install for Claude Code and Codex.
-- Installer tests use isolated validated destinations and protect committed
-  lockfile bytes from mutation.
-- Shopify MCP configured for Codex.
-- 48 locked skills verified for both hosts.
+- Shopify MCP configured for Claude Code (`.mcp.json`).
+- Skills are installed once per machine (`npx skills add <owner>/<repo> -g -a claude-code`), not by the project: the
+  per-project installer, `skills-lock.json`, the `postinstall` hook and the Codex/Cursor/Gemini configs were removed on
+  2026-10-20. See "AI-agent skills" in `README.md`.
 - Production placeholder guard checks Cloudflare IDs, Shopify app URL/client ID,
   redirect drift, scopes, Partner app ID, plan handles, legal fields, and public
   legal/support/pricing copy.
@@ -151,7 +149,7 @@ Latest verified commands:
 ```text
 npm run verify                 typecheck + lint + 917 Vitest tests passed
 npm run db:migrate:local       no migrations pending
-npm run test:agent-setup       12/12 passed
+npm run test:agent-setup       12/12 passed (2026-09-04; the command was removed on 2026-10-20)
 npm run build                  passed
 git diff --check               passed
 npm run check:placeholders     expected failure: 10 launch contract issues

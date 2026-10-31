@@ -13,7 +13,8 @@ import { authenticateAdmin } from "~/admin/require-merchant.server";
 import { settle } from "~/admin/settle.server";
 import type { Outcome } from "~/admin/outcome";
 import { Deferred } from "~/components/admin/Deferred";
-import { getLocale } from "~/i18n/i18n.server";
+import { submittedMerchantLanguage } from "~/i18n/i18n.server";
+import { useLanguage } from "~/i18n/useLanguage";
 import { supportService } from "~/wiring.server";
 import {
   createTicketSchema,
@@ -95,7 +96,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Shopify puts the merchant's chosen admin language on every embedded
     // request, and this is the only moment we have it: staff answer later from
     // the internal console, which knows nothing about them (@rules/i18n.md).
-    locale: await getLocale(request),
+    // The language the form was drawn in (posted by the form, since this request may not carry `?locale=`); the merchant's
+    // own parameter only when the form did not send one.
+    locale: submittedMerchantLanguage(form.get("language"), request).code,
     merchantEmail: parsed.data.merchantEmail,
     ccEmails: parsed.data.ccEmails,
     category: parsed.data.category,
@@ -250,6 +253,7 @@ export default function NewTicket() {
   const { defaultEmail } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const { t } = useTranslation(["admin", "common"]);
+  const language = useLanguage();
   const uploads = usePendingUploads();
   const [ccEmails, setCcEmails] = useState<string[]>([]);
 
@@ -274,6 +278,8 @@ export default function NewTicket() {
         uploads.reset();
       }}
     >
+      {/* The language this page is drawn in, which the server stores on the ticket (see the action). */}
+      <input type="hidden" name="language" value={language} />
       <s-page heading={t("support.newTicket")}>
         <s-link slot="breadcrumb-actions" href="/app/support">
           {t("support.heading")}

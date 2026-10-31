@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSameOriginRequest } from "./same-origin";
+import { isSameOriginRequest, safeReturnPath } from "./same-origin";
 
 const URL_ = "https://console.workmanjsc.vn/internal/notifications";
 
@@ -40,5 +40,22 @@ describe("isSameOriginRequest", () => {
       expect(isSameOriginRequest("https://translator.trycloudflare.com.evil.example", SEEN, APP)).toBe(false);
       expect(isSameOriginRequest(APP, SEEN, "not a url")).toBe(false);
     });
+  });
+});
+
+describe("safeReturnPath", () => {
+  it("keeps a path on this site, resolved", () => {
+    expect(safeReturnPath("/pricing")).toBe("/pricing");
+    expect(safeReturnPath("/support?topic=billing#x")).toBe("/support?topic=billing#x");
+    expect(safeReturnPath("/a/../b")).toBe("/b");
+  });
+  it.each(["//evil.test/x", "/\\evil.test", "/\\/evil.test", "/.//evil.test", "/x/..//evil.test", "/./\\evil.test", "/\t/evil.test", "/\r\n/evil.test", "https://evil.test", "javascript:alert(1)", "evil.test", "", " /pricing", 42, null, undefined])(
+    "refuses %j",
+    (value) => {
+      expect(safeReturnPath(value)).toBe("/");
+    },
+  );
+  it("uses the fallback it is given", () => {
+    expect(safeReturnPath("//evil.test", "/app")).toBe("/app");
   });
 });

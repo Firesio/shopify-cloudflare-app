@@ -1,50 +1,16 @@
-// Static imports, NOT a filesystem or HTTP backend.
+// The shipped catalogues, found by folder, not listed.
 //
-// workerd has no filesystem, so i18next-fs-backend cannot work, and an HTTP
-// backend would add a network round-trip to every cold render. Importing the
-// JSON bundles it, which is both faster and the only option that works here.
-//
-// Vite code-splits per namespace, so the admin chunk does not carry the
-// marketing and legal copy.
-import enCommon from "./locales/en/common.json";
-import enPublic from "./locales/en/public.json";
-import enAdmin from "./locales/en/admin.json";
-import enEmail from "./locales/en/email.json";
-import esCommon from "./locales/es/common.json";
-import esPublic from "./locales/es/public.json";
-import esAdmin from "./locales/es/admin.json";
-import esEmail from "./locales/es/email.json";
+// workerd has no filesystem, so i18next-fs-backend cannot work, and an HTTP backend would add a network round-trip to
+// every cold render. `import.meta.glob` bundles every `locales/<code>/<namespace>.json` at build time: a new language
+// folder is picked up with no edit here. This module is for the SERVER (and tests); the browser is sent the namespaces it
+// needs (`i18n.client.ts`) and must never import this file.
+import { buildResources, type ResourceMap } from "./catalogue-modules";
+import type { CatalogueResources } from "./catalogues.generated";
 
-import type { Locale, Namespace } from "./config";
-import { identity } from "~/identity";
+const modules = import.meta.glob("./locales/*/*.json", { eager: true });
 
-export const resources: Record<Locale, Record<Namespace, object>> = {
-  en: {
-    common: {
-      ...enCommon,
-      appName: identity.name,
-      tagline: identity.copy.tagline.en,
-    },
-    public: enPublic,
-    admin: enAdmin,
-    email: enEmail,
-  },
-  es: {
-    common: {
-      ...esCommon,
-      appName: identity.name,
-      tagline: identity.copy.tagline.es,
-    },
-    public: esPublic,
-    admin: esAdmin,
-    email: esEmail,
-  },
-};
+/** Deep-frozen: shared by every request of every shop. */
+export const resources: ResourceMap = buildResources(modules);
 
-/** `en` is the key source: every other locale is type-checked against it. */
-export type Resources = {
-  common: typeof enCommon & { tagline: string };
-  public: typeof enPublic;
-  admin: typeof enAdmin;
-  email: typeof enEmail;
-};
+/** `en` is the key source: every other language is type-checked by the parity test against it. */
+export type Resources = CatalogueResources;

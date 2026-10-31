@@ -1,3 +1,4 @@
+import type { LanguageTag } from "~/lib/language/tag";
 import type { NotificationEvent } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -22,8 +23,11 @@ import type { NotificationEvent } from "./types";
 export interface BasePayload {
   /** Recipient's display name, for the greeting. */
   recipientName: string;
-  /** BCP-47 tag, so a channel can render in the recipient's language. */
-  locale?: string;
+  /**
+   * What is known about the language of the person this goes to, parsed at the edge into a canonical tag. Only an event
+   * whose email is meant for its recipient's language reads it (`emails/registry.server.ts`); staff-facing events are fixed.
+   */
+  language?: LanguageTag;
   /** Absolute URL to a brand mark, when the channel can show one. */
   logoUrl?: string;
 }
@@ -80,6 +84,8 @@ export interface SupportStaffReplyPayload extends BasePayload {
   replyTo?: string;
   /** `In-Reply-To` and `References`, so the reply lands in the sender's thread. */
   threadHeaders?: Readonly<Record<string, string>>;
+  /** The ticket's own id: the stable identity of the stored text (its subject) that a localizer may translate. */
+  ticketId: string;
 }
 
 /** Shared by both shop notifications: the same shop, a different thing that happened to it. */

@@ -5,6 +5,54 @@ and marks the steps that are **risky for an app already in production**.
 
 ---
 
+## 2026-10-23 Entitlements: typed keys, shop-local months, usage, adopt, batch reads, scheduled reconciler
+
+Commits `c04bd44` (scheduled reconciler) and `a091fc4` (the rest); the port guide is `porting/entitlements-2026-10.md`. Verified on this
+template: `npm run verify` (typecheck, lint, 51 `node --test`, 274 vitest files / 2536 tests) and `npx vitest run --sequence.shuffle.files`.
+**Not verified:** migration `0032` on a real D1, the sweep on a real cron trigger.
+
+**Affected if** the app uses entitlements, or copied `app/{domain,services,models,ports,wiring}/entitlement*` / `app/billing/gates.ts`.
+
+**Checklist**
+1. Copy the files in the port guide by path (not by cherry-pick: app-specific wiring differs).
+2. Copy `drizzle/0032_*.sql`, its snapshot and the journal entry. If the app already has a `0032`, run `npm run db:generate` instead. It only
+   adds two partial indexes (additive, safe to apply before the code).
+3. `ScheduledDependencies` has a new required `entitlementReconcile`: build it in your `scheduledDependencies`
+   (`app/wiring/webhooks.server.ts`) and add `entitlement_reconcile` to the sweep lists your cron tests assert (`workers/app.test.ts`).
+4. `PlanGrantsPort.findActiveGrants` and `ShopsPort.getMany` are new: fakes and custom implementations need them.
+5. `npm run typecheck`. Two things can now fail to compile, both on purpose: a test that calls a key the catalogue does not define
+   (an inline catalogue literal now types the service by its keys: declare it as `EntitlementCatalogue` to probe arbitrary keys), and
+   `createPlanGate` and friends with a key the service does not accept.
+
+**Risky for an app already in production (behaviour changes)**
+- `reserve` now admits a `NONE` projection (it used to admit only `ACTIVE` and `CANCELLATION_SCHEDULED`, while `allocate` admitted `NONE`).
+- A shop with **no** `shop_subscriptions` row may allocate and reserve at revision 0, and only 0. The template's port still returns
+  `UNKNOWN` for such a shop, so this changes nothing unless your port starts returning revision 0 with an admitting status.
+- `listCurrentForShops` lists a shop's current subscription **first** (it used to order by item position only, so a shop with several
+  subscription rows could get an older one). The template's `subscriptionsPort().currentForShops` relies on it.
+- The cron now runs `entitlement_reconcile` on every tick and **releases held items older than 30 minutes**. If a legitimate operation can
+  stay held longer (a very long stream), raise `maxAgeMs` or pass `decide`.
+- `subscriptionsPort()` builds its snapshot through `subscriptionSnapshot` and adds the shop's `timeZone`; the UNKNOWN snapshot has
+  `planHandle: null` instead of the effective plan. The KV cache refuses a snapshot whose `timeZone` is not a string.
+- `EntitlementRepo` takes an optional `{ admittingStatuses }` (the stored subscription states a write is admitted under; the default is unchanged).
+  An app that reads a lapsed subscription as the free plan needs to list those states, see `docs/entitlements.md`.
+- `app/billing/gates.ts`: the old `Entitlements` type said `deallocate` returns only a failure, so the real service was not assignable to it.
+  It now uses the service's own result types.
+
+## 2026-10-21 Node 26
+
+Verified on this template, Node 26.12.0, npm 11.20, `@types/node` 26.6.5: `npm run verify` (typecheck, lint, 48 `node --test`,
+257 vitest files / 2398 tests) passes and `CLOUDFLARE_ENV=production npx react-router build` succeeds. Every locked
+dependency's `engines.node` accepts 26.12.0 except `@img/sharp-win32-ia32` (an optional Windows 32-bit binary).
+
+- **Develop on Node 24 or 26.** `engines` stays `>=24.15`, which admits both.
+- **`.nvmrc` stays `24` on purpose.** It also selects the Node version for CI and for Cloudflare Workers Builds (the build
+  that migrates and deploys). Workers Builds' default is Node 24.21.0 (changelog 2026-10-14) with 22 and 24 preinstalled, and
+  its docs do not mention Node 26, so pointing `.nvmrc` at 26 could break the production build. Node 26 was also still
+  "Current", not LTS, on nodejs.org on 2026-10-21 (`v26.12.0`, `lts: false`). When Workers Builds documents Node 26 (or you
+  have run a build with it), change `.nvmrc` and the `Runtime` row in the README together.
+- **`@types/node` follows the runtime you develop on** (`^26.6.5`); it only types scripts and tests, the Worker runs on workerd.
+
 ## 2026-10-09 template modernisation (Node 24, dependencies, Admin API 2026-10, workerd)
 
 Verified on this template, Node 24.21.0, npm 11.19: `npm run verify` (typecheck + lint + 27 `node --test`
@@ -227,7 +275,7 @@ breaking-change list is **unverified**: read https://github.com/Shopify/cli/rele
 | Package | Tried / latest | Blocker (verified with `npm view <pkg> peerDependencies` on 2026-10-09) | When to revisit |
 |---|---|---|---|
 | `react-router`, `@react-router/dev` 7.18.4 -> 8.4.0 | latest 8.4.0 | `@shopify/shopify-app-react-router` 3.0.2 (its latest; dist-tag `latest`, no `next`) declares peer `react-router ^7.6.2` | When `@shopify/shopify-app-react-router` publishes a release whose peer range admits 8. Do **not** use `--legacy-peer-deps` or `overrides`: the library's `authenticate`/`boundary` code is built against v7 |
-| `remix-i18next` 7.5.0 -> 8.0.0 | latest 8.0.0 | Peer `react-router ^8.0.0`, so it moves with react-router. Its v8 changes (read in the project's release notes): needs Node >= 22.22; middleware imported from the package root; `server`/`client`/`react` subpath exports removed (this repo imports `remix-i18next/server` in `app/i18n/i18n.server.ts`); `RemixI18Next` class replaced by `createI18nextMiddleware`; `findLocale` callbacks receive middleware args | With react-router 8 |
+| `remix-i18next` | removed (2026-10-27) | Not a dependency any more: the only thing used was `getRouteNamespaces`, now `app/i18n/route-namespaces.ts` (matched routes only) | Nothing to revisit |
 | `typescript` 6.0.3 -> 7.0.2 | latest 7.0.2 (native compiler) | `typescript-eslint` 8.71.1 (and its canary 8.71.2-alpha.1) peers `typescript >=4.8.4 <6.1.0`; `@react-router/dev` 7.18.4 peers `typescript ^5.1.0 \|\| ^6.0.0` | When `typescript-eslint` supports TS 7. Lint is a verify gate and cannot run without it |
 | `@types/node` 24 -> 26 | latest 26.6.4 | Deliberate: types must match the Node 24 runtime (section 1) | When `.nvmrc` moves to Node 26 (LTS from late October 2026) |
 

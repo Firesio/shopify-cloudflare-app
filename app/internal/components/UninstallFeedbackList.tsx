@@ -22,9 +22,9 @@ import {
 } from "~/domain/uninstall-feedback";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 /** Messages longer than this are clamped in the table and open in a dialog. */
 const LONG_MESSAGE = 80;
@@ -72,7 +72,7 @@ function feedbackColumns(onOpen: (item: RawUninstallFeedback) => void): ColumnDe
       ),
       cell: ({ row }) => (
         <div className="text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-          {formatDateTime(LOCALE, row.original.occurredAt, UTC)}
+          {formatDateTime(LANGUAGE, row.original.occurredAt, UTC)}
         </div>
       ),
       sortDescFirst: true,
@@ -196,7 +196,7 @@ function FeedbackDialog({
           <DialogTitle>Merchant exit feedback</DialogTitle>
           {item && (
             <DialogDescription>
-              {shopLabel(item)} · {formatDateTime(LOCALE, item.occurredAt, UTC)}
+              {shopLabel(item)} · {formatDateTime(LANGUAGE, item.occurredAt, UTC)}
             </DialogDescription>
           )}
         </DialogHeader>

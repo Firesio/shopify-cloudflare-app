@@ -16,13 +16,13 @@ import { DataTable, SortableHeader } from "~/internal/components/data-table";
 import { paths } from "~/urls";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 import { ADMIN_ROLE_LABEL, ADMIN_STATUS_LABEL } from "~/internal/admin-messages";
 import type { SafeAdminUser } from "~/db/schema";
 import type { Intent } from "./intents.server";
 import { RightAlignedSortableHeader } from "../table-columns";
 
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 /** Whether the control for `intent` (optionally on row `id`) is the one submitting. */
 export type IsPending = (intent: Intent, id?: string) => boolean;
@@ -125,7 +125,7 @@ const ROW_COLUMNS: ColumnDef<SafeAdminUser>[] = [
     header: ({ column }) => <RightAlignedSortableHeader column={column} title="Last sign-in" />,
     cell: ({ row }) => (
       <div className="text-right tabular-nums text-muted-foreground">
-        {row.original.lastLoginAt ? formatDateTime(LOCALE, row.original.lastLoginAt, UTC) : "Never"}
+        {row.original.lastLoginAt ? formatDateTime(LANGUAGE, row.original.lastLoginAt, UTC) : "Never"}
       </div>
     ),
   },

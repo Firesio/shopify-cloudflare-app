@@ -38,6 +38,7 @@ function shop(overrides: Partial<Shop> = {}): Shop {
     currentInstalledAt: null,
     uninstalledAt: null,
     isDevStore: false,
+    devStatusCheckedAt: null,
     lastAuthenticatedAt: null,
     lastWebhookAt: null,
     lastReconciledAt: null,

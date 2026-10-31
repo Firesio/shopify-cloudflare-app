@@ -142,7 +142,7 @@ export class ShopSubscriptionRepo {
   /**
    * Current projections for just these shops. D1 allows 100 bound parameters per
    * statement, so the shop list is read in chunks of 90 — a handful of queries
-   * at most, never one per shop.
+   * at most, never one per shop. A shop's rows come newest first, so its FIRST row is the one `currentForShop` returns.
    */
   async listCurrentForShops(shopDomains: readonly string[]): Promise<CurrentSubscriptionProjection[]> {
     const unique = [...new Set(shopDomains)];
@@ -164,7 +164,7 @@ export class ShopSubscriptionRepo {
       }).from(shopSubscriptions).leftJoin(shopSubscriptionItems, and(
         eq(shopSubscriptionItems.shop, shopSubscriptions.shop),
         eq(shopSubscriptionItems.subscriptionId, shopSubscriptions.subscriptionId),
-      )).where(inArray(shopSubscriptions.shop, chunk)).orderBy(shopSubscriptionItems.position));
+      )).where(inArray(shopSubscriptions.shop, chunk)).orderBy(desc(shopSubscriptions.appliedOccurredAt), desc(shopSubscriptions.appliedExternalId), shopSubscriptionItems.position));
     }
     return rows;
   }

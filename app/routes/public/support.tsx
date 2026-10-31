@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { data, Form, redirect, useActionData, useLoaderData, useNavigation } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { useTranslation } from "react-i18next";
-import { i18nServer } from "~/i18n/i18n.server";
+import { audienceTextForRequest } from "~/wiring/audience.server";
+import { identity } from "~/identity";
 import { getEnv } from "~/request-context.server";
 import {
   CONTACT_EMAIL_MAX,
@@ -22,11 +23,10 @@ const SENT = "/support?sent=1";
 const TURNSTILE_SCRIPT = "https://challenges.cloudflare.com/turnstile/v0/api.js";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const t = await i18nServer.getFixedT(request, "public");
-  const common = await i18nServer.getFixedT(request, "common");
+  const text = await audienceTextForRequest(request, "public.support");
+  const t = text.fixedT("public");
   return {
-    title: `${t("support.heading")} — ${common("appName")}`,
-    appName: common("appName"),
+    title: `${t("support.heading")} — ${identity.name}`,
     sent: new URL(request.url).searchParams.get("sent") === "1",
     turnstileSiteKey: getEnv().TURNSTILE_SITE_KEY,
   };
@@ -138,16 +138,14 @@ function ContactForm({ siteKey }: { readonly siteKey: string }) {
  */
 export default function Support() {
   const { t } = useTranslation("public");
-  const { t: common } = useTranslation("common");
   const { sent, turnstileSiteKey } = useLoaderData<typeof loader>();
-  const appName = common("appName");
   const supportEmail = useSupportEmail();
 
   return (
     <section className="section">
       <div className="prose stack">
         <h1>{t("support.heading")}</h1>
-        <p className="muted">{t("support.subheading", { appName })}</p>
+        <p className="muted">{t("support.subheading")}</p>
 
         <p className="notice notice--warning">{t("support.warning")}</p>
 

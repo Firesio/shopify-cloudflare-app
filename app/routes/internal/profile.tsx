@@ -15,7 +15,7 @@ import type { ProfileErrorReason } from "~/services/admin-management.server";
 import { MIN_PASSWORD_LENGTH } from "~/lib/password-policy";
 import { formatDateTime } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
-import type { Locale } from "~/i18n/config";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
 import { adminUsers, adminSessionUsers, appRuntime, staffAudit, staffMfa } from "~/wiring.server";
 import { mfaStatus, pendingMfaSetup } from "~/services/staff-mfa";
 import { handleProfileMfaIntent, isMfaIntent } from "./profile-mfa.server";
@@ -27,7 +27,7 @@ import {
   type ProfileDialog,
 } from "./profile-forms";
 
-const LOCALE: Locale = "en";
+const LANGUAGE: LanguageCode = "en";
 
 const PROFILE_ERRORS: Record<ProfileErrorReason, string> = {
   nameRequired: "A name is required.",
@@ -143,7 +143,7 @@ export default function Profile() {
         <ProfileSuccess message={successMessage} />
         <AccountCard
           user={user}
-          lastSignIn={user.lastLoginAt ? formatDateTime(LOCALE, user.lastLoginAt, UTC) : undefined}
+          lastSignIn={user.lastLoginAt ? formatDateTime(LANGUAGE, user.lastLoginAt, UTC) : undefined}
           busy={busyDetails}
           error={errorFor("details")}
           {...controlFor("details")}
@@ -158,7 +158,7 @@ export default function Profile() {
           pendingSetup={pendingSetup}
           result={mfaResult}
           busyIntent={typeof submittingIntent === "string" ? submittingIntent : undefined}
-          enabledOn={mfa.enabledAt ? formatDateTime(LOCALE, mfa.enabledAt, UTC) : undefined}
+          enabledOn={mfa.enabledAt ? formatDateTime(LANGUAGE, mfa.enabledAt, UTC) : undefined}
         />
       </div>
     </div>

@@ -341,7 +341,6 @@ Never turn a failed or unauthorized lookup into a free-plan result. [S14]
 | Run mode | Client ID | App Pricing GID |
 | --- | --- | --- |
 | `npm run dev` | CLI selects dev app; `vite.config.ts` forwards injected `SHOPIFY_API_KEY` into Worker vars | Explicit local `SHOPIFY_PARTNER_APP_ID` for that same app |
-| `npm run dev:local` | Set local Worker configuration; there is no Shopify CLI injection | Explicit local GID for that same app |
 | Production | Production TOML/client ID aligned with production Worker vars; secret stored separately | Set `env.production.vars.SHOPIFY_PARTNER_APP_ID` from that production app's lookup |
 | Queue/cron | Worker environment, not browser query parameters | Same configured GID; jobs cannot depend on an interactive merchant request |
 Do not assume the CLI injects `SHOPIFY_PARTNER_APP_ID`; this project's Vite bridge

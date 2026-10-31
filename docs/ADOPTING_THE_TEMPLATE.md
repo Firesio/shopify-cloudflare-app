@@ -30,8 +30,8 @@ and evidence; a checked box is not a substitute for a tested implementation.
 ## 1. Establish app identity and Shopify configuration
 
 - Set the canonical product, company, support/privacy contacts, legal address,
-  effective date, and localized tagline/sender disclosure in `app/identity.ts`.
-  Public resources and email branding derive from this file; do not reintroduce
+  effective date in `app/identity.ts`, and the localized tagline (`common.json`) and email sender disclosure
+  (`email.json`) in every language folder. The name reaches them as `{{appName}}`; do not reintroduce
   identity literals in route, legal, or email components.
 
 - Create separate Shopify applications for development and production. Link

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { useLocale } from "~/i18n/useLocale";
+import { useLanguage } from "~/i18n/useLanguage";
 import { formatMoney } from "~/money";
 import { annualSavingPercent } from "~/billing/annual-savings";
 import type { Plan } from "~/billing/plans";
@@ -163,9 +163,9 @@ function PlanPill({ isCurrent, isFeatured }: Pick<PlanCardProps, "isCurrent" | "
  */
 function AnnualLine({ plan }: { plan: Plan }) {
   const { t } = useTranslation(["admin", "common"]);
-  const locale = useLocale();
+  const language = useLanguage();
   const savingPercent = annualSavingPercent(plan);
-  const price = formatMoney(locale, plan.priceAnnual);
+  const price = formatMoney(language, plan.priceAnnual);
 
   if (plan.priceMonthly.amount <= 0) return <>{t("billing.plans.freeForever")}</>;
   if (savingPercent === null) return <>{t("billing.plans.annual", { price })}</>;
@@ -174,7 +174,7 @@ function AnnualLine({ plan }: { plan: Plan }) {
 
 function PlanHead({ plan }: { plan: Plan }) {
   const { t } = useTranslation(["admin", "common"]);
-  const locale = useLocale();
+  const language = useLanguage();
   const isPaid = plan.priceMonthly.amount > 0;
   return (
     <div className="bp-head">
@@ -183,7 +183,7 @@ function PlanHead({ plan }: { plan: Plan }) {
       {/* The amount is the hero and carries the weight; the interval sits
           subdued on its baseline so the two read as one figure. */}
       <div className="bp-price">
-        <span className="bp-amount">{formatMoney(locale, plan.priceMonthly)}</span>
+        <span className="bp-amount">{formatMoney(language, plan.priceMonthly)}</span>
         {isPaid && <span className="bp-cycle">{t("billing.plans.perMonth")}</span>}
       </div>
 

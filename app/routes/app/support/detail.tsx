@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 import { authenticateAdmin } from "~/admin/require-merchant.server";
 import { settle } from "~/admin/settle.server";
 import { Deferred, FailedSection, PendingSection } from "~/components/admin/Deferred";
-import { useLocale } from "~/i18n/useLocale";
+import { useLanguage } from "~/i18n/useLanguage";
 import { formatDate, formatDateTime, formatNumber } from "~/i18n/format";
 import { useTimeZone } from "~/i18n/useTimeZone";
 import { supportService } from "~/wiring.server";
@@ -199,7 +199,7 @@ function CcSaveBar({ saving, onSave, onDiscard }: CcSaveBarProps) {
 
 function ConversationSection({ messages }: { messages: ThreadData["messages"] }) {
   const { t } = useTranslation(["admin", "common"]);
-  const locale = useLocale();
+  const language = useLanguage();
   const timeZone = useTimeZone();
   return (
     <s-section heading={t("support.thread.conversation")}>
@@ -207,8 +207,8 @@ function ConversationSection({ messages }: { messages: ThreadData["messages"] })
         messages={messages}
         youLabel={t("support.thread.you")}
         downloadLabel={t("support.thread.download")}
-        formatFileSize={(sizeBytes) => `${formatNumber(locale, Math.max(1, Math.round(sizeBytes / 1024)))} KB`}
-        formatWhen={(at) => formatDateTime(locale, at, timeZone)}
+        formatFileSize={(sizeBytes) => `${formatNumber(language, Math.max(1, Math.round(sizeBytes / 1024)))} KB`}
+        formatWhen={(at) => formatDateTime(language, at, timeZone)}
       />
     </s-section>
   );
@@ -279,7 +279,7 @@ function DetailField({ label, children }: { label: string; children: ReactNode }
 
 function DetailsAside({ ticket, ccEmails, onCcChange, ccForm }: DetailsAsideProps) {
   const { t } = useTranslation(["admin", "common"]);
-  const locale = useLocale();
+  const language = useLanguage();
   const timeZone = useTimeZone();
   return (
     <s-box slot="aside">
@@ -296,7 +296,7 @@ function DetailsAside({ ticket, ccEmails, onCcChange, ccForm }: DetailsAsideProp
           </DetailField>
 
           <DetailField label={t("support.thread.created")}>
-            <s-text>{formatDate(locale, ticket.createdAt, timeZone)}</s-text>
+            <s-text>{formatDate(language, ticket.createdAt, timeZone)}</s-text>
           </DetailField>
 
           <s-divider direction="block" />

@@ -1,4 +1,5 @@
-import { and, desc, eq, isNull, lt, or, sql, exists, count } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, or, sql, exists, count } from "drizzle-orm";
+import { chunk } from "~/lib/chunk";
 import { getDb } from "~/request-context.server";
 import {
   shops,
@@ -65,6 +66,15 @@ export class ShopRepo {
       .where(eq(shops.shop, shop))
       .limit(1);
     return rows[0];
+  }
+
+  /** The rows of these shops, keyed by domain. D1 binds at most 100 parameters per statement: read in chunks of 90. */
+  async getMany(shopDomains: readonly string[]): Promise<ReadonlyMap<string, Shop>> {
+    const found = new Map<string, Shop>();
+    for (const slice of chunk([...new Set(shopDomains)], 90)) {
+      for (const row of await getDb().select().from(shops).where(inArray(shops.shop, [...slice]))) found.set(row.shop, row);
+    }
+    return found;
   }
 
   /** Idempotent: safe to call on every install and re-install. */
@@ -146,8 +156,9 @@ export class ShopRepo {
     await getDb().update(shops).set({ lastReconciledAt: now }).where(eq(shops.shop, shop));
   }
 
-  async setDevStatus(shop: string, isDevStore: boolean): Promise<void> {
-    await getDb().update(shops).set({ isDevStore }).where(eq(shops.shop, shop));
+  /** Store Shopify's answer and when it was given. */
+  async recordDevStatus(shop: string, isDevStore: boolean, checkedAt: number): Promise<void> {
+    await getDb().update(shops).set({ isDevStore, devStatusCheckedAt: checkedAt }).where(eq(shops.shop, shop));
   }
 
   /**

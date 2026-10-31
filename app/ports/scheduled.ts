@@ -15,6 +15,11 @@ export interface ScheduledDependencies {
     deleteUploadObjects(keys: readonly string[]): Promise<void>;
   };
   readonly history: { reconcile(now: number): Promise<{ status: "succeeded"; pages: number; events: number } | { status: "failed"; code: string; detail: string }> };
+  /**
+   * Settles quota reservations and capacity allocations that a crashed run left `held`
+   * (app/services/entitlement-held-sweep.ts). Returns counts for the log.
+   */
+  readonly entitlementReconcile: { run(now: number): Promise<Readonly<Record<string, number>>> };
   /** Looks for shops that uninstalled without Shopify's webhook reaching us. Returns counts for the log. */
   readonly uninstallProbe: { run(now: number): Promise<Readonly<Record<string, number>>> };
 }

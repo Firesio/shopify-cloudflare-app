@@ -12,13 +12,13 @@ link.)
 
 | Layer      | Choice                                                    |
 | ---------- | --------------------------------------------------------- |
-| Runtime    | Cloudflare Workers (workerd), via `@cloudflare/vite-plugin`; tooling on Node 24 LTS (`.nvmrc`, `engines >=24.15`) |
+| Runtime    | Cloudflare Workers (workerd), via `@cloudflare/vite-plugin`; tooling on Node 24 LTS (`.nvmrc`, `engines >=24.15`); verified on Node 26.12.0 (see `docs/UPGRADING.md`, "Node 26") |
 | Framework  | React Router 7 (SSR) + Vite 8, explicit nested route config |
 | Shopify    | `@shopify/shopify-app-react-router` v3, Admin API 2026-10  |
 | Admin UI   | Polaris **web components** + App Bridge (embedded only)    |
 | Public UI  | SCSS design tokens (`app/styles/public/`), dark mode + a11y |
 | Staff console | `/internal` — ngk-dashboard + Tailwind v4, PBKDF2 auth      |
-| i18n       | i18next + `remix-i18next`, `en` + `es`, `Intl` formatting  |
+| i18n       | i18next, one folder per language (ships `en`, `es`), `Intl` formatting |
 | Money      | integer minor units + currency (`app/money/`), never a float |
 | State      | D1 + Drizzle (`app/db/`, queried only in `app/models/`)   |
 | Sessions   | Workers KV (`app/session-storage.server.ts`)              |
@@ -39,7 +39,7 @@ cd my-new-app
 Or hit **Use this template → Create a new repository** on GitHub. Then:
 
 ```bash
-npm install                         # also installs Claude/Codex skills
+npm install
 cp .dev.vars.example .dev.vars      # then READ it — an empty KEY= line is worse
                                     # than an absent one; it shadows what
                                     # `shopify app dev` injects
@@ -84,43 +84,23 @@ handler.
 
 ## AI-agent skills
 
+Skills are installed **once per machine**, globally, not into each project. `npm install` does not install them.
+
 ```bash
-npm run install:skill                          # install/refresh everything
-npm run install:skill -- --locked              # restore the committed skill set
-npm run install:skill -- --agent claude-code   # one host only
+npx skills add Shopify/shopify-ai-toolkit -g -a claude-code -s shopify -s ucp -y
+npx skills add remotion-dev/skills        -g -a claude-code -s '*' -y
 ```
 
-`npm install` automatically restores the committed skill set for Claude Code
-and Codex and verifies that every skill is available to both hosts without
-rewriting `skills-lock.json`. Run
-`npm run install:skill` manually when you intentionally want to refresh the
-lockfile from the upstream skill repositories.
-
-`skills-lock.json` is committed and lists every skill package this repo uses —
-**14 skills from two sources**:
+The CLI keeps the files in `~/.agents/skills/` and symlinks them into `~/.claude/skills/`, so every project on the
+machine sees the same set. Do not delete `~/.agents/skills/`: the symlinks point into it.
 
 | Source | What it gives an agent |
 | ------ | ---------------------- |
-| `Shopify/shopify-ai-toolkit` (2) | Unified Shopify API/CLI/Polaris lookup plus UCP — the lookups `@rules/shopify-and-ui.md` requires |
+| `Shopify/shopify-ai-toolkit` (2: `shopify`, `ucp`) | Unified Shopify API/CLI/Polaris lookup plus UCP — the lookups `@rules/shopify-and-ui.md` requires |
 | `remotion-dev/skills` (12) | React video, if a project needs it |
 
-Testing and verification rules are maintained in the repository itself, so the
-installer has no dependency on a separate workflow plugin.
-
-The installed skills are **not** committed — they are ~90 MB and fully
-reproducible from that lockfile, which is exactly why this command exists.
-Expect the first run to take several minutes.
-
-Where they land:
-
-- **`.agents/skills/`** — the universal store. Most hosts read it directly:
-  Codex, opencode, Amp, Cline, Cursor, Gemini CLI, Windsurf, Zed and others.
-- **`.claude/skills/`** — symlinks into that store, for Claude Code.
-- **`agent/`** — symlinks into that store, for Eve.
-
-All three are gitignored. To add a skill, `npx skills add <owner>/<repo>` once —
-it records the source in `skills-lock.json`, and every fork picks it up from
-`npm run install:skill` after that.
+The `shopify-plugin:*` skills `AGENTS.md` names come from the `shopify-ai-toolkit` Claude Code plugin, not from this
+install; enable that plugin separately.
 
 ## Two Shopify apps: dev and prod
 
@@ -138,26 +118,37 @@ creates its own pair, since `client_id` ships empty:
 Keep `[access_scopes]` and the webhook list in sync between them: a scope that
 exists in only one env produces bugs that reproduce in only one env.
 
-## The Shopify CLI is project-local
+## The Shopify CLI
 
 `scripts/shopify.mjs` wraps every CLI call, and all the `npm run` Shopify
-scripts go through it. It gives you two kinds of isolation:
+scripts go through it. It runs this repo's `@shopify/cli` devDependency (the
+version is pinned in `package.json`) instead of whatever `shopify` is on your
+`PATH`.
 
-- **The binary** — runs this repo's `@shopify/cli` devDependency, not whatever
-  `shopify` is on your `PATH`. The version is pinned in `package.json`.
-- **The login session** — repoints the CLI's `HOME` (and the XDG/Windows
-  equivalents) at a project-local `.shopify-home/`. So you can stay logged into
-  your company account globally and into a different account for this project
-  at the same time, with no logging in and out. `.shopify-home/` is gitignored.
+The login session is the **normal one**: the CLI uses your real `HOME`, so the
+account you are already logged into on this machine (`shopify auth login`) is
+the one this project uses, like any other Shopify app. There is no per-project
+login and no `.shopify-home/` any more; a leftover one from an older checkout is
+ignored and can be deleted.
 
-Your real `wrangler` credentials are symlinked into that isolated home, because
-wrangler runs inside `shopify app dev`.
+In dev the Workers AI binding is **off** by default (an AI call degrades to "no draft"), because it has no local
+simulation and turning it on opens a session on Cloudflare at every start. Use `DEV_REMOTE_BINDINGS=1 npm run dev` when
+you are working on an AI feature; it needs `wrangler login` and bills real usage.
+
+`npm run dev` hides wrangler's own warnings (`WRANGLER_LOG=error`, set by `scripts/shopify.mjs` for `app dev` only), chiefly
+"Missing required secrets": the Shopify CLI injects `SHOPIFY_API_SECRET` itself and the other names are optional locally;
+`secrets.required` still guards the production deploy. Run `WRANGLER_LOG=warn npm run dev` to see them again.
+
+Output that comes from tools and cannot be turned off from the app: the Shopify CLI's extension build lines, `app-logs | Error
+while polling app logs. Retrying in 5 seconds.` (the CLI starts log polling only when the app has a Function extension and
+repeats that line while Shopify's `app_logs/poll` endpoint answers 401, 429 or 5xx; there is no flag for it), Vite's
+"`envFile` option is deprecated" (from `@react-router/dev`), and `config.future.expiringOfflineAccessTokens true` (a stray
+`console.log` in `@shopify/shopify-app-react-router` 3.0.2's token exchange).
 
 `npm run dev` checks the theme app extension server's default port (`9293`) and
 GraphiQL's default port (`3457`) before starting Shopify CLI. If another process
 owns either port, the wrapper passes the next available port via the matching
-CLI flag; Shopify CLI prints the selected URLs. `npm run dev:local` uses Vite's
-built-in port fallback.
+CLI flag; Shopify CLI prints the selected URLs.
 
 ## Deploying
 
@@ -576,14 +567,23 @@ alike.** A hardcoded English string is a defect, like a hardcoded hex colour.
 
 ```
 app/i18n/
-├── config.ts                supported locales, labels, direction, narrowing
-├── options.ts               i18next options shared by server + client
-├── resources.ts             static JSON imports (workerd has no filesystem)
-├── i18n.server.ts           locale detection
-├── useLocale.ts             the render's locale, read from i18next
+├── locales/<code>/          one JSON per namespace + language.json (just the name)
+├── locales/namespaces.json  each namespace declared "browser" or "server"
+├── catalogues.generated.ts  GENERATED by `npm run i18n:sync`: LanguageCode, LANGUAGES (name, script, direction from Intl), namespaces, key unions
+├── browser-loaders.generated.ts   GENERATED: lazy browser loaders (browser namespaces only)
+├── config.ts                small, browser-safe helpers (languageCodeOf, directionOf)
+├── resources.ts             server resources via import.meta.glob, deep-frozen (workerd has no filesystem)
+├── base-options.ts          i18next options without resources (browser-safe), the default variables
+├── options.ts               base options + server resources
+├── bootstrap*.ts            the language and text the server inlines in the page so hydration needs no request
+├── i18n.client.ts           the browser's instance: bootstrap first, lazy loaders with retry as the fallback
+├── i18n.server.ts           requestEvidence, getLanguage (page), getMerchantLanguage
+├── route-namespaces.ts      the namespaces the MATCHED routes declare
+├── useLanguage.ts           the render's language, read from i18next
 ├── format.ts                Intl date / number / money / list helpers
-├── i18next.d.ts             types t() against the en files
-└── locales/{en,es}/{common,public,admin}.json
+└── i18next.d.ts             types t() against the en files
+app/lib/language/            pure: tag (edge schema), negotiate (server only), accept-language, text layers + translator, validator
+app/i18n/audience.ts         the AudienceText contract (built only in app/wiring/audience.server.ts)
 ```
 
 Namespaces split by surface, so the admin bundle never ships marketing and legal
@@ -593,44 +593,39 @@ copy. A route declares what it needs:
 export const handle = { i18n: ["common", "admin"] };
 ```
 
-### Where the locale comes from
+### Where the language comes from
 
-| Priority | Source |
-| -------- | ------ |
-| 1 | **`?locale=` — Shopify's own parameter.** Authoritative in the embedded admin |
-| 2 | `?lng=` — explicit switch on the public pages |
-| 3 | `locale` cookie — remembered public choice |
-| 4 | `Accept-Language` |
-| 5 | `en` |
+Two readers, two sources, one negotiator (`negotiate`, script-aware):
 
-Apps rendered in the Shopify admin receive the merchant's chosen locale in the
-`locale` request parameter, so the embedded app follows the language the merchant
-already picked in Shopify. **Never add a language switcher to the admin** — it
-would let the app disagree with the Shopify chrome around it. The switcher is
-public-only, and persists to a cookie so the *server* renders the next request in
-the right language.
+| Reader | Evidence, best first |
+| ------ | -------------------- |
+| The merchant inside the Shopify admin (`/app/**`) | **`?locale=` (Shopify's own parameter, authoritative)**, then the visitor evidence below |
+| Everyone else (public pages, customer pages, mail built from a request) | `?lng=`, the `locale` cookie, `Accept-Language` by weight, then `en`. **Never `?locale=`**: that is the language of the Shopify admin user |
 
-Shopify sends regional tags (`es-ES`), so everything narrows through
-`toLocale()`, which falls back to the base language. A strict equality check
-would silently serve English to a Spanish merchant.
+**Never add a language switcher to the admin** — it would let the app disagree with the Shopify chrome around it. The
+switcher is public-only, and persists to a cookie so the *server* renders the next request in the right language.
+
+Regional tags (`es-ES`, `pt-BR`) are negotiated, never compared for equality; see `docs/i18n.md`.
 
 ### Formatting is part of translation
 
 `1/2/2026` is January 2nd in `en` and February 1st in `es`; `1,5` is
 one-and-a-half in `es` and one thousand five hundred in `en`. **Never hand-format
 a date, number, currency, list, or relative time** — use `app/i18n/format.ts`.
-`formatMoney(locale, minorUnits, currency)` takes integer minor units and derives
+`formatMoney(language, minorUnits, currency)` takes integer minor units and derives
 the divisor from the currency, so JPY (0 decimals) and KWD (3) are right without
 a special case.
 
-### Adding a locale
+### Adding a language
 
-Add the code to `config.ts`, add `locales/<code>/*.json`, register them in
-`resources.ts`. The suite then enforces **identical key sets, no empty strings,
-and identical `{{interpolation}}` placeholders** across every locale — a renamed
-placeholder renders literal braces to a merchant, so it fails the build.
+1. Create `app/i18n/locales/<code>/` (the canonical tag) with `language.json` (`{ "name": "..." }`; script and direction are generated) and one JSON per namespace.
+2. `npm run i18n:sync` (regenerates `catalogues.generated.ts`; `--check` runs inside `npm run typecheck`).
+3. `npm run verify`: identical key sets, no empty strings, identical `{{placeholders}}`, plural categories per
+   `Intl.PluralRules`, and a current generated file.
 
-Full contract: `.claude/rules/i18n.md`.
+No code file lists the languages. See `docs/i18n.md`.
+
+Full contract: `.claude/rules/i18n.md`; guide: `docs/i18n.md`.
 
 ## Styling
 
@@ -667,14 +662,12 @@ is reused across shops and module state would leak between tenants.
 | Command                  | Does                                              |
 | ------------------------ | ------------------------------------------------- |
 | `npm run dev`            | `shopify app dev` against the dev app + tunnel     |
-| `npm run dev:local`      | Vite only, no tunnel or Shopify CLI                |
-| `npm run precommit`      | typecheck + lint — the **pre-commit** hook, ~5s     |
-| `npm run verify`         | typecheck + lint + test — the **pre-push** hook, ~35s |
+| `npm run precommit`      | lint staged files + incremental typecheck — the **pre-commit** hook, 0–15 s |
+| `npm run verify`         | full typecheck + lint + test, ~50 s — what CI runs |
 | `npm run db:generate`    | Drizzle schema → a new migration in `./drizzle`    |
 | `npm run db:migrate:local` | Apply migrations to local D1                    |
 | `npm run cf-typegen`     | Regenerate `worker-configuration.d.ts` (`Env`)     |
 | `npm run cf:deploy`      | Verify, production build, migrate, deploy          |
-| `npm run install:skill`  | Install every AI-agent skill, for every agent host |
 | `npm run check:placeholders` | Fail if production bindings still hold `REPLACE_ME` ids |
 
 ## Operating and adopting a derived app

@@ -71,13 +71,6 @@ export const TOOL_CATALOG: {
         summary: "360-degree merchant dossier: plan, installation, tickets, and quotas.",
       },
       {
-        name: "set_shop_dev_status",
-        domain: "Store Onboarding & Operations",
-        scope: "mcp:shops:write",
-        isMutation: true,
-        summary: "Tag or untag a store as a development / test store.",
-      },
-      {
         name: "get_shop_webhook_status",
         domain: "Store Onboarding & Operations",
         scope: "mcp:shops:read",

@@ -1,8 +1,9 @@
 import { getDb } from "~/request-context.server";
-import { and, count, desc, eq, inArray, exists, lt, lte, gte, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, exists, lt, lte, gte, notExists, or, sql } from "drizzle-orm";
 import { entitlementAllocations, entitlementOperations, entitlementUsage, shopSubscriptions } from "~/db/schema";
-import type { AllocateResult, DeallocateResult, ReserveResult, EntitlementOperationFailure } from "~/ports/entitlements";
+import type { AdoptResult, AllocateResult, CapacityUsage, DeallocateResult, QuotaUsage, ReserveResult, EntitlementOperationFailure } from "~/ports/entitlements";
 import type { HeldItem, ReconciliationResult } from "~/ports/entitlement-reconciliation";
+import type { SubscriptionStatus } from "~/domain/subscription-lifecycle";
 import type { Clock } from "~/ports/runtime";
 
 async function d1Count(shop: string, key: string): Promise<number> {
@@ -23,6 +24,31 @@ async function usageRemaining(shop: string, key: string, period: string, maximum
   return Math.max(0, maximum - Number(row?.committed ?? 0) - Number(row?.held ?? 0));
 }
 
+/**
+ * Stored subscription states that may allocate or reserve by default: the ones the policy treats as active (NONE is the free
+ * plan). An app that reads a lapsed subscription as the free plan lists those states too (`EntitlementRepoOptions`).
+ */
+const DEFAULT_ADMITTING_STATUSES: readonly SubscriptionStatus[] = ["NONE", "ACTIVE", "CANCELLATION_SCHEDULED"];
+
+export interface EntitlementRepoOptions {
+  /** The stored `shop_subscriptions.status` values under which a write is admitted. Default: NONE, ACTIVE, CANCELLATION_SCHEDULED. */
+  readonly admittingStatuses?: readonly SubscriptionStatus[];
+}
+
+/**
+ * Whether the subscription snapshot a decision was made from is still the current one. A projection row must carry that
+ * revision in an admitting state. A shop that has never had a subscription observed has no row; an app whose port reads
+ * that as "no subscription yet, the free plan" hands over revision 0, and that snapshot is current only while the shop
+ * still has no row. Any other revision, with or without a row, is stale.
+ */
+function projectionAdmits(db: ReturnType<typeof getDb>, shop: string, revision: number, statuses: readonly SubscriptionStatus[]) {
+  const current = exists(db.select({ shop: shopSubscriptions.shop }).from(shopSubscriptions).where(and(
+    eq(shopSubscriptions.shop, shop), eq(shopSubscriptions.revision, revision), inArray(shopSubscriptions.status, [...statuses]),
+  )));
+  if (revision !== 0) return current;
+  return or(current, notExists(db.select({ shop: shopSubscriptions.shop }).from(shopSubscriptions).where(eq(shopSubscriptions.shop, shop))));
+}
+
 export type OperationState = "held" | "committed" | "released";
 export type AllocationState = "held" | "allocated" | "released";
 
@@ -32,7 +58,11 @@ function isOperationState(value: string): value is OperationState {
 
 /** D1 adapter for quota reservations and reusable concurrent allocations. */
 export class EntitlementRepo {
-  constructor(private readonly clock: Clock) {}
+  private readonly admittingStatuses: readonly SubscriptionStatus[];
+
+  constructor(private readonly clock: Clock, options: EntitlementRepoOptions = {}) {
+    this.admittingStatuses = options.admittingStatuses ?? DEFAULT_ADMITTING_STATUSES;
+  }
 
   async findOperation(shop: string, operationId: string) {
     const [row] = await getDb().select({ key: entitlementOperations.key, requestedAmount: entitlementOperations.requestedAmount, period: entitlementOperations.period, subscriptionRevision: entitlementOperations.subscriptionRevision, state: entitlementOperations.state }).from(entitlementOperations).where(and(eq(entitlementOperations.shop, shop), eq(entitlementOperations.operationId, operationId))).limit(1);
@@ -97,6 +127,63 @@ export class EntitlementRepo {
     }
     return this.release({ shop, operationId });
   }
+  /** What a quota used in one period: committed units and units still held. Zero when nothing was ever reserved. */
+  async readUsage(shop: string, key: string, period: string): Promise<QuotaUsage> {
+    const [row] = await getDb().select({ committed: entitlementUsage.committed, held: entitlementUsage.held }).from(entitlementUsage).where(and(
+      eq(entitlementUsage.shop, shop), eq(entitlementUsage.key, key), eq(entitlementUsage.period, period),
+    )).limit(1);
+    return { committed: Number(row?.committed ?? 0), held: Number(row?.held ?? 0) };
+  }
+
+  /** Slots a capacity has in use: confirmed and held. Released slots are not in use. */
+  async readAllocations(shop: string, key: string): Promise<CapacityUsage> {
+    const rows = await getDb().select({ state: entitlementAllocations.state, total: count() }).from(entitlementAllocations).where(and(
+      eq(entitlementAllocations.shop, shop), eq(entitlementAllocations.key, key), inArray(entitlementAllocations.state, ["held", "allocated"]),
+    )).groupBy(entitlementAllocations.state);
+    const total = (state: string): number => Number(rows.find((row) => row.state === state)?.total ?? 0);
+    return { allocated: total("allocated"), held: total("held") };
+  }
+
+  /**
+   * Book a resource that already exists as allocated, WITHOUT checking a maximum or the subscription: adopting records a
+   * fact (this slot is in use), it grants nothing. That is how an app brings the resources it had before entitlements into
+   * the count, and why a plan change never evicts what a shop already has: only a new `allocate` meets the maximum.
+   * Idempotent per operation and per resource.
+   */
+  async adopt(input: { shop: string; key: string; allocationId: string; operationId: string; subscriptionRevision: number; now?: number }): Promise<AdoptResult> {
+    const now = input.now ?? this.clock.now();
+    const db = getDb();
+    const allocated = (operationId: string, replayed: boolean): AdoptResult => ({ allowed: true, allocationId: input.allocationId, operationId, state: "allocated", ...(replayed ? { replayed: true } : {}) });
+    const decide = async (): Promise<AdoptResult | undefined> => {
+      const [byOperation] = await db.select({ key: entitlementAllocations.key, allocationId: entitlementAllocations.allocationId, state: entitlementAllocations.state }).from(entitlementAllocations).where(and(
+        eq(entitlementAllocations.shop, input.shop), eq(entitlementAllocations.operationId, input.operationId),
+      )).limit(1);
+      if (byOperation) {
+        if (byOperation.key !== input.key || byOperation.allocationId !== input.allocationId) return { allowed: false, reason: "operation_conflict" };
+        if (byOperation.state === "allocated") return allocated(input.operationId, true);
+        if (byOperation.state !== "held") return { allowed: false, reason: "invalid_state" };
+        const promoted = await db.update(entitlementAllocations).set({ state: "allocated", updatedAt: now }).where(and(
+          eq(entitlementAllocations.shop, input.shop), eq(entitlementAllocations.operationId, input.operationId), eq(entitlementAllocations.state, "held"),
+        )).returning({ state: entitlementAllocations.state });
+        return promoted.length === 1 ? allocated(input.operationId, false) : { allowed: false, reason: "invalid_state" };
+      }
+      const [active] = await db.select({ operationId: entitlementAllocations.operationId, state: entitlementAllocations.state }).from(entitlementAllocations).where(and(
+        eq(entitlementAllocations.shop, input.shop), eq(entitlementAllocations.key, input.key), eq(entitlementAllocations.allocationId, input.allocationId),
+        inArray(entitlementAllocations.state, ["held", "allocated"]),
+      )).limit(1);
+      if (!active) return undefined;
+      return active.state === "allocated" ? allocated(active.operationId, true) : { allowed: false, reason: "operation_conflict" };
+    };
+    const known = await decide();
+    if (known) return known;
+    const inserted = await db.insert(entitlementAllocations).values({
+      shop: input.shop, key: input.key, allocationId: input.allocationId, operationId: input.operationId,
+      subscriptionRevision: input.subscriptionRevision, state: "allocated", createdAt: now, updatedAt: now,
+    }).onConflictDoNothing();
+    if (inserted.meta.changes === 1) return allocated(input.operationId, false);
+    return (await decide()) ?? { allowed: false, reason: "conflict" };
+  }
+
   async allocate(input: { shop: string; key: string; allocationId: string; operationId: string; maximum: number; subscriptionRevision: number; now?: number }): Promise<AllocateResult> {
     const now = input.now ?? this.clock.now();
     const [existing] = await getDb().select({ key: entitlementAllocations.key, allocationId: entitlementAllocations.allocationId, subscriptionRevision: entitlementAllocations.subscriptionRevision, state: entitlementAllocations.state }).from(entitlementAllocations).where(and(eq(entitlementAllocations.shop, input.shop), eq(entitlementAllocations.operationId, input.operationId))).limit(1);
@@ -124,9 +211,9 @@ export class EntitlementRepo {
       operationId: sql<string>`${input.operationId}`.as("operation_id"),
       subscriptionRevision: sql<number>`${input.subscriptionRevision}`.as("subscription_revision"),
       state: sql<string>`${"held"}`.as("state"), createdAt: sql<number>`${now}`.as("created_at"), updatedAt: sql<number>`${now}`.as("updated_at"),
-    }).from(shopSubscriptions).where(and(
-      eq(shopSubscriptions.shop, input.shop), eq(shopSubscriptions.revision, input.subscriptionRevision),
-      inArray(shopSubscriptions.status, ["NONE", "ACTIVE", "CANCELLATION_SCHEDULED"]), lt(capacity, input.maximum),
+    // A one-row source: the guard below is the whole condition, and a shop with no projection row has no row to select from.
+    }).from(sql`(select 1)`).where(and(
+      projectionAdmits(db, input.shop, input.subscriptionRevision, this.admittingStatuses), lt(capacity, input.maximum),
     )).limit(1)).onConflictDoNothing();
     if (held.meta.changes !== 1) {
       const [projection] = await getDb().select({ revision: shopSubscriptions.revision }).from(shopSubscriptions).where(eq(shopSubscriptions.shop, input.shop)).orderBy(desc(shopSubscriptions.appliedOccurredAt), desc(shopSubscriptions.appliedExternalId), desc(shopSubscriptions.subscriptionId)).limit(1);
@@ -179,7 +266,7 @@ export class EntitlementRepo {
         state: sql<string>`${"held"}`.as("state"), createdAt: sql<number>`${now}`.as("created_at"), updatedAt: sql<number>`${now}`.as("updated_at"),
       }).from(entitlementUsage).where(and(usageScope,
         lte(sql`${entitlementUsage.committed} + ${entitlementUsage.held} + ${input.amount}`, input.maximum),
-        exists(db.select({ shop: shopSubscriptions.shop }).from(shopSubscriptions).where(and(eq(shopSubscriptions.shop, input.shop), eq(shopSubscriptions.revision, input.subscriptionRevision), inArray(shopSubscriptions.status, ["ACTIVE", "CANCELLATION_SCHEDULED"])))),
+        projectionAdmits(db, input.shop, input.subscriptionRevision, this.admittingStatuses),
       ))).onConflictDoNothing(),
       // The dependent update stays inside the atomic batch for replay safety.
       db.update(entitlementUsage).set({ held: sql`${entitlementUsage.held} + ${input.amount}`, updatedAt: now }).where(and(usageScope, eq(sql<number>`changes()`, 1))),

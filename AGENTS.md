@@ -2,15 +2,15 @@
 
 **This file is the single source of truth for how to work in this repo.**
 `CLAUDE.md` is a one-line pointer at it; there is no second copy to keep in sync.
-Most agent hosts read `AGENTS.md` directly.
+This repo is set up for Claude Code only.
 
 Detailed rules live in `.claude/rules/` and are pulled in by the `@` links at the
 end of each section. They carry `globs` frontmatter, so hosts that scope rules by
 path can use them that way instead.
 
 **Shopify work goes through the Shopify AI Toolkit skills** — see the section
-below. `npm run install:skill` installs them (and every other skill this repo
-uses) for every agent host.
+below. Skills are installed once per machine, not per project — see
+"AI-agent skills" in `README.md`.
 
 ---
 
@@ -136,8 +136,8 @@ Everything enters through `~/money`; never `* 100`, never `.toFixed`, never
 
 **Every user-visible string is translated**, on the public pages _and_ in the
 embedded admin. No hardcoded copy, no hand-formatted dates or money — use
-`app/i18n/format.ts`. In the admin the locale comes from Shopify's `locale`
-request parameter and is authoritative; never add a language switcher there.
+`app/i18n/format.ts`. In the admin the language comes from Shopify's `locale`
+request parameter and is authoritative; everywhere else it never does. Never add a language switcher there.
 @.claude/rules/i18n.md
 @.claude/rules/money.md
 
