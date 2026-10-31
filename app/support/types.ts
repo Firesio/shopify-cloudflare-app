@@ -1,10 +1,14 @@
 import type { SupportCategory } from "~/support/categories";
+import type { SupportSource } from "~/support/inbound/types";
 
 export type SupportAuthor = "merchant" | "staff";
 
 export interface SupportTicket {
   readonly id: string;
-  readonly shop: string;
+  /** Null while no shop owns the conversation; see the schema note. */
+  readonly shop: string | null;
+  readonly source: SupportSource;
+  readonly replyAddress: string | null;
   readonly shopName: string;
   readonly merchantEmail: string | null;
   readonly ccEmails: readonly string[];
@@ -22,10 +26,12 @@ export interface SupportTicket {
 export interface SupportMessage {
   readonly id: string;
   readonly ticketId: string;
-  readonly shop: string;
+  readonly shop: string | null;
   readonly author: SupportAuthor;
   readonly authorName: string;
   readonly body: string;
+  readonly externalId: string | null;
+  readonly mailId: string | null;
   readonly createdAt: number;
 }
 

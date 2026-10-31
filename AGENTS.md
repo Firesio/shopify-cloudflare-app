@@ -14,6 +14,51 @@ uses) for every agent host.
 
 ---
 
+# Template placeholders are not real data
+
+Anything marked `TODO:` or using a reserved example value (`@example.com`,
+`example.org`) in `app/identity.ts`, `app/legal/content.ts`, locale files,
+`app/billing/plans.ts`, `wrangler.jsonc` and the `shopify.app*.toml` files is
+**template data, not the product's real values**. It exists so the template
+builds; it is never a decision someone made.
+
+- **Replace every one of them** when you touch the surface that uses it. Do not
+  copy a placeholder into new code, tests or docs as if it were true, and do not
+  leave a `TODO:` behind in something you shipped.
+- If you do not know the real value (legal address, app name, price), **ask**.
+  Never invent one and never "fix" the placeholder check to get past it.
+- `npm run check:placeholders` is the gate. It is expected to fail on a fresh
+  template and must pass before a production deploy. Steps and the full list:
+  `docs/ADOPTING_THE_TEMPLATE.md`.
+
+## This repo is a template shared by many apps
+
+Firesio runs many apps from this one template, each on its own subdomain of
+`firesio.app`. **Nothing app-specific may be hardcoded into shared code.**
+
+- Company: `Firesio`. Shared parent domain: `firesio.app`.
+- Every app lives at `<app>.firesio.app` (app `vip` → `vip.firesio.app`), and its
+  support address is **`support@<app>.firesio.app`** (`support@vip.firesio.app`).
+  Email Sending, Email Routing and the `+ticketId` reply address all use that
+  same per-app domain, so each app's mail is isolated from the others.
+- The address is **derived from the app's own domain** (the one value that
+  differs per app), never typed as a literal in a route, test, template or
+  locale string. Privacy contact is the same support address; there is no
+  separate `privacyEmail`.
+- Shared code, tests and docs use the `<app>` form or a derived value. A literal
+  such as `support@vip.firesio.app` belongs only in that app's own config.
+- The public pages show the derived address (`supportEmailFor(SHOPIFY_APP_URL)`,
+  read through `useSupportEmail()`). `identity.contacts.supportEmail`
+  (`support@firesio.app`) is only the fallback for a URL that cannot receive
+  mail, such as local development; it is not any app's address.
+- Mail speaks in two voices: a conversation with a customer is sent **from**
+  `support@<app domain>` and answered at `support+<id>@<app domain>`;
+  automatic mail (password reset, staff alerts) is sent from `EMAIL_FROM`, the
+  optional notifications address, with `Reply-To` pointing back at support.
+  Details and what is still unverified: @.claude/rules/support-inbox.md
+
+---
+
 # No Cheating — Banned, Always
 
 Cheating is banned anywhere in this codebase. "Cheating" means making something
@@ -102,6 +147,7 @@ so neither leaks into the other. Every colour, size and breakpoint comes from
 `app/styles/public/_tokens.scss` — @.claude/rules/styling.md
 @.claude/rules/shadcn-internal.md
 @.claude/rules/web-push.md
+@.claude/rules/support-inbox.md
 @.claude/rules/i18n.md
 @.claude/rules/money.md.
 

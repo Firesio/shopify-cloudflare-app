@@ -12,6 +12,7 @@ interface Row {
   id: string;
   shop: string;
   shopName: string;
+  source: "app_portal" | "email";
   subject: string;
   category: "bug";
   status: "open" | "answered";
@@ -25,6 +26,7 @@ function row(over: Partial<Row>): Row {
     id: "t1",
     shop: "alpha.myshopify.com",
     shopName: "Alpha Store",
+    source: "app_portal",
     subject: "Checkout is broken",
     category: "bug",
     status: "open",

@@ -1,3 +1,5 @@
+import type { SupportSource } from "~/support/inbound/types";
+import { SOURCE_LABEL } from "./source-display";
 import type { ReactNode } from "react";
 import { Badge } from "~/internal/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/internal/components/ui/card";
@@ -48,14 +50,16 @@ export function ConversationCard({
 
 export interface DetailsCardProps {
   readonly status: SupportStatus;
-  readonly shop: string;
+  readonly shop: string | null;
+  readonly source: SupportSource;
   readonly plan: { readonly name: string; readonly status: string } | null;
   readonly createdAt: number;
+  /** Where replies go: the merchant's address, or the sender's for a conversation with no merchant. */
   readonly merchantEmail: string | null;
   readonly ccEmails: readonly string[];
 }
 
-export function DetailsCard({ status, shop, plan, createdAt, merchantEmail, ccEmails }: DetailsCardProps) {
+export function DetailsCard({ status, shop, source, plan, createdAt, merchantEmail, ccEmails }: DetailsCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -66,7 +70,8 @@ export function DetailsCard({ status, shop, plan, createdAt, merchantEmail, ccEm
           <Detail label="Status">
             <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABEL[status]}</Badge>
           </Detail>
-          <Detail label="Shop">{shop}</Detail>
+          <Detail label="Source">{SOURCE_LABEL[source]}</Detail>
+          <Detail label="Shop">{shop ?? "Not assigned"}</Detail>
           <Detail label="Plan">{plan ? `${plan.name} · ${plan.status}` : "Free"}</Detail>
           {plan && <Detail label="Subscription">{plan.status}</Detail>}
           <Detail label="Opened">{formatDateTime(LOCALE, createdAt, UTC)}</Detail>

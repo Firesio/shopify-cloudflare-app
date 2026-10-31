@@ -5,8 +5,12 @@ import { getEnv } from "~/request-context.server";
 import { AiService } from "~/services/ai.server";
 import { SupportService } from "~/services/support.server";
 import { signAttachmentToken } from "~/support/file-token";
+import { supportMailDomain } from "~/support/inbound/mail-domain";
+import { SupportInboxService } from "~/services/support-inbox.server";
+import { SupportContactService } from "~/services/support-contact.server";
+import { noBotCheck, turnstileBotCheck } from "~/adapters/bot-check.server";
 import { queuedNotifier } from "~/wiring/notifications.server";
-import { aiRepository, support } from "~/wiring/repositories.server";
+import { aiRepository, shops, support, supportInbound } from "~/wiring/repositories.server";
 import { appRuntime } from "~/wiring/runtime.server";
 import { staffNotificationRecipients } from "~/wiring/staff-notifications.server";
 
@@ -54,6 +58,7 @@ export function supportService(): SupportService {
     clock: appRuntime().clock,
     notifier: queuedNotifier(),
     appUrl: env.SHOPIFY_APP_URL,
+    mailDomain: supportMailDomain(env.SHOPIFY_APP_URL, env.SUPPORT_MAIL_DOMAIN),
     withinRateLimit: async (shop) => env.SUPPORT_LIMITER ? (await env.SUPPORT_LIMITER.limit({ key: shop })).success : true,
     signAttachment: async (attachmentId, expiresAt) => signAttachmentToken({ secret: requireAttachmentTokenSecret(env), attachmentId, expiresAt }),
     log: (entry) => console.error(JSON.stringify(entry)),
@@ -69,4 +74,40 @@ export function supportService(): SupportService {
  */
 export function aiGate(): AiGate {
   return allowAll;
+}
+
+/** Mail that reaches support, from anyone: puts it in its thread or opens one. */
+export function supportInboxService(): SupportInboxService {
+  const env = getEnv();
+  return new SupportInboxService({
+    repo: supportInbound(),
+    shops: {
+      find: async (shopDomain) => {
+        const shop = await shops().get(shopDomain);
+        return shop ? { shop: shop.shop, name: shop.name ?? shopDomain } : null;
+      },
+    },
+    clock: appRuntime().clock,
+    ids: appRuntime().ids,
+    staff: staffNotificationRecipients(),
+    notifier: queuedNotifier(),
+    appUrl: env.SHOPIFY_APP_URL,
+    mailDomain: supportMailDomain(env.SHOPIFY_APP_URL, env.SUPPORT_MAIL_DOMAIN),
+    log: (entry) => console.error(JSON.stringify(entry)),
+  });
+}
+
+/**
+ * The public support form. The check is Turnstile when a site key is set; with
+ * none (local development) nothing is asked. A site key without its secret
+ * refuses every submission rather than quietly skipping the check.
+ */
+export function supportContactService(): SupportContactService {
+  const env = getEnv();
+  return new SupportContactService({
+    withinRateLimit: async (clientKey) =>
+      env.SUPPORT_FORM_LIMITER ? (await env.SUPPORT_FORM_LIMITER.limit({ key: clientKey })).success : true,
+    botCheck: env.TURNSTILE_SITE_KEY === "" ? noBotCheck : turnstileBotCheck({ secret: env.TURNSTILE_SECRET_KEY ?? "" }),
+    inbox: supportInboxService(),
+  });
 }

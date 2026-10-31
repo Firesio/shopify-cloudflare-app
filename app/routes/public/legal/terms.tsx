@@ -5,6 +5,7 @@ import { useLocale } from "~/i18n/useLocale";
 import { formatDate } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
 import { identity } from "~/identity";
+import { useSupportEmail } from "../support-email";
 
 export const handle = { i18n: ["common", "public"] };
 
@@ -34,6 +35,7 @@ const SECTION_KEYS = [
 export default function TermsOfService() {
   const { t } = useTranslation("public");
   const { t: common } = useTranslation("common");
+  const supportEmail = useSupportEmail();
   const locale = useLocale();
 
   const updated = Number.isNaN(Date.parse(identity.legal.effectiveDate))
@@ -65,7 +67,7 @@ export default function TermsOfService() {
         <div className="card stack">
           <p>
             {t("legal.terms.questions")}{" "}
-            <a href={`mailto:${identity.contacts.privacyEmail}`}>{identity.contacts.privacyEmail}</a>
+            <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
           </p>
         </div>
       </div>

@@ -70,6 +70,7 @@
     "i18next": "^26.4.2",
     "isbot": "^5.2.2",
     "lucide-react": "^1.54.0",
+    "postal-mime": "^4.2.0",
     "radix-ui": "^1.8.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

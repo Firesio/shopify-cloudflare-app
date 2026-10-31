@@ -56,9 +56,30 @@ export interface SupportMerchantActivityPayload extends SupportPayload {
   isNew: boolean;
 }
 
-export interface SupportStaffReplyPayload extends SupportPayload {
+export interface SupportStaffReplyPayload extends BasePayload {
+  /** The customer's own words for what this is about. */
+  subject: string;
+  /** A short excerpt, already truncated by the caller (see `SupportPayload`). */
+  excerpt: string;
   /** Who answered, so the merchant sees a person rather than an app. */
   staffName: string;
+  /**
+   * Where to read and answer it in the app. Absent for a conversation that has
+   * no portal (a stranger's mail, the public form): their only way back is to
+   * answer the mail.
+   */
+  threadUrl?: string;
+  /** The whole reply, for a reader who cannot open a portal. Absent: the excerpt is shown. */
+  body?: string;
+  /**
+   * The conversation's own sender (`support@<app domain>`). Absent: the app's
+   * default sender is used, which is the notifications address when one is set.
+   */
+  from?: string;
+  /** Where an answer to this mail should go (`support+<id>@…`). */
+  replyTo?: string;
+  /** `In-Reply-To` and `References`, so the reply lands in the sender's thread. */
+  threadHeaders?: Readonly<Record<string, string>>;
 }
 
 /** Shared by both shop notifications: the same shop, a different thing that happened to it. */

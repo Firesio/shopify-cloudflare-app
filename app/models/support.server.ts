@@ -268,6 +268,8 @@ export class SupportRepo {
 
     const result: Record<string, { shopName: string; merchantEmail: string | null }> = {};
     for (const row of rows) {
+      // A conversation no shop owns yet is nobody's contact record.
+      if (row.shop === null) continue;
       if (!result[row.shop]) {
         result[row.shop] = { shopName: row.shopName, merchantEmail: row.merchantEmail };
       } else if (!result[row.shop]?.merchantEmail && row.merchantEmail) {
@@ -312,7 +314,7 @@ export class SupportRepo {
     authorName: string;
     body: string;
     at: number;
-  }): Promise<{ shop: string; messageId: string } | undefined> {
+  }): Promise<{ shop: string | null; messageId: string } | undefined> {
     const [ticket] = await getDb()
       .select({ shop: supportTickets.shop })
       .from(supportTickets)
@@ -328,7 +330,7 @@ export class SupportRepo {
   }
 
   private async appendMessage(
-    shop: string,
+    shop: string | null,
     input: {
       ticketId: string;
       author: SupportAuthor;

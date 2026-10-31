@@ -28,6 +28,8 @@ needs it; do not scaffold one speculatively.
 | **Cron Triggers** | Periodic sweeps | One `scheduled` handler; each sweep guards its own errors so one failure never costs the others their tick |
 | **Email Sending** | Transactional email | Verified sender domain from `vars`; failures leave a retryable record |
 | **Rate Limiting** | Runaway clients / webhook floods | Config-only binding, fails open when absent |
+| **Email Routing + Email Workers** | Mail sent to the app's support addresses → the Worker's `email` handler | Receiving only; sending stays Email Sending. Written reason: support must answer people who write to us, and replies must come back into the same conversation. `workers/inbound-email.ts` is the entry; `@rules/support-inbox.md` has the decisions and what is still unverified |
+| **Turnstile** | Bot check on the public support form | Verified server-side through `app/ports/bot-check.ts`. Written reason: the form is public and unauthenticated, and every submission costs a row and staff attention. Site key is a `var`; the secret is a Worker secret, not in `secrets.required` (optional per app) |
 | **Observability** | Logs | `enabled: true` + `head_sampling_rate`, structured JSON |
 | **Workers AI** | Text generation behind a chosen model | Binding only — no API key exists to leak. Every call goes through the port in `app/ports/ai.ts`, is metered into `ai_runs`, and names a ROLE rather than a model id |
 

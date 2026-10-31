@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { err } from "~/lib/result";
 import { shopLog } from "~/observability/shop-log";
-import { appContext, shops, support, supportService } from "~/wiring.server";
+import { appContext, shops, support, supportInboxService, supportService } from "~/wiring.server";
 import type { Runtime } from "~/ports/runtime";
 import { attachmentKey, safeFilename, validateUpload } from "~/support/attachment";
 import { createShopify } from "~/shopify.server";
@@ -287,13 +288,20 @@ export async function replyToTicket({
   uploadIds?: string[];
   attachments?: AttachmentInput[];
 }, context: OpsContext = appContext()) {
+  // Files are stored under a shop. Refuse BEFORE the reply is written, so a
+  // conversation nobody owns yet never ends up with a reply minus its files.
+  if (uploadIds.length > 0 || attachments.length > 0) {
+    const thread = await supportService().findForStaff(ticketId);
+    if (thread && thread.ticket.shop === null) return err("attachments_need_shop");
+  }
+
   const result = await supportService().replyAsStaff({
     ticketId,
     staffName,
     body,
   });
 
-  if (result.ok) {
+  if (result.ok && result.value.shop !== null) {
     await attachFilesToMessage(
       result.value.shop,
       result.value.messageId,
@@ -373,4 +381,9 @@ export async function createTicketOnBehalf({
   }
 
   return result;
+}
+
+/** Give a conversation no shop owns yet to a shop (staff only). */
+export function assignTicketToShop(ticketId: string, shop: string) {
+  return supportInboxService().assignShop(ticketId, shop);
 }

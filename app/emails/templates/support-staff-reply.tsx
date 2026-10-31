@@ -20,8 +20,11 @@ export async function supportStaffReplyEmail(
   p: SupportStaffReplyPayload,
 ): Promise<RenderedEmail> {
   const t = await emailT(p.locale);
+  // A reply with a body is shown whole, one paragraph per blank line; without
+  // one the excerpt stands in and the link carries the rest.
+  const paragraphs = (p.body ?? p.excerpt).split(/\n{2,}/).filter((part) => part.trim() !== "");
 
-  return renderEmail(
+  const rendered = await renderEmail(
     t("support.reply.subject", { subject: p.subject }),
     <EmailLayout
       preview={p.excerpt}
@@ -31,9 +34,18 @@ export async function supportStaffReplyEmail(
     >
       <P>{t("support.reply.greeting", { name: p.recipientName })}</P>
       <P>{t("support.reply.intro", { staffName: p.staffName })}</P>
-      <P>{p.excerpt}</P>
-      <Cta href={p.threadUrl}>{t("support.reply.cta")}</Cta>
+      {paragraphs.map((paragraph, index) => (
+        <P key={index}>{paragraph}</P>
+      ))}
+      {p.threadUrl ? <Cta href={p.threadUrl}>{t("support.reply.cta")}</Cta> : null}
       <Muted>{t("support.reply.footer")}</Muted>
     </EmailLayout>,
   );
+
+  return {
+    ...rendered,
+    ...(p.from ? { from: p.from } : {}),
+    ...(p.replyTo ? { replyTo: p.replyTo } : {}),
+    ...(p.threadHeaders ? { headers: p.threadHeaders } : {}),
+  };
 }

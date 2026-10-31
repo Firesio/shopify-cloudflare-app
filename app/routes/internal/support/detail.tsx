@@ -1,4 +1,4 @@
-import { shopSubscriptions, adminSessionUsers } from "~/wiring.server";
+import { shopMetrics, shopSubscriptions, adminSessionUsers } from "~/wiring.server";
 import { Link, useActionData, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 
@@ -24,7 +24,7 @@ import { useActionToast } from "~/internal/use-action-toast";
 import { requireAdminUser } from "~/services/admin-auth.server";
 import { adminUsers } from "~/wiring.server";
 import { supportService } from "~/wiring.server";
-import { replyToTicket, closeTicket } from "~/services/internal-admin/ops.server";
+import { assignTicketToShop, replyToTicket, closeTicket } from "~/services/internal-admin/ops.server";
 import { planForShopifyHandle } from "~/billing/plans";
 import { statusOf } from "~/support/status";
 import { CATEGORY_LABEL_EN } from "~/support/categories";
@@ -35,6 +35,7 @@ import { streamRegion } from "~/internal/stream-region.server";
 import { ConversationCard, DetailsCard } from "./detail-cards";
 import { STATUS_LABEL, STATUS_VARIANT } from "./status-display";
 import { ReplyCard } from "./detail-reply-card";
+import { AssignShopCard } from "./detail-assign-card";
 
 type StaffThread = NonNullable<Awaited<ReturnType<ReturnType<typeof supportService>["findForStaff"]>>>;
 
@@ -70,7 +71,9 @@ async function loadTicketDetail(ticketId: string) {
   // Opening it counts as reading it, so the queue's New badge clears by looking.
   await service.markStaffRead(ticketId);
 
-  const current = await shopSubscriptions().currentForShop(thread.ticket.shop);
+  const current = thread.ticket.shop === null
+    ? undefined
+    : await shopSubscriptions().currentForShop(thread.ticket.shop);
 
   return {
     ticket: {
@@ -81,9 +84,14 @@ async function loadTicketDetail(ticketId: string) {
       category: thread.ticket.category,
       status: statusOf(thread.ticket),
       createdAt: thread.ticket.createdAt,
-      merchantEmail: thread.ticket.merchantEmail,
+      source: thread.ticket.source,
+      // Replies go to the merchant's address, or to whoever started a
+      // conversation that has no merchant record.
+      merchantEmail: thread.ticket.merchantEmail ?? thread.ticket.replyAddress,
       ccEmails: thread.ticket.ccEmails,
     },
+    // Only an unassigned thread needs the list; everyone else skips the query.
+    assignableShops: thread.ticket.shop === null ? await loadAssignableShops() : [],
     plan: current
       ? {
           name: planForShopifyHandle(current.planHandle)?.name ?? current.planHandle ?? "Free",
@@ -92,6 +100,13 @@ async function loadTicketDetail(ticketId: string) {
       : null,
     messages: toThreadMessages(thread),
   };
+}
+
+async function loadAssignableShops() {
+  const all = await shopMetrics().contacts();
+  return all
+    .map((entry) => ({ shop: entry.shop, name: entry.name || entry.shop.replace(".myshopify.com", "") }))
+    .sort((a, b) => a.shop.localeCompare(b.shop));
 }
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
@@ -113,6 +128,16 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
     return { success: "closed" as const };
   }
 
+  if (String(form.get("intent")) === "assign_shop") {
+    const assigned = await assignTicketToShop(ticketId, String(form.get("shop") ?? ""));
+    if (assigned.ok) return { success: "assigned" as const };
+    return {
+      error: assigned.reason === "unknown_shop"
+        ? "That shop is not one we know."
+        : "This conversation already belongs to a shop.",
+    };
+  }
+
   const body = String(form.get("body") ?? "").trim();
   const uploadIds = String(form.get("uploadIds") ?? "").split(",").filter(Boolean);
   if (!body && uploadIds.length === 0) return { error: "Write a reply or attach a file first." as const };
@@ -124,7 +149,12 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
     body,
     uploadIds,
   });
-  if (!replied.ok) return { error: "That ticket no longer exists." as const };
+  if (!replied.ok) {
+    const error = replied.reason === "attachments_need_shop"
+      ? "Assign this conversation to a shop before attaching files."
+      : "That ticket no longer exists.";
+    return { error };
+  }
 
   return { success: "replied" as const };
 };
@@ -137,7 +167,7 @@ export default function InternalSupportThread() {
 
   useActionToast(actionData, {
     error: failure,
-    success: outcome === "closed" ? "Ticket closed." : outcome === "replied" ? "Reply sent." : undefined,
+    success: outcome === "closed" ? "Ticket closed." : outcome === "replied" ? "Reply sent." : outcome === "assigned" ? "Shop assigned." : undefined,
   });
 
   return (
@@ -175,14 +205,14 @@ export default function InternalSupportThread() {
 
 type LoadedTicket = NonNullable<Awaited<ReturnType<typeof loadTicketDetail>>>;
 
-function TicketBody({ ticket, messages, plan }: LoadedTicket) {
+function TicketBody({ ticket, messages, plan, assignableShops }: LoadedTicket) {
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-3 px-4 lg:px-6">
         <div className="flex min-w-0 flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">{ticket.subject}</h1>
           <p className="text-sm text-muted-foreground">
-            {`${ticket.shopName || ticket.shop} · ${CATEGORY_LABEL_EN[ticket.category]}`}
+            {`${ticket.shopName || ticket.shop || ""} · ${CATEGORY_LABEL_EN[ticket.category]}`}
           </p>
         </div>
         <Badge variant={STATUS_VARIANT[ticket.status]}>{STATUS_LABEL[ticket.status]}</Badge>
@@ -190,18 +220,22 @@ function TicketBody({ ticket, messages, plan }: LoadedTicket) {
 
       <div className="grid gap-4 px-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start lg:px-6">
         <div className="flex flex-col gap-4">
-          <ConversationCard messages={messages} merchantLabel={ticket.shopName || ticket.shop} />
+          <ConversationCard messages={messages} merchantLabel={ticket.shopName || ticket.shop || ""} />
           <ReplyCard ticketId={ticket.id} isClosed={ticket.status === "closed"} />
         </div>
 
-        <DetailsCard
-          status={ticket.status}
-          shop={ticket.shop}
-          plan={plan}
-          createdAt={ticket.createdAt}
-          merchantEmail={ticket.merchantEmail}
-          ccEmails={ticket.ccEmails}
-        />
+        <div className="flex flex-col gap-4">
+          {ticket.shop === null && <AssignShopCard shops={assignableShops} />}
+          <DetailsCard
+            status={ticket.status}
+            shop={ticket.shop}
+            source={ticket.source}
+            plan={plan}
+            createdAt={ticket.createdAt}
+            merchantEmail={ticket.merchantEmail}
+            ccEmails={ticket.ccEmails}
+          />
+        </div>
       </div>
     </>
   );

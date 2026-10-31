@@ -30,6 +30,9 @@ export async function composeEmailMessage<E extends NotificationEvent>(
     subject: rendered.subject,
     html: rendered.html,
     text: rendered.text,
+    ...(rendered.from ? { from: rendered.from } : {}),
+    ...(rendered.replyTo ? { replyTo: rendered.replyTo } : {}),
+    ...(rendered.headers && Object.keys(rendered.headers).length > 0 ? { headers: { ...rendered.headers } } : {}),
     // Omitted rather than empty. The transport spreads `cc` only when it is a
     // non-empty array, and `cc: []` would be a field claiming a copy list that
     // does not exist. Copied so the message cannot alias the caller's array.

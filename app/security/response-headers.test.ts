@@ -87,4 +87,14 @@ describe("the internal console's installability and push", () => {
     expect(csp()).toContain("img-src 'self' data:");
     expect(csp()).toContain("connect-src 'self'");
   });
+
+  it("lets only the support page load Turnstile's script and frame", () => {
+    const support = headerValue("/support", "Content-Security-Policy") ?? "";
+    expect(support).toContain("script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com");
+    expect(support).toContain("frame-src https://challenges.cloudflare.com");
+    for (const path of ["/", "/pricing", "/legal/privacy"]) {
+      const csp = headerValue(path, "Content-Security-Policy") ?? "";
+      expect(csp, path).not.toContain("challenges.cloudflare.com");
+    }
+  });
 });

@@ -10,8 +10,9 @@ import InternalSupport from "./index";
 
 type Row = {
   id: string;
-  shop: string;
+  shop: string | null;
   shopName: string;
+  source: "app_portal" | "email";
   subject: string;
   category: "bug" | "question" | "feature_request" | "billing";
   status: "open" | "answered" | "closed";
@@ -25,6 +26,7 @@ function row(over: Partial<Row> = {}): Row {
     id: "t1",
     shop: "alpha.myshopify.com",
     shopName: "Alpha Store",
+    source: "app_portal",
     subject: "Checkout is broken",
     category: "bug",
     status: "open",
@@ -129,6 +131,20 @@ describe("the internal support queue", () => {
     expect(html).toContain("alpha.myshopify.com");
   });
 
+  it("names where each conversation came from, in the row it belongs to", async () => {
+    const html = await render({
+      tickets: [
+        row({ id: "a", subject: "From the portal", source: "app_portal" }),
+        row({ id: "b", subject: "From an email", source: "email", shop: null, shopName: "Jane" }),
+      ],
+    });
+    const rows = bodyRows(html);
+    expect(rows.find((text) => text.includes("From the portal"))).toMatch(/\bIn-app\b/);
+    expect(rows.find((text) => text.includes("From the portal"))).not.toContain("Unassigned");
+    const email = rows.find((text) => text.includes("From an email"));
+    expect(email).toMatch(/Jane\s+Unassigned\s+Email/);
+  });
+
   it("shows an empty state in place of rows when nothing is open", async () => {
     const html = await render({ tickets: [] });
     const rows = bodyRows(html);
@@ -140,7 +156,7 @@ describe("the internal support queue", () => {
 
   it("lays the columns out in the order the queue is read", async () => {
     const html = await render({ tickets: [row()] });
-    expect(headers(html)).toEqual(["Subject", "Shop", "Plan", "Type", "Status", "Last activity"]);
+    expect(headers(html)).toEqual(["Subject", "Shop", "Source", "Plan", "Type", "Status", "Last activity"]);
   });
 
   it("links to the person's own notification settings instead of holding a switch for them", async () => {

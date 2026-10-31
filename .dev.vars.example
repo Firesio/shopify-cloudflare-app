@@ -57,6 +57,15 @@ ATTACHMENT_TOKEN_SECRET=dev-only-attachment-token-secret-change-me
 # resets MFA for each person (Admins page), and they enroll again.
 STAFF_MFA_KEY=dev-only-staff-mfa-key-change-me
 
+# Try `support+<id>@` replies locally: the app URL is a tunnel that cannot receive
+# mail, so name the address domain to test with (the ticket id comes from the thread).
+# SUPPORT_MAIL_DOMAIN=vip.firesio.app
+
+# Public support form bot check (Cloudflare Turnstile). Leave TURNSTILE_SITE_KEY
+# empty in wrangler.jsonc and the check is skipped locally. For Cloudflare's published
+# test keys see https://developers.cloudflare.com/turnstile/troubleshooting/testing/
+TURNSTILE_SECRET_KEY=
+
 # Transactional email. The `send_email` binding is already declared, but nothing
 # sends until the domain is onboarded and EMAIL_FROM is set (in wrangler.jsonc
 # vars, per environment — it is not a secret):

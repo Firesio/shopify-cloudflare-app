@@ -5,6 +5,7 @@ import { useLocale } from "~/i18n/useLocale";
 import { formatDate } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
 import { identity } from "~/identity";
+import { useSupportEmail } from "../support-email";
 
 export const handle = { i18n: ["common", "public"] };
 
@@ -41,6 +42,7 @@ const SECTION_KEYS = [
 export default function PrivacyPolicy() {
   const { t } = useTranslation("public");
   const { t: common } = useTranslation("common");
+  const supportEmail = useSupportEmail();
   const locale = useLocale();
   const appName = common("appName");
 
@@ -75,7 +77,7 @@ export default function PrivacyPolicy() {
             <br />
             {identity.legal.address}
             <br />
-            <a href={`mailto:${identity.contacts.privacyEmail}`}>{identity.contacts.privacyEmail}</a>
+            <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
           </p>
         </div>
       </div>

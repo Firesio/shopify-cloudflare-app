@@ -119,6 +119,12 @@
       "simple": { "limit": 5, "period": 60 }
     },
     {
+      "name": "SUPPORT_FORM_LIMITER",
+      "namespace_id": "1004",
+      // The public support form has no shop to key on, so it is limited per client IP.
+      "simple": { "limit": 5, "period": 60 }
+    },
+    {
       "name": "RESET_LIMITER",
       "namespace_id": "1003",
       "simple": { "limit": 3, "period": 60 }
@@ -166,6 +172,23 @@
     // email is disabled and sendEmail() reports notConfigured.
     "EMAIL_FROM": "",
     "EMAIL_FROM_NAME": "",
+    // Inbound support mail (Email Routing -> this Worker's `email` handler). The
+    // authserv-id of the receiver whose Authentication-Results header is trusted
+    // to say a DKIM signature passed. Empty trusts none: mail is still stored, but
+    // no sender counts as verified, so the Shopify relay is read as plain mail.
+    // A sender can forge the header, so set it only to the id seen on real mail.
+    "INBOUND_AUTH_SERVER_ID": "",
+    // Optional. The domain support mail lives on, when it is not the host of
+    // SHOPIFY_APP_URL. Leave empty in production (the app URL is used). Set it in
+    // .dev.vars to try `support+<id>@` replies locally, where the app URL is a tunnel.
+    "SUPPORT_MAIL_DOMAIN": "",
+    // Public support form bot check (Cloudflare Turnstile). The site key is public;
+    // empty turns the check off (local development only). Production needs both
+    // this and the secret: `wrangler secret put TURNSTILE_SECRET_KEY --env production`.
+    "TURNSTILE_SITE_KEY": "",
+    // Local dev slot only: wrangler loads just the names declared here from
+    // .dev.vars. Never declared under env.production (it is a secret there).
+    "TURNSTILE_SECRET_KEY": "",
     // Optional. Set it to an AI Gateway id and every Workers AI call gains
     // caching, cost tracking and request logs for free. Empty = straight to
     // Workers AI.
@@ -238,6 +261,11 @@
           "simple": { "limit": 5, "period": 60 }
         },
         {
+          "name": "SUPPORT_FORM_LIMITER",
+          "namespace_id": "1004",
+          "simple": { "limit": 5, "period": 60 }
+        },
+        {
           "name": "RESET_LIMITER",
           "namespace_id": "1003",
           "simple": { "limit": 3, "period": 60 }
@@ -278,6 +306,9 @@
         "SHOPIFY_APP_HANDLE": "",
         "EMAIL_FROM": "",
         "EMAIL_FROM_NAME": "",
+        "INBOUND_AUTH_SERVER_ID": "",
+        "SUPPORT_MAIL_DOMAIN": "",
+        "TURNSTILE_SITE_KEY": "",
         "SHOPIFY_PARTNER_APP_ID": "",
         "SHOPIFY_PARTNER_ORGANIZATION_ID": "",
         "SHOPIFY_PARTNER_API_VERSION": "2026-07",

@@ -14,11 +14,13 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "~/internal/components/ui/tabs";
 import { DataTable, SortableHeader } from "~/internal/components/data-table";
 import type { SupportStatus } from "~/support/status";
+import { SUPPORT_SOURCES, toSupportSource, type SupportSource } from "~/support/inbound/types";
 import { CATEGORY_LABEL_EN, type SupportCategory } from "~/support/categories";
 import { formatDateTime, formatNumber } from "~/i18n/format";
 import { UTC } from "~/i18n/time-zone";
 import type { Locale } from "~/i18n/config";
 import { RightAlignedSortableHeader } from "../table-columns";
+import { SOURCE_LABEL } from "./source-display";
 import { STATUS_LABEL, STATUS_VARIANT } from "./status-display";
 
 /** The internal console is staff-only and English-only — no i18n here. */
@@ -26,8 +28,9 @@ const LOCALE: Locale = "en";
 
 export interface TicketRowData {
   readonly id: string;
-  readonly shop: string;
+  readonly shop: string | null;
   readonly shopName: string;
+  readonly source: SupportSource;
   readonly subject: string;
   readonly category: SupportCategory;
   readonly status: SupportStatus;
@@ -46,6 +49,40 @@ function isView(value: string): value is View {
 /** Which tickets a view shows. "all" is every open thread, whoever's turn it is. */
 function inView(view: View, ticket: TicketRowData): boolean {
   return view === "all" || ticket.status === view;
+}
+
+type SourceFilter = SupportSource | "all";
+
+function toSourceFilter(value: string): SourceFilter | null {
+  return value === "all" ? "all" : toSupportSource(value);
+}
+
+function inSource(filter: SourceFilter, ticket: TicketRowData): boolean {
+  return filter === "all" || ticket.source === filter;
+}
+
+function SourceSelect({ value, onChange }: { value: SourceFilter; onChange: (value: SourceFilter) => void }) {
+  return (
+    <Select
+      value={value}
+      onValueChange={(next) => {
+        const filter = toSourceFilter(next);
+        if (filter !== null) onChange(filter);
+      }}
+    >
+      <SelectTrigger size="sm" className="w-fit" aria-label="Source">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All sources</SelectItem>
+        {SUPPORT_SOURCES.map((option) => (
+          <SelectItem key={option} value={option}>
+            {SOURCE_LABEL[option]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 const COLUMNS: ColumnDef<TicketRowData>[] = [
@@ -69,9 +106,23 @@ const COLUMNS: ColumnDef<TicketRowData>[] = [
   },
   {
     id: "shop",
-    accessorFn: (ticket) => ticket.shopName || ticket.shop,
+    accessorFn: (ticket) => ticket.shopName || ticket.shop || "",
     header: ({ column }) => <SortableHeader column={column} title="Shop" />,
-    cell: ({ row }) => <span className="text-muted-foreground">{row.original.shopName || row.original.shop}</span>,
+    cell: ({ row }) =>
+      row.original.shop === null ? (
+        <span className="flex items-center gap-2 text-muted-foreground">
+          {row.original.shopName}
+          <Badge variant="secondary">Unassigned</Badge>
+        </span>
+      ) : (
+        <span className="text-muted-foreground">{row.original.shopName || row.original.shop}</span>
+      ),
+  },
+  {
+    id: "source",
+    accessorFn: (ticket) => SOURCE_LABEL[ticket.source],
+    header: ({ column }) => <SortableHeader column={column} title="Source" />,
+    cell: ({ row }) => <Badge variant="outline">{SOURCE_LABEL[row.original.source]}</Badge>,
   },
   {
     id: "plan",
@@ -113,7 +164,7 @@ function NoTickets() {
           <LifeBuoy />
         </EmptyMedia>
         <EmptyTitle>No open tickets</EmptyTitle>
-        <EmptyDescription>When a merchant files a ticket from their admin, it lands here.</EmptyDescription>
+        <EmptyDescription>A ticket from a merchant, an email or the support form lands here.</EmptyDescription>
       </EmptyHeader>
     </Empty>
   );
@@ -147,19 +198,21 @@ export function TicketTable({
   const changeView = (value: string) => {
     if (isView(value)) setView(value);
   };
-  const visible = useMemo(() => tickets.filter((ticket) => inView(view, ticket)), [tickets, view]);
-  const count = (target: View) => tickets.filter((ticket) => inView(target, ticket)).length;
+  const [source, setSource] = useState<SourceFilter>("all");
+  const fromSource = useMemo(() => tickets.filter((ticket) => inSource(source, ticket)), [tickets, source]);
+  const visible = useMemo(() => fromSource.filter((ticket) => inView(view, ticket)), [fromSource, view]);
+  const count = (target: View) => fromSource.filter((ticket) => inView(target, ticket)).length;
 
   return (
     <DataTable
       columns={COLUMNS}
       data={visible}
       getRowId={(ticket) => ticket.id}
-      compactHidden={["plan", "type", "shop"]}
+      compactHidden={["plan", "type", "shop", "source"]}
       rowHref={(ticket) => `/internal/support/${ticket.id}`}
       search={{
         placeholder: "Search tickets…",
-        text: (ticket) => `${ticket.subject} ${ticket.shopName} ${ticket.shop}`,
+        text: (ticket) => `${ticket.subject} ${ticket.shopName} ${ticket.shop ?? ""} ${SOURCE_LABEL[ticket.source]}`,
       }}
       toolbarStart={
         <>
@@ -183,6 +236,7 @@ export function TicketTable({
               ))}
             </TabsList>
           </Tabs>
+          <SourceSelect value={source} onChange={setSource} />
         </>
       }
       toolbarEnd={toolbarEnd}

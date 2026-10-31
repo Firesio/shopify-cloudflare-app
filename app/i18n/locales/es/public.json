@@ -49,7 +49,29 @@
     "faq": "Preguntas frecuentes",
     "faqBody": "TODO: las preguntas que los comerciantes hacen de verdad.",
     "contact": "Contacta con nosotros",
-    "contactBody": "Escribe a {{email}}. TODO: indica tu horario de soporte y el tiempo de respuesta."
+    "contactBody": "Escribe a {{email}}. TODO: indica tu horario de soporte y el tiempo de respuesta.",
+    "form": {
+      "heading": "Envíanos un mensaje",
+      "intro": "Cuéntanos qué necesitas y te responderemos por correo.",
+      "name": "Tu nombre",
+      "email": "Tu correo",
+      "subject": "Asunto",
+      "message": "¿En qué podemos ayudarte?",
+      "shop": "Dominio de la tienda (opcional)",
+      "shopHint": "Por ejemplo mi-tienda.myshopify.com",
+      "send": "Enviar mensaje",
+      "sending": "Enviando…",
+      "sent": "Gracias. Tu mensaje va en camino y te responderemos por correo.",
+      "errors": {
+        "required": "Este campo es obligatorio.",
+        "too_long": "Es demasiado largo.",
+        "email": "Introduce un correo válido.",
+        "shop": "Introduce un dominio que termine en .myshopify.com, o déjalo vacío.",
+        "rate_limited": "Demasiados mensajes desde tu conexión. Inténtalo de nuevo en unos minutos.",
+        "bot_check_failed": "No pudimos confirmar que eres una persona. Inténtalo de nuevo.",
+        "bot_check_unavailable": "No pudimos revisar tu mensaje ahora. Inténtalo de nuevo en un momento."
+      }
+    }
   },
   "legal": {
     "lastUpdated": "Última actualización: {{date}}",

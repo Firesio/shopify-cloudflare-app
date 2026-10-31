@@ -21,17 +21,18 @@ async function loadTicketRows() {
   const tickets = await supportService().listOpenForStaff();
   // Only the shops that have an open ticket, not every subscription in the table.
   const currentSubscriptions = await shopSubscriptions().listCurrentForShops(
-    tickets.map((ticket) => ticket.shop),
+    tickets.flatMap((ticket) => (ticket.shop === null ? [] : [ticket.shop])),
   );
   const currentByShop = new Map(currentSubscriptions.map((subscription) => [subscription.shop, subscription]));
 
   return tickets.map((ticket) => {
-    const current = currentByShop.get(ticket.shop);
+    const current = ticket.shop === null ? undefined : currentByShop.get(ticket.shop);
     const paid = current && PAID_STATUSES.has(current.status) ? current : undefined;
     return {
       id: ticket.id,
       shop: ticket.shop,
       shopName: ticket.shopName,
+      source: ticket.source,
       subject: ticket.subject,
       category: ticket.category,
       status: statusOf(ticket),

@@ -6,7 +6,8 @@ import {
 import { runWithRequestContext } from "../app/request-context.server";
 import { sweepPlanFor } from "../app/domain/cron-schedule";
 import { runScheduledSweeps } from "../app/services/scheduled.server";
-import { scheduledDependencies, webhookQueueDependencies } from "../app/wiring.server";
+import { scheduledDependencies, supportInboxService, webhookQueueDependencies } from "../app/wiring.server";
+import { handleInboundEmail } from "./inbound-email";
 import { handleWebhookQueueBatch } from "../app/services/webhook-queue";
 import { handleNotificationBatch } from "../app/services/notification-queue";
 import { notificationConsumerDependencies } from "../app/wiring/notifications.server";
@@ -43,6 +44,17 @@ export default {
   /** Cron work shares the request context used by HTTP routes. */
   async scheduled(controller, env) {
     await runWithRequestContext(env, () => runScheduledSweeps(Date.now(), scheduledDependencies(), sweepPlanFor(controller.cron)));
+  },
+
+  /** Email Routing delivers mail sent to the app's support addresses. */
+  async email(message, env) {
+    await runWithRequestContext(env, () =>
+      handleInboundEmail(message, {
+        receive: (mail) => supportInboxService().receive(mail),
+        trustedAuthServerId: env.INBOUND_AUTH_SERVER_ID,
+        log: (entry) => console.log(JSON.stringify(entry)),
+      }),
+    );
   },
 
   async queue(batch, env) {

@@ -1,6 +1,8 @@
 import { Link, Outlet } from "react-router";
 import { getEnv } from "~/request-context.server";
 import { installTarget } from "~/lib/install-target";
+import { identity } from "~/identity";
+import { supportEmailFor } from "~/support/inbound/mail-domain";
 import { InstallLink } from "./install-button";
 import type { LinksFunction } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -23,11 +25,15 @@ export const links: LinksFunction = () => [
  * after launch without anyone noticing.
  */
 export const loader = () => {
-  const install = installTarget(getEnv().SHOPIFY_APP_HANDLE);
+  const env = getEnv();
+  const install = installTarget(env.SHOPIFY_APP_HANDLE);
   if (install.kind === "manual" && install.reason === "invalid") {
     console.warn(JSON.stringify({ event: "install_target.invalid_handle" }));
   }
-  return { install };
+  // One address for every contact on the public pages, derived from this app's
+  // own domain so shared code never names an app.
+  const supportEmail = supportEmailFor(env.SHOPIFY_APP_URL, env.SUPPORT_MAIL_DOMAIN) ?? identity.contacts.supportEmail;
+  return { install, supportEmail };
 };
 
 /** The answer is deploy configuration, so there is nothing to refetch between page navigations. */

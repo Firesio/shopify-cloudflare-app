@@ -55,3 +55,33 @@ describe("composing a support reply email", () => {
     expect(message.cc).toEqual(["dev@shop.test"]);
   });
 });
+
+describe("composing a conversation reply", () => {
+  const conversation = {
+    ...payload,
+    threadUrl: undefined,
+    body: "First paragraph.\n\nSecond paragraph.",
+    from: "support@vip.firesio.app",
+    replyTo: "support+abcd1234@vip.firesio.app",
+    threadHeaders: { "In-Reply-To": "<a@x>", References: "<a@x>" },
+  };
+
+  it("carries the sender, the way back and the threading headers onto the message", async () => {
+    const message = await composeEmailMessage("support_staff_reply", conversation, "jane@buyer.example", []);
+    expect(message.from).toBe("support@vip.firesio.app");
+    expect(message.replyTo).toBe("support+abcd1234@vip.firesio.app");
+    expect(message.headers).toEqual({ "In-Reply-To": "<a@x>", References: "<a@x>" });
+  });
+
+  it("shows the whole reply, one paragraph per blank line, and no portal link", async () => {
+    const message = await composeEmailMessage("support_staff_reply", conversation, "jane@buyer.example", []);
+    expect(message.text).toContain("First paragraph.");
+    expect(message.text).toContain("Second paragraph.");
+    expect(message.html).not.toContain("example.test/app/support");
+  });
+
+  it("adds none of them when the reply does not ask for any", async () => {
+    const message = await composeEmailMessage("support_staff_reply", payload, "owner@shop.test", []);
+    for (const key of ["from", "replyTo", "headers"]) expect(key in message, key).toBe(false);
+  });
+});

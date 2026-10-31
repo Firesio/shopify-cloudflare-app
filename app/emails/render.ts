@@ -6,6 +6,12 @@ export interface RenderedEmail {
   subject: string;
   html: string;
   text: string;
+  /** A sender other than the app's default, for an event that speaks as a conversation. */
+  from?: string;
+  /** Where an answer goes, when it is not the sender. Set by the event that knows. */
+  replyTo?: string;
+  /** Extra headers (threading); only those the sending service allows. */
+  headers?: Readonly<Record<string, string>>;
 }
 
 /**

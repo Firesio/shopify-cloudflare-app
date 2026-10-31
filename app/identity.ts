@@ -6,10 +6,13 @@
 export const identity = Object.freeze({
   name: "TODO: Your App Name",
   brandName: "TODO: Your App Name",
-  companyName: "TODO: Your Legal Entity Name",
+  companyName: "Firesio",
   contacts: Object.freeze({
-    supportEmail: "TODO: support@example.com",
-    privacyEmail: "TODO: privacy@example.com",
+    // The ONE contact address, for support and for privacy questions alike.
+    // This is only the fallback: each app's real address is derived from its own
+    // domain (`support@<app>.firesio.app`, see `supportEmailFor`), so it is shown
+    // here only where an app URL cannot receive mail (local development).
+    supportEmail: "support@firesio.app",
   }),
   legal: Object.freeze({
     address: "TODO: Street, City, Region, Postcode, Country",

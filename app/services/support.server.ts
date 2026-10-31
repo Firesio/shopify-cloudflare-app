@@ -1,12 +1,15 @@
 import { err, ok, type Result } from "~/lib/result";
 import type { Notifier } from "~/ports/notifier";
-import { staffTopicForSupportActivity } from "~/notifications/staff-topic";
 import type { StaffNotificationRecipients } from "~/ports/staff-notifications";
 import type { SupportRepository, SupportThread } from "~/ports/support";
 import { excerpt } from "~/support/excerpt";
+import { alertStaff, type StaffAlert } from "~/services/support-staff-alert";
 import type { SupportCategory } from "~/support/categories";
 import type { SupportTicket } from "~/support/types";
 import { ATTACHMENT_TOKEN_TTL_MS } from "~/support/file-token";
+import { replyChannels, replyRecipient } from "~/support/inbound/delivery";
+import { buildThreadHeaders, referenceableMessageIds } from "~/support/inbound/headers";
+import { supportAddress, ticketReplyAddress } from "~/support/inbound/reply-address";
 
 /**
  * Support use cases: the merchant side and the staff side of one thread.
@@ -30,6 +33,8 @@ export interface SupportServiceDependencies {
   readonly clock: Clock;
   readonly notifier: Notifier;
   readonly appUrl: string;
+  /** The domain support mail lives on; null where it cannot receive mail (local dev). */
+  readonly mailDomain: string | null;
   readonly withinRateLimit: (shop: string) => Promise<boolean>;
   readonly signAttachment: (attachmentId: string, expiresAt: number) => Promise<string>;
   /** Where a degraded path reports itself. Receives a stable event name, never a message body or an address. */
@@ -123,7 +128,7 @@ export class SupportService {
     });
 
     const thread = await this.dependencies.repo.findForStaff(created.id);
-    if (thread) await this.notifyMerchant(thread, input.staffName, input.body);
+    if (thread) await this.notifyCustomer(thread, input.staffName, input.body, created.messageId);
 
     return ok({ ...created, shop: input.shop });
   }
@@ -165,7 +170,7 @@ export class SupportService {
     ticketId: string;
     staffName: string;
     body: string;
-  }): Promise<Result<{ shop: string; messageId: string }, "not_found">> {
+  }): Promise<Result<{ shop: string | null; messageId: string }, "not_found">> {
     const replied = await this.dependencies.repo.replyAsStaff({
       ticketId: input.ticketId,
       authorName: input.staffName,
@@ -175,92 +180,54 @@ export class SupportService {
     if (!replied) return err("not_found");
 
     const thread = await this.dependencies.repo.findForStaff(input.ticketId);
-    if (thread) await this.notifyMerchant(thread, input.staffName, input.body);
+    if (thread) await this.notifyCustomer(thread, input.staffName, input.body, replied.messageId);
 
     return ok(replied);
   }
 
-  /**
-   * Tell the staff who asked to hear about it, on the channel each chose: one email request per person who wants
-   * email, one push request per enabled device of each person who wants push. Who those are is the staff
-   * notification settings' decision (`recipientsFor`); this only addresses the messages.
-   *
-   * One request each rather than a message with many recipients, so one bad address or dead device cannot
-   * suppress the rest and each row in `notification_logs` names one recipient. The dedupe key is shared by the
-   * whole fan-out for ONE ticket event and is made unique per recipient by the log's (key, recipient) pair, so a
-   * redelivery of any single message sends nothing twice.
-   *
-   * Best effort and last: the ticket is already committed, so a failure here is logged and never reaches the
-   * merchant's request.
-   */
-  private async notifyStaff(input: {
-    ticketId: string;
-    shopName: string;
-    subject: string;
-    body: string;
-    isNew: boolean;
-    messageId: string;
-  }): Promise<void> {
-    try {
-      const recipients = await this.dependencies.staff.recipientsFor(staffTopicForSupportActivity(input.isNew));
-      if (recipients.emails.length === 0 && recipients.devices.length === 0) return;
-
-      const base = {
-        event: "support_merchant_activity" as const,
-        dedupeKey: input.isNew ? `ticket-opened:${input.ticketId}` : `ticket-reply:${input.ticketId}:${input.messageId}`,
-      };
-      const content = {
-        shopName: input.shopName,
-        subject: input.subject,
-        excerpt: excerpt(input.body),
-        threadUrl: threadUrls(this.dependencies.appUrl, input.ticketId).staff,
-        isNew: input.isNew,
-      };
-
-      // Enqueueing is cheap and independent per recipient, so all go at once. The notifier never rejects, so one
-      // bad enqueue cannot suppress the others.
-      await Promise.all([
-        ...recipients.emails.map((recipient) => this.dependencies.notifier.send({
-          ...base,
-          to: { email: recipient.email },
-          payload: { recipientName: recipient.name, ...content },
-        })),
-        ...recipients.devices.map((device) => this.dependencies.notifier.send({
-          ...base,
-          to: { push: device.subscriptionId },
-          // A push is read by a device, not addressed to a person by name.
-          payload: { recipientName: "Staff", ...content },
-        })),
-      ]);
-    } catch (cause) {
-      this.dependencies.log({ event: "support.notify_staff_failed", reason: cause instanceof Error ? cause.name : "unknown" });
-    }
+  /** The shared staff fan-out; see `alertStaff`. */
+  private notifyStaff(input: StaffAlert): Promise<void> {
+    return alertStaff(this.dependencies, input);
   }
 
   /**
-   * Email the merchant, if they left an address.
+   * Email the person on the other side of the thread, if the thread's source
+   * has an address for them.
+   *
+   * WHERE it goes, and whether the portal is also a channel, is the source's
+   * decision (`SOURCE_DELIVERY`); this only addresses the message. A reader
+   * with no portal gets the whole reply, since an excerpt and a link they
+   * cannot open would be no answer at all. Every reply carries a
+   * `support+<id>@` Reply-To, so an answer by email finds its way back.
    *
    * Their copy list rides the SAME send rather than becoming extra messages: a
-   * copy is a carbon copy of one reply, not a separate notification, so this
-   * way everyone sees one thread in their mail client and the send leaves one
-   * row in `notification_logs`.
-   *
-   * `notify` filters the list before it is used — an address that has opted out
-   * is dropped, and the merchant is never also copied on their own reply.
+   * copy is a carbon copy of one reply, so everyone sees one thread in their
+   * mail client and the send leaves one row in `notification_logs`. `notify`
+   * filters the list first — an opted-out address is dropped, and the primary
+   * recipient is never also copied.
    */
-  private async notifyMerchant(
+  private async notifyCustomer(
     thread: SupportThread,
     staffName: string,
     body: string,
+    messageId: string,
   ): Promise<void> {
-    const { ticket } = thread;
-    if (!ticket.merchantEmail) return;
+    const { ticket, messages } = thread;
+    const route = { source: ticket.source, replyAddress: ticket.replyAddress, merchantEmail: ticket.merchantEmail };
+    const recipient = replyRecipient(route);
+    const channels = replyChannels(route);
+    if (recipient === null || !channels.includes("email")) return;
+
+    const hasPortal = channels.includes("portal");
+    const { mailDomain } = this.dependencies;
+    const threadHeaders = buildThreadHeaders(referenceableMessageIds(ticket.source, messages));
 
     await this.dependencies.notifier.send({
       event: "support_staff_reply",
-      to: { email: ticket.merchantEmail },
+      to: { email: recipient },
       cc: { email: ticket.ccEmails },
-      scope: ticket.shop,
+      scope: ticket.shop ?? undefined,
+      dedupeKey: `support-staff-reply:${messageId}`,
       payload: {
         recipientName: ticket.shopName,
         // Answer them in the language they asked in. `undefined` rather than
@@ -269,7 +236,13 @@ export class SupportService {
         staffName,
         subject: ticket.subject,
         excerpt: excerpt(body),
-        threadUrl: threadUrls(this.dependencies.appUrl, ticket.id).merchant,
+        ...(hasPortal
+          ? { threadUrl: threadUrls(this.dependencies.appUrl, ticket.id).merchant }
+          : { body }),
+        // The conversation speaks as support@ and is answered at support+<id>@,
+        // both on the app's own domain.
+        ...(mailDomain === null ? {} : { from: supportAddress(mailDomain), replyTo: ticketReplyAddress(mailDomain, ticket.id) }),
+        ...(Object.keys(threadHeaders).length === 0 ? {} : { threadHeaders }),
       },
     });
   }

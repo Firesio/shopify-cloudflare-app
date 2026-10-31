@@ -67,6 +67,8 @@ export {
   aiGenerator,
   aiService,
   requireAttachmentTokenSecret,
+  supportContactService,
+  supportInboxService,
   supportService,
 } from "~/wiring/ai-support.server";
 export { redactionGuard } from "~/wiring/redaction.server";

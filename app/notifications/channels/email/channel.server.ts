@@ -44,12 +44,13 @@ export class EmailChannel implements Channel<EmailMessage> {
     try {
       const response = await env.EMAIL.send({
         to: message.to,
-        from: { email: env.EMAIL_FROM, name: env.EMAIL_FROM_NAME || env.EMAIL_FROM },
+        from: { email: message.from ?? env.EMAIL_FROM, name: env.EMAIL_FROM_NAME || env.EMAIL_FROM },
         subject: message.subject,
         html: message.html,
         text: message.text,
         ...(message.replyTo ? { replyTo: message.replyTo } : {}),
         ...(message.cc?.length ? { cc: message.cc } : {}),
+        ...(message.headers ? { headers: { ...message.headers } } : {}),
       });
 
       return {

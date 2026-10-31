@@ -3,8 +3,10 @@ import {
   text,
   integer,
   index,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { SUPPORT_CATEGORIES } from "~/support/categories";
+import { SUPPORT_SOURCES } from "~/support/inbound/types";
 
 
 /**
@@ -22,8 +24,22 @@ export const supportTickets = sqliteTable(
   "support_tickets",
   {
     id: text("id").primaryKey(),
-    shop: text("shop").notNull(),
-    /** Snapshot — see the note above. */
+    /**
+     * NULL for a conversation that no shop owns yet (a mail from a stranger, a
+     * public-form message). A NULL never equals a shop, so every shop-scoped
+     * query and the shop purge pass over these rows by construction; staff
+     * assign one later and it becomes an ordinary shop thread.
+     */
+    shop: text("shop"),
+    /** Where the conversation started; decides how replies are delivered. */
+    source: text("source", { enum: SUPPORT_SOURCES }).notNull().default("app_portal"),
+    /**
+     * The address of whoever started a conversation that has no merchant
+     * record (the Reply-To of a Shopify relay, the sender of a mail). Replies go
+     * here for those sources; null for the portal, which uses `merchantEmail`.
+     */
+    replyAddress: text("reply_address"),
+    /** Snapshot — see the note above. For a stranger: their name, or address. */
     shopName: text("shop_name").notNull(),
     /** Where staff replies are emailed. Prefilled from Shopify, editable by the merchant. */
     merchantEmail: text("merchant_email"),
@@ -128,15 +144,28 @@ export const supportMessages = sqliteTable(
     ticketId: text("ticket_id")
       .notNull()
       .references(() => supportTickets.id, { onDelete: "cascade" }),
-    /** Kept alongside ticketId so a purge and every read stay shop-scoped without a join. */
-    shop: text("shop").notNull(),
+    /**
+     * Kept alongside ticketId so a purge and every read stay shop-scoped without
+     * a join. NULL while the thread is unassigned; assigning a shop rewrites it.
+     */
+    shop: text("shop"),
+    /** `merchant` means the CUSTOMER side, whoever they are; `staff` is us. */
     author: text("author", { enum: ["merchant", "staff"] }).notNull(),
     /** Snapshot — see the note above. */
     authorName: text("author_name").notNull(),
     body: text("body").notNull(),
+    /**
+     * The `Message-ID` of a mail that arrived. Unique, so a delivery repeated
+     * by the mail system is one message; null for portal and staff messages.
+     */
+    externalId: text("external_id"),
+    /** The id Email Service returned for the mail we sent for this message. */
+    mailId: text("mail_id"),
     createdAt: integer("created_at").notNull(),
   },
   (table) => [
+    uniqueIndex("support_messages_external_id_idx").on(table.externalId),
+    index("support_messages_mail_id_idx").on(table.mailId),
     index("support_messages_ticket_idx").on(table.ticketId, table.createdAt),
     index("support_messages_shop_idx").on(table.shop),
   ],

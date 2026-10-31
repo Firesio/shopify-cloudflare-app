@@ -98,7 +98,7 @@ describe("opening a ticket", () => {
       listForShop: async () => [], listOpenForStaff: async () => [], closeAsStaff: async () => false,
       setCcEmails: async () => false, markRead: async () => {}, markReadAsStaff: async () => {},
     };
-    const service = new SupportService({ repo, staff: { recipientsFor: async () => ({ emails: [], devices: [] }) }, clock: { now: () => 1 }, notifier: { send: async () => {} }, appUrl: "https://app.test", withinRateLimit: async () => true, signAttachment: async () => "token", log: () => {} });
+    const service = new SupportService({ repo, staff: { recipientsFor: async () => ({ emails: [], devices: [] }) }, clock: { now: () => 1 }, notifier: { send: async () => {} }, appUrl: "https://app.test", mailDomain: null, withinRateLimit: async () => true, signAttachment: async () => "token", log: () => {} });
     await service.adoptAttachments("shop.test", "message", [{ id: "upload", r2Key: "key", filename: "a.txt", contentType: "text/plain", sizeBytes: 1 }]);
     expect(calls).toEqual(["attachMany"]);
   });
@@ -120,7 +120,7 @@ describe("opening a ticket", () => {
       markRead: async () => {},
       markReadAsStaff: async () => {},
     };
-    const service = new SupportService({ repo, staff: { recipientsFor: async () => ({ emails: [], devices: [] }) }, clock: { now: () => 1 }, notifier: { send: async () => {} }, appUrl: "https://app.test", withinRateLimit: async () => true, signAttachment: async () => "token", log: () => {} });
+    const service = new SupportService({ repo, staff: { recipientsFor: async () => ({ emails: [], devices: [] }) }, clock: { now: () => 1 }, notifier: { send: async () => {} }, appUrl: "https://app.test", mailDomain: null, withinRateLimit: async () => true, signAttachment: async () => "token", log: () => {} });
     const result = await service.openTicket({ shop: "shop.myshopify.com", shopName: "Shop", merchantEmail: null, ccEmails: [], category: "bug", subject: "Subject", body: "Body" });
     expect(result).toEqual({ ok: true, value: { id: "ticket", messageId: "message" } });
     expect(calls).toEqual(["open"]);
@@ -493,6 +493,7 @@ describe("what the service asks the notifier to send", () => {
       clock: { now: () => 1_700_000_000_000 },
       notifier,
       appUrl: "https://example.test",
+      mailDomain: null,
       withinRateLimit: async () => true,
       signAttachment: async () => "unused",
       log: () => {},
@@ -698,6 +699,7 @@ describe("who is told about a ticket, per their own settings", () => {
       clock: { now: () => 1_700_000_000_000 },
       notifier,
       appUrl: "https://app.workmanjsc.vn",
+      mailDomain: "app.workmanjsc.vn",
       withinRateLimit: async () => true,
       signAttachment: async () => "unused",
       log: (entry) => { logged.push(entry); },
@@ -821,6 +823,7 @@ describe("who is told about a ticket, per their own settings", () => {
       clock: { now: () => 1_700_000_000_000 },
       notifier: fakeNotifier(),
       appUrl: "https://app.workmanjsc.vn",
+      mailDomain: "app.workmanjsc.vn",
       withinRateLimit: async () => true,
       signAttachment: async () => "unused",
       log: (entry) => { logged.push(entry); },

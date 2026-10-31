@@ -13,6 +13,7 @@ function validFiles() {
       SHOPIFY_PARTNER_ORGANIZATION_ID: "1234567",
       SHOPIFY_PARTNER_API_VERSION: "2026-07",
       AI_GATEWAY_ID: "",
+      TURNSTILE_SITE_KEY: "0x4AAAAAAAexample",
     },
     secrets: { required: ["SHOPIFY_PARTNER_API_TOKEN", "ATTACHMENT_TOKEN_SECRET", "STAFF_MFA_KEY"] },
     r2_buckets: [{ binding: "UPLOADS", bucket_name: "uploads" }],
@@ -30,7 +31,7 @@ function validFiles() {
     productionToml: 'client_id = "client-key"\napplication_url = "https://app.example.org"\n[webhooks]\napi_version = "2026-10"\n[access_scopes]\nscopes = ""\n[auth]\nredirect_urls = [ "https://app.example.org/auth/callback" ]',
     developmentToml: 'client_id = "dev-key"\napplication_url = "https://dev.example.org"\n[webhooks]\napi_version = "2026-10"\n[access_scopes]\nscopes = ""\n[auth]\nredirect_urls = [ "https://dev.example.org/auth/callback" ]',
     legal: 'export const APP_NAME = "Useful App";\nexport const COMPANY_NAME = "Example LLC";\nexport const CONTACT_EMAIL = "privacy@example.org";\nexport const COMPANY_ADDRESS = "1 Main Street";\nexport const LAST_UPDATED = "2026-09-01";',
-    identity: 'name: "Useful App", companyName: "Example LLC", supportEmail: "support@example.org", privacyEmail: "privacy@example.org", address: "1 Main Street", effectiveDate: "2026-09-01"',
+    identity: 'name: "Useful App", companyName: "Example LLC", supportEmail: "support@example.org", address: "1 Main Street", effectiveDate: "2026-09-01"',
     plans: 'handle: "free"\nhandle: "pro"',
     publicCopy: '{"pricing":"Clear pricing","support":"Email support@example.org","privacy":"We process merchant data."}',
   };
@@ -138,7 +139,7 @@ test("rejects placeholders in the dedicated identity source", () => {
   assert.match(issues, /legal identity\/contact\/date/);
 });
 
-for (const field of ["name", "companyName", "supportEmail", "privacyEmail", "address"]) {
+for (const field of ["name", "companyName", "supportEmail", "address"]) {
   test(`rejects missing identity ${field}`, () => {
     const files = validFiles();
     files.identity = files.identity.replace(new RegExp(`${field}: "[^"]*"`), `${field}: ""`);
@@ -184,6 +185,21 @@ test("does not require production to re-declare the local-only VAPID_PRIVATE_KEY
   assert.deepEqual(validateLaunchContract(files), []);
   files.wrangler.vars.SOMETHING_ELSE = "x";
   assert.match(validateLaunchContract(files).join("\n"), /production var SOMETHING_ELSE is missing/);
+});
+
+test("does not require production to re-declare the local-only TURNSTILE_SECRET_KEY slot", () => {
+  const files = validFiles();
+  files.wrangler.vars.TURNSTILE_SECRET_KEY = "";
+  assert.deepEqual(validateLaunchContract(files), []);
+});
+
+test("warns, without blocking, when the support form has no bot check configured", () => {
+  const files = validFiles();
+  files.wrangler.env.production.vars.SHOPIFY_APP_HANDLE = "my-app";
+  assert.deepEqual(launchWarnings(files), []);
+  files.wrangler.env.production.vars.TURNSTILE_SITE_KEY = "  ";
+  assert.match(launchWarnings(files).join("\n"), /TURNSTILE_SITE_KEY is empty/);
+  assert.deepEqual(validateLaunchContract(files), []);
 });
 
 test("warns, without blocking, when the App Store handle is empty or malformed", () => {

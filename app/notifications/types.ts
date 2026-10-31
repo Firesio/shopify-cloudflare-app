@@ -78,8 +78,12 @@ export interface EmailMessage {
    * every spam filter. Making it optional is how a message ends up without one.
    */
   text: string;
+  /** Overrides the app's default sender; must be on a domain onboarded to Email Sending. */
+  from?: string;
   replyTo?: string;
   cc?: string[];
+  /** Threading headers for a reply; the transport accepts only an allowlist. */
+  headers?: Readonly<Record<string, string>>;
 }
 
 /**

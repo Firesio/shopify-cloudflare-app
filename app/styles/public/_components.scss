@@ -99,6 +99,17 @@
   }
 }
 
+.field__input--multiline {
+  min-height: 9rem;
+  resize: vertical;
+}
+
+// A decoy for bots that fill every field. Off-screen rather than display:none,
+// which a bot can detect; aria-hidden and tabindex keep people out of it.
+.field--trap {
+  @include m.visually-hidden;
+}
+
 .field__hint {
   font-size: m.text("xs");
   color: var(--color-text-muted);

@@ -150,11 +150,12 @@ function bindingKeys(config) {
 }
 
 /**
- * Top-level vars that production must NOT re-declare. VAPID_PRIVATE_KEY is an
- * empty slot so wrangler loads it from .dev.vars locally; in production it is a
- * secret, and a var of the same name would shadow it (.claude/rules/web-push.md).
+ * Top-level vars that production must NOT re-declare. VAPID_PRIVATE_KEY and
+ * TURNSTILE_SECRET_KEY are empty slots so wrangler loads them from .dev.vars
+ * locally; in production they are secrets, and a var of the same name would
+ * shadow them (.claude/rules/web-push.md, .claude/rules/support-inbox.md).
  */
-const LOCAL_ONLY_VARS = new Set(["VAPID_PRIVATE_KEY"]);
+const LOCAL_ONLY_VARS = new Set(["VAPID_PRIVATE_KEY", "TURNSTILE_SECRET_KEY"]);
 
 function parityIssues(base, production) {
   const issues = [];
@@ -277,7 +278,7 @@ export function validateLaunchContract(files) {
     issues.push(`SHOPIFY_PARTNER_API_VERSION must be ${supportedPartnerVersion}`);
   }
   const identitySource = files.identity ?? "";
-  const requiredIdentity = ["name", "companyName", "supportEmail", "privacyEmail", "address"];
+  const requiredIdentity = ["name", "companyName", "supportEmail", "address"];
   const missingIdentity = requiredIdentity.some((field) => new RegExp(`${field}\\s*:\\s*"[^"\\n]+"`).test(identitySource) === false);
   const effectiveDate = identitySource.match(/effectiveDate\s*:\s*"(\d{4}-\d{2}-\d{2})"/)?.[1];
   const validDate = effectiveDate && !Number.isNaN(Date.parse(`${effectiveDate}T00:00:00Z`)) && new Date(`${effectiveDate}T00:00:00Z`).toISOString().startsWith(effectiveDate);
@@ -310,6 +311,13 @@ export function launchWarnings(files) {
     );
   } else if (!APP_HANDLE.test(handle)) {
     warnings.push(`SHOPIFY_APP_HANDLE "${handle}" is not a valid App Store handle; the manual shop-domain form stays on.`);
+  }
+  const production = configForEnv(files.wrangler, "production")?.vars ?? {};
+  if (typeof production.TURNSTILE_SITE_KEY === "string" && production.TURNSTILE_SITE_KEY.trim() === "") {
+    warnings.push(
+      "TURNSTILE_SITE_KEY is empty: the public support form is protected only by a rate limit and a decoy field. " +
+        "Set it, and `wrangler secret put TURNSTILE_SECRET_KEY --env production`, before the form takes real traffic.",
+    );
   }
   return warnings;
 }

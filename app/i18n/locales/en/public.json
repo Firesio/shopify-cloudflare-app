@@ -49,7 +49,29 @@
     "faq": "Common questions",
     "faqBody": "TODO: the questions merchants actually ask.",
     "contact": "Contact us",
-    "contactBody": "Email {{email}}. TODO: state your support hours and response target."
+    "contactBody": "Email {{email}}. TODO: state your support hours and response target.",
+    "form": {
+      "heading": "Send us a message",
+      "intro": "Tell us what you need and we will reply by email.",
+      "name": "Your name",
+      "email": "Your email",
+      "subject": "Subject",
+      "message": "How can we help?",
+      "shop": "Store domain (optional)",
+      "shopHint": "For example my-store.myshopify.com",
+      "send": "Send message",
+      "sending": "Sending…",
+      "sent": "Thanks. Your message is on its way, and we will reply by email.",
+      "errors": {
+        "required": "This field is required.",
+        "too_long": "This is too long.",
+        "email": "Enter a valid email address.",
+        "shop": "Enter a domain ending in .myshopify.com, or leave it empty.",
+        "rate_limited": "Too many messages from your connection. Please try again in a few minutes.",
+        "bot_check_failed": "We could not confirm you are a person. Please try again.",
+        "bot_check_unavailable": "We could not check your message just now. Please try again in a moment."
+      }
+    }
   },
   "legal": {
     "lastUpdated": "Last updated: {{date}}",
