@@ -9,6 +9,12 @@ export default tseslint.config(
     ignores: [
       // Claude config — not our source.
       ".claude/**",
+      // Agent skills installed on a developer machine — not our source.
+      ".agents/**",
+      // Skills written for coding agents (markdown, templates, a python script): instructions, not app source.
+      "agent-skills/**",
+      // Throwaway design explorations (static pages with vendored three.js): prototypes, not app source.
+      "docs/explorations/**",
       ".shopify-home/**",
       "build/**",
       ".react-router/**",

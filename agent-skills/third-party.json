@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "repo": "MengTo/Skills",
+      "ref": "a45892d2fdadab75b31fb16abecc02f101b31c43",
+      "skills": [
+        { "name": "landing-page", "path": "agent-skills/web-design/landing-page", "sha256": "fd522bc9dba59a2960b41cc24d70b86f7a84a9feab7d9224e54237485b9a7640" },
+        { "name": "pricing-page", "path": "agent-skills/web-design/pricing-page", "sha256": "749964cf5c3c4b0a1fb6ac6a23282b04ade71f1b6907c0daf3ac483d8719921a" },
+        { "name": "editorial-tech", "path": "agent-skills/web-design/editorial-tech", "sha256": "991e3631aacc0034a20f8e32da93cd1fa49b0b0e2474ab90493ca5cdd48ca2e7" },
+        { "name": "build-awwwards-quality-sites", "path": "agent-skills/web-design/build-awwwards-quality-sites", "sha256": "64017fdb07bf9b015ed25c4f286cde2238ab14b44e9a22ce2330167ee861f547" },
+        { "name": "build-threejs-scroll-worlds", "path": "agent-skills/web-design/build-threejs-scroll-worlds", "sha256": "860b352e47512ff7144ea79466c38a44d811be9a59a99125ce8e5b658735773e" }
+      ]
+    }
+  ]
+}
