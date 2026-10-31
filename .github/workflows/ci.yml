@@ -1,9 +1,14 @@
 name: CI
 
+# Off by default: this repository is a template, so nothing here should run on
+# every push or pull request. An app built from it turns CI back on by restoring
+# the `push` and `pull_request` triggers below. `workflow_dispatch` keeps a manual
+# run available from the Actions tab.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+  # pull_request:
 
 # Least privilege: this workflow only reads the repository.
 permissions:
