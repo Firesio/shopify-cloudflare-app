@@ -5,7 +5,7 @@ description: >-
   sequence isn't critical. Use unordered list to present collections of
   features, options, requirements, or any group of items where order doesn't
   affect meaning.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/layout-and-structure/unordered-list
@@ -27,6 +27,14 @@ Unordered lists automatically add bullet points and support nested lists for hie
 * **Feature lists:** List features, benefits, or attributes.
 * **Structured content:** Organize content with semantic unordered lists.
 
+```html
+<s-unordered-list>
+  <s-list-item>Free shipping on orders over $50.</s-list-item>
+  <s-list-item>Easy returns within 30 days.</s-list-item>
+  <s-list-item>Secure checkout.</s-list-item>
+</s-unordered-list>
+```
+
 ### Slots
 
 The unordered list component supports slots for additional content placement within the component. Learn more about [using slots](https://shopify.dev/docs/api/polaris/using-polaris-web-components#slots).
@@ -45,7 +53,7 @@ The list item component represents a single entry within an ordered list or unor
 
 List item must be used as a direct child of ordered list or unordered list components. Each list item can contain text, inline formatting, or other components to create rich list content.
 
-* **declare class ListItem extends PreactCustomElement implements ListItemProps { constructor(); }**
+* **declare class ListItem extends PolarisCustomElement implements ListItemProps { constructor(); }**
 
 ### Slots
 

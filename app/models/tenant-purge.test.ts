@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/d1";
 import { count, eq, inArray, and, isTable, getTableName } from "drizzle-orm";
 import * as schema from "~/db/schema";
-import { redactedShops, aiRuns, entitlementAllocations, entitlementOperations, entitlementUsage, mcpAuditLogs, notificationLogs, notificationOptOuts, notificationPreferences, pendingUploads, shopGrantedScopes, shopPlanGrants, shopScopeChanges, shopSubscriptionItems, shopSubscriptions, shopifyEvents, shopifySyncCheckpoints, shops, staffAuditLogs, supportAttachments, supportMessages, supportTickets, webhookDeliveries, webhookScopeObservations } from "~/db/schema";
+import { shopMembers, redactedShops, aiRuns, entitlementAllocations, entitlementOperations, entitlementUsage, mcpAuditLogs, notificationLogs, notificationOptOuts, notificationPreferences, pendingUploads, shopGrantedScopes, shopPlanGrants, shopScopeChanges, shopSubscriptionItems, shopSubscriptions, shopifyEvents, shopifySyncCheckpoints, shops, staffAuditLogs, supportAttachments, supportMessages, supportTickets, webhookDeliveries, webhookScopeObservations } from "~/db/schema";
 import { describe, expect, it } from "vitest";
 import { env } from "cloudflare:test";
 import { runWithRequestContext } from "~/request-context.server";
@@ -16,7 +16,7 @@ describe("TenantPurgeRepo", () => {
   it("inventory covers every table with a shop column", async () => {
     const tables = await runWithRequestContext(env, schemaShopColumns);
     expect(tables).toEqual([
-      "ai_runs", "entitlement_allocations", "entitlement_operations", "entitlement_usage", "mcp_audit_logs", "notification_logs", "pending_uploads", "shop_granted_scopes", "shop_plan_grants", "shop_scope_changes", "shop_subscription_items",
+      "ai_runs", "entitlement_allocations", "entitlement_operations", "entitlement_usage", "mcp_audit_logs", "notification_logs", "pending_uploads", "shop_granted_scopes", "shop_members", "shop_plan_grants", "shop_scope_changes", "shop_subscription_items",
       "shop_subscriptions", "shopify_events", "shops", "staff_audit_logs", "support_attachments",
       "support_messages", "support_tickets", "webhook_deliveries", "webhook_scope_observations",
     ]);
@@ -109,6 +109,7 @@ describe("TenantPurgeRepo", () => {
         await db.insert(shopSubscriptions).values({ shop: shop, subscriptionId: "sub", status: "ACTIVE", appliedOccurredAt: 1, appliedExternalId: "event" }).run();
         await db.insert(shopSubscriptionItems).values({ shop: shop, subscriptionId: "sub", position: 0, itemType: "flat" }).run();
         await db.insert(shopGrantedScopes).values({ shop: shop, scope: "read_products", grantedAt: 1 }).run();
+        await db.insert(shopMembers).values({ id: `member-${shop}`, shop: shop, shopifyUserId: "42", role: "owner", status: "active", createdAt: 1, updatedAt: 1 }).run();
         await db.insert(shopScopeChanges).values({ id: `change-${shop}`, shop: shop, source: "webhook", occurredAt: 1 }).run();
         await db.insert(aiRuns).values({ id: `run-${shop}`, role: "writing", modelId: "model", feature: "test", shop: shop, status: "ok", createdAt: 1 }).run();
         await db.insert(notificationLogs).values({ id: `log-${shop}`, event: "test", channel: "email", recipient: "x@y.com", status: "sent", shop: shop, createdAt: 1 }).run();

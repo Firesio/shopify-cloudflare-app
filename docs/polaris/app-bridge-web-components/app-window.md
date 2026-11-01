@@ -4,7 +4,7 @@ description: >-
   The app window component displays a fullscreen modal window for complex
   workflows that need dedicated screen space. The content is specified by the
   src property and should point to a route within your app.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/app-bridge-web-components/app-window
@@ -108,7 +108,7 @@ Open a fullscreen modal for complex workflows. This example uses the [`command`]
 
 ## Show and hide
 
-![Open a fullscreen modal for complex workflows. This example uses the \[\`command\`\](/docs/api/app-home/latest/web-components/actions/button#properties-propertydetail-command) attribute on a button to toggle the app window.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-show-hide-BAfeZlKz.png)
+![Open a fullscreen modal for complex workflows. This example uses the \[\`command\`\](/docs/api/app-home/latest/web-components/actions/button#properties-propertydetail-command) attribute on a button to toggle the app window.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-show-hide-BBIHxzOW.png)
 
 ## html
 
@@ -126,7 +126,7 @@ Add context to fullscreen workflows. This example sets a title using the page co
 
 ## Title bar heading
 
-![Add context to fullscreen workflows. This example sets a title using the page component with the \`heading\` attribute.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-title-bar-heading-BdqUiPJX.png)
+![Add context to fullscreen workflows. This example sets a title using the page component with the \`heading\` attribute.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-title-bar-heading-CoA82X6-.png)
 
 ## html
 
@@ -144,7 +144,7 @@ Provide actions in fullscreen workflows. This example adds primary and secondary
 
 ## Title bar actions
 
-![Provide actions in fullscreen workflows. This example adds primary and secondary action buttons to the title bar using page slots.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-title-bar-actions-CoAdGV6z.png)
+![Provide actions in fullscreen workflows. This example adds primary and secondary action buttons to the title bar using page slots.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-title-bar-actions-D2z9LMuS.png)
 
 ## html
 
@@ -165,7 +165,7 @@ Show status in fullscreen workflows. This example displays a status badge using 
 
 ## Title bar accessory badge
 
-![Show status in fullscreen workflows. This example displays a status badge using the \`accessory\` slot with \`tone\` for color.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-title-bar-accessory-badge-C6Ho8nRd.png)
+![Show status in fullscreen workflows. This example displays a status badge using the \`accessory\` slot with \`tone\` for color.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-title-bar-accessory-badge-D-aB_WuC.png)
 
 ## html
 
@@ -186,7 +186,7 @@ Add icons and dropdown menus to actions. This example pairs icon buttons with [`
 
 ## Title bar icons and menus
 
-![Add icons and dropdown menus to actions. This example pairs icon buttons with \[\`commandFor\`\](/docs/api/app-home/latest/web-components/actions/button#properties-propertydetail-commandFor) to create dropdown menus.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-title-bar-icons-menus-KSDHKHn5.png)
+![Add icons and dropdown menus to actions. This example pairs icon buttons with \[\`commandFor\`\](/docs/api/app-home/latest/web-components/actions/button#properties-propertydetail-commandFor) to create dropdown menus.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-title-bar-icons-menus-BhLndI4X.png)
 
 ## html
 
@@ -212,7 +212,7 @@ Control the app window programmatically. This example calls the `show()`, `hide(
 
 ## Instance methods
 
-![Control the app window programmatically. This example calls the \`show()\`, \`hide()\`, and \`toggle()\` methods.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-instance-methods-BRlID13l.png)
+![Control the app window programmatically. This example calls the \`show()\`, \`hide()\`, and \`toggle()\` methods.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-instance-methods-DNU6PYsa.png)
 
 ## html
 
@@ -230,7 +230,7 @@ Control the app window declaratively. This example uses the [`command`](https://
 
 ## Command attribute
 
-![Control the app window declaratively. This example uses the \[\`command\`\](/docs/api/app-home/latest/web-components/actions/button#properties-propertydetail-command) and \[\`commandFor\`\](/docs/api/app-home/latest/web-components/actions/button#properties-propertydetail-commandFor) attributes on buttons.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-command-attribute-CQQ5zI-J.png)
+![Control the app window declaratively. This example uses the \[\`command\`\](/docs/api/app-home/latest/web-components/actions/button#properties-propertydetail-command) and \[\`commandFor\`\](/docs/api/app-home/latest/web-components/actions/button#properties-propertydetail-commandFor) attributes on buttons.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-command-attribute-sT02aca7.png)
 
 ## html
 
@@ -249,7 +249,7 @@ Prevent data loss in fullscreen forms. This example integrates the save bar usin
 
 ## Form with save bar
 
-![Prevent data loss in fullscreen forms. This example integrates the save bar using \`data-save-bar\` to track unsaved changes.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-form-with-save-bar-DNN_gy8s.png)
+![Prevent data loss in fullscreen forms. This example integrates the save bar using \`data-save-bar\` to track unsaved changes.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/app-window-form-with-save-bar-CnH7c8X1.png)
 
 ## html
 

@@ -3,7 +3,7 @@ title: App nav
 description: >-
   The app nav component configures navigation items for your app in the Shopify
   admin. On desktop, navigation appears in the left sidebar.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/app-bridge-web-components/app-nav
@@ -76,7 +76,7 @@ Add consistent navigation to your app. This example shows an app whose home page
 
 ## Navigation menu
 
-![A Shopify admin sidebar showing a navigation menu with Templates and Settings links under the app name.](https://shopify.dev/assets/assets/images/apps/tools/app-bridge-navigation-menu-DdMXEPrX.png)
+![A Shopify admin sidebar showing a navigation menu with Templates and Settings links under the app name.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/navigation-menu-3t0TPnQ1.png)
 
 ## html
 

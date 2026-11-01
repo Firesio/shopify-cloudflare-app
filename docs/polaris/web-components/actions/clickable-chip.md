@@ -5,7 +5,7 @@ description: >-
   users can click or remove. Use clickable chip to show filter tags, selected
   options, or merchant-created labels that users need to interact with or
   dismiss.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/actions/clickable-chip
@@ -27,11 +27,21 @@ Clickable chips support multiple visual variants, optional icons, and can functi
 * **Action chips:** Create chips that trigger actions or open dialogs when clicked.
 * **Selection management:** Display selected items as chips with click handlers for modification.
 
+```html
+<s-clickable-chip>Summer collection</s-clickable-chip>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the clickable chip component.
+
+* **accessibility​Label**
+
+  **string**
+
+  A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
 
 * **color**
 
@@ -39,63 +49,13 @@ Configure the following properties on the clickable chip component.
 
   **Default: 'base'**
 
-  **required**
-
   The color emphasis level that controls visual intensity.
-
-* **accessibility​Label**
-
-  **string**
-
-  **required**
-
-  A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
-
-* **removable**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether the chip displays a remove button for dismissal. When clicked, the `remove` callback fires.
-
-* **hidden**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether the chip is hidden from view. When using controlled component pattern with `removable` chips, update this property when the `remove` event fires. For non-removable chips, manually toggle this property to show or hide the chip.
-
-* **disabled**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether the chip is disabled, preventing any user interaction.
-
-* **href**
-
-  **string**
-
-  **required**
-
-  The URL to navigate to when clicked. The `click` event fires first, then navigation occurs. If `commandFor` is also set, the command executes instead of navigation.
 
 * **command**
 
   **'--auto' | '--show' | '--hide' | '--toggle'**
 
   **Default: '--auto'**
-
-  **required**
 
   The action that [command](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/button#command) should take when this component is activated.
 
@@ -108,17 +68,43 @@ Configure the following properties on the clickable chip component.
 
   **string**
 
-  **required**
-
   The component that [commandFor](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/button#commandfor) should act on when this component is activated.
+
+* **disabled**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the chip is disabled, preventing any user interaction.
+
+* **hidden**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the chip is hidden from view. When using controlled component pattern with `removable` chips, update this property when the `remove` event fires. For non-removable chips, manually toggle this property to show or hide the chip.
+
+* **href**
+
+  **string**
+
+  The URL to navigate to when clicked. The `click` event fires first, then navigation occurs. If `commandFor` is also set, the command executes instead of navigation.
 
 * **interest​For**
 
   **string**
 
-  **required**
-
   The ID of the component to show when users hover over or focus on this component. Use this to connect interactive components to popovers or tooltips that provide additional context or information.
+
+* **removable**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the chip displays a remove button for dismissal. When clicked, the `remove` callback fires.
 
 ### ColorKeyword
 
@@ -134,17 +120,13 @@ The clickable chip component provides event callbacks for handling user interact
 
 * **afterhide**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TTagName> | null**
 
   A callback fired after the chip is hidden.
 
 * **click**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TTagName> | null**
 
   A callback fired when the chip is clicked.
 
@@ -152,9 +134,7 @@ The clickable chip component provides event callbacks for handling user interact
 
 * **remove**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TTagName> | null**
 
   A callback fired when the chip is removed.
 
@@ -210,7 +190,7 @@ Create an interactive chip that merchants can click to trigger an action. This e
 
 ### Apply color variants to chips
 
-Use the `color` property to visually distinguish chips by importance or category. This example shows three chips with `base`, `subdued`, and `strong` color variants.
+Use the `color` property to visually distinguish chips by importance or category. This example shows two chips with `base` and `subdued` color variants.
 
 ## html
 
@@ -225,12 +205,6 @@ Use the `color` property to visually distinguish chips by importance or category
   >
     Draft
   </s-clickable-chip>
-  <s-clickable-chip
-    color="strong"
-    accessibilityLabel="Filter by archived products"
-  >
-    Archived
-  </s-clickable-chip>
 </s-stack>
 ```
 
@@ -242,7 +216,7 @@ Add an icon and a remove button so merchants can see the status and dismiss the 
 
 ```html
 <s-clickable-chip
-  color="strong"
+  color="base"
   accessibilityLabel="Remove status filter"
   removable
 >
@@ -289,7 +263,7 @@ Disable a chip to prevent interaction while keeping it visible. This example sho
 ## Best practices
 
 * **Keep labels to 1-3 words:** Aim for labels like **Electronics**, **Summer sale**, or **Clearance items**.
-* **Choose color variants by importance:** Use `subdued` for less important or secondary chips, `base` (default) for standard selections, and `strong` to emphasize primary or active selections.
+* **Choose color variants by importance:** Use `subdued` for less important or secondary chips and `base` (default) for standard selections.
 * **Make remove action clear:** When chips are removable, ensure the remove button's visible and has clear hover/focus states.
 * **Group related chips together:** Use an inline [stack](https://shopify.dev/docs/api/app-home/latest/web-components/layout-and-structure/stack) to arrange multiple chips horizontally with consistent spacing.
 

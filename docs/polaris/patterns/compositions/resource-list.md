@@ -4,7 +4,7 @@ description: >-
   When merchants need to browse and select from a collection of similar items, a
   resource list provides a compact, scannable format. It helps merchants find an
   object and navigate to its full-page representation.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/patterns/compositions/resource-list
@@ -23,31 +23,31 @@ Use resource lists for smaller collections, or when you need a simpler selection
 
 ### Supported components
 
-* [Avatar](https://shopify.dev/docs/api/app-home/v1.0/web-components/media-and-visuals/avatar)
-* [Button](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/button)
-* [Checkbox](https://shopify.dev/docs/api/app-home/v1.0/web-components/forms/checkbox)
-* [Clickable](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/clickable)
-* [Clickable chip](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/clickable-chip)
-* [Grid](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/grid)
-* [Heading](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/heading)
-* [Link](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/link)
-* [Popover](https://shopify.dev/docs/api/app-home/v1.0/web-components/overlays/popover)
-* [Section](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/section)
-* [Select](https://shopify.dev/docs/api/app-home/v1.0/web-components/forms/select)
-* [Stack](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/stack)
-* [Text](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/text)
-* [Text field](https://shopify.dev/docs/api/app-home/v1.0/web-components/forms/text-field)
+* [Avatar](https://shopify.dev/docs/api/app-home/v2.0/web-components/media-and-visuals/avatar)
+* [Button](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/button)
+* [Checkbox](https://shopify.dev/docs/api/app-home/v2.0/web-components/forms/checkbox)
+* [Clickable](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/clickable)
+* [Clickable chip](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/clickable-chip)
+* [Grid](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/grid)
+* [Heading](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/heading)
+* [Link](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/link)
+* [Popover](https://shopify.dev/docs/api/app-home/v2.0/web-components/overlays/popover)
+* [Section](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/section)
+* [Select](https://shopify.dev/docs/api/app-home/v2.0/web-components/forms/select)
+* [Stack](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/stack)
+* [Text](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/text)
+* [Text field](https://shopify.dev/docs/api/app-home/v2.0/web-components/forms/text-field)
 
 ### Available APIs
 
-* [Modal API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/modal-api)
-* [Navigation API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/navigation-api)
-* [Resource Picker API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/resource-picker-api)
-* [Toast API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/toast-api)
+* [Modal API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/modal-api)
+* [Navigation API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/navigation-api)
+* [Resource Picker API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/resource-picker-api)
+* [Toast API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/toast-api)
 
 ### Recommended templates
 
-* [Details](https://shopify.dev/docs/api/app-home/v1.0/patterns/templates/details)
+* [Details](https://shopify.dev/docs/api/app-home/v2.0/patterns/templates/details)
 
 #### Use cases
 

@@ -5,7 +5,7 @@ description: >-
   users hover over or focus on an element. Use tooltip to provide additional
   context, explain functionality, or clarify terms without cluttering the
   interface with permanent text.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/typography-and-content/tooltip
@@ -26,6 +26,11 @@ Tooltips support keyboard accessibility, positioning options, and activation on 
 * **Explanations:** Explain features, icons, or controls with tooltips.
 * **Additional info:** Display additional information without cluttering the UI.
 * **Accessibility:** Improve accessibility by providing text alternatives for icons.
+
+```html
+<s-button interestFor="subject">Save status</s-button>
+<s-tooltip id="subject">Changes are saved automatically.</s-tooltip>
+```
 
 ***
 

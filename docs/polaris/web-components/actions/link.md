@@ -5,7 +5,7 @@ description: >-
   pages or perform specific actions. Use link for navigation, external
   references, or triggering actions while maintaining standard link semantics
   and accessibility.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: 'https://shopify.dev/docs/api/app-home/latest/web-components/actions/link'
   md: 'https://shopify.dev/docs/api/app-home/latest/web-components/actions/link.md'
@@ -25,85 +25,27 @@ Links support standard URLs, custom protocols, navigation within Shopify admin p
 * **App pages:** Link between different pages or sections within your app.
 * **Help and support:** Provide access to support resources or additional information.
 
+```html
+<s-link href="https://example.com/orders">View orders</s-link>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the link component.
 
-* **tone**
-
-  **"critical" | "auto" | "neutral"**
-
-  **Default: 'auto'**
-
-  **required**
-
-  The semantic meaning and color treatment of the component.
-
-  * `critical`: Urgent problems or destructive actions.
-  * `auto`: Automatically determined based on context.
-  * `neutral`: General information without specific intent.
-
 * **accessibility​Label**
 
   **string**
 
-  **required**
-
   A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
-
-* **href**
-
-  **string**
-
-  **required**
-
-  The URL to navigate to when clicked. The `click` event fires first, then navigation occurs. If `commandFor` is also set, the command executes instead of navigation.
-
-* **target**
-
-  **"auto" | AnyString | "\_blank" | "\_self" | "\_parent" | "\_top"**
-
-  **Default: 'auto'**
-
-  **required**
-
-  The browsing context where the linked URL should be displayed.
-
-  * `auto`: The target is automatically determined based on the origin of the URL.
-  * `_blank`: Opens the URL in a new window or tab.
-  * `_self`: Opens the URL in the same browsing context as the current one.
-  * `_parent`: Opens the URL in the parent browsing context of the current one. If there is no parent, behaves as `_self`.
-  * `_top`: Opens the URL in the topmost browsing context (the highest ancestor of the current one). If there is no ancestor, behaves as `_self`.
-
-* **download**
-
-  **string**
-
-  **required**
-
-  Prompts the browser to download the linked URL rather than navigate to it. When set, the value specifies the suggested filename for the downloaded file.
-
-  The filename suggestion is only respected for same-origin URLs, `blob:`, and `data:` schemes. Cross-origin URLs can still trigger downloads, but browsers might ignore the suggested filename.
-
-  Learn more about the [download attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a#download).
-
-* **lang**
-
-  **string**
-
-  **required**
-
-  The language of the text content. Use this when the text is in a different language than the rest of the page, allowing assistive technologies such as screen readers to invoke the correct pronunciation. The value should be a valid language subtag from the [IANA language subtag registry](https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry).
 
 * **command**
 
   **'--auto' | '--show' | '--hide' | '--toggle'**
 
   **Default: '--auto'**
-
-  **required**
 
   The action that [command](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/button#command) should take when this component is activated.
 
@@ -116,17 +58,61 @@ Configure the following properties on the link component.
 
   **string**
 
-  **required**
-
   The component that [commandFor](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/button#commandfor) should act on when this component is activated.
+
+* **download**
+
+  **string**
+
+  Prompts the browser to download the linked URL rather than navigate to it. When set, the value specifies the suggested filename for the downloaded file.
+
+  The filename suggestion is only respected for same-origin URLs, `blob:`, and `data:` schemes. Cross-origin URLs can still trigger downloads, but browsers might ignore the suggested filename.
+
+  Learn more about the [download attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a#download).
+
+* **href**
+
+  **string**
+
+  The URL to navigate to when clicked. The `click` event fires first, then navigation occurs. If `commandFor` is also set, the command executes instead of navigation.
 
 * **interest​For**
 
   **string**
 
-  **required**
-
   The ID of the component to show when users hover over or focus on this component. Use this to connect interactive components to popovers or tooltips that provide additional context or information.
+
+* **lang**
+
+  **string**
+
+  The language of the text content. Use this when the text is in a different language than the rest of the page, allowing assistive technologies such as screen readers to invoke the correct pronunciation. The value should be a valid language subtag from the [IANA language subtag registry](https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry).
+
+* **target**
+
+  **"auto" | AnyString | "\_blank" | "\_self" | "\_parent" | "\_top"**
+
+  **Default: 'auto'**
+
+  The browsing context where the linked URL should be displayed.
+
+  * `auto`: The target is automatically determined based on the origin of the URL.
+  * `_blank`: Opens the URL in a new window or tab.
+  * `_self`: Opens the URL in the same browsing context as the current one.
+  * `_parent`: Opens the URL in the parent browsing context of the current one. If there is no parent, behaves as `_self`.
+  * `_top`: Opens the URL in the topmost browsing context (the highest ancestor of the current one). If there is no ancestor, behaves as `_self`.
+
+* **tone**
+
+  **"critical" | "auto" | "neutral"**
+
+  **Default: 'auto'**
+
+  The semantic meaning and color treatment of the component.
+
+  * `critical`: Urgent problems or destructive actions.
+  * `auto`: Automatically determined based on context.
+  * `neutral`: General information without specific intent.
 
 ### AnyString
 
@@ -142,9 +128,7 @@ The link component provides event callbacks for handling user interactions. Lear
 
 * **click**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TTagName> | null**
 
   A callback fired when the link is clicked.
 
@@ -287,7 +271,7 @@ Configure links that inherit the tone of their parent paragraph and match the su
 
 
   <s-paragraph tone="success">
-    Neutral tone: <s-link>Inventory help</s-link>
+    Success tone: <s-link>Inventory help</s-link>
   </s-paragraph>
 
 
@@ -307,7 +291,7 @@ Configure links that inherit the tone of their parent paragraph and match the su
 
 
   <s-paragraph tone="caution">
-    Subdued tone: <s-link>View archived products</s-link>
+    Caution tone: <s-link>View archived products</s-link>
   </s-paragraph>
 </s-stack>
 ```

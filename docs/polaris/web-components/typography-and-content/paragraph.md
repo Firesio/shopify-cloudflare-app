@@ -4,7 +4,7 @@ description: >-
   The paragraph component displays blocks of text content and can contain inline
   elements like buttons, links, or emphasized text. Use paragraph to present
   standalone blocks of readable content, descriptions, or explanatory text.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/typography-and-content/paragraph
@@ -26,63 +26,33 @@ Paragraphs support alignment options and can wrap inline components to create ri
 * **Informational text:** Present multi-line information, guidelines, or policies.
 * **Content blocks:** Create readable content blocks with proper typography.
 
+```html
+<s-paragraph>Keep your customers informed with clear, helpful updates about their orders, deliveries, and the products they love.</s-paragraph>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the paragraph component.
 
-* **font​Variant​Numeric**
+* **accessibility​Visibility**
 
-  **"auto" | "normal" | "tabular-nums"**
+  **"visible" | "hidden" | "exclusive"**
 
-  **Default: 'auto'**
+  **Default: 'visible'**
 
-  **required**
+  The visibility mode of the element for both visual and assistive technology users.
 
-  The rendering style for numbers in the font.
-
-  * `auto`: Inherits the setting from the parent element.
-  * `normal`: Uses the font's default numeric glyphs.
-  * `tabular-nums`: Uses fixed-width numeric glyphs, ensuring numbers align vertically in tables or lists.
-
-  Learn more about the [font-variant-numeric property](https://developer.mozilla.org/en-US/docs/Web/CSS/font-variant-numeric).
-
-* **line​Clamp**
-
-  **number**
-
-  **Default: Infinity - no truncation is applied**
-
-  **required**
-
-  The maximum number of lines to display before truncating the text content.
-
-  Learn more about the [-webkit-line-clamp property](https://developer.mozilla.org/en-US/docs/Web/CSS/-webkit-line-clamp).
-
-* **tone**
-
-  **"info" | "success" | "warning" | "critical" | "caution"**
-
-  **Default: 'auto'**
-
-  **required**
-
-  The semantic tone that's applied to the paragraph text, which changes its color to convey meaning.
-
-  * `info`: Informational content or helpful tips (blue).
-  * `success`: Positive outcomes or successful states (green).
-  * `warning`: Important warnings about potential issues (orange).
-  * `critical`: Urgent problems or destructive actions (red).
-  * `caution`: Advisory notices that need attention (yellow).
+  * `visible`: The element is visible to all users (both sighted users and screen readers).
+  * `hidden`: The element is visually visible but hidden from screen readers. Use this for decorative elements that don't provide meaningful information.
+  * `exclusive`: The element is visually hidden but announced by screen readers. Use this for screen-reader-only content like skip links or additional context.
 
 * **color**
 
   **"base" | "subdued"**
 
   **Default: 'base'**
-
-  **required**
 
   The color emphasis level that controls visual intensity.
 
@@ -95,30 +65,74 @@ Configure the following properties on the paragraph component.
 
   **Default: ''**
 
-  **required**
-
   Indicates the directionality of the element’s text.
 
   * `""`: The direction is inherited from parent elements (equivalent to not setting the attribute).
   * `auto`: The user agent determines the direction based on the content.
-  * `ltr`: Text direction runs from left to right (for languages like English).
-  * `rtl`: Text direction runs from right to left (for languages like Arabic).
+  * `ltr`: The languages written from left to right (such as English).
+  * `rtl`: The languages written from right to left (such as Arabic).
 
   Learn more about the [dir attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/dir).
 
-* **accessibility​Visibility**
+* **font​Size**
 
-  **"visible" | "hidden" | "exclusive"**
+  **"small" | "small-200" | "small-100" | "base" | "large" | "large-100" | "auto"**
 
-  **Default: 'visible'**
+  **Default: 'auto'**
 
-  **required**
+  Font size of the paragraph. The named values also apply their matching line-height and letter-spacing.
 
-  The visibility mode of the element for both visual and assistive technology users.
+* **font​Weight**
 
-  * `visible`: The element is visible to all users (both sighted users and screen readers).
-  * `hidden`: The element is visually visible but hidden from screen readers. Use this for decorative elements that don't provide meaningful information.
-  * `exclusive`: The element is visually hidden but announced by screen readers. Use this for screen-reader-only content like skip links or additional context.
+  **"bold" | "base" | "auto" | "medium" | "semibold"**
+
+  **Default: 'auto'**
+
+  Font weight of the paragraph.
+
+* **line​Clamp**
+
+  **number**
+
+  **Default: Infinity - no truncation is applied**
+
+  The maximum number of lines to display before truncating the text content.
+
+  Learn more about the [-webkit-line-clamp property](https://developer.mozilla.org/en-US/docs/Web/CSS/-webkit-line-clamp).
+
+* **tone**
+
+  **"info" | "success" | "warning" | "critical" | "auto" | "neutral" | "caution"**
+
+  **Default: 'auto'**
+
+  The semantic tone that's applied to the paragraph text, which changes its color to convey meaning.
+
+  * `info`: Informational content or helpful tips (blue).
+  * `success`: Positive outcomes or successful states (green).
+  * `warning`: Important warnings about potential issues (orange).
+  * `critical`: Urgent problems or destructive actions (red).
+  * `caution`: Advisory notices that need attention (yellow).
+
+* **font​Variant​Numeric**
+
+  **"auto" | "normal" | "tabular-nums"**
+
+  **Default: 'auto' - inherit from the parent element**
+
+  **deprecated**
+
+  The rendering style for numbers in the font.
+
+  * `auto`: Inherits the setting from the parent element.
+  * `normal`: Uses the font's default numeric glyphs.
+  * `tabular-nums`: Uses fixed-width numeric glyphs, ensuring numbers align vertically in tables or lists.
+
+  Learn more about the [font-variant-numeric property](https://developer.mozilla.org/en-US/docs/Web/CSS/font-variant-numeric).
+
+  **Deprecated:**
+
+  Use `Number` for inline numeric values instead.
 
 ### Slots
 
@@ -244,6 +258,19 @@ Set the `dir` property to rtl for right-to-left languages like Arabic and Hebrew
 <s-paragraph dir="rtl">
   محتوى النص باللغة العربية
 </s-paragraph>
+```
+
+### Set the size and weight of a paragraph
+
+Use the `fontSize` and `fontWeight` properties to establish a visual hierarchy between paragraphs. This example pairs a large, semibold lead-in with a smaller supporting line.
+
+## html
+
+```html
+<s-stack gap="small-100">
+  <s-paragraph fontSize="large" fontWeight="semibold">Shipping and delivery</s-paragraph>
+  <s-paragraph fontSize="small">Choose the rates that customers see at checkout.</s-paragraph>
+</s-stack>
 ```
 
 ***

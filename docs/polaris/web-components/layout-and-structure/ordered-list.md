@@ -5,7 +5,7 @@ description: >-
   specific sequence. Use ordered list to present step-by-step instructions,
   ranked items, procedures, or any content where order and sequence matter to
   understanding.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/layout-and-structure/ordered-list
@@ -27,6 +27,14 @@ Ordered lists automatically number items and support nested lists for hierarchic
 * **Ranked items:** Show ranked or prioritized items in order.
 * **Structured content:** Organize content with semantic ordered lists.
 
+```html
+<s-ordered-list>
+  <s-list-item>Add your products.</s-list-item>
+  <s-list-item>Set up shipping.</s-list-item>
+  <s-list-item>Launch your store.</s-list-item>
+</s-ordered-list>
+```
+
 ### Slots
 
 The ordered list component supports slots for additional content placement within the component. Learn more about [using slots](https://shopify.dev/docs/api/polaris/using-polaris-web-components#slots).
@@ -45,7 +53,7 @@ The list item component represents a single entry within an ordered list or unor
 
 List item must be used as a direct child of ordered list or unordered list components. Each list item can contain text, inline formatting, or other components to create rich list content.
 
-* **declare class ListItem extends PreactCustomElement implements ListItemProps { constructor(); }**
+* **declare class ListItem extends PolarisCustomElement implements ListItemProps { constructor(); }**
 
 ### Slots
 

@@ -22,6 +22,7 @@ import { streamRegion } from "~/internal/stream-region.server";
 import { loadShopDetail } from "./detail-data.server";
 import { EventHistorySection, SubscriptionHistoryCard } from "./detail-history";
 import { PromoOverridesCard } from "./detail-promo";
+import { TeamCard } from "./detail-team";
 import { ReconciliationFailureCard, ShopSummaryCard } from "./detail-summary";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
@@ -137,6 +138,8 @@ function ShopDetailBody({
   events,
   reconciliation,
   promoStatus,
+  team,
+  seats,
   effective,
   promoAvailablePlans,
   now,
@@ -150,6 +153,7 @@ function ShopDetailBody({
         />
       )}
       <ShopSummaryCard shop={shop} />
+      <TeamCard team={team} seats={seats} />
       <PromoOverridesCard
         effective={effective}
         canGrant={shop.uninstalledAt === null}

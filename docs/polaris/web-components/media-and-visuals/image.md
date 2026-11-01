@@ -5,7 +5,7 @@ description: >-
   presentation and loading behavior. Use image to visually illustrate concepts,
   showcase products, display user content, or support tasks and interactions
   with visual context.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/media-and-visuals/image
@@ -27,49 +27,33 @@ Images support responsive sizing, alt text for accessibility, aspect ratio contr
 * **Visual guides:** Provide visual instructions or examples for complex configurations.
 * **Marketing content:** Display promotional banners or feature announcements.
 
+```html
+<s-image src="https://cdn.shopify.com/static/sample-product/House-Plant1.png" objectFit="cover" borderRadius="base" alt="Indoor plant"></s-image>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the image component.
 
-* **src**
+* **accessibility​Role**
 
-  **string**
+  **"none" | "presentation" | "img"**
 
-  **required**
+  **Default: 'img'**
 
-  The image source (either a remote URL or a local file resource).
+  The semantic meaning of the component’s content. When set, the role will be used by assistive technologies to help users navigate the page.
 
-  When the image is loading or no `src` is provided, a placeholder is rendered.
-
-* **src​Set**
-
-  **string**
-
-  **required**
-
-  A set of image sources and their width or pixel density descriptors. This overrides the `src` property.
-
-  Learn more about the [srcset attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img#srcset).
-
-* **sizes**
-
-  **string**
-
-  **required**
-
-  A set of media conditions and their corresponding sizes.
-
-  Learn more about the [sizes attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img#sizes).
+  * `none`: Completely hides the element and its content from assistive technologies
+  * `presentation`: Removes semantic meaning, making the image purely decorative and ignored by screen readers.
+  * `img`: Identifies the element as an image that conveys meaningful information to users.
 
 * **alt**
 
   **string**
 
-  **Default: \`\`**
-
-  **required**
+  **Default: \`''\`**
 
   Alternative text that describes the image for accessibility.
 
@@ -85,8 +69,6 @@ Configure the following properties on the image component.
 
   **Default: '1/1'**
 
-  **required**
-
   The aspect ratio of the image.
 
   The rendering of the image will depend on the `inlineSize` value:
@@ -98,13 +80,77 @@ Configure the following properties on the image component.
 
   Learn more about the [aspect-ratio property](https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio).
 
+* **border**
+
+  **BorderShorthand**
+
+  **Default: 'none'**
+
+  A border applied around the image using shorthand syntax to specify width, color, and style in a single property.
+
+* **border​Color**
+
+  **"" | ColorKeyword**
+
+  **Default: '' - meaning no override**
+
+  The color of the border around the image using the design system's color scale. When set, this overrides the color value specified in the `border` property.
+
+* **border​Radius**
+
+  **MaybeAllValuesShorthandProperty\<BoxBorderRadii>**
+
+  **Default: 'none'**
+
+  The roundedness of the image's corners using the design system's radius scale.
+
+* **border​Style**
+
+  **"" | MaybeAllValuesShorthandProperty\<BoxBorderStyles>**
+
+  **Default: '' - meaning no override**
+
+  The visual style of the border around the image, such as solid, dashed, or dotted. When set, this overrides the style value specified in the `border` property.
+
+* **border​Width**
+
+  **"" | MaybeAllValuesShorthandProperty<"small" | "small-100" | "base" | "large" | "large-100" | "none">**
+
+  **Default: '' - meaning no override**
+
+  The thickness of the border around the image. When set, this overrides the width value specified in the `border` property.
+
+* **inline​Size**
+
+  **"auto" | "fill"**
+
+  **Default: 'fill'**
+
+  The displayed inline width of the image.
+
+  * `fill`: the image will take up 100% of the available inline size.
+  * `auto`: the image will be displayed at its natural size.
+
+  Learn more about the [width attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img#width).
+
+* **loading**
+
+  **"eager" | "lazy"**
+
+  **Default: 'eager'**
+
+  The loading strategy for the image.
+
+  * `eager`: Immediately loads the image, irrespective of its position within the visible viewport.
+  * `lazy`: Delays loading the image until it approaches a specified distance from the viewport.
+
+  Learn more about the [loading attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img#loading).
+
 * **object​Fit**
 
   **"contain" | "cover"**
 
   **Default: 'contain'**
-
-  **required**
 
   The image resizing behavior to fit within its container.
 
@@ -115,99 +161,29 @@ Configure the following properties on the image component.
 
   Learn more about the [object-fit property](https://developer.mozilla.org/en-US/docs/Web/CSS/object-fit).
 
-* **loading**
+* **sizes**
 
-  **"eager" | "lazy"**
+  **string**
 
-  **Default: 'eager'**
+  A set of media conditions and their corresponding sizes.
 
-  **required**
+  Learn more about the [sizes attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img#sizes).
 
-  The loading strategy for the image.
+* **src**
 
-  * `eager`: Immediately loads the image, irrespective of its position within the visible viewport.
-  * `lazy`: Delays loading the image until it approaches a specified distance from the viewport.
+  **string**
 
-  Learn more about the [loading attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img#loading).
+  The image source (either a remote URL or a local file resource).
 
-* **accessibility​Role**
+  When the image is loading or no `src` is provided, a placeholder is rendered.
 
-  **"none" | "presentation" | "img"**
+* **src​Set**
 
-  **Default: 'img'**
+  **string**
 
-  **required**
+  A set of image sources and their width or pixel density descriptors. This overrides the `src` property.
 
-  The semantic meaning of the component’s content. When set, the role will be used by assistive technologies to help users navigate the page.
-
-  * `none`: Completely hides the element and its content from assistive technologies
-  * `presentation`: Removes semantic meaning, making the image purely decorative and ignored by screen readers.
-  * `img`: Identifies the element as an image that conveys meaningful information to users.
-
-* **inline​Size**
-
-  **"auto" | "fill"**
-
-  **Default: 'fill'**
-
-  **required**
-
-  The displayed inline width of the image.
-
-  * `fill`: the image will takes up 100% of the available inline size.
-  * `auto`: the image will be displayed at its natural size.
-
-  Learn more about the [width attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img#width).
-
-* **border**
-
-  **BorderShorthand**
-
-  **Default: 'none' - equivalent to \`none base auto\`.**
-
-  **required**
-
-  A border applied around the image using shorthand syntax to specify width, color, and style in a single property.
-
-* **border​Width**
-
-  **"" | MaybeAllValuesShorthandProperty<"small" | "small-100" | "base" | "large" | "large-100" | "none">**
-
-  **Default: '' - meaning no override**
-
-  **required**
-
-  The thickness of the border around the image. When set, this overrides the width value specified in the `border` property.
-
-* **border​Style**
-
-  **"" | MaybeAllValuesShorthandProperty\<BoxBorderStyles>**
-
-  **Default: '' - meaning no override**
-
-  **required**
-
-  The visual style of the border around the image, such as solid, dashed, or dotted. When set, this overrides the style value specified in the `border` property.
-
-* **border​Color**
-
-  **"" | ColorKeyword**
-
-  **Default: '' - meaning no override**
-
-  **required**
-
-  The color of the border around the image using the design system's color scale. When set, this overrides the color value specified in the `border` property.
-
-* **border​Radius**
-
-  **MaybeAllValuesShorthandProperty\<BoxBorderRadii>**
-
-  **Default: 'none'**
-
-  **required**
-
-  The roundedness of the image's corners using the design system's radius scale.
+  Learn more about the [srcset attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img#srcset).
 
 ### BorderShorthand
 
@@ -257,20 +233,20 @@ Represents CSS shorthand properties that accept one to four values. Supports spe
 T | `${T} ${T}` | `${T} ${T} ${T}` | `${T} ${T} ${T} ${T}`
 ```
 
-### BoxBorderStyles
-
-Represents the subset of border style values supported by the box component. - \`auto\`: Default border style determined by the system. - \`none\`: No border style (removes the border). - \`solid\`: Continuous line border. - \`dashed\`: Border made up of dashes.
-
-```ts
-'auto' | 'none' | 'solid' | 'dashed'
-```
-
 ### BoxBorderRadii
 
 Represents the subset of border radius values supported by the component. - \`small-200\`: Extra small radius for subtle rounding. - \`small-100\`: Small radius for minimal corner rounding. - \`small\`: Standard small radius. - \`base\`: Medium radius for moderate corner rounding. - \`large\`: Standard large radius for pronounced rounding. - \`large-100\`: Large radius for more prominent corner rounding. - \`large-200\`: Extra large radius for maximum rounding. - \`none\`: No border radius (sharp corners).
 
 ```ts
 'small' | 'small-200' | 'small-100' | 'base' | 'large' | 'large-100' | 'large-200' | 'none'
+```
+
+### BoxBorderStyles
+
+Represents the subset of border style values supported by the box component. - \`auto\`: Default border style determined by the system. - \`none\`: No border style (removes the border). - \`solid\`: Continuous line border. - \`dashed\`: Border made up of dashes.
+
+```ts
+'auto' | 'none' | 'solid' | 'dashed'
 ```
 
 ### Events
@@ -281,8 +257,6 @@ The image component provides event callbacks for handling user interactions. Lea
 
   **OnErrorEventHandler**
 
-  **required**
-
   A callback fired when the image fails to load.
 
   Learn more about the [error event](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/error_event).
@@ -290,8 +264,6 @@ The image component provides event callbacks for handling user interactions. Lea
 * **load**
 
   **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
 
   A callback fired when the image successfully loads.
 

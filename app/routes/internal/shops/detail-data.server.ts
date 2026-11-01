@@ -1,4 +1,5 @@
-import { shops, shopifyEvents, shopSyncCheckpoints, webhookDeliveryRepository, refreshShopHistory, refreshShopSubscription } from "~/wiring.server";
+import { memberSeats, memberStore, shops, shopifyEvents, shopSyncCheckpoints, webhookDeliveryRepository, refreshShopHistory, refreshShopSubscription } from "~/wiring.server";
+import { seatSummary, toTeamMember } from "~/domain/member-team";
 import { getEnv } from "~/request-context.server";
 import { PLAN_LIST } from "~/billing/plans";
 import { getShopPromoStatus } from "~/services/internal-admin/ops.server";
@@ -33,12 +34,14 @@ export async function loadShopDetail(shopDomain: string) {
   await refreshIfStale(shop);
 
   const eventsRepo = shopifyEvents();
-  const [history, relationshipEvents, deliveries, reconciliation, promoStatus] = await Promise.all([
+  const [history, relationshipEvents, deliveries, reconciliation, promoStatus, members, seatLimit] = await Promise.all([
     eventsRepo.listSubscriptionEvents(shopDomain),
     eventsRepo.listRelationshipEvents(shopDomain),
     webhookDeliveryRepository().listForShop(shopDomain),
     shopSyncCheckpoints().read(`partner_history:${shopDomain}`),
     getShopPromoStatus(shopDomain),
+    memberStore().list(shopDomain),
+    memberSeats().limit(shopDomain),
   ]);
 
   const latestSub = history[0];
@@ -57,6 +60,8 @@ export async function loadShopDetail(shopDomain: string) {
     events: buildEventHistory(relationshipEvents, history, deliveries),
     reconciliation,
     promoStatus,
+    team: members.map(toTeamMember),
+    seats: seatSummary(seatLimit, members.filter((member) => member.status === "active").length),
     effective,
     promoAvailablePlans: PLAN_LIST.filter((p) => p.priceMonthly.amount > 0).map((p) => ({ handle: p.handle, name: p.name })),
     now,

@@ -5,7 +5,7 @@ description: >-
   classify and organize content. Use chip to show product tags, categories, or
   metadata near the items they describe, helping users identify items with
   similar properties.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/typography-and-content/chip
@@ -27,11 +27,21 @@ Chips support multiple visual variants for different levels of emphasis and can 
 * **Content classification:** Help merchants identify items with shared properties.
 * **Compact metadata:** Display compact attribute labels in lists or cards.
 
+```html
+<s-chip>Active</s-chip>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the chip component.
+
+* **accessibility​Label**
+
+  **string**
+
+  A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
 
 * **color**
 
@@ -39,17 +49,15 @@ Configure the following properties on the chip component.
 
   **Default: 'base'**
 
-  **required**
-
   The color emphasis level that controls visual intensity.
 
-* **accessibility​Label**
+* **removable**
 
-  **string**
+  **boolean**
 
-  **required**
+  **Default: false**
 
-  A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
+  Whether the chip is removable.
 
 ### ColorKeyword
 
@@ -91,7 +99,7 @@ Create a chip with a text label to categorize or tag content. This example shows
 
 ### Set visual weight with color variants
 
-Use color variants to control the visual emphasis of chips. This example shows `subdued` chips for secondary metadata, `base` chips for standard tags, and `strong` chips for important information.
+Use color variants to control the visual emphasis of chips. This example shows a `subdued` chip for secondary metadata and a `base` chip for standard tags.
 
 ## html
 
@@ -103,10 +111,6 @@ Use color variants to control the visual emphasis of chips. This example shows `
   <s-chip color="base" accessibilityLabel="Standard information">
     Published
   </s-chip>
-  <s-chip color="strong" accessibilityLabel="Important status">
-    <s-icon slot="graphic" type="check" size="small"></s-icon>
-    Verified
-  </s-chip>
 </s-stack>
 ```
 
@@ -117,7 +121,7 @@ Combine an icon with a text label to make chip meanings clearer. This example sh
 ## html
 
 ```html
-<s-chip color="strong" accessibilityLabel="Product category">
+<s-chip color="base" accessibilityLabel="Product category">
   <s-icon slot="graphic" type="catalog-product" size="small"></s-icon>
   Electronics
 </s-chip>
@@ -136,7 +140,7 @@ Display chips with long labels in constrained spaces. This example shows how chi
       This is a very long product name that will be truncated with ellipsis when
       it exceeds the container width
     </s-chip>
-    <s-chip color="strong" accessibilityLabel="Long category name">
+    <s-chip color="base" accessibilityLabel="Long category name">
       <s-icon slot="graphic" type="catalog-product" size="small"></s-icon>
       Electronics and computer accessories category with extended description
     </s-chip>
@@ -150,7 +154,7 @@ Display chips with long labels in constrained spaces. This example shows how chi
 
 * **Use chips to label and categorize content:** Chip works best for displaying tags, statuses, and categories that help merchants quickly understand content attributes. Don't use chips for actions—they're visual indicators, not buttons. For interactive or dismissible chips, use [clickable chip](https://shopify.dev/docs/api/app-home/latest/web-components/actions/clickable-chip) instead.
 * **Keep chip text concise and scannable:** Short labels like "Featured" or "On sale" are instantly recognizable. Long chip text defeats the purpose of quick scanning and might truncate, hiding important information.
-* **Choose the right visual weight:** Use subdued chips for secondary metadata, standard chips for typical tags and categories, and strong chips for important or verified information that needs emphasis.
+* **Choose the right visual weight:** Use subdued chips for secondary metadata and standard chips for typical tags and categories.
 * **Position chips near what they describe:** Place chips adjacent to the items they categorize for immediate context. In lists, position chips consistently to help merchants scan efficiently.
 * **Add icons to reinforce meaning:** Icons can make chip meanings clearer at a glance, especially for status indicators or commonly recognized categories.
 

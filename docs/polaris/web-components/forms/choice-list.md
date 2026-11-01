@@ -4,7 +4,7 @@ description: >-
   The choice list component presents multiple options for single or multiple
   selections. Use it when merchants need to choose from a defined set of
   options, such as filtering results or collecting preferences.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/forms/choice-list
@@ -17,7 +17,7 @@ api_name: app-home
 
 The choice list component presents multiple options for single or multiple selections. Use it when merchants need to choose from a defined set of options, such as filtering results or collecting preferences.
 
-The component supports both single selection (radio button behavior) and multiple selection (checkbox behavior) modes. It includes configurable labels, help text, and validation. For compact dropdown selection with four or more options, use [select](https://shopify.dev/docs/api/app-home/latest/web-components/forms/select).
+The component supports both single selection (radio button behavior) and multiple selection (checkbox behavior) modes. It includes configurable labels, help text, and validation. Choices always stack vertically, and there's no property to lay them out horizontally. For compact dropdown selection with four or more options, or when a vertical list of single-selection choices doesn't fit your layout, use [select](https://shopify.dev/docs/api/app-home/latest/web-components/forms/select).
 
 #### Use cases
 
@@ -26,11 +26,25 @@ The component supports both single selection (radio button behavior) and multipl
 * **Settings options:** Present configuration choices in structured, accessible formats.
 * **Filter controls:** Build filtering interfaces with multiple selection criteria.
 
+```html
+<s-choice-list label="Delivery options" name="delivery">
+  <s-choice value="standard" selected>Standard delivery</s-choice>
+  <s-choice value="express">Express delivery</s-choice>
+  <s-choice value="pickup">Store pickup</s-choice>
+</s-choice-list>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the choice list component.
+
+* **details**
+
+  **ComponentChildren**
+
+  Supplementary text displayed below the field to provide additional context, instructions, or help. Use this to clarify the expected input or provide guidance to users. This text is announced to screen readers.
 
 * **disabled**
 
@@ -38,49 +52,17 @@ Configure the following properties on the choice list component.
 
   **Default: false**
 
-  **required**
-
   Whether the field is disabled, preventing any user interaction. When `true`, the `disabled` property on any child choices is ignored.
-
-* **name**
-
-  **string**
-
-  **required**
-
-  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
 
 * **error**
 
-  **string**
+  **ComponentChildren**
 
-  **required**
-
-  An error message displayed below the checkbox to indicate validation problems. When set, the checkbox is styled with error indicators and the message is announced to screen readers.
-
-* **details**
-
-  **string**
-
-  **required**
-
-  Supplementary text displayed below the checkbox to provide additional context, instructions, or help. Use this to explain what checking the box means or provide guidance to users. This text is announced to screen readers.
-
-* **multiple**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether multiple choices can be selected.
+  An error message displayed below the field to indicate validation problems. When set, the field is styled with error indicators and the message is announced to screen readers.
 
 * **label**
 
-  **string**
-
-  **required**
+  **ComponentChildren**
 
   The text displayed as the field label, which identifies the purpose of the field to users. This label is associated with the field for accessibility and helps users understand what information to provide.
 
@@ -90,8 +72,6 @@ Configure the following properties on the choice list component.
 
   **Default: 'visible'**
 
-  **required**
-
   Controls whether the label is visible to all users or only to screen readers.
 
   * `visible`: The label is shown to everyone (default).
@@ -99,13 +79,33 @@ Configure the following properties on the choice list component.
 
   Use `exclusive` when the surrounding context makes the label redundant visually, but screen reader users still need it for clarity.
 
+* **multiple**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether multiple choices can be selected.
+
+* **name**
+
+  **string**
+
+  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
+
 * **values**
 
   **string\[]**
 
-  **required**
-
   An array of `value` attributes for the currently selected options. When provided, this property automatically sets the `selected` state on child option components that have matching `value` attributes. Options with values included in this array will be marked as selected, while others will be unselected.
+
+### ComponentChildren
+
+Represents any valid children that can be rendered within a component, including elements, strings, numbers, or arrays of these types. This is an alias for Preact's \`ComponentChildren\` type.
+
+```ts
+preact.ComponentChildren
+```
 
 ### Events
 
@@ -115,8 +115,6 @@ The choice list component provides event callbacks for handling user interaction
 
   **CallbackEventListener\<typeof tagName> | null**
 
-  **required**
-
   A callback fired when the choice list selection changes.
 
   Learn more about the [change event](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/change_event).
@@ -124,8 +122,6 @@ The choice list component provides event callbacks for handling user interaction
 * **input**
 
   **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
 
   A callback fired when the user inputs data into the choice list.
 
@@ -159,39 +155,9 @@ The choice component creates individual selectable options within a choice list.
 
 Choice components support labels, help text, and custom content through slots, providing flexible option presentation within choice lists.
 
-* **disabled**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether the checkbox is disabled, preventing user interaction. Disabled checkboxes appear dimmed and their values aren't submitted with forms.
-
-* **selected**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether the option is currently selected. Use this for controlled components where you manage the selection state.
-
-* **value**
-
-  **string**
-
-  **required**
-
-  The value submitted with the form when this checkbox is checked. If not specified, the default value is "on".
-
 * **accessibility​Label**
 
   **string**
-
-  **required**
 
   A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
 
@@ -201,9 +167,29 @@ Choice components support labels, help text, and custom content through slots, p
 
   **Default: false**
 
-  **required**
-
   The initial selected state for uncontrolled components. Use this when you want the option to start selected but don't need to control its state afterward.
+
+* **disabled**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the control is disabled, preventing user interaction. Disabled controls appear dimmed and their values aren't submitted with forms.
+
+* **selected**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the option is currently selected. Use this for controlled components where you manage the selection state.
+
+* **value**
+
+  **string**
+
+  The value submitted with the form when this control is selected. If not specified, the default value is "on".
 
 ### Slots
 
@@ -224,6 +210,12 @@ The choice list component supports slots for additional content placement within
   Additional text to provide context or guidance for the input.
 
   This text is displayed along with the input and its label to offer more information or instructions to the user.
+
+* **secondary-content**
+
+  **HTMLElement**
+
+  Additional content to display below the choice label. Can include rich content like TextFields, Buttons, or other interactive components. Event handlers on React components are preserved.
 
 ***
 

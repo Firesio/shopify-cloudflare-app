@@ -5,7 +5,7 @@ description: >-
   view, analyze, and compare structured information. Use table to present
   datasets, product lists, order details, or any tabular content that benefits
   from organized rows and columns.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/layout-and-structure/table
@@ -27,33 +27,52 @@ Tables automatically adapt to screen size, rendering as lists on small screens a
 * **Paginated data:** Show large datasets with pagination controls.
 * **Structured data:** Present structured data in accessible table format.
 
+```html
+<s-table>
+  <s-table-header-row>
+    <s-table-header listSlot="primary">Product</s-table-header>
+    <s-table-header listSlot="secondary">Status</s-table-header>
+  </s-table-header-row>
+  <s-table-body>
+    <s-table-row>
+      <s-table-cell>Everyday tote</s-table-cell>
+      <s-table-cell><s-badge tone="success">Active</s-badge></s-table-cell>
+    </s-table-row>
+    <s-table-row>
+      <s-table-cell>Canvas backpack</s-table-cell>
+      <s-table-cell><s-badge>Draft</s-badge></s-table-cell>
+    </s-table-row>
+  </s-table-body>
+</s-table>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the table component.
 
-* **variant**
+* **has​Next​Page**
 
-  **"auto" | "list"**
+  **boolean**
 
-  **Default: 'auto'**
+  **Default: false**
 
-  **required**
+  Whether there's an additional page of data.
 
-  The layout variant of the table component.
+* **has​Previous​Page**
 
-  * `list`: Always displays as a list layout.
-  * `table`: Always displays as a traditional table layout.
-  * `auto`: Automatically displays as a table on wide screens and as a list on narrow screens.
+  **boolean**
+
+  **Default: false**
+
+  Whether there's a previous page of data.
 
 * **loading**
 
   **boolean**
 
   **Default: false**
-
-  **required**
 
   Whether the table is in a loading state, such as during initial page load or when loading the next page in a paginated table. When `true`, the table might be in an inert state that prevents user interaction.
 
@@ -63,29 +82,18 @@ Configure the following properties on the table component.
 
   **Default: false**
 
-  **required**
-
   Whether to use pagination controls.
 
-* **has​Previous​Page**
+* **variant**
 
-  **boolean**
+  **"auto" | "list"**
 
-  **Default: false**
+  **Default: 'auto'**
 
-  **required**
+  The layout variant of the table component.
 
-  Whether there's a previous page of data.
-
-* **has​Next​Page**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether there's an additional page of data.
+  * `list`: Always displays as a list layout.
+  * `auto`: Automatically displays as a table on wide screens and as a list on narrow screens.
 
 ### Slots
 
@@ -115,15 +123,11 @@ The table component provides event callbacks for handling user interactions. Lea
 
   **CallbackEventListener\<typeof tagName> | null**
 
-  **required**
-
   A callback fired when the user navigates to the next page.
 
 * **previouspage**
 
   **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
 
   A callback fired when the user navigates to the previous page.
 
@@ -155,7 +159,7 @@ The table body component represents the main content area of a table, containing
 
 Table body must contain table row components, which in turn contain table cell components for the actual data values.
 
-* **declare class TableBody extends PreactCustomElement implements TableBodyProps { constructor(); }**
+* **declare class TableBody extends PolarisCustomElement implements TableBodyProps { /** @private */ [elementInternals]: ElementInternals; constructor(); }**
 
 ### Slots
 
@@ -177,7 +181,7 @@ The table cell component represents a single data cell within a table row. Use t
 
 Table cell automatically inherits styling and alignment from its parent table structure and supports text content or other inline components.
 
-* **declare class TableCell extends PreactCustomElement implements TableCellProps { constructor(); /** @private */ get [headerFormatSymbol](): HeaderFormat; /** @private */ set [headerFormatSymbol](format: HeaderFormat); }**
+* **declare class TableCell extends PolarisCustomElement implements TableCellProps { /** @private */ [elementInternals]: ElementInternals; constructor(); /** @private */ get [headerFormatSymbol](): HeaderFormat; /** @private */ set [headerFormatSymbol](format: HeaderFormat); /** @private */ get [primaryCellSymbol](): boolean; /** @private */ set [primaryCellSymbol](primary: boolean); }**
 
 ### Slots
 
@@ -199,31 +203,21 @@ The table header component represents a single column header within a table head
 
 Table header provides semantic meaning for screen readers and can include sorting controls when configured. Each header corresponds to a column in the table body.
 
+* **format**
+
+  **HeaderFormat**
+
+  **Default: 'base'**
+
+  The format of the column that controls styling and alignment of cell content.
+
 * **list​Slot**
 
   **ListSlotType**
 
   **Default: 'labeled'**
 
-  **required**
-
   The content designation for this column when the table displays in list variant on mobile devices.
-
-* **format**
-
-  **HeaderFormat**
-
-  **required**
-
-  The format of the column that controls styling and alignment of cell content.
-
-### ListSlotType
-
-Represents the semantic type of content slots within list items. - \`primary\`: The main content or title of the list item. - \`secondary\`: Supporting or descriptive content below the primary content. - \`kicker\`: A small label or tag displayed above the primary content. - \`inline\`: Content displayed inline with the primary content. - \`labeled\`: Content with an associated label.
-
-```ts
-'primary' | 'secondary' | 'kicker' | 'inline' | 'labeled'
-```
 
 ### HeaderFormat
 
@@ -231,6 +225,14 @@ Represents the format options for table headers that control styling and alignme
 
 ```ts
 'base' | 'numeric' | 'currency'
+```
+
+### ListSlotType
+
+Represents the semantic type of content slots within list items. - \`primary\`: The main content or title of the list item. - \`secondary\`: Supporting or descriptive content below the primary content. - \`kicker\`: A small label or tag displayed above the primary content. - \`inline\`: Content displayed inline with the primary content. - \`labeled\`: Content with an associated label.
+
+```ts
+'primary' | 'secondary' | 'kicker' | 'inline' | 'labeled'
 ```
 
 ### Slots
@@ -253,7 +255,7 @@ The table header row component represents the header row of a table, containing 
 
 Table header row must contain table header components for each column. These headers provide context for the data columns and can support sorting functionality.
 
-* **declare class TableHeaderRow extends PreactCustomElement implements TableHeaderRowProps { constructor(); /** @private */ connectedCallback(): void; /** @private */ disconnectedCallback(): void; }**
+* **declare class TableHeaderRow extends PolarisCustomElement implements TableHeaderRowProps { /** @private */ [elementInternals]: ElementInternals; constructor(); /** @private */ connectedCallback(): void; /** @private */ disconnectedCallback(): void; }**
 
 ### Slots
 
@@ -278,8 +280,6 @@ Table row must contain table cell components, with each cell representing a data
 * **click​Delegate**
 
   **string**
-
-  **required**
 
   The ID of an interactive element, such as `s-link`, in the row that will be the target of the click when the row is clicked. This is the primary action for the row; it should not be used for secondary actions.
 

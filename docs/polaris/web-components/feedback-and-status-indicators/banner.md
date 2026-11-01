@@ -5,7 +5,7 @@ description: >-
   prominently within the interface. Use banner to communicate statuses, provide
   feedback, draw attention to critical updates, or guide users toward necessary
   actions.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/feedback-and-status-indicators/banner
@@ -27,11 +27,28 @@ Banners support multiple tones to convey urgency levels, optional actions for ne
 * **Success confirmations:** Show success messages for important operations like saves or sync.
 * **Warnings:** Alert merchants to potential issues like missing configuration or deprecated features.
 
+```html
+<s-banner tone="success" heading="Products imported" dismissible>
+  <s-paragraph>Your products are ready to review.</s-paragraph>
+  <s-button slot="secondary-actions" href="https://example.com/products">Review products</s-button>
+</s-banner>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the banner component.
+
+* **dismissible**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the banner displays a close button that allows users to dismiss it.
+
+  When the close button is pressed, the `dismiss` event fires, then `hidden` is set to `true`, any animation completes, and the `afterhide` event fires.
 
 * **heading**
 
@@ -39,17 +56,25 @@ Configure the following properties on the banner component.
 
   **Default: ''**
 
-  **required**
-
   The heading text displayed at the top of the banner.
+
+* **hidden**
+
+  **boolean**
+
+  **Default: false**
+
+  Controls whether the banner is visible or hidden.
+
+  When using a controlled component pattern and the banner is `dismissible`, update this property to `true` when the `dismiss` event fires.
+
+  You can hide the banner programmatically by setting this to `true` even if it's not `dismissible`.
 
 * **tone**
 
   **"info" | "success" | "warning" | "critical" | "auto"**
 
   **Default: 'auto'**
-
-  **required**
 
   The semantic meaning and color treatment of the component.
 
@@ -59,32 +84,6 @@ Configure the following properties on the banner component.
   * `critical`: Urgent problems or destructive actions.
   * `auto`: Automatically determined based on context.
 
-* **hidden**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Controls whether the banner is visible or hidden.
-
-  When using a controlled component pattern and the banner is `dismissible`, update this property to `true` when the `dismiss` event fires.
-
-  You can hide the banner programmatically by setting this to `true` even if it's not `dismissible`.
-
-* **dismissible**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether the banner displays a close button that allows users to dismiss it.
-
-  When the close button is pressed, the `dismiss` event fires, then `hidden` is set to `true`, any animation completes, and the `afterhide` event fires.
-
 ### Events
 
 The banner component provides event callbacks for handling user interactions. Learn more about [handling events](https://shopify.dev/docs/api/polaris/using-polaris-web-components#handling-events).
@@ -93,15 +92,11 @@ The banner component provides event callbacks for handling user interactions. Le
 
   **CallbackEventListener\<typeof tagName> | null**
 
-  **required**
-
   A callback fired after the banner is hidden.
 
 * **dismiss**
 
   **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
 
   A callback fired when the banner is dismissed.
 

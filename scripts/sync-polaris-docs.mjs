@@ -6,10 +6,14 @@ import path from "node:path";
 const SOURCE_BASE = "https://shopify.dev/docs/api/app-home/latest";
 const OUTPUT_ROOT = path.resolve("docs/polaris");
 const FAMILIES = ["web-components", "app-bridge-web-components", "patterns"];
+// The floor under which a sync is refused as partial. Raised and lowered only with a reason:
+//  - 2026-11, Polaris 2.0: the "Empty state" COMPOSITION no longer exists as a pattern page; it became the `s-empty-state`
+//    component (listed under web-components), so patterns went 16 -> 15 and web-components 48 -> 52 (empty-state, progress,
+//    number, versioning). Checked page by page against the previous manifest, not guessed from the count.
 const EXPECTED_MINIMUMS = {
-  "web-components": 48,
+  "web-components": 52,
   "app-bridge-web-components": 5,
-  patterns: 16,
+  patterns: 15,
 };
 const LINK_PATTERN = new RegExp(
   `${SOURCE_BASE}/(?:${FAMILIES.join("|")})(?:/[a-z0-9-]+)*(?:\\.md)?`,

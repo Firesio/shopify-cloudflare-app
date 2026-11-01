@@ -1,7 +1,7 @@
 import { support } from "~/wiring.server";
 import { data } from "react-router";
 import type { ActionFunctionArgs } from "react-router";
-import { authenticateAdmin } from "~/admin/require-merchant.server";
+import { guardMember } from "~/admin/require-member.server";
 import { getEnv } from "~/request-context.server";
 import { attachmentKey, safeFilename, validateUpload } from "~/support/attachment";
 import { getAdminUser } from "~/services/admin-auth.server";
@@ -37,7 +37,7 @@ async function resolveUploadShop(
   const explicitShop = request.headers.get("X-Shop");
   const shop = staff
     ? (explicitShop || (ticketId !== "new" ? (await support().findForStaff(ticketId))?.ticket.shop : undefined))
-    : (await authenticateAdmin(request)).session.shop;
+    : (await guardMember(request, "app:view")).session.shop;
   if (!shop) return failure("not_found", 404);
   if (!staff && ticketId !== "new" && !(await support().find(shop, ticketId))) {
     return failure("not_found", 404);

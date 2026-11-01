@@ -4,7 +4,7 @@ description: >-
   The page component lets you customize the title bar that appears at the top of
   your app. Use it to display the current page context, provide action buttons
   for saving or canceling changes, and add breadcrumb links for navigation.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/app-bridge-web-components/title-bar
@@ -56,7 +56,7 @@ Available slots for the page component. Each slot accepts specific elements that
 
 * accessory
 
-  A status badge displayed next to the page heading. Use to indicate page state such as "Draft", "Published", or "Archived". Use \`slot="accessory"\` on an \`s-badge\` element with a \`tone\` attribute (\`info\`, \`success\`, \`warning\`, or \`critical\`) to convey status.
+  A status badge displayed next to the page heading. Use to indicate page state such as "Draft", "Published", or "Archived". Use \`slot="accessory"\` on an \`s-badge\` element with \`tone\` and optional \`icon\` attributes to convey status.
 
   ```ts
   HTMLElement
@@ -96,7 +96,7 @@ Configure the title bar for your page. This example sets a heading and adds prim
 
 ## Primary and secondary actions
 
-![Configure the title bar for your page. This example sets a heading and adds primary and secondary action buttons.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/title-bar-primary-and-secondary-BiU-wZ7f.png)
+![Configure the title bar for your page. This example sets a heading and adds primary and secondary action buttons.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/title-bar-primary-and-secondary-bLj5aN0W.png)
 
 ## html
 
@@ -114,7 +114,7 @@ Show page status in the title bar. This example displays a status badge using th
 
 ## Accessory badge
 
-![Show page status in the title bar. This example displays a status badge using the \`accessory\` slot with \`s-badge\` and \`tone\`.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/title-bar-accessory-badge-B8xcJ0u8.png)
+![Show page status in the title bar. This example displays a status badge using the \`accessory\` slot with \`s-badge\` and \`tone\`.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/title-bar-accessory-badge-L6h5JEad.png)
 
 ## html
 
@@ -131,7 +131,7 @@ Organize multiple actions in a dropdown menu. This example groups secondary acti
 
 ## Grouped secondary actions
 
-![Organize multiple actions in a dropdown menu. This example groups secondary actions using \`s-menu\` with the \[\`commandFor\`\](/docs/api/app-home/latest/web-components/actions/button#properties-propertydetail-commandFor) attribute.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/title-bar-grouped-secondary-DKcZrsFM.png)
+![Organize multiple actions in a dropdown menu. This example groups secondary actions using \`s-menu\` with the \[\`commandFor\`\](/docs/api/app-home/latest/web-components/actions/button#properties-propertydetail-commandFor) attribute.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/title-bar-grouped-secondary-CXhNMIq2.png)
 
 ## html
 
@@ -153,7 +153,7 @@ Help users navigate back to previous pages. This example adds breadcrumb navigat
 
 ## Breadcrumb actions
 
-![Help users navigate back to previous pages. This example adds breadcrumb navigation using the \`breadcrumb-actions\` slot.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/title-bar-breadcrumb-BU9DQrFT.png)
+![Help users navigate back to previous pages. This example adds breadcrumb navigation using the \`breadcrumb-actions\` slot.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/title-bar-breadcrumb-Yd3Zk2A3.png)
 
 ## html
 
@@ -171,7 +171,7 @@ Build a complete title bar configuration. This example combines heading, actions
 
 ## Complete example
 
-![Build a complete title bar configuration. This example combines heading, actions, badges, and breadcrumbs.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/title-bar-complete-example-Cdl0kCO5.png)
+![Build a complete title bar configuration. This example combines heading, actions, badges, and breadcrumbs.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/title-bar-complete-example-BXKoi6O8.png)
 
 ## html
 

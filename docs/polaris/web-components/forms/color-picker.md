@@ -4,7 +4,7 @@ description: >-
   The color picker component allows users to select colors from a visual color
   palette interface. Use color picker to provide an intuitive, visual way for
   users to choose colors for themes, branding, or design customization.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/forms/color-picker
@@ -26,6 +26,10 @@ Color pickers support multiple color formats, predefined color swatches, and int
 * **UI customization:** Enable color selection for custom UI elements or styling.
 * **Visual configuration:** Select colors for charts, reports, or visual displays.
 
+```html
+<s-color-picker value="#008060"></s-color-picker>
+```
+
 ***
 
 ## Properties
@@ -38,31 +42,29 @@ Configure the following properties on the color picker component.
 
   **Default: false**
 
-  **required**
-
   Whether to enable alpha (transparency) channel selection in the color picker, allowing users to choose semi-transparent colors.
-
-* **name**
-
-  **string**
-
-  **required**
-
-  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
 
 * **default​Value**
 
   **string**
 
-  **required**
-
   The initial color value when the field first loads. Unlike `placeholder`, this is a real value that the user can edit and that gets submitted with the form. Once the user starts interacting, their input replaces it. Changing this property after the field has loaded has no effect. To update the field value at any time, use `value` instead.
+
+* **form​Reset​Callback**
+
+  **() => void**
+
+  A callback that fires when the containing form is reset (using the form's `reset()` method or a reset button). When triggered, the component's `value` reverts to its `defaultValue`.
+
+* **name**
+
+  **string**
+
+  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
 
 * **value**
 
   **string**
-
-  **required**
 
   The currently selected color value. Accepts multiple input formats:
 
@@ -72,14 +74,6 @@ Configure the following properties on the color picker component.
 
   Returns an empty string if the value is invalid. The `change` event always emits values in hex format.
 
-* **form​Reset​Callback**
-
-  **() => void**
-
-  **required**
-
-  A callback that fires when the containing form is reset (using the form's `reset()` method or a reset button). When triggered, the component's `value` reverts to its `defaultValue`.
-
 ### Events
 
 The color picker component provides event callbacks for handling user interactions. Learn more about [handling events](https://shopify.dev/docs/api/polaris/using-polaris-web-components#handling-events).
@@ -88,8 +82,6 @@ The color picker component provides event callbacks for handling user interactio
 
   **CallbackEventListener\<typeof tagName> | null**
 
-  **required**
-
   A callback fired when the color picker value changes.
 
   Learn more about the [change event](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/change_event).
@@ -97,8 +89,6 @@ The color picker component provides event callbacks for handling user interactio
 * **input**
 
   **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
 
   A callback fired when the user inputs data into the color picker.
 

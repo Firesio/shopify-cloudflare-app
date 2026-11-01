@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { pricingReturnDestination } from "~/billing/pricing-return";
 import { SampleDashboard } from "~/components/dashboard/SampleDashboard";
 import { SetupGuide } from "~/components/dashboard/SetupGuide";
-import { authenticateAdmin } from "~/admin/require-merchant.server";
+import { guardMember } from "~/admin/require-member.server";
 import { settle } from "~/admin/settle.server";
 import type { Outcome } from "~/admin/outcome";
 import { Deferred } from "~/components/admin/Deferred";
@@ -17,7 +17,7 @@ export const handle = { i18n: ["common", "admin"] };
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Authentication is awaited: Shopify requires a valid session token on every
   // request, and its redirect / bounce responses must keep working.
-  const { session } = await authenticateAdmin(request);
+  const { session } = await guardMember(request, "app:view");
 
   const destination = pricingReturnDestination(request.url);
   if (destination) throw redirect(destination);

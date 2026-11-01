@@ -4,7 +4,7 @@ description: >-
   The date field component captures date input with a consistent interface for
   date selection and proper validation. Use it to collect date information in
   forms, scheduling interfaces, or data entry workflows.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: 'https://shopify.dev/docs/api/app-home/latest/web-components/forms/date-field'
   md: >-
@@ -25,6 +25,10 @@ The component supports manual text entry. For visual calendar-based selection, c
 * **Date restrictions:** Limit selectable dates to valid ranges or business days using `allow`, `disallow`, and `allowDays` props.
 * **Scheduling workflows:** Set launch dates, promotion start dates, or deadline dates in configuration forms.
 
+```html
+<s-date-field label="Delivery date" value="2026-09-15" view="2026-09"></s-date-field>
+```
+
 ***
 
 ## Properties
@@ -37,43 +41,24 @@ Configure the following properties on the date field component.
 
   **Default: ""**
 
-  **required**
+  Dates that can be selected.
 
-  Specifies which dates can be selected as a comma-separated list. An empty string (default) allows all dates.
+  A comma-separated list of dates, date ranges. Whitespace is allowed after commas.
 
-  **Formats:**
+  The default `''` allows all dates.
 
-  * `YYYY-MM-DD`: Single date
-  * `YYYY-MM`: Whole month
-  * `YYYY`: Whole year
-  * `start--end`: Date range (inclusive, unbounded if start/end omitted)
+  * Dates in `YYYY-MM-DD` format allow a single date.
 
-  **Examples:**
+  * Dates in `YYYY-MM` format allow a whole month.
 
-  * `2024-02--2025`: February 2024 through end of 2025
-  * `2024-05-09, 2024-05-11`: Only May 9th and 11th, 2024
+  * Dates in `YYYY` format allow a whole year.
 
-* **disallow**
+  * Ranges are expressed as `start--end`. - Ranges are inclusive.
 
-  **string**
-
-  **Default: ""**
-
-  **required**
-
-  Specifies which dates can't be selected as a comma-separated list. These dates are excluded from those specified in `allow`. An empty string (default) has no effect.
-
-  **Formats:**
-
-  * `YYYY-MM-DD`: Single date
-  * `YYYY-MM`: Whole month
-  * `YYYY`: Whole year
-  * `start--end`: Date range (inclusive, unbounded if start/end omitted)
-
-  **Examples:**
-
-  * `--2024-02`: All dates before February 2024
-  * `2024-05-09, 2024-05-11`: May 9th and 11th, 2024
+    * If either `start` or `end` is omitted, the range is unbounded in that direction.
+    * If parts of the date are omitted for `start`, they are assumed to be the minimum possible value. So `2024--` is equivalent to `2024-01-01--`.
+    * If parts of the date are omitted for `end`, they are assumed to be the maximum possible value. So `--2024` is equivalent to `--2024-12-31`.
+    * Whitespace is allowed either side of `--`.
 
 * **allow​Days**
 
@@ -81,43 +66,13 @@ Configure the following properties on the date field component.
 
   **Default: ""**
 
-  **required**
+  Days of the week that can be selected. These intersect with the result of `allow` and `disallow`.
 
-  Specifies which days of the week can be selected as a comma-separated list. Further restricts dates from `allow` and `disallow`. An empty string (default) has no effect.
+  A comma-separated list of days. Whitespace is allowed after commas.
 
-  **Valid days**: `sunday`, `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`
+  The default `''` has no effect on the result of `allow` and `disallow`.
 
-  **Example:** `saturday, sunday` (only weekends)
-
-* **disallow​Days**
-
-  **string**
-
-  **Default: ""**
-
-  **required**
-
-  Specifies which days of the week can't be selected as a comma-separated list. Excludes days from `allowDays` and intersects with `allow` and `disallow`. An empty string (default) has no effect.
-
-  **Valid days**: `sunday`, `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`
-
-  **Example:** `saturday, sunday` (no weekends)
-
-* **view**
-
-  **string**
-
-  **required**
-
-  The currently displayed month in `YYYY-MM` format. When changed, the `viewchange` callback is triggered. Defaults to `defaultView`.
-
-* **default​View**
-
-  **string**
-
-  **required**
-
-  The default month to display in `YYYY-MM` format. Used until the `view` callback is set by user interaction or programmatically. Defaults to the current month in the user's locale.
+  Days are `sunday`, `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`.
 
 * **autocomplete**
 
@@ -125,24 +80,13 @@ Configure the following properties on the date field component.
 
   **Default: 'on' for everything else**
 
-  **required**
+  A hint as to the intended content of the field.
 
-  Controls browser autofill behavior for the field.
+  When set to `on` (the default), this property indicates that the field should support autofill, but you do not have any more semantic information on the intended contents.
 
-  Basic values:
+  When set to `off`, you are indicating that this field contains sensitive information, or contents that are never saved, like one-time codes.
 
-  * `on` - Enables autofill without specifying content type (default)
-  * `off` - Disables autofill for sensitive data or one-time codes
-
-  Specific field values describe the expected data type. You can optionally prefix these with:
-
-  * `section-${string}` - Scopes autofill to a specific form section (when multiple forms exist on the same page)
-  * `shipping` or `billing` - Indicates whether the data is for shipping or billing purposes
-  * Both section and group (for example, `section-primary shipping email`)
-
-  Providing a specific autofill token helps browsers suggest more relevant saved data.
-
-  Learn more about the set of [autocomplete values](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#autofill-detail-tokens) supported in browsers.
+  Alternatively, you can provide value which describes the specific data you would like to be entered into this field during autofill.
 
 * **default​Value**
 
@@ -150,31 +94,86 @@ Configure the following properties on the date field component.
 
   **Default: ""**
 
-  **required**
-
   The initial value of the field when it first loads. Unlike `placeholder`, this is a real value that the user can edit and that gets submitted with the form. Once the user starts typing, their input replaces it. Changing this property after the field has loaded has no effect. To update the field value at any time, use `value` instead.
+
+* **default​View**
+
+  **string**
+
+  Default month to display in `YYYY-MM` format.
+
+  This value is used until `view` is set, either directly or as a result of user interaction.
+
+  Defaults to the current month in the user's locale.
 
 * **details**
 
+  **ComponentChildren**
+
+  Supplementary text displayed below the field to provide additional context, instructions, or help. Use this to clarify the expected input or provide guidance to users. This text is announced to screen readers.
+
+* **disabled**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the field is disabled, preventing any user interaction.
+
+* **disallow**
+
   **string**
 
-  **required**
+  **Default: ""**
 
-  Supplementary text displayed below the checkbox to provide additional context, instructions, or help. Use this to explain what checking the box means or provide guidance to users. This text is announced to screen readers.
+  Dates that cannot be selected. These subtract from `allow`.
+
+  A comma-separated list of dates, date ranges. Whitespace is allowed after commas.
+
+  The default `''` has no effect on `allow`.
+
+  * Dates in `YYYY-MM-DD` format disallow a single date.
+
+  * Dates in `YYYY-MM` format disallow a whole month.
+
+  * Dates in `YYYY` format disallow a whole year.
+
+  * Ranges are expressed as `start--end`. - Ranges are inclusive.
+
+    * If either `start` or `end` is omitted, the range is unbounded in that direction.
+    * If parts of the date are omitted for `start`, they are assumed to be the minimum possible value. So `2024--` is equivalent to `2024-01-01--`.
+    * If parts of the date are omitted for `end`, they are assumed to be the maximum possible value. So `--2024` is equivalent to `--2024-12-31`.
+    * Whitespace is allowed either side of `--`.
+
+* **disallow​Days**
+
+  **string**
+
+  **Default: ""**
+
+  Days of the week that cannot be selected. This subtracts from `allowDays`, and intersects with the result of `allow` and `disallow`.
+
+  A comma-separated list of days. Whitespace is allowed after commas.
+
+  The default `''` has no effect on `allowDays`.
+
+  Days are `sunday`, `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`.
 
 * **error**
 
+  **ComponentChildren**
+
+  An error message displayed below the field to indicate validation problems. When set, the field is styled with error indicators and the message is announced to screen readers.
+
+* **id**
+
   **string**
 
-  **required**
-
-  An error message displayed below the checkbox to indicate validation problems. When set, the checkbox is styled with error indicators and the message is announced to screen readers.
+  A unique identifier for the element. Use this to reference the element in JavaScript, link labels to form controls, or target specific elements for styling or scripting.
 
 * **label**
 
-  **string**
-
-  **required**
+  **ComponentChildren**
 
   The text displayed as the field label, which identifies the purpose of the field to users. This label is associated with the field for accessibility and helps users understand what information to provide.
 
@@ -184,8 +183,6 @@ Configure the following properties on the date field component.
 
   **Default: 'visible'**
 
-  **required**
-
   Controls whether the label is visible to all users or only to screen readers.
 
   * `visible`: The label is shown to everyone (default).
@@ -193,11 +190,15 @@ Configure the following properties on the date field component.
 
   Use `exclusive` when the surrounding context makes the label redundant visually, but screen reader users still need it for clarity.
 
-* **placeholder**
+* **name**
 
   **string**
 
-  **required**
+  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
+
+* **placeholder**
+
+  **string**
 
   The placeholder text displayed in the field when it's empty, providing a hint about the expected input format or value.
 
@@ -207,8 +208,6 @@ Configure the following properties on the date field component.
 
   **Default: false**
 
-  **required**
-
   Whether the field is read-only and can't be edited. Read-only fields remain focusable and their content is announced by screen readers.
 
 * **required**
@@ -217,35 +216,7 @@ Configure the following properties on the date field component.
 
   **Default: false**
 
-  **required**
-
   Whether the field requires a value before form submission. Displays a visual indicator and adds semantic meaning, but doesn't automatically validate or show errors. Use the `error` property to display validation messages.
-
-* **disabled**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether the field is disabled, preventing any user interaction.
-
-* **id**
-
-  **string**
-
-  **required**
-
-  A unique identifier for the element. Use this to reference the element in JavaScript, link labels to form controls, or target specific elements for styling or scripting.
-
-* **name**
-
-  **string**
-
-  **required**
-
-  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
 
 * **value**
 
@@ -253,9 +224,17 @@ Configure the following properties on the date field component.
 
   **Default: ""**
 
-  **required**
+  The current value for the field. If omitted, the field will be empty.
 
-  The currently selected date in `YYYY-MM-DD` format. An empty string means no date is selected.
+* **view**
+
+  **string**
+
+  Displayed month in `YYYY-MM` format.
+
+  `onViewChange` is called when this value changes.
+
+  Defaults to `defaultView`.
 
 ### DateAutocompleteField
 
@@ -263,6 +242,14 @@ Represents autocomplete values that are valid for date input fields. This is a s
 
 ```ts
 'bday-day' | 'bday-month' | 'bday-year' | 'bday' | 'cc-expiry-month' | 'cc-expiry-year' | 'cc-expiry'
+```
+
+### ComponentChildren
+
+Represents any valid children that can be rendered within a component, including elements, strings, numbers, or arrays of these types. This is an alias for Preact's \`ComponentChildren\` type.
+
+```ts
+preact.ComponentChildren
 ```
 
 ### Events
@@ -273,8 +260,6 @@ The date field component provides event callbacks for handling user interactions
 
   **CallbackEventListener<'input'>**
 
-  **required**
-
   A callback fired when the date field loses focus.
 
   Learn more about the [blur event](https://developer.mozilla.org/en-US/docs/Web/API/Element/blur_event).
@@ -282,8 +267,6 @@ The date field component provides event callbacks for handling user interactions
 * **change**
 
   **CallbackEventListener<'input'>**
-
-  **required**
 
   A callback fired when the date field value changes.
 
@@ -293,8 +276,6 @@ The date field component provides event callbacks for handling user interactions
 
   **CallbackEventListener<'input'>**
 
-  **required**
-
   A callback fired when the date field receives focus.
 
   Learn more about the [focus event](https://developer.mozilla.org/en-US/docs/Web/API/Element/focus_event).
@@ -303,17 +284,13 @@ The date field component provides event callbacks for handling user interactions
 
   **CallbackEventListener<'input'>**
 
-  **required**
-
   A callback fired when the user inputs data into the date field.
 
   Learn more about the [input event](https://developer.mozilla.org/en-US/docs/Web/API/Element/input_event).
 
 * **invalid**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener<'s-date-field'> | null**
 
   A callback fired when the date field value is invalid.
 
@@ -321,9 +298,7 @@ The date field component provides event callbacks for handling user interactions
 
 * **viewchange**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener<'s-date-field'> | null**
 
   A callback fired when the calendar view changes (such as when navigating between months).
 

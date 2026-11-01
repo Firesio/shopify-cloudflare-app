@@ -4,7 +4,7 @@ description: >-
   Many apps integrate with external services like marketing platforms, sales
   channels, or analytics providers. The account connection composition gives
   merchants a clear interface to connect or disconnect these integrations.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/patterns/compositions/account-connection
@@ -23,21 +23,21 @@ Display connection status, the connected account name, and provide actions to co
 
 ### Supported components
 
-* [Button](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/button)
-* [Grid](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/grid)
-* [Heading](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/heading)
-* [Section](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/section)
-* [Stack](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/stack)
-* [Text](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/text)
+* [Button](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/button)
+* [Grid](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/grid)
+* [Heading](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/heading)
+* [Section](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/section)
+* [Stack](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/stack)
+* [Text](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/text)
 
 ### Available APIs
 
-* [Modal API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/modal-api)
-* [Toast API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/toast-api)
+* [Modal API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/modal-api)
+* [Toast API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/toast-api)
 
 ### Recommended templates
 
-* [Settings](https://shopify.dev/docs/api/app-home/v1.0/patterns/templates/settings)
+* [Settings](https://shopify.dev/docs/api/app-home/v2.0/patterns/templates/settings)
 
 #### Use cases
 

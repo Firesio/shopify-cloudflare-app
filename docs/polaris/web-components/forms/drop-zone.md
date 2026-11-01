@@ -4,7 +4,7 @@ description: >-
   The drop zone component lets users upload files through drag-and-drop or by
   clicking to browse. Use for file uploads such as images, documents, or CSV
   imports.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: 'https://shopify.dev/docs/api/app-home/latest/web-components/forms/drop-zone'
   md: >-
@@ -25,6 +25,10 @@ The component provides visual feedback during drag operations and supports file 
 * **Media management:** Provide an intuitive interface for uploading and managing media files with type validation.
 * **Document collection:** Collect documents like invoices, certificates, or compliance files with file type restrictions.
 
+```html
+<s-drop-zone label="Add product images" accept="image/*" multiple></s-drop-zone>
+```
+
 ***
 
 ## Properties
@@ -37,8 +41,6 @@ Configure the following properties on the drop zone component.
 
   **Default: ''**
 
-  **required**
-
   A string representing the types of files that are accepted by the drop zone. This string is a comma-separated list of unique file type specifiers which can be one of the following:
 
   * A file extension starting with a period (".") character (e.g. .jpg, .pdf, .doc)
@@ -50,8 +52,6 @@ Configure the following properties on the drop zone component.
 
   **string**
 
-  **required**
-
   A label that describes the purpose or contents of the item. When set, it will be announced to buyers using assistive technologies and will provide them with more context.
 
 * **disabled**
@@ -60,23 +60,27 @@ Configure the following properties on the drop zone component.
 
   **Default: false**
 
-  **required**
-
   Whether the field is disabled, preventing any user interaction.
 
 * **error**
 
-  **string**
+  **ComponentChildren**
 
-  **required**
+  An error message displayed below the field to indicate validation problems. When set, the field is styled with error indicators and the message is announced to screen readers.
 
-  An error message displayed below the checkbox to indicate validation problems. When set, the checkbox is styled with error indicators and the message is announced to screen readers.
+* **files**
+
+  **File\[]**
+
+  **Default: \[]**
+
+  An array of File objects representing the files currently selected by the user.
+
+  This property is read-only and cannot be directly modified. To clear the selected files, set the `value` prop to an empty string or null.
 
 * **label**
 
-  **string**
-
-  **required**
+  **ComponentChildren**
 
   The text displayed as the field label, which identifies the purpose of the field to users. This label is associated with the field for accessibility and helps users understand what information to provide.
 
@@ -85,8 +89,6 @@ Configure the following properties on the drop zone component.
   **"visible" | "exclusive"**
 
   **Default: 'visible'**
-
-  **required**
 
   Controls whether the label is visible to all users or only to screen readers.
 
@@ -101,15 +103,11 @@ Configure the following properties on the drop zone component.
 
   **Default: false**
 
-  **required**
-
   Whether multiple files can be selected or dropped at once.
 
 * **name**
 
   **string**
-
-  **required**
 
   The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
 
@@ -119,8 +117,6 @@ Configure the following properties on the drop zone component.
 
   **Default: false**
 
-  **required**
-
   Whether the field requires a value before form submission. Displays a visual indicator and adds semantic meaning, but doesn't automatically validate or show errors. Use the `error` property to display validation messages.
 
 * **value**
@@ -129,21 +125,15 @@ Configure the following properties on the drop zone component.
 
   **Default: ''**
 
-  **required**
-
   This sets the input value for a file type, which cannot be set programatically, so it can only be reset.
 
-* **files**
+### ComponentChildren
 
-  **File\[]**
+Represents any valid children that can be rendered within a component, including elements, strings, numbers, or arrays of these types. This is an alias for Preact's \`ComponentChildren\` type.
 
-  **Default: \[]**
-
-  **required**
-
-  An array of File objects representing the files currently selected by the user.
-
-  This property is read-only and cannot be directly modified. To clear the selected files, set the `value` prop to an empty string or null.
+```ts
+preact.ComponentChildren
+```
 
 ### Events
 
@@ -151,9 +141,7 @@ The drop zone component provides event callbacks for handling user interactions.
 
 * **change**
 
-  **CallbackEventListener\<typeof tagName>**
-
-  **required**
+  **CallbackEventListener\<typeof tagName$O>**
 
   A callback fired when the drop zone value changes.
 
@@ -161,17 +149,13 @@ The drop zone component provides event callbacks for handling user interactions.
 
 * **droprejected**
 
-  **CallbackEventListener\<typeof tagName>**
-
-  **required**
+  **CallbackEventListener\<typeof tagName$O>**
 
   A callback fired when a dropped file is rejected due to file type or size restrictions.
 
 * **input**
 
-  **CallbackEventListener\<typeof tagName>**
-
-  **required**
+  **CallbackEventListener\<typeof tagName$O>**
 
   A callback fired when the user inputs data into the drop zone.
 
@@ -333,16 +317,12 @@ Handle the complete upload lifecycle with validation and feedback. This example 
     dropzone.error = '';
 
 
-    // Disable during upload
+    // Simulate processing in this docs example. No files are sent to a server.
     dropzone.disabled = true;
 
 
-    const formData = new FormData();
-    files.forEach(f => formData.append('images[]', f));
-
-
     try {
-      await fetch('/api/upload', { method: 'POST', body: formData });
+      await new Promise(resolve => setTimeout(resolve, 300));
       dropzone.value = ''; // Clear for next upload
       // Show success feedback
     } catch (error) {

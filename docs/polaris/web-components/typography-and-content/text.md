@@ -4,7 +4,7 @@ description: >-
   The text component displays inline text with specific visual styles or tones.
   Use text to emphasize or differentiate words or phrases within paragraphs or
   other block-level components, applying weight, color, or semantic styling.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/typography-and-content/text
@@ -26,27 +26,27 @@ Text supports multiple visual variants, alignment options, and line clamping for
 * **Status messages:** Show status messages, confirmations, or informational text.
 * **Content display:** Present product descriptions, order notes, or customer information.
 
+```html
+<s-text>Your order is ready</s-text>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the text component.
 
-* **font​Variant​Numeric**
+* **accessibility​Visibility**
 
-  **"auto" | "normal" | "tabular-nums"**
+  **"visible" | "hidden" | "exclusive"**
 
-  **Default: 'auto'**
+  **Default: 'visible'**
 
-  **required**
+  The visibility mode of the element for both visual and assistive technology users.
 
-  The rendering style for numbers in the font.
-
-  * `auto`: Inherits the setting from the parent element.
-  * `normal`: Uses the font's default numeric glyphs.
-  * `tabular-nums`: Uses fixed-width numeric glyphs, ensuring numbers align vertically in tables or lists.
-
-  Learn more about the [font-variant-numeric property](https://developer.mozilla.org/en-US/docs/Web/CSS/font-variant-numeric).
+  * `visible`: The element is visible to all users (both sighted users and screen readers).
+  * `hidden`: The element is visually visible but hidden from screen readers. Use this for decorative elements that don't provide meaningful information.
+  * `exclusive`: The element is visually hidden but announced by screen readers. Use this for screen-reader-only content like skip links or additional context.
 
 * **color**
 
@@ -54,20 +54,53 @@ Configure the following properties on the text component.
 
   **Default: 'base'**
 
-  **required**
-
   The color emphasis level that controls visual intensity.
 
   * `base`: Primary color for body text, standard UI elements, and general content with good readability.
   * `subdued`: Deemphasized color for secondary text, supporting labels, and less critical interface elements.
+
+* **dir**
+
+  **"" | "auto" | "ltr" | "rtl"**
+
+  **Default: ''**
+
+  Indicates the directionality of the element’s text.
+
+  * `""`: The direction is inherited from parent elements (equivalent to not setting the attribute).
+  * `auto`: The user agent determines the direction based on the content.
+  * `ltr`: The languages written from left to right (such as English).
+  * `rtl`: The languages written from right to left (such as Arabic).
+
+  Learn more about the [dir attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/dir).
+
+* **font​Size**
+
+  **"small" | "small-200" | "small-100" | "base" | "large" | "large-100" | "auto"**
+
+  **Default: 'auto'**
+
+  Font size of the text. The named values also apply their matching line-height and letter-spacing.
+
+* **font​Weight**
+
+  **"bold" | "base" | "auto" | "medium" | "semibold"**
+
+  **Default: 'auto'**
+
+  Font weight of the text.
+
+* **interest​For**
+
+  **string**
+
+  The ID of the component to show when users hover over or focus on this component. Use this to connect interactive components to popovers or tooltips that provide additional context or information.
 
 * **tone**
 
   **"info" | "success" | "warning" | "critical" | "auto" | "neutral" | "caution"**
 
   **Default: 'auto'**
-
-  **required**
 
   The semantic tone that's applied to the text, which changes its color to convey meaning.
 
@@ -85,53 +118,34 @@ Configure the following properties on the text component.
 
   **Default: 'generic'**
 
-  **required**
-
   The semantic type and styling treatment for the text content.
+
+  Other presentation properties on text override the default styling.
 
   * `strong`: Emphasizes the text with strong importance, typically displayed in bold.
   * `generic`: Standard text with no special semantic meaning or styling.
   * `address`: Marks the text as contact information, such as a physical or email address.
   * `redundant`: Indicates the text is redundant or duplicated information for screen reader context.
 
-* **dir**
+* **font​Variant​Numeric**
 
-  **"" | "auto" | "ltr" | "rtl"**
+  **"auto" | "normal" | "tabular-nums"**
 
-  **Default: ''**
+  **Default: 'auto' - inherit from the parent element**
 
-  **required**
+  **deprecated**
 
-  Indicates the directionality of the element’s text.
+  The rendering style for numbers in the font.
 
-  * `""`: The direction is inherited from parent elements (equivalent to not setting the attribute).
-  * `auto`: The user agent determines the direction based on the content.
-  * `ltr`: Text direction runs from left to right (for languages like English).
-  * `rtl`: Text direction runs from right to left (for languages like Arabic).
+  * `auto`: Inherits the setting from the parent element.
+  * `normal`: Uses the font's default numeric glyphs.
+  * `tabular-nums`: Uses fixed-width numeric glyphs, ensuring numbers align vertically in tables or lists.
 
-  Learn more about the [dir attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/dir).
+  Learn more about the [font-variant-numeric property](https://developer.mozilla.org/en-US/docs/Web/CSS/font-variant-numeric).
 
-* **accessibility​Visibility**
+  **Deprecated:**
 
-  **"visible" | "hidden" | "exclusive"**
-
-  **Default: 'visible'**
-
-  **required**
-
-  The visibility mode of the element for both visual and assistive technology users.
-
-  * `visible`: The element is visible to all users (both sighted users and screen readers).
-  * `hidden`: The element is visually visible but hidden from screen readers. Use this for decorative elements that don't provide meaningful information.
-  * `exclusive`: The element is visually hidden but announced by screen readers. Use this for screen-reader-only content like skip links or additional context.
-
-* **interest​For**
-
-  **string**
-
-  **required**
-
-  The ID of the component to show when users hover over or focus on this component. Use this to connect interactive components to popovers or tooltips that provide additional context or information.
+  Use `Number` for inline numeric values instead.
 
 ### Slots
 
@@ -247,6 +261,19 @@ Set the `dir` property to `rtl` for right-to-left languages like Arabic and Hebr
 <s-text dir="rtl">
   محتوى النص باللغة العربية
 </s-text>
+```
+
+### Set the size and weight of inline text
+
+Use the `fontSize` and `fontWeight` properties to emphasize or de-emphasize a run of text without changing its meaning. This example bolds a location and shrinks a delivery estimate inside the same paragraph.
+
+## html
+
+```html
+<s-paragraph>
+  Ships from <s-text fontWeight="semibold">Toronto, ON</s-text> in
+  <s-text fontSize="small">2–3 business days</s-text>.
+</s-paragraph>
 ```
 
 ***

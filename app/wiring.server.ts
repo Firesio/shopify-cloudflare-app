@@ -8,6 +8,7 @@
  *   entitlement-reconciliation held-usage reconciliation port
  *   entitlement-held-sweep     the cron sweep that settles held usage a crash left behind
  *   admin                      staff session, users, auth limiters, reset tokens
+ *   members                    the shop's members: who may use the app, and what they may do
  *   shop-identity              shop identity and time zone
  *   billing                    subscriptions, entitlements, Partner refresh
  *   ai-support                 AI and support use cases
@@ -56,6 +57,7 @@ export {
   staffAudit,
   staffMfa,
 } from "~/wiring/admin.server";
+export { memberDependencies, memberSeats, memberStore } from "~/wiring/members.server";
 export { persistDevStoreStatus, persistShopIdentity, shopTimeZone } from "~/wiring/shop-identity.server";
 export {
   entitlements,

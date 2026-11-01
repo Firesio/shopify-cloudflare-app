@@ -9,10 +9,12 @@ import {
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
 
+import { POLARIS_URL } from "~/admin/polaris";
 import { apiVersion } from "./shopify-api-version";
 import { KVSessionStorage } from "./session-storage.server";
 import { persistDevStoreStatus, persistShopIdentity, refreshShopSubscription } from "~/wiring.server";
 import { getEnv, runAfterResponse } from "~/request-context.server";
+import { MEMBERS } from "~/members/config";
 import { hashShop, shopLog } from "~/observability/shop-log";
 import { decideInstallAnnouncement } from "~/domain/shop-announcement";
 import type { ShopChange } from "~/services/announce-shop-change";
@@ -125,6 +127,12 @@ function buildShopify(env: Env) {
     // billed log line per request in production. Warnings and errors still print; set Info while debugging auth.
     logger: { level: LogSeverity.Warning },
     distribution: AppDistribution.AppStore,
+    // The release of Polaris the preload `Link` header names; `EmbeddedProvider` loads the same one.
+    polarisUrl: POLARIS_URL,
+    // Online tokens carry who the person is (verified email, name, whether they own the store). The app's members are
+    // linked to Shopify users with them, and some policies need them: see `app/members/config.ts`. Offline tokens are
+    // still minted and kept for webhooks, cron and queues.
+    useOnlineTokens: MEMBERS.onlineTokens,
     hooks: { afterAuth },
     future: {
       expiringOfflineAccessTokens: true,

@@ -5,7 +5,7 @@ description: >-
   content or actions are loading. Use spinner to communicate ongoing processes
   like fetching data, processing requests, or waiting for operations to
   complete.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/feedback-and-status-indicators/spinner
@@ -27,6 +27,10 @@ Spinners support multiple sizes and should be used for page or section loading s
 * **Async operations:** Provide visual feedback during API calls or data loading.
 * **Inline loading:** Display inline loading indicators within components.
 
+```html
+<s-spinner accessibilityLabel="Loading orders"></s-spinner>
+```
+
 ***
 
 ## Properties
@@ -37,8 +41,6 @@ Configure the following properties on the spinner component.
 
   **string**
 
-  **required**
-
   A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
 
 * **size**
@@ -46,8 +48,6 @@ Configure the following properties on the spinner component.
   **"base" | "large" | "large-100"**
 
   **Default: 'base'**
-
-  **required**
 
   The size of the loading spinner.
 

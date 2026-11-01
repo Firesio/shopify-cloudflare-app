@@ -1,4 +1,4 @@
-import { AppProvider } from "@shopify/shopify-app-react-router/react";
+import { EmbeddedProvider } from "~/components/admin/EmbeddedProvider";
 import { useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { Form, redirect, useActionData, useLoaderData } from "react-router";
@@ -53,7 +53,7 @@ export default function Auth() {
   const shopError = errorKey ? t(`login.errors.${errorKey}`) : undefined;
 
   return (
-    <AppProvider apiKey={apiKey}>
+    <EmbeddedProvider apiKey={apiKey}>
       <s-page>
         <Form method="post">
           <s-section heading={t("login.heading")}>
@@ -70,6 +70,6 @@ export default function Auth() {
           </s-section>
         </Form>
       </s-page>
-    </AppProvider>
+    </EmbeddedProvider>
   );
 }

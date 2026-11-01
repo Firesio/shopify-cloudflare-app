@@ -5,7 +5,7 @@ description: >-
   resource or within a specific context. Use menu to present multiple related
   actions in a compact dropdown format, reducing visual clutter while
   maintaining discoverability.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: 'https://shopify.dev/docs/api/app-home/latest/web-components/actions/menu'
   md: 'https://shopify.dev/docs/api/app-home/latest/web-components/actions/menu.md'
@@ -25,6 +25,15 @@ Menus support action grouping, icons for visual clarity, and keyboard navigation
 * **Navigation menus:** Build navigation interfaces with menu components.
 * **Contextual options:** Display contextual options in menu format.
 
+```html
+<s-button commandFor="subject">Product actions</s-button>
+<s-menu id="subject" accessibilityLabel="Product actions">
+  <s-button icon="edit">Edit product</s-button>
+  <s-button icon="duplicate">Duplicate product</s-button>
+  <s-button icon="archive">Archive product</s-button>
+</s-menu>
+```
+
 ***
 
 ## Properties
@@ -34,8 +43,6 @@ Configure the following properties on the menu component.
 * **accessibility​Label**
 
   **string**
-
-  **required**
 
   A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
 

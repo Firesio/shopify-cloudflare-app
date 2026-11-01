@@ -5,7 +5,7 @@ description: >-
   interface. Use divider to separate distinct content groups in forms, settings
   panels, lists, or page sections, helping users scan and understand content
   organization.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/layout-and-structure/divider
@@ -27,24 +27,15 @@ Dividers support both horizontal and vertical orientations, along with different
 * **Content organization:** Improve readability by dividing long forms into digestible sections.
 * **Hierarchy:** Establish clear hierarchy in complex interfaces with multiple content groups.
 
+```html
+<s-divider></s-divider>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the divider component.
-
-* **direction**
-
-  **"inline" | "block"**
-
-  **Default: 'inline'**
-
-  **required**
-
-  The orientation of the divider line, using [logical properties](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_logical_properties_and_values).
-
-  * `inline`: Horizontal divider for separating vertically stacked content
-  * `block`: Vertical divider for separating horizontally arranged content
 
 * **color**
 
@@ -52,12 +43,21 @@ Configure the following properties on the divider component.
 
   **Default: 'base'**
 
-  **required**
-
   The visual prominence of the divider line.
 
   * `base`: Standard divider for most separations (default)
   * `strong`: More prominent divider for major section breaks
+
+* **direction**
+
+  **"inline" | "block"**
+
+  **Default: 'inline'**
+
+  The orientation of the divider line, using [logical properties](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_logical_properties_and_values).
+
+  * `inline`: Horizontal divider for separating vertically stacked content
+  * `block`: Vertical divider for separating horizontally arranged content
 
 ***
 

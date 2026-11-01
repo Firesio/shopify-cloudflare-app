@@ -4,7 +4,7 @@ description: >-
   The page component provides a styled page layout within your app, including
   breadcrumbs, page actions, and content areas with automatic spacing. Use page
   when you need a complete page layout with Polaris styling.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/layout-and-structure/page
@@ -26,11 +26,26 @@ Use page when you need a complete page layout with Polaris styling. For apps tha
 * **Settings pages:** Build settings or configuration pages with structured content and aside panels.
 * **Detail views:** Display resource detail pages with breadcrumb navigation and contextual actions.
 
+```html
+<s-page heading="Products">
+  <s-button slot="primary-action" variant="primary">Add product</s-button>
+  <s-section heading="Product details">
+    <s-paragraph>Manage descriptions, pricing, and availability.</s-paragraph>
+  </s-section>
+</s-page>
+```
+
 ***
 
 ## Properties
 
 Use as the outer wrapper of a page.
+
+* **heading**
+
+  **string**
+
+  The main page heading
 
 * **inline​Size**
 
@@ -38,20 +53,10 @@ Use as the outer wrapper of a page.
 
   **Default: 'base'**
 
-  **required**
-
   The inline size of the page
 
   * `base` corresponds to a set default inline size
   * `large` full width with whitespace
-
-* **heading**
-
-  **string**
-
-  **required**
-
-  The main page heading
 
 ### Slots
 
@@ -94,6 +99,12 @@ The page component supports slots for additional content placement within the co
   The secondary actions for the page.
 
   Only accepts button group and button components with a `variant` of `secondary` or `auto`.
+
+* **supplemental-start**
+
+  **HTMLElement**
+
+  A slot for content that comes before the main content, such as an `s-banner`.
 
 ***
 
@@ -254,6 +265,23 @@ Combine all page features for complex editing workflows. This example integrates
     saveBtn.disabled = false;
   });
 </script>
+```
+
+### Add supplemental content before the page body
+
+Use the `supplemental-start` slot for content that belongs above the page body but outside it, such as a [banner](https://shopify.dev/docs/api/app-home/latest/web-components/feedback-and-status-indicators/banner) about the state of the whole page. Content in this slot renders between the page header and the sections.
+
+## html
+
+```html
+<s-page heading="Orders">
+  <s-banner slot="supplemental-start" tone="warning" heading="Payouts are paused">
+    <s-paragraph>Verify your bank account to resume payouts.</s-paragraph>
+  </s-banner>
+  <s-section heading="Unfulfilled">
+    <s-paragraph>You have 3 orders waiting to be fulfilled.</s-paragraph>
+  </s-section>
+</s-page>
 ```
 
 ***

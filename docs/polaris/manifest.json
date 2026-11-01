@@ -1,11 +1,11 @@
 {
   "source": "https://shopify.dev/docs/api/app-home/latest",
-  "syncedAt": "2026-09-14T14:58:19.941Z",
-  "pageCount": 70,
+  "syncedAt": "2026-11-01T18:24:13.777Z",
+  "pageCount": 73,
   "families": {
-    "web-components": 48,
+    "web-components": 52,
     "app-bridge-web-components": 5,
-    "patterns": 16
+    "patterns": 15
   },
   "pages": [
     {
@@ -70,13 +70,6 @@
       "sourceUrl": "https://shopify.dev/docs/api/app-home/latest/patterns/compositions/callout-card",
       "markdownUrl": "https://shopify.dev/docs/api/app-home/latest/patterns/compositions/callout-card.md",
       "file": "patterns/compositions/callout-card.md"
-    },
-    {
-      "family": "patterns",
-      "title": "Empty state",
-      "sourceUrl": "https://shopify.dev/docs/api/app-home/latest/patterns/compositions/empty-state",
-      "markdownUrl": "https://shopify.dev/docs/api/app-home/latest/patterns/compositions/empty-state.md",
-      "file": "patterns/compositions/empty-state.md"
     },
     {
       "family": "patterns",
@@ -217,6 +210,20 @@
       "sourceUrl": "https://shopify.dev/docs/api/app-home/latest/web-components/feedback-and-status-indicators/banner",
       "markdownUrl": "https://shopify.dev/docs/api/app-home/latest/web-components/feedback-and-status-indicators/banner.md",
       "file": "web-components/feedback-and-status-indicators/banner.md"
+    },
+    {
+      "family": "web-components",
+      "title": "Empty state",
+      "sourceUrl": "https://shopify.dev/docs/api/app-home/latest/web-components/feedback-and-status-indicators/empty-state",
+      "markdownUrl": "https://shopify.dev/docs/api/app-home/latest/web-components/feedback-and-status-indicators/empty-state.md",
+      "file": "web-components/feedback-and-status-indicators/empty-state.md"
+    },
+    {
+      "family": "web-components",
+      "title": "Progress",
+      "sourceUrl": "https://shopify.dev/docs/api/app-home/latest/web-components/feedback-and-status-indicators/progress",
+      "markdownUrl": "https://shopify.dev/docs/api/app-home/latest/web-components/feedback-and-status-indicators/progress.md",
+      "file": "web-components/feedback-and-status-indicators/progress.md"
     },
     {
       "family": "web-components",
@@ -479,6 +486,13 @@
     },
     {
       "family": "web-components",
+      "title": "Number",
+      "sourceUrl": "https://shopify.dev/docs/api/app-home/latest/web-components/typography-and-content/number",
+      "markdownUrl": "https://shopify.dev/docs/api/app-home/latest/web-components/typography-and-content/number.md",
+      "file": "web-components/typography-and-content/number.md"
+    },
+    {
+      "family": "web-components",
       "title": "Paragraph",
       "sourceUrl": "https://shopify.dev/docs/api/app-home/latest/web-components/typography-and-content/paragraph",
       "markdownUrl": "https://shopify.dev/docs/api/app-home/latest/web-components/typography-and-content/paragraph.md",
@@ -497,6 +511,13 @@
       "sourceUrl": "https://shopify.dev/docs/api/app-home/latest/web-components/typography-and-content/tooltip",
       "markdownUrl": "https://shopify.dev/docs/api/app-home/latest/web-components/typography-and-content/tooltip.md",
       "file": "web-components/typography-and-content/tooltip.md"
+    },
+    {
+      "family": "web-components",
+      "title": "Versioning for web components",
+      "sourceUrl": "https://shopify.dev/docs/api/app-home/latest/web-components/versioning",
+      "markdownUrl": "https://shopify.dev/docs/api/app-home/latest/web-components/versioning.md",
+      "file": "web-components/versioning.md"
     }
   ]
 }

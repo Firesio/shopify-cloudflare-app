@@ -30,8 +30,9 @@ comparison context only when the comparison is meaningful. Money is passed to
 placeholder names, belongs in the `admin` translation namespace for every
 supported locale.
 
-Keep the page useful when data is empty: use the documented empty-state
-composition with one clear next action instead of rendering an empty table.
+Keep the page useful when data is empty: use the `s-empty-state` component
+(a Polaris 2 component, not a composition) with one clear next action instead of
+rendering an empty table.
 Page-level actions belong in `primary-action` or `secondary-actions` slots;
 record edits use the save bar. Validate every new Polaris element and prop with
 the App Home skill validator before considering the route complete. A checklist

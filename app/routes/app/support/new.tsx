@@ -9,7 +9,7 @@ import { data, redirect, useActionData, useLoaderData, Form } from "react-router
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { useTranslation } from "react-i18next";
 
-import { authenticateAdmin } from "~/admin/require-merchant.server";
+import { guardMember } from "~/admin/require-member.server";
 import { settle } from "~/admin/settle.server";
 import type { Outcome } from "~/admin/outcome";
 import { Deferred } from "~/components/admin/Deferred";
@@ -58,7 +58,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Authentication is awaited. The Admin API round trip only prefills one
   // field, so the form renders at once and the address streams in; if it
   // fails the merchant types their own (logged by `settle`).
-  const { admin, session } = await authenticateAdmin(request);
+  const { admin, session } = await guardMember(request, "app:view");
   return {
     defaultEmail: settle(readContactEmail((query) => admin.graphql(query)), {
       event: "admin.support.contact_email.failed",
@@ -69,7 +69,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session, admin } = await authenticateAdmin(request);
+  const { session, admin } = await guardMember(request, "app:view");
   const form = await request.formData();
 
   const parsed = createTicketSchema.safeParse(Object.fromEntries(form));

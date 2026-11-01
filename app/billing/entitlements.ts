@@ -6,9 +6,10 @@ const DEFAULT_ENTITLEMENTS: PlanEntitlements = {
   "ai.reply_draft": { kind: "disabled" },
   "ai.monthly_tokens": { kind: "disabled" },
   "projects.max": { kind: "disabled" },
+  "members.max": { kind: "disabled" },
 };
 
-const ENTITLEMENT_KEYS: readonly EntitlementKey[] = ["ai.reply_draft", "ai.monthly_tokens", "projects.max"];
+const ENTITLEMENT_KEYS: readonly EntitlementKey[] = ["ai.reply_draft", "ai.monthly_tokens", "projects.max", "members.max"];
 
 export function entitlementFor(planHandle: string | null | undefined, key: string): Entitlement {
   const plan = planForShopifyHandle(planHandle);

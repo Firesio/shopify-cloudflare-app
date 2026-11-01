@@ -4,7 +4,7 @@ description: >-
   The select component allows users to choose one option from a dropdown menu.
   Use select when presenting four or more choices to keep interfaces uncluttered
   and scannable, or when space is limited.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: 'https://shopify.dev/docs/api/app-home/latest/web-components/forms/select'
   md: 'https://shopify.dev/docs/api/app-home/latest/web-components/forms/select.md'
@@ -24,49 +24,80 @@ Select components support option grouping, placeholder text, help text, and vali
 * **Grouped options:** Present options in logical groups for better organization.
 * **Single selection:** Enable selection of one option from a predefined list.
 
+```html
+<s-select label="Product status" value="active">
+  <s-option value="active" selected>Active</s-option>
+  <s-option value="draft">Draft</s-option>
+  <s-option value="archived">Archived</s-option>
+</s-select>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the select component.
 
-* **icon**
-
-  **"" | "replace" | "search" | "split" | "link" | "edit" | "info" | "incomplete" | "complete" | "product" | "variant" | "collection" | "select" | "color" | "money" | "order" | "code" | ... 541 more ... | "x-circle-filled"**
-
-  **required**
-
-  An icon displayed inside the field to provide visual context about the expected input or field purpose. Commonly used for search fields, currency inputs, or to indicate field type. Accepts any icon name from the icon library or a custom string identifier.
-
 * **details**
 
-  **string**
+  **ComponentChildren**
 
-  **required**
+  Supplementary text displayed below the field to provide additional context, instructions, or help. Use this to clarify the expected input or provide guidance to users. This text is announced to screen readers.
 
-  Supplementary text displayed below the checkbox to provide additional context, instructions, or help. Use this to explain what checking the box means or provide guidance to users. This text is announced to screen readers.
+* **disabled**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the field is disabled, preventing any user interaction.
 
 * **error**
 
+  **ComponentChildren**
+
+  An error message displayed below the field to indicate validation problems. When set, the field is styled with error indicators and the message is announced to screen readers.
+
+* **icon**
+
+  **"" | "replace" | "search" | "split" | "link" | "edit" | "info" | "incomplete" | "complete" | "product" | "variant" | "collection" | "select" | "color" | "money" | "order" | "code" | ... 588 more ... | "x-circle-filled"**
+
+  An icon displayed inside the field to provide visual context about the expected input or field purpose. Commonly used for search fields, currency inputs, or to indicate field type. Accepts any icon name from the icon library or a custom string identifier.
+
+* **id**
+
   **string**
 
-  **required**
-
-  An error message displayed below the checkbox to indicate validation problems. When set, the checkbox is styled with error indicators and the message is announced to screen readers.
+  A unique identifier for the element. Use this to reference the element in JavaScript, link labels to form controls, or target specific elements for styling or scripting.
 
 * **label**
 
-  **string**
-
-  **required**
+  **ComponentChildren**
 
   The text displayed as the field label, which identifies the purpose of the field to users. This label is associated with the field for accessibility and helps users understand what information to provide.
+
+* **label​Accessibility​Visibility**
+
+  **"visible" | "exclusive"**
+
+  **Default: 'visible'**
+
+  Controls whether the label is visible to all users or only to screen readers.
+
+  * `visible`: The label is shown to everyone (default).
+  * `exclusive`: The label is visually hidden but still announced by screen readers.
+
+  Use `exclusive` when the surrounding context makes the label redundant visually, but screen reader users still need it for clarity.
+
+* **name**
+
+  **string**
+
+  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
 
 * **placeholder**
 
   **string**
-
-  **required**
 
   The placeholder text displayed in the field when it's empty, providing a hint about the expected input format or value.
 
@@ -76,58 +107,21 @@ Configure the following properties on the select component.
 
   **Default: false**
 
-  **required**
-
   Whether the field requires a value before form submission. Displays a visual indicator and adds semantic meaning, but doesn't automatically validate or show errors. Use the `error` property to display validation messages.
-
-* **label​Accessibility​Visibility**
-
-  **"visible" | "exclusive"**
-
-  **Default: 'visible'**
-
-  **required**
-
-  Controls whether the label is visible to all users or only to screen readers.
-
-  * `visible`: The label is shown to everyone (default).
-  * `exclusive`: The label is visually hidden but still announced by screen readers.
-
-  Use `exclusive` when the surrounding context makes the label redundant visually, but screen reader users still need it for clarity.
 
 * **value**
 
   **string**
 
-  **required**
+  The current value for the field. If omitted, the field will be empty.
 
-  The value of the currently selected option. When setting this property programmatically, it updates which option appears selected in the dropdown. When reading it, you get the `value` attribute of the currently selected option component.
+### ComponentChildren
 
-* **disabled**
+Represents any valid children that can be rendered within a component, including elements, strings, numbers, or arrays of these types. This is an alias for Preact's \`ComponentChildren\` type.
 
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether the field is disabled, preventing any user interaction.
-
-* **id**
-
-  **string**
-
-  **required**
-
-  A unique identifier for the element. Use this to reference the element in JavaScript, link labels to form controls, or target specific elements for styling or scripting.
-
-* **name**
-
-  **string**
-
-  **required**
-
-  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
+```ts
+preact.ComponentChildren
+```
 
 ### Events
 
@@ -137,8 +131,6 @@ The select component provides event callbacks for handling user interactions. Le
 
   **CallbackEventListener<'input'>**
 
-  **required**
-
   A callback fired when the select value changes.
 
   Learn more about the [change event](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/change_event).
@@ -146,8 +138,6 @@ The select component provides event callbacks for handling user interactions. Le
 * **input**
 
   **CallbackEventListener<'input'>**
-
-  **required**
 
   A callback fired when the user inputs data into the select.
 
@@ -189,33 +179,13 @@ The select component supports slots for additional content placement within the 
 
 Represents a single option within a select component. Use only as a child of s-select components.
 
-* **selected**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether the option is currently selected. Use this for controlled components where you manage the selection state.
-
 * **default​Selected**
 
   **boolean**
 
   **Default: false**
 
-  **required**
-
   The initial selected state for uncontrolled components. Use this when you want the option to start selected but don't need to control its state afterward.
-
-* **value**
-
-  **string**
-
-  **required**
-
-  The value submitted with the form when this checkbox is checked. If not specified, the default value is "on".
 
 * **disabled**
 
@@ -223,9 +193,21 @@ Represents a single option within a select component. Use only as a child of s-s
 
   **Default: false**
 
-  **required**
+  Whether the control is disabled, preventing user interaction. Disabled controls appear dimmed and their values aren't submitted with forms.
 
-  Whether the checkbox is disabled, preventing user interaction. Disabled checkboxes appear dimmed and their values aren't submitted with forms.
+* **selected**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the option is currently selected. Use this for controlled components where you manage the selection state.
+
+* **value**
+
+  **string**
+
+  The value submitted with the form when this control is selected. If not specified, the default value is "on".
 
 ### Slots
 
@@ -249,15 +231,11 @@ Represents a group of options within a select component. Use only as a child of 
 
   **Default: false**
 
-  **required**
-
   Whether the options within this group can be selected or not.
 
 * **label**
 
   **string**
-
-  **required**
 
   The user-facing label for this group of options.
 

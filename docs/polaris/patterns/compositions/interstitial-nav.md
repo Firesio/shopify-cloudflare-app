@@ -4,7 +4,7 @@ description: >-
   As your app grows, merchants need clear paths to deeper pages without
   cluttering your main navigation. The interstitial nav composition provides a
   clean way to link to settings, features, or resources within a section.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/patterns/compositions/interstitial-nav
@@ -23,18 +23,18 @@ Use this pattern on pages that serve as hubs for related functionality, like a s
 
 ### Supported components
 
-* [Box](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/box)
-* [Clickable](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/clickable)
-* [Divider](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/divider)
-* [Grid](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/grid)
-* [Heading](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/heading)
-* [Icon](https://shopify.dev/docs/api/app-home/v1.0/web-components/media-and-visuals/icon)
-* [Paragraph](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/paragraph)
-* [Section](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/section)
+* [Box](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/box)
+* [Clickable](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/clickable)
+* [Divider](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/divider)
+* [Grid](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/grid)
+* [Heading](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/heading)
+* [Icon](https://shopify.dev/docs/api/app-home/v2.0/web-components/media-and-visuals/icon)
+* [Paragraph](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/paragraph)
+* [Section](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/section)
 
 ### Recommended templates
 
-* [Settings](https://shopify.dev/docs/api/app-home/v1.0/patterns/templates/settings)
+* [Settings](https://shopify.dev/docs/api/app-home/v2.0/patterns/templates/settings)
 
 #### Use cases
 
@@ -48,15 +48,16 @@ Use this pattern on pages that serve as hubs for related functionality, like a s
 
 ### Display a navigation menu with drill-down rows
 
-Merchants need clear paths to deeper pages (e.g. settings, features) without cluttering main navigation. This pattern displays a navigation menu with drill-down rows. [Clickable](https://shopify.dev/docs/api/app-home/latest/web-components/actions/clickable) rows sit in a bordered [box](https://shopify.dev/docs/api/app-home/latest/web-components/layout-and-structure/box). Each row uses the [icon](https://shopify.dev/docs/api/app-home/latest/web-components/media-and-visuals/icon) with `name="chevron-right"` to indicate navigation.
+Merchants need clear paths to deeper pages (for example, settings and features) without cluttering main navigation. This pattern displays a navigation menu with drill-down rows. The [section](https://shopify.dev/docs/api/app-home/latest/web-components/layout-and-structure/section) uses [`padding="none"`](https://shopify.dev/docs/api/app-home/latest/web-components/layout-and-structure/section#section-propertydetail-padding) and holds its [clickable](https://shopify.dev/docs/api/app-home/latest/web-components/actions/clickable) rows in a lightly padded [box](https://shopify.dev/docs/api/app-home/latest/web-components/layout-and-structure/box), so they fill the card without a second border and keep room for their focus rings. Inset [dividers](https://shopify.dev/docs/api/app-home/latest/web-components/layout-and-structure/divider) separate the rows. Each row uses the [icon](https://shopify.dev/docs/api/app-home/latest/web-components/media-and-visuals/icon) with [`type="chevron-right"`](https://shopify.dev/docs/api/app-home/latest/web-components/media-and-visuals/icon#icon-propertydetail-type) to indicate navigation.
 
 ##### jsx
 
 ```tsx
-<s-section heading="Preferences">
-  <s-box border="base" borderRadius="base">
+<s-section heading="Preferences" padding="none">
+  <s-box padding="small-400">
     <s-clickable
       padding="small-100"
+      borderRadius="base"
       href="#"
       accessibilityLabel="Manage customer support settings and help resources"
     >
@@ -75,6 +76,7 @@ Merchants need clear paths to deeper pages (e.g. settings, features) without clu
     </s-box>
     <s-clickable
       padding="small-100"
+      borderRadius="base"
       href="#"
       accessibilityLabel="Configure product defaults, customer experience, and catalog settings"
     >
@@ -93,6 +95,7 @@ Merchants need clear paths to deeper pages (e.g. settings, features) without clu
     </s-box>
     <s-clickable
       padding="small-100"
+      borderRadius="base"
       href="#"
       accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
     >
@@ -113,13 +116,11 @@ Merchants need clear paths to deeper pages (e.g. settings, features) without clu
 ##### html
 
 ```html
-<s-section heading="Preferences">
-  <s-box
-    border="base"
-    borderRadius="base"
-  >
+<s-section heading="Preferences" padding="none">
+  <s-box padding="small-400">
     <s-clickable
       padding="small-100"
+      borderRadius="base"
       href="#"
       accessibilityLabel="Manage customer support settings and help resources"
     >
@@ -143,6 +144,7 @@ Merchants need clear paths to deeper pages (e.g. settings, features) without clu
     </s-box>
     <s-clickable
       padding="small-100"
+      borderRadius="base"
       href="#"
       accessibilityLabel="Configure product defaults, customer experience, and catalog settings"
     >
@@ -166,6 +168,7 @@ Merchants need clear paths to deeper pages (e.g. settings, features) without clu
     </s-box>
     <s-clickable
       padding="small-100"
+      borderRadius="base"
       href="#"
       accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
     >

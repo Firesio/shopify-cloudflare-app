@@ -5,7 +5,7 @@ description: >-
   status, and navigation throughout the interface. Use icon to reinforce button
   actions, indicate status states, or provide wayfinding cues that help users
   understand available functionality.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/media-and-visuals/icon
@@ -27,6 +27,10 @@ Icons support multiple sizes, tones for semantic meaning, and can be integrated 
 * **Navigation cues:** Provide visual cues in links or navigation elements.
 * **Feature identification:** Help merchants quickly identify features or sections with icons.
 
+```html
+<s-icon type="home"></s-icon>
+```
+
 ***
 
 ## Properties
@@ -39,20 +43,33 @@ Configure the following properties on the icon component.
 
   **Default: 'base'**
 
-  **required**
-
   The color emphasis level that controls visual intensity.
 
   * `base`: Primary color for body text, standard UI elements, and general content with good readability.
   * `subdued`: Deemphasized color for secondary text, supporting labels, and less critical interface elements.
+
+* **interest​For**
+
+  **string**
+
+  The ID of the component to show when users hover over or focus on this component. Use this to connect interactive components to popovers or tooltips that provide additional context or information.
+
+* **size**
+
+  **"small" | "base"**
+
+  **Default: 'base'**
+
+  The size of the icon.
+
+  * `small`: Smaller icon suitable for inline use within text or compact UI elements.
+  * `base`: Default size that works well for standalone icons and standard use cases.
 
 * **tone**
 
   **"info" | "success" | "warning" | "critical" | "auto" | "neutral" | "caution"**
 
   **Default: 'auto'**
-
-  **required**
 
   The semantic meaning and color treatment of the component.
 
@@ -66,34 +83,11 @@ Configure the following properties on the icon component.
 
 * **type**
 
-  **"" | "replace" | "search" | "split" | "link" | "edit" | "info" | "incomplete" | "complete" | "product" | "variant" | "collection" | "select" | "color" | "money" | "order" | "code" | ... 541 more ... | "x-circle-filled"**
-
-  **required**
+  **"" | "replace" | "search" | "split" | "link" | "edit" | "info" | "incomplete" | "complete" | "product" | "variant" | "collection" | "select" | "color" | "money" | "order" | "code" | ... 588 more ... | "x-circle-filled"**
 
   The icon to display from the icon library.
 
   Set to a valid icon name to display that icon. To hide the icon completely, use an empty string `''`. To reserve the icon's space without displaying an icon, use `'empty'`.
-
-* **size**
-
-  **"small" | "base"**
-
-  **Default: 'base'**
-
-  **required**
-
-  The size of the icon.
-
-  * `small`: Smaller icon suitable for inline use within text or compact UI elements.
-  * `base`: Default size that works well for standalone icons and standard use cases.
-
-* **interest​For**
-
-  **string**
-
-  **required**
-
-  The ID of the component to show when users hover over or focus on this component. Use this to connect interactive components to popovers or tooltips that provide additional context or information.
 
 ***
 

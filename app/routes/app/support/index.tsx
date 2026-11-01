@@ -3,7 +3,7 @@ import { useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { useTranslation } from "react-i18next";
 
-import { authenticateAdmin } from "~/admin/require-merchant.server";
+import { guardMember } from "~/admin/require-member.server";
 import { settle } from "~/admin/settle.server";
 import { Deferred, FailedSection, PendingSection } from "~/components/admin/Deferred";
 import { useLanguage } from "~/i18n/useLanguage";
@@ -33,7 +33,7 @@ async function readTickets(shop: string) {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Authentication is awaited; the tickets stream so the frame renders at once.
-  const { session } = await authenticateAdmin(request);
+  const { session } = await guardMember(request, "app:view");
   return {
     tickets: settle(readTickets(session.shop), {
       event: "admin.support.tickets.failed",

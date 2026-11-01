@@ -4,7 +4,7 @@ description: >-
   The button group component displays multiple related buttons in a structured
   layout. Use button group to organize action buttons together, creating clear
   visual hierarchies and helping users understand available options.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/actions/button-group
@@ -26,11 +26,25 @@ Button groups support various layouts including segmented appearances for tightl
 * **Responsive layouts:** Create button groups that adapt to different screen sizes.
 * **Horizontal arrangement:** Arrange multiple buttons horizontally with proper spacing.
 
+```html
+<s-button-group>
+  <s-button slot="secondary-actions">Day</s-button>
+  <s-button slot="secondary-actions">Week</s-button>
+  <s-button slot="secondary-actions">Month</s-button>
+</s-button-group>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the button group component.
+
+* **accessibility​Label**
+
+  **string**
+
+  A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
 
 * **gap**
 
@@ -38,20 +52,10 @@ Configure the following properties on the button group component.
 
   **Default: 'base'**
 
-  **required**
-
   The spacing between buttons in the group.
 
   * `base`: Standard spacing that provides clear visual separation between buttons.
   * `none`: No spacing, creating a connected button group.
-
-* **accessibility​Label**
-
-  **string**
-
-  **required**
-
-  A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
 
 ### Slots
 

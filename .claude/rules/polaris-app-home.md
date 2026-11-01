@@ -23,6 +23,20 @@ accessibility or responsive behaviour.
 
 ---
 
+## 0. Which Polaris, and where it is named
+
+The embedded app runs **Polaris 2** (`polaris-2.js`, the stable channel: the newest 2.x, which matches the redesigned
+Shopify admin and follows whichever admin theme the merchant uses). It is named in ONE place, `app/admin/polaris.ts`, and
+read by both `shopifyApp({ polarisUrl })` (the preload `Link` header) and `EmbeddedProvider` (the script tag): never render
+`AppProvider` directly and never add a Polaris script tag of your own. `@shopify/polaris-types` is `^2.0.0` and a test holds
+it to the script's major. The mirror in `docs/polaris/` is Polaris 2 too.
+
+What Polaris 2 changes for markup: `s-text` has `fontSize` and `fontWeight` and `fontVariantNumeric` (so a price needs no
+CSS), and there is an `s-empty-state` component (the old empty-state composition is gone). Custom CSS that copies Polaris
+colours or hand-draws a Polaris component pins that piece to the old look: remove it rather than re-tune it.
+
+---
+
 ## 1. The three lookups, before any markup
 
 Do all three. They answer different questions, and the third is the one that is
@@ -43,7 +57,7 @@ node -e 'const d=require("./node_modules/@shopify/polaris-types/dist/custom-elem
 console.log([...new Set(d.modules.flatMap(m=>m.declarations||[]).map(x=>x.tagName||x.name).filter(n=>n?.startsWith("s-")))].sort().join(", "))'
 ```
 
-At the time of writing this install has **59** `s-*` elements. If a tag is not in
+At the time of writing this install has **62** `s-*` elements (Polaris 2.0). If a tag is not in
 that list it is not available to you, and the skill lookup will name what
 replaced it. The same file is the fastest source of truth for an element's
 attributes and its named slots.
@@ -51,7 +65,7 @@ attributes and its named slots.
 ### Lookup B — the pattern for the page you are building
 
 Shopify publishes finished **templates** — `Details`, `Index`, `Settings`,
-`Homepage` — and **compositions** — empty state, index table, metrics card,
+`Homepage` — and **compositions** — index table, metrics card,
 resource list, setup guide, callout card, and more. Nearly every admin screen is
 one of these. Start from the template that matches, then fill it in.
 

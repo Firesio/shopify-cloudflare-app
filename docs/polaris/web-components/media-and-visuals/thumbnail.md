@@ -5,7 +5,7 @@ description: >-
   products, or media items. Use thumbnail to provide visual identification in
   lists, tables, or cards where space is constrained and quick recognition is
   important.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/media-and-visuals/thumbnail
@@ -27,29 +27,21 @@ Thumbnails support multiple sizes, alt text for accessibility, and fallback stat
 * **Compact displays:** Show images in space-constrained interfaces like resource items.
 * **Gallery previews:** Create preview galleries of product images or media.
 
+```html
+<s-thumbnail src="https://cdn.shopify.com/static/images/polaris/thumbnail-wc_src.jpg" alt="White sneakers"></s-thumbnail>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the thumbnail component.
 
-* **src**
-
-  **string**
-
-  **required**
-
-  The image source (either a remote URL or a local file resource).
-
-  When the image is loading or no `src` is provided, a placeholder is rendered.
-
 * **alt**
 
   **string**
 
-  **Default: \`\`**
-
-  **required**
+  **Default: \`''\`**
 
   Alternative text that describes the image for accessibility.
 
@@ -59,13 +51,22 @@ Configure the following properties on the thumbnail component.
 
   Learn more about [writing effective alt text](https://www.shopify.com/ca/blog/image-alt-text#4) and the [alt attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img#alt).
 
+* **loading**
+
+  **"eager" | "lazy"**
+
+  **Default: 'eager'**
+
+  Determines the loading behavior of the image:
+
+  * `eager`: Immediately loads the image, irrespective of its position within the visible viewport.
+  * `lazy`: Delays loading the image until it approaches a specified distance from the viewport.
+
 * **size**
 
   **"small" | "small-200" | "small-100" | "base" | "large" | "large-100"**
 
   **Default: 'base'**
-
-  **required**
 
   The size of the product thumbnail image.
 
@@ -76,6 +77,14 @@ Configure the following properties on the thumbnail component.
   * `large`: Larger thumbnail for featured products or detailed views.
   * `large-100`: Extra large thumbnail for prominent product display.
 
+* **src**
+
+  **string**
+
+  The image source (either a remote URL or a local file resource).
+
+  When the image is loading or no `src` is provided, a placeholder is rendered.
+
 ### Events
 
 The thumbnail component provides event callbacks for handling user interactions. Learn more about [handling events](https://shopify.dev/docs/api/polaris/using-polaris-web-components#handling-events).
@@ -84,8 +93,6 @@ The thumbnail component provides event callbacks for handling user interactions.
 
   **OnErrorEventHandler**
 
-  **required**
-
   A callback fired when the thumbnail image fails to load.
 
   Learn more about the [error event](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/error_event).
@@ -93,8 +100,6 @@ The thumbnail component provides event callbacks for handling user interactions.
 * **load**
 
   **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
 
   A callback fired when the thumbnail image successfully loads.
 

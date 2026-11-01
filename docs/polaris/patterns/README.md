@@ -5,7 +5,7 @@ description: >-
   in the App Home iframe. There are two types of patterns for building those
   pages — templates for full page layouts and compositions for smaller groupings
   of web components that solve specific tasks.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: 'https://shopify.dev/docs/api/app-home/latest/patterns'
   md: 'https://shopify.dev/docs/api/app-home/latest/patterns.md'
@@ -51,7 +51,7 @@ Templates are full-page layouts for paths and functionality found in most Shopif
 
 ## Compositions
 
-Compositions solve specific interface challenges like displaying data tables, showing empty states, or guiding merchants through setup. A page of your app (as seen in the templates above) will often be composed of many of these kinds of common compositions.
+Compositions solve specific interface challenges like displaying data tables or guiding merchants through setup. A page of your app (as seen in the templates above) will often be composed of many of these kinds of common compositions.
 
 Combinations of web components and APIs are provided here as compositions so that you can quickly add functionality without reinventing useful patterns.
 
@@ -72,12 +72,6 @@ Combinations of web components and APIs are provided here as compositions so tha
 [Callout card](https://shopify.dev/docs/api/app-home/latest/patterns/compositions/callout-card)
 
 [Encourage merchants to take action on new features or opportunities.](https://shopify.dev/docs/api/app-home/latest/patterns/compositions/callout-card)
-
-[![Empty state](https://shopify-assets.shopifycdn.com/shopifycloud/shopify-dev/development/assets/assets/images/templated-apis-screenshots/admin/patterns/emptyState-DjOI5bCw.png)![Empty state](https://shopify-assets.shopifycdn.com/shopifycloud/shopify-dev/development/assets/assets/images/templated-apis-screenshots/admin/patterns/emptyState-DjOI5bCw.png)](https://shopify.dev/docs/api/app-home/latest/patterns/compositions/empty-state)
-
-[Empty state](https://shopify.dev/docs/api/app-home/latest/patterns/compositions/empty-state)
-
-[Provide guidance and encourage action when no data or items are available.](https://shopify.dev/docs/api/app-home/latest/patterns/compositions/empty-state)
 
 [![Footer help](https://shopify-assets.shopifycdn.com/shopifycloud/shopify-dev/development/assets/assets/images/templated-apis-screenshots/admin/patterns/footerHelp-CC7OJpSv.png)![Footer help](https://shopify-assets.shopifycdn.com/shopifycloud/shopify-dev/development/assets/assets/images/templated-apis-screenshots/admin/patterns/footerHelp-CC7OJpSv.png)](https://shopify.dev/docs/api/app-home/latest/patterns/compositions/footer-help)
 

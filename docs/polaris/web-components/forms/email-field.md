@@ -3,7 +3,7 @@ title: Email field
 description: >-
   The email field component captures email address input. Use it to collect
   email information in forms, customer profiles, or contact workflows.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/forms/email-field
@@ -25,6 +25,10 @@ Email field doesn't perform automatic email validation. Implement your own valid
 * **Communication settings:** Configure email preferences for order updates or shipping notifications.
 * **Form validation:** Provide email-specific validation with appropriate keyboard on mobile.
 
+```html
+<s-email-field label="Contact email" value="jane@example.com"></s-email-field>
+```
+
 ***
 
 ## Properties
@@ -37,82 +41,49 @@ Configure the following properties on the email field component.
 
   **Default: 'on' for everything else**
 
-  **required**
+  A hint as to the intended content of the field.
 
-  Controls browser autofill behavior for the field.
+  When set to `on` (the default), this property indicates that the field should support autofill, but you do not have any more semantic information on the intended contents.
 
-  Basic values:
+  When set to `off`, you are indicating that this field contains sensitive information, or contents that are never saved, like one-time codes.
 
-  * `on` - Enables autofill without specifying content type (default)
-  * `off` - Disables autofill for sensitive data or one-time codes
-
-  Specific field values describe the expected data type. You can optionally prefix these with:
-
-  * `section-${string}` - Scopes autofill to a specific form section (when multiple forms exist on the same page)
-  * `shipping` or `billing` - Indicates whether the data is for shipping or billing purposes
-  * Both section and group (for example, `section-primary shipping email`)
-
-  Providing a specific autofill token helps browsers suggest more relevant saved data.
-
-  Learn more about the set of [autocomplete values](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#autofill-detail-tokens) supported in browsers.
-
-* **max​Length**
-
-  **number**
-
-  **Default: Infinity**
-
-  **required**
-
-  The maximum number of characters allowed in the field.
-
-* **min​Length**
-
-  **number**
-
-  **Default: 0**
-
-  **required**
-
-  The minimum number of characters required in the field.
-
-* **value**
-
-  **string**
-
-  **required**
-
-  The current email address value in the field. When setting this property programmatically, it updates the field's display value. When reading it, you get the user's current input. The field validates this value as an email address format when the user finishes editing.
+  Alternatively, you can provide value which describes the specific data you would like to be entered into this field during autofill.
 
 * **default​Value**
 
   **string**
 
-  **required**
-
   The initial value of the field when it first loads. Unlike `placeholder`, this is a real value that the user can edit and that gets submitted with the form. Once the user starts typing, their input replaces it. Changing this property after the field has loaded has no effect. To update the field value at any time, use `value` instead.
 
 * **details**
 
-  **string**
+  **ComponentChildren**
 
-  **required**
+  Supplementary text displayed below the field to provide additional context, instructions, or help. Use this to clarify the expected input or provide guidance to users. This text is announced to screen readers.
 
-  Supplementary text displayed below the checkbox to provide additional context, instructions, or help. Use this to explain what checking the box means or provide guidance to users. This text is announced to screen readers.
+* **disabled**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the field is disabled, preventing any user interaction.
 
 * **error**
 
+  **ComponentChildren**
+
+  An error message displayed below the field to indicate validation problems. When set, the field is styled with error indicators and the message is announced to screen readers.
+
+* **id**
+
   **string**
 
-  **required**
-
-  An error message displayed below the checkbox to indicate validation problems. When set, the checkbox is styled with error indicators and the message is announced to screen readers.
+  A unique identifier for the element. Use this to reference the element in JavaScript, link labels to form controls, or target specific elements for styling or scripting.
 
 * **label**
 
-  **string**
-
-  **required**
+  **ComponentChildren**
 
   The text displayed as the field label, which identifies the purpose of the field to users. This label is associated with the field for accessibility and helps users understand what information to provide.
 
@@ -122,8 +93,6 @@ Configure the following properties on the email field component.
 
   **Default: 'visible'**
 
-  **required**
-
   Controls whether the label is visible to all users or only to screen readers.
 
   * `visible`: The label is shown to everyone (default).
@@ -131,11 +100,31 @@ Configure the following properties on the email field component.
 
   Use `exclusive` when the surrounding context makes the label redundant visually, but screen reader users still need it for clarity.
 
-* **placeholder**
+* **max​Length**
+
+  **number**
+
+  **Default: Infinity**
+
+  The maximum number of characters allowed in the field.
+
+* **min​Length**
+
+  **number**
+
+  **Default: 0**
+
+  The minimum number of characters required in the field.
+
+* **name**
 
   **string**
 
-  **required**
+  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
+
+* **placeholder**
+
+  **string**
 
   The placeholder text displayed in the field when it's empty, providing a hint about the expected input format or value.
 
@@ -145,8 +134,6 @@ Configure the following properties on the email field component.
 
   **Default: false**
 
-  **required**
-
   Whether the field is read-only and can't be edited. Read-only fields remain focusable and their content is announced by screen readers.
 
 * **required**
@@ -155,35 +142,13 @@ Configure the following properties on the email field component.
 
   **Default: false**
 
-  **required**
-
   Whether the field requires a value before form submission. Displays a visual indicator and adds semantic meaning, but doesn't automatically validate or show errors. Use the `error` property to display validation messages.
 
-* **disabled**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether the field is disabled, preventing any user interaction.
-
-* **id**
+* **value**
 
   **string**
 
-  **required**
-
-  A unique identifier for the element. Use this to reference the element in JavaScript, link labels to form controls, or target specific elements for styling or scripting.
-
-* **name**
-
-  **string**
-
-  **required**
-
-  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
+  The current value for the field. If omitted, the field will be empty.
 
 ### EmailAutocompleteField
 
@@ -191,6 +156,14 @@ Represents autocomplete values that are valid for email input fields. This is a 
 
 ```ts
 'email' | 'home email' | 'mobile email' | 'fax email' | 'pager email'
+```
+
+### ComponentChildren
+
+Represents any valid children that can be rendered within a component, including elements, strings, numbers, or arrays of these types. This is an alias for Preact's \`ComponentChildren\` type.
+
+```ts
+preact.ComponentChildren
 ```
 
 ### Events
@@ -201,8 +174,6 @@ The email field component provides event callbacks for handling user interaction
 
   **CallbackEventListener<'input'>**
 
-  **required**
-
   A callback fired when the email field loses focus.
 
   Learn more about the [blur event](https://developer.mozilla.org/en-US/docs/Web/API/Element/blur_event).
@@ -210,8 +181,6 @@ The email field component provides event callbacks for handling user interaction
 * **change**
 
   **CallbackEventListener<'input'>**
-
-  **required**
 
   A callback fired when the email field value changes.
 
@@ -221,8 +190,6 @@ The email field component provides event callbacks for handling user interaction
 
   **CallbackEventListener<'input'>**
 
-  **required**
-
   A callback fired when the email field receives focus.
 
   Learn more about the [focus event](https://developer.mozilla.org/en-US/docs/Web/API/Element/focus_event).
@@ -230,8 +197,6 @@ The email field component provides event callbacks for handling user interaction
 * **input**
 
   **CallbackEventListener<'input'>**
-
-  **required**
 
   A callback fired when the user inputs data into the email field.
 

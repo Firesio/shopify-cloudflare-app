@@ -184,6 +184,21 @@ Local timings are SQLite, not D1: only row counts transfer.
 | That minifying the Worker (3.4 MB instead of 6 MB) shortens a cold start. Parse cost is inferred from size; `wrangler check startup` was not run | The change is cheap and safe, but the benefit is a guess until measured |
 | That Smart Placement or D1 read replication helps. The D1 region and the Worker's colo were not compared | Measure `wallTimeMs` against `cpuTimeMs` first (`docs/merchant-speed.md`) |
 
+## Who is using the app: members (2026-11-02)
+
+| Finding | Verified how / when | Design consequence |
+|---|---|---|
+| **The ID token's `sub` is the Shopify user the token was issued to**, and it is on every embedded request. It carries no permissions and no profile | shopify.dev docs lookup, 2026-11-02: [ID tokens](https://shopify.dev/docs/apps/build/authentication-authorization/id-tokens) | A member is keyed by `(shop, sub)`; no sign-in of our own. `identityFromAuth` reads `sub` |
+| **Online access tokens** (`useOnlineTokens: true` in `shopifyApp()`) add `associated_user` (`id`, `email`, `email_verified`, `first_name`, `last_name`, `account_owner`, `collaborator`) and `associated_user_scope`; they expire after 24 hours or when the user logs out. "Only trust `email` if `email_verified` is `true`" | [Access tokens](https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens), [Authentication for apps built with Shopify CLI](https://shopify.dev/docs/apps/build/authentication-authorization/cli-app-authentication) | `MEMBERS.onlineTokens` turns them on; an unverified email is dropped; `account_owner` drives the owner-recovery rule |
+| With online tokens the library mints BOTH an offline and an online session on a new session, and calls `afterAuth` with the ONLINE one | Read `strategies/token-exchange.mjs` in the installed `@shopify/shopify-app-react-router` 3.0.2 | `afterAuth` now fires per person per online session as well as per offline renewal; it only reads `session.shop`, and `recordInstall` upserts, so it stays correct |
+| `associated_user_scope` is the intersection of the app's scopes and that user's Shopify permissions | Same pages | App roles decide only what a member may do in the app; Shopify's own staff permissions stay Shopify's |
+
+| Unverified | Why it matters |
+|---|---|
+| That `sub` and `associated_user.id` are the same value | Members are keyed by `sub`; `requireMember` logs `member.user_id_mismatch` if they differ |
+| That the first person to open the app on a store is the person who installed it | "The installer is the first member" rests on it; the Shopify account owner is restored as owner either way |
+| The `collaborator` flag for agencies in practice | Stored, not yet read by any rule |
+
 ## Development store detection (2026-10-29)
 
 | Finding | Verified how | Design consequence |

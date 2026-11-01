@@ -2,7 +2,8 @@
   "nav": {
     "home": "Inicio",
     "billing": "Facturación",
-    "support": "Soporte"
+    "support": "Soporte",
+    "members": "Equipo"
   },
   "home": {
     "heading": "Esqueleto de Shopify + Cloudflare",
@@ -254,5 +255,126 @@
     "loading": "Cargando tus tickets",
     "loadFailedHeading": "No pudimos cargar tus tickets",
     "loadFailedBody": "Vuelve a cargar la página para intentarlo de nuevo. Si sigue ocurriendo, contacta con soporte."
+  },
+  "noAccess": {
+    "pageHeading": "Acceso",
+    "pending": {
+      "heading": "Esperando aprobación",
+      "body": "Tu solicitud para usar {{appName}} ha sido enviada. Cuando un propietario de esta tienda te deje entrar, recarga esta página."
+    },
+    "removed": {
+      "heading": "Ya no tienes acceso",
+      "body": "Un propietario de esta tienda te quitó de {{appName}}. Pídele que te devuelva el acceso."
+    },
+    "not_invited": {
+      "heading": "Necesitas una invitación",
+      "body": "{{appName}} está abierto a las personas que un propietario de esta tienda ha invitado. Pide a un propietario que invite tu correo."
+    },
+    "forbidden": {
+      "heading": "No tienes permiso para esto",
+      "body": "Tu rol no incluye esta página. Pide a un propietario de esta tienda que cambie tu rol."
+    },
+    "contact": "Pregunta a {{who}}."
+  },
+  "members": {
+    "heading": "Equipo",
+    "intro": "Las personas de tu tienda que pueden usar {{appName}} y lo que puede hacer cada una.",
+    "policy": {
+      "auto_join": "Cualquier persona del personal de Shopify de tu tienda que abra {{appName}} se une automáticamente como {{role}}. Cambia el rol de cualquiera aquí.",
+      "invite_only": "Solo las personas que invites pueden usar {{appName}}. Se unen la primera vez que la abren con el correo invitado.",
+      "approval": "Cualquier persona del personal de Shopify de tu tienda que abra {{appName}} espera aquí hasta que la dejes entrar."
+    },
+    "roles": {
+      "owner": {
+        "label": "Propietario",
+        "description": "Todo, incluido el plan. Toda tienda tiene siempre al menos un propietario."
+      },
+      "admin": {
+        "label": "Administrador",
+        "description": "Gestiona la app día a día y el equipo. No puede cambiar el plan."
+      },
+      "member": {
+        "label": "Miembro",
+        "description": "Usa la app y cambia sus ajustes y datos."
+      },
+      "viewer": {
+        "label": "Lector",
+        "description": "Puede mirar, pero no cambiar nada."
+      }
+    },
+    "invite": {
+      "action": "Invitar a un miembro",
+      "heading": "Invitar a un miembro",
+      "email": "Correo electrónico",
+      "emailHint": "Se une la primera vez que abre {{appName}} con este correo verificado en Shopify.",
+      "role": "Rol",
+      "submit": "Enviar invitación",
+      "cancel": "Cancelar"
+    },
+    "seats": {
+      "heading": "Plazas",
+      "used": "Plazas en uso: {{used}} de {{max}}",
+      "left": "Libres: {{left}}",
+      "full": "Todas las plazas están en uso. Quita a alguien o cambia de plan para que entren más personas.",
+      "over": "El límite de plazas de tu plan es {{max}} y hay {{used}} en uso. No se quita a nadie, pero nadie nuevo puede unirse hasta que estés dentro del límite.",
+      "changePlan": "Cambiar de plan"
+    },
+    "waiting": {
+      "heading": "Personas esperando a que las dejes entrar: {{count}}",
+      "body": "Abrieron {{appName}} y todavía no pueden usarla. Déjalas entrar abajo o quítalas."
+    },
+    "table": {
+      "label": "Equipo",
+      "member": "Miembro",
+      "role": "Rol",
+      "status": "Estado",
+      "lastSeen": "Última vez",
+      "you": "Tú",
+      "storeOwner": "Propietario de la tienda",
+      "unnamed": "Persona sin nombre",
+      "invitation": "Invitación",
+      "never": "Aún no",
+      "actions": "Acciones"
+    },
+    "status": {
+      "invited": "Invitado",
+      "pending": "En espera",
+      "active": "Activo",
+      "removed": "Eliminado"
+    },
+    "actions": {
+      "menu": "Acciones para {{name}}",
+      "changeRole": "Hacer {{role}}",
+      "approve": "Dejar entrar como {{role}}",
+      "restore": "Restaurar como {{role}}",
+      "remove": "Quitar",
+      "cancelInvitation": "Cancelar invitación"
+    },
+    "confirmRemove": {
+      "heading": "¿Quitar a {{name}}?",
+      "body": "Pierde el acceso a {{appName}} de inmediato. Puedes restaurarla más tarde.",
+      "confirm": "Quitar",
+      "keep": "Conservar"
+    },
+    "success": {
+      "invited": "Invitación enviada. Puede unirse la próxima vez que abra la app.",
+      "roleChanged": "Rol cambiado.",
+      "removed": "Miembro eliminado.",
+      "invitationCancelled": "Invitación cancelada.",
+      "approved": "Ya puede usar la app.",
+      "restored": "Miembro restaurado."
+    },
+    "errors": {
+      "forbidden": "No puedes hacer eso. Solo un propietario o administrador puede gestionar el equipo, y solo para roles iguales o inferiores al suyo.",
+      "notFound": "Esa persona ya no está en el equipo.",
+      "notYourself": "No puedes cambiar ni quitar tu propia pertenencia aquí. Pídeselo a otro propietario.",
+      "lastOwner": "Toda tienda necesita al menos un propietario. Nombra primero a otro propietario.",
+      "noSeat": "Tu plan no tiene una plaza libre para otra persona. Quita a alguien o cambia de plan.",
+      "invalidState": "Esa persona cambió mientras tanto. Recarga la página e inténtalo de nuevo.",
+      "emailInvalid": "Introduce un correo electrónico válido.",
+      "alreadyMember": "Ese correo ya está en el equipo o tiene una invitación abierta.",
+      "roleInvalid": "Elige uno de los roles de la lista.",
+      "unknownIntent": "Esa acción no está disponible."
+    }
   }
 }

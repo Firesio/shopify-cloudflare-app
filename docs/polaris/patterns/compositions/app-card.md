@@ -4,7 +4,7 @@ description: >-
   Some tasks are better handled by specialized apps. The app card composition
   provides a consistent way to recommend complementary apps that extend your
   functionality or help merchants accomplish related tasks.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: 'https://shopify.dev/docs/api/app-home/latest/patterns/compositions/app-card'
   md: >-
@@ -22,22 +22,22 @@ Use app cards to suggest integrations, recommend partners, or highlight apps tha
 
 ### Supported components
 
-* [Box](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/box)
-* [Button](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/button)
-* [Clickable](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/clickable)
-* [Grid](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/grid)
-* [Heading](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/heading)
-* [Paragraph](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/paragraph)
-* [Stack](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/stack)
-* [Thumbnail](https://shopify.dev/docs/api/app-home/v1.0/web-components/media-and-visuals/thumbnail)
+* [Box](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/box)
+* [Button](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/button)
+* [Clickable](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/clickable)
+* [Grid](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/grid)
+* [Heading](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/heading)
+* [Paragraph](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/paragraph)
+* [Stack](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/stack)
+* [Thumbnail](https://shopify.dev/docs/api/app-home/v2.0/web-components/media-and-visuals/thumbnail)
 
 ### Available APIs
 
-* [Navigation API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/navigation-api)
+* [Navigation API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/navigation-api)
 
 ### Recommended templates
 
-* [Homepage](https://shopify.dev/docs/api/app-home/v1.0/patterns/templates/homepage)
+* [Homepage](https://shopify.dev/docs/api/app-home/v2.0/patterns/templates/homepage)
 
 #### Use cases
 

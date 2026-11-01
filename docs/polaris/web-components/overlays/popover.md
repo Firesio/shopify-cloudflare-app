@@ -4,7 +4,7 @@ description: >-
   The popover component displays contextual content in an overlay triggered by a
   button using the commandFor attribute. Use for secondary actions, settings, or
   information that doesn't require a full modal.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: 'https://shopify.dev/docs/api/app-home/latest/web-components/overlays/popover'
   md: >-
@@ -25,6 +25,19 @@ For interactions that need more space or user focus, such as confirmations or co
 * **Extended help:** Show detailed help content or explanations in a popover triggered by an info button.
 * **Quick actions:** Provide quick action panels that appear on demand without navigating away from the current view.
 
+```html
+<s-button commandFor="subject">View inventory</s-button>
+<s-popover id="subject" inlineSize="280px">
+  <s-box padding="base">
+    <s-stack gap="small">
+      <s-text type="strong">Inventory</s-text>
+      <s-paragraph>24 items available at your main location.</s-paragraph>
+      <s-button commandFor="subject" command="--hide">Close</s-button>
+    </s-stack>
+  </s-box>
+</s-popover>
+```
+
 ***
 
 ## Properties
@@ -37,8 +50,6 @@ Configure the following properties on the popover component.
 
   **Default: 'auto'**
 
-  **required**
-
   The vertical size of the element in standard layouts (height in left-to-right or right-to-left writing modes).
 
   Block size adjusts based on the writing direction: in horizontal layouts, it controls the height; in vertical layouts, it controls the width. This ensures consistent behavior across different text directions.
@@ -48,41 +59,11 @@ Configure the following properties on the popover component.
   * `SizeUnits`: Specific size values in pixels, percentages, or zero for precise control.
   * `auto`: Automatically sizes based on content and layout constraints.
 
-* **min​Block​Size**
-
-  **SizeUnits**
-
-  **Default: '0'**
-
-  **required**
-
-  The minimum vertical size of the element in standard layouts (min-height in left-to-right or right-to-left writing modes).
-
-  Prevents the element from becoming smaller than this size along the block axis.
-
-  Learn more about the [min-block-size property](https://developer.mozilla.org/en-US/docs/Web/CSS/min-block-size).
-
-* **max​Block​Size**
-
-  **SizeUnitsOrNone**
-
-  **Default: 'none'**
-
-  **required**
-
-  The maximum vertical size of the element in standard layouts (max-height in left-to-right or right-to-left writing modes).
-
-  Prevents the element from becoming larger than this size along the block axis.
-
-  Learn more about the [max-block-size property](https://developer.mozilla.org/en-US/docs/Web/CSS/max-block-size).
-
 * **inline​Size**
 
   **SizeUnitsOrAuto**
 
   **Default: 'auto'**
-
-  **required**
 
   The horizontal size of the element in standard layouts (width in left-to-right or right-to-left writing modes).
 
@@ -93,19 +74,17 @@ Configure the following properties on the popover component.
   * `SizeUnits`: Specific size values in pixels, percentages, or zero for precise control.
   * `auto`: Automatically sizes based on content and layout constraints.
 
-* **min​Inline​Size**
+* **max​Block​Size**
 
-  **SizeUnits**
+  **SizeUnitsOrNone**
 
-  **Default: '0'**
+  **Default: 'none'**
 
-  **required**
+  The maximum vertical size of the element in standard layouts (max-height in left-to-right or right-to-left writing modes).
 
-  The minimum horizontal size of the element in standard layouts (min-width in left-to-right or right-to-left writing modes).
+  Prevents the element from becoming larger than this size along the block axis.
 
-  Prevents the element from becoming smaller than this size along the inline axis.
-
-  Learn more about the [min-inline-size property](https://developer.mozilla.org/en-US/docs/Web/CSS/min-inline-size).
+  Learn more about the [max-block-size property](https://developer.mozilla.org/en-US/docs/Web/CSS/max-block-size).
 
 * **max​Inline​Size**
 
@@ -113,13 +92,35 @@ Configure the following properties on the popover component.
 
   **Default: 'none'**
 
-  **required**
-
   The maximum horizontal size of the element in standard layouts (max-width in left-to-right or right-to-left writing modes).
 
   Prevents the element from becoming larger than this size along the inline axis.
 
   Learn more about the [max-inline-size property](https://developer.mozilla.org/en-US/docs/Web/CSS/max-inline-size).
+
+* **min​Block​Size**
+
+  **SizeUnits**
+
+  **Default: '0'**
+
+  The minimum vertical size of the element in standard layouts (min-height in left-to-right or right-to-left writing modes).
+
+  Prevents the element from becoming smaller than this size along the block axis.
+
+  Learn more about the [min-block-size property](https://developer.mozilla.org/en-US/docs/Web/CSS/min-block-size).
+
+* **min​Inline​Size**
+
+  **SizeUnits**
+
+  **Default: '0'**
+
+  The minimum horizontal size of the element in standard layouts (min-width in left-to-right or right-to-left writing modes).
+
+  Prevents the element from becoming smaller than this size along the inline axis.
+
+  Learn more about the [min-inline-size property](https://developer.mozilla.org/en-US/docs/Web/CSS/min-inline-size).
 
 ### SizeUnitsOrAuto
 
@@ -153,15 +154,11 @@ The popover component provides event callbacks for handling user interactions. L
 
   **CallbackEventListener\<TTagName> | null**
 
-  **required**
-
   A callback fired after the popover is hidden.
 
 * **aftershow**
 
   **CallbackEventListener\<TTagName> | null**
-
-  **required**
 
   A callback fired after the popover is shown.
 
@@ -169,15 +166,11 @@ The popover component provides event callbacks for handling user interactions. L
 
   **CallbackEventListener\<TTagName> | null**
 
-  **required**
-
   A callback fired after the popover is toggled.
 
 * **hide**
 
   **CallbackEventListener\<TTagName> | null**
-
-  **required**
 
   A callback fired when the popover is hidden.
 
@@ -185,15 +178,11 @@ The popover component provides event callbacks for handling user interactions. L
 
   **CallbackEventListener\<TTagName> | null**
 
-  **required**
-
   A callback fired when the popover is shown.
 
 * **toggle**
 
   **CallbackEventListener\<TTagName> | null**
-
-  **required**
 
   A callback fired when the popover is toggled.
 

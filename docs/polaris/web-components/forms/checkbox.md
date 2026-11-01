@@ -5,7 +5,7 @@ description: >-
   as agreeing to terms, enabling settings, or choosing multiple items from a
   list. Use checkbox to create binary on/off controls or multi-select interfaces
   where users can select any combination of options.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: 'https://shopify.dev/docs/api/app-home/latest/web-components/forms/checkbox'
   md: >-
@@ -26,35 +26,21 @@ Checkboxes support labels, help text, error states, and an indeterminate state f
 * **Agreement confirmation:** Collect agreement for terms, policies, or destructive actions.
 * **Bulk selection:** Enable selection of multiple items for batch operations.
 
+```html
+<s-checkbox label="Send order updates"></s-checkbox>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the checkbox component.
 
-* **indeterminate**
+* **accessibility​Label**
 
-  **boolean**
+  **string**
 
-  **required**
-
-  Whether the checkbox displays in an indeterminate state (neither checked nor unchecked), typically used to indicate partial selection in hierarchical lists.
-
-  This visual state takes priority over the `checked` prop in appearance only. The form submission value is still determined by the `checked` prop.
-
-  If `indeterminate` has not been explicitly set and hasn't been modified by user interaction, it returns the value of `defaultIndeterminate`.
-
-* **default​Indeterminate**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  The initial indeterminate state for uncontrolled components. Use this when you want the checkbox to start in an indeterminate state but don't need to control it afterward.
-
-  This value applies until `indeterminate` is explicitly set or the user changes the checkbox state by clicking.
+  A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
 
 * **checked**
 
@@ -62,17 +48,7 @@ Configure the following properties on the checkbox component.
 
   **Default: false**
 
-  **required**
-
   Whether the control is currently checked. Use this for controlled components where you manage the checked state.
-
-* **value**
-
-  **string**
-
-  **required**
-
-  The value used in form data when the checkbox is checked.
 
 * **default​Checked**
 
@@ -80,51 +56,23 @@ Configure the following properties on the checkbox component.
 
   **Default: false**
 
-  **required**
-
   The initial checked state for uncontrolled components. Use this when you want the control to start checked but don't need to control its state afterward.
 
-* **accessibility​Label**
-
-  **string**
-
-  **required**
-
-  A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
-
-* **details**
-
-  **string**
-
-  **required**
-
-  Supplementary text displayed below the checkbox to provide additional context, instructions, or help. Use this to explain what checking the box means or provide guidance to users. This text is announced to screen readers.
-
-* **error**
-
-  **string**
-
-  **required**
-
-  An error message displayed below the checkbox to indicate validation problems. When set, the checkbox is styled with error indicators and the message is announced to screen readers.
-
-* **label**
-
-  **string**
-
-  **required**
-
-  The text label displayed next to the checkbox that describes what the checkbox controls. Clicking the label will also toggle the checkbox state.
-
-* **required**
+* **default​Indeterminate**
 
   **boolean**
 
   **Default: false**
 
-  **required**
+  The initial indeterminate state for uncontrolled components. Use this when you want the checkbox to start in an indeterminate state but don't need to control it afterward.
 
-  Whether the field needs a value. This requirement adds semantic value to the field, but it will not cause an error to appear automatically. If you want to present an error when this field is empty, you can do so with the `error` property.
+  This value applies until `indeterminate` is explicitly set or the user changes the checkbox state by clicking.
+
+* **details**
+
+  **ComponentChildren**
+
+  Supplementary text displayed below the field to provide additional context, instructions, or help. Use this to clarify the expected input or provide guidance to users. This text is announced to screen readers.
 
 * **disabled**
 
@@ -132,35 +80,90 @@ Configure the following properties on the checkbox component.
 
   **Default: false**
 
-  **required**
-
   Whether the field is disabled, preventing any user interaction.
+
+* **error**
+
+  **ComponentChildren**
+
+  An error message displayed below the field to indicate validation problems. When set, the field is styled with error indicators and the message is announced to screen readers.
 
 * **id**
 
   **string**
 
-  **required**
-
   A unique identifier for the element. Use this to reference the element in JavaScript, link labels to form controls, or target specific elements for styling or scripting.
+
+* **indeterminate**
+
+  **boolean**
+
+  Whether the checkbox displays in an indeterminate state (neither checked nor unchecked), typically used to indicate partial selection in hierarchical lists.
+
+  This visual state takes priority over the `checked` prop in appearance only. The form submission value is still determined by the `checked` prop.
+
+  If `indeterminate` has not been explicitly set and hasn't been modified by user interaction, it returns the value of `defaultIndeterminate`.
+
+* **label**
+
+  **ComponentChildren**
+
+  The text label displayed next to the control that describes what it does. Clicking the label will also toggle the control state.
+
+* **label​Accessibility​Visibility**
+
+  **"visible" | "exclusive"**
+
+  **Default: 'visible'**
+
+  Changes the visibility of the component's label.
+
+  * `visible`: the label is visible to all users.
+  * `exclusive`: the label is visually hidden but remains in the accessibility tree.
 
 * **name**
 
   **string**
 
-  **required**
-
   The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
+
+* **required**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the field needs a value. This requirement adds semantic value to the field, but it will not cause an error to appear automatically. If you want to present an error when this field is empty, you can do so with the `error` property.
+
+* **value**
+
+  **string**
+
+  The value used in form data when the control is checked.
+
+### ComponentChildren
+
+Represents any valid children that can be rendered within a component, including elements, strings, numbers, or arrays of these types. This is an alias for Preact's \`ComponentChildren\` type.
+
+```ts
+preact.ComponentChildren
+```
 
 ### Events
 
 The checkbox component provides event callbacks for handling user interactions. Learn more about [handling events](https://shopify.dev/docs/api/polaris/using-polaris-web-components#handling-events).
 
-* **change**
+* **blur**
 
   **CallbackEventListener<'input'>**
 
-  **required**
+  A callback fired when the checkbox loses focus.
+
+  Learn more about the [blur event](https://developer.mozilla.org/en-US/docs/Web/API/Element/blur_event).
+
+* **change**
+
+  **CallbackEventListener<'input'>**
 
   A callback fired when the checkbox value changes.
 
@@ -169,8 +172,6 @@ The checkbox component provides event callbacks for handling user interactions. 
 * **input**
 
   **CallbackEventListener<'input'>**
-
-  **required**
 
   A callback fired when the user inputs data into the checkbox.
 

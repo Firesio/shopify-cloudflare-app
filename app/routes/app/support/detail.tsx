@@ -17,7 +17,7 @@ import {
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { useTranslation } from "react-i18next";
 
-import { authenticateAdmin } from "~/admin/require-merchant.server";
+import { guardMember } from "~/admin/require-member.server";
 import { settle } from "~/admin/settle.server";
 import { Deferred, FailedSection, PendingSection } from "~/components/admin/Deferred";
 import { useLanguage } from "~/i18n/useLanguage";
@@ -95,7 +95,7 @@ async function readThread(shop: string, ticketId: string) {
 
 export const loader = async ({ params, request }: LoaderFunctionArgs) => {
   // Authentication is awaited; the thread streams so the frame renders at once.
-  const { session } = await authenticateAdmin(request);
+  const { session } = await guardMember(request, "app:view");
   return {
     thread: settle(readThread(session.shop, params.ticketId ?? ""), {
       event: "admin.support.thread.failed",
@@ -115,7 +115,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
  * on their screen. Staff close threads from the internal console.
  */
 export const action = async ({ params, request }: ActionFunctionArgs) => {
-  const { session } = await authenticateAdmin(request);
+  const { session } = await guardMember(request, "app:view");
   const ticketId = params.ticketId ?? "";
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "reply");

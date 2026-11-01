@@ -4,7 +4,7 @@ description: >-
   Merchants want to see how they're doing at a glance. The metrics card
   composition highlights important numbers, statistics, or trends so merchants
   can quickly understand their activity and performance.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/patterns/compositions/metrics-card
@@ -23,22 +23,22 @@ Use metrics cards on your homepage or dashboard to surface the data merchants ca
 
 ### Supported components
 
-* [Badge](https://shopify.dev/docs/api/app-home/v1.0/web-components/feedback-and-status-indicators/badge)
-* [Clickable](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/clickable)
-* [Divider](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/divider)
-* [Grid](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/grid)
-* [Heading](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/heading)
-* [Section](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/section)
-* [Stack](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/stack)
-* [Text](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/text)
+* [Badge](https://shopify.dev/docs/api/app-home/v2.0/web-components/feedback-and-status-indicators/badge)
+* [Clickable](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/clickable)
+* [Divider](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/divider)
+* [Grid](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/grid)
+* [Heading](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/heading)
+* [Section](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/section)
+* [Stack](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/stack)
+* [Text](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/text)
 
 ### Available APIs
 
-* [Navigation API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/navigation-api)
+* [Navigation API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/navigation-api)
 
 ### Recommended templates
 
-* [Index](https://shopify.dev/docs/api/app-home/v1.0/patterns/templates/resource-index)
+* [Index](https://shopify.dev/docs/api/app-home/v2.0/patterns/templates/resource-index)
 
 #### Use cases
 

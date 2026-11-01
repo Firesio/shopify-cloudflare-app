@@ -3,8 +3,8 @@
 Full Markdown reference mirrored from Shopify's official App Home `latest` documentation for fast local agent search.
 
 - Source: https://shopify.dev/docs/api/app-home/latest
-- Synced: 2026-09-14T14:58:19.941Z
-- Pages: 70
+- Synced: 2026-11-01T18:24:13.777Z
+- Pages: 73
 - Refresh: `npm run docs:polaris:sync`
 
 ## Agent lookup workflow
@@ -36,6 +36,8 @@ rg -n "resource picker|save bar" docs/polaris
 - [Menu](./web-components/actions/menu.md)
 - [Badge](./web-components/feedback-and-status-indicators/badge.md)
 - [Banner](./web-components/feedback-and-status-indicators/banner.md)
+- [Empty state](./web-components/feedback-and-status-indicators/empty-state.md)
+- [Progress](./web-components/feedback-and-status-indicators/progress.md)
 - [Spinner](./web-components/feedback-and-status-indicators/spinner.md)
 - [Checkbox](./web-components/forms/checkbox.md)
 - [Choice list](./web-components/forms/choice-list.md)
@@ -73,9 +75,11 @@ rg -n "resource picker|save bar" docs/polaris
 - [Web components](./web-components/README.md)
 - [Chip](./web-components/typography-and-content/chip.md)
 - [Heading](./web-components/typography-and-content/heading.md)
+- [Number](./web-components/typography-and-content/number.md)
 - [Paragraph](./web-components/typography-and-content/paragraph.md)
 - [Text](./web-components/typography-and-content/text.md)
 - [Tooltip](./web-components/typography-and-content/tooltip.md)
+- [Versioning for web components](./web-components/versioning.md)
 
 ## app bridge web components
 
@@ -90,7 +94,6 @@ rg -n "resource picker|save bar" docs/polaris
 - [Account connection](./patterns/compositions/account-connection.md)
 - [App card](./patterns/compositions/app-card.md)
 - [Callout card](./patterns/compositions/callout-card.md)
-- [Empty state](./patterns/compositions/empty-state.md)
 - [Footer help](./patterns/compositions/footer-help.md)
 - [Index table](./patterns/compositions/index-table.md)
 - [Interstitial nav](./patterns/compositions/interstitial-nav.md)

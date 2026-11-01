@@ -4,7 +4,7 @@ description: >-
   Enable automatic save bar integration for HTML forms by adding the
   data-save-bar attribute to your form element. When form data changes, a save
   bar automatically appears, prompting users to save or discard their changes.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/app-bridge-web-components/save-bar
@@ -23,7 +23,7 @@ Enable automatic save bar integration for HTML forms by adding the `data-save-ba
 
 Alternatively, use the [Save Bar API](https://shopify.dev/docs/api/app-home/latest/apis/user-interface-and-interactions/save-bar-api) for programmatic control over the save bar behavior. Choose one approach or the other. Don't combine `data-save-bar` with programmatic methods on the same page.
 
-For `<s-app-window>` content where you need programmatic save bar control from within the iframe, define `<ui-save-bar>` on the parent page and use `shopify.saveBar.show(id)` from within the iframe. See [Save bar in an iframe window](#save-bar-in-an-iframe-window).
+To put a save bar in an `<s-app-window>`, add `data-save-bar` to a form inside the window. The save bar then opens and closes with the window. Don't use a `<ui-save-bar>` on the parent page and show it from inside the window: that bar belongs to the parent page, so it appears behind the window and merchants can't see or click **Save** or **Discard**. See [Save bar in an iframe window](#save-bar-in-an-iframe-window).
 
 **Info:**
 
@@ -76,7 +76,7 @@ Add the `data-save-bar` attribute to a form to automatically show a save bar whe
 
 ## Form with automatic save bar
 
-![Add the \`data-save-bar\` attribute to a form to automatically show a save bar when form data changes.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/save-bar-form-DCwt1gj9.png)
+![Add the \`data-save-bar\` attribute to a form to automatically show a save bar when form data changes.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/save-bar-form-DEvfXjXT.png)
 
 ## html
 
@@ -109,7 +109,7 @@ Handle form submission and reset using standard HTML form events.
 
 ## Submit and reset handlers
 
-![Handle form submission and reset using standard HTML form events.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/save-bar-reset-handlers-4hOYOxQ9.png)
+![Handle form submission and reset using standard HTML form events.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/save-bar-reset-handlers-GZnKDnKR.png)
 
 ## html
 
@@ -131,7 +131,7 @@ Add `data-discard-confirmation` to show a confirmation dialog when the discard b
 
 ## Discard confirmation
 
-![Add \`data-discard-confirmation\` to show a confirmation dialog when the discard button is clicked, preventing accidental data loss.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/save-bar-discard-confirmation-BXPw9s1y.png)
+![Add \`data-discard-confirmation\` to show a confirmation dialog when the discard button is clicked, preventing accidental data loss.](https://shopify.dev/assets/assets/images/templated-apis-screenshots/admin/app-bridge-web-components/save-bar-discard-confirmation-RwkTeaXg.png)
 
 ## html
 
@@ -160,7 +160,7 @@ Add `data-discard-confirmation` to show a confirmation dialog when the discard b
 
 ### Save bar in an iframe window
 
-For `<s-app-window>` content, define a `<ui-save-bar>` on the parent page with a unique `id`. From within the iframe, call `shopify.saveBar.show(id)` when changes are detected and `shopify.saveBar.hide(id)` after save or discard.
+Define a `<ui-save-bar>` on the parent page with a unique `id`, then call `shopify.saveBar.show(id)` from inside the iframe when changes are detected, and `shopify.saveBar.hide(id)` after save or discard. This bar belongs to the parent page, not the window, so it appears behind an open app window and merchants can't see or click **Save** or **Discard**. To give the window its own save bar, add `data-save-bar` to a form inside the window.
 
 ##### Parent page
 
@@ -212,6 +212,6 @@ function SettingsPage() {
 * **Always provide discard functionality**: Allow merchants to revert changes by handling the discard action or using form reset.
 * **Show loading states during save**: Use the [Loading API](https://shopify.dev/docs/api/app-home/latest/apis/user-interface-and-interactions/loading-api) to indicate when an async save operation is in progress.
 * **Use `data-discard-confirmation` for destructive forms**: Add a confirmation dialog when discarding changes would result in significant data loss.
-* **Control the save bar from iframe windows**: For `<s-app-window src="...">` content, define `<ui-save-bar>` on the parent page and call `shopify.saveBar.show(id)` from within the iframe. See [Save bar in an iframe window](#save-bar-in-an-iframe-window).
+* **Keep a window's save bar inside the window**: For `<s-app-window src="...">` content, add `data-save-bar` to a form inside the window so the save bar opens and closes with it. A `<ui-save-bar>` on the parent page belongs to the parent page, so it appears behind the window. See [Save bar in an iframe window](#save-bar-in-an-iframe-window).
 
 ***

@@ -5,7 +5,7 @@ description: >-
   interface. Use it when merchants benefit from seeing dates in context of the
   full month, such as selecting dates relative to today or needing weekday
   context.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/forms/date-picker
@@ -27,35 +27,21 @@ The component supports single dates, multiple dates, and date ranges. For text d
 * **Date validation:** Enforce date constraints like minimum/maximum dates or disabled dates.
 * **User-friendly input:** Offer intuitive date selection without requiring manual formatting.
 
+```html
+<s-date-picker value="2026-09-15" view="2026-09"></s-date-picker>
+```
+
 ***
 
 ## Date​Picker
 
 Configure the following properties on the date picker component.
 
-* **default​View**
-
-  **string**
-
-  **required**
-
-  The default month to display in `YYYY-MM` format. Used until the `view` callback is set by user interaction or programmatically. Defaults to the current month in the user's locale.
-
-* **view**
-
-  **string**
-
-  **required**
-
-  The currently displayed month in `YYYY-MM` format. When changed, the `viewchange` callback is triggered. Defaults to `defaultView`.
-
 * **allow**
 
   **string**
 
   **Default: ""**
-
-  **required**
 
   Specifies which dates can be selected as a comma-separated list. An empty string (default) allows all dates.
 
@@ -71,13 +57,40 @@ Configure the following properties on the date picker component.
   * `2024-02--2025`: February 2024 through end of 2025
   * `2024-05-09, 2024-05-11`: Only May 9th and 11th, 2024
 
-* **disallow**
+* **allow​Days**
 
   **string**
 
   **Default: ""**
 
-  **required**
+  Specifies which days of the week can be selected as a comma-separated list. Further restricts dates from `allow` and `disallow`. An empty string (default) has no effect.
+
+  **Valid days**: `sunday`, `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`
+
+  **Example:** `saturday, sunday` (only weekends)
+
+* **default​Value**
+
+  **string**
+
+  **Default: ""**
+
+  The initially selected date(s) when the component first renders. An empty string means no date is initially selected.
+
+  * Single date in `YYYY-MM-DD` format when `type` is set to `"single"`
+  * Date range in `YYYY-MM-DD--YYYY-MM-DD` format (inclusive) when `type` is set to `"range"`
+
+* **default​View**
+
+  **string**
+
+  The default month to display in `YYYY-MM` format. Used until the `view` callback is set by user interaction or programmatically. Defaults to the current month in the user's locale.
+
+* **disallow**
+
+  **string**
+
+  **Default: ""**
 
   Specifies which dates can't be selected as a comma-separated list. These dates are excluded from those specified in `allow`. An empty string (default) has no effect.
 
@@ -93,27 +106,11 @@ Configure the following properties on the date picker component.
   * `--2024-02`: All dates before February 2024
   * `2024-05-09, 2024-05-11`: May 9th and 11th, 2024
 
-* **allow​Days**
-
-  **string**
-
-  **Default: ""**
-
-  **required**
-
-  Specifies which days of the week can be selected as a comma-separated list. Further restricts dates from `allow` and `disallow`. An empty string (default) has no effect.
-
-  **Valid days**: `sunday`, `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`
-
-  **Example:** `saturday, sunday` (only weekends)
-
 * **disallow​Days**
 
   **string**
 
   **Default: ""**
-
-  **required**
 
   Specifies which days of the week can't be selected as a comma-separated list. Excludes days from `allowDays` and intersects with `allow` and `disallow`. An empty string (default) has no effect.
 
@@ -121,39 +118,22 @@ Configure the following properties on the date picker component.
 
   **Example:** `saturday, sunday` (no weekends)
 
+* **name**
+
+  **string**
+
+  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
+
 * **type**
 
   **"single" | "range"**
 
   **Default: "single"**
 
-  **required**
-
   The type of date selection allowed.
 
   * `single`: Select a single date
   * `range`: Select a date range
-
-* **default​Value**
-
-  **string**
-
-  **Default: ""**
-
-  **required**
-
-  The initially selected date(s) when the component first renders. An empty string means no date is initially selected.
-
-  * Single date in `YYYY-MM-DD` format when `type` is set to `"single"`
-  * Date range in `YYYY-MM-DD--YYYY-MM-DD` format (inclusive) when `type` is set to `"range"`
-
-* **name**
-
-  **string**
-
-  **required**
-
-  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
 
 * **value**
 
@@ -161,12 +141,28 @@ Configure the following properties on the date picker component.
 
   **Default: ""**
 
-  **required**
-
   The currently selected date(s). An empty string means no date is selected.
 
   * Single date in `YYYY-MM-DD` format when `type` is set to `"single"`
   * Date range in `YYYY-MM-DD--YYYY-MM-DD` format (inclusive) when `type` is set to `"range"`
+
+* **view**
+
+  **string**
+
+  The currently displayed month in `YYYY-MM` format. When changed, the `viewchange` callback is triggered. Defaults to `defaultView`.
+
+* **visible​Months**
+
+  **"auto" | "1" | "2"**
+
+  **Default: 'auto'**
+
+  Controls how many months are displayed.
+
+  * `'auto'`: Context-driven. Today this renders a single month, matching `'1'`.
+  * `'1'`: Renders one month at a time.
+  * `'2'`: Renders two consecutive months side-by-side.
 
 ### Events
 
@@ -174,9 +170,7 @@ The date picker component provides event callbacks for handling user interaction
 
 * **blur**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TagName> | null**
 
   A callback fired when the date picker loses focus.
 
@@ -184,9 +178,7 @@ The date picker component provides event callbacks for handling user interaction
 
 * **change**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TagName> | null**
 
   A callback fired when the date picker value changes.
 
@@ -194,9 +186,7 @@ The date picker component provides event callbacks for handling user interaction
 
 * **focus**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TagName> | null**
 
   A callback fired when the date picker receives focus.
 
@@ -204,9 +194,7 @@ The date picker component provides event callbacks for handling user interaction
 
 * **input**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TagName> | null**
 
   A callback fired when the user inputs data into the date picker.
 
@@ -214,9 +202,7 @@ The date picker component provides event callbacks for handling user interaction
 
 * **viewchange**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TagName> | null**
 
   A callback fired when the calendar view changes, such as when navigating between months.
 
@@ -369,6 +355,22 @@ Add preset buttons so merchants can quickly select common date ranges like "Last
     display.textContent = 'Selected range: 2025-01-01--2025-01-31';
   });
 </script>
+```
+
+### Show two months at once
+
+Display two consecutive months so merchants can select a range that crosses a month boundary. This example sets `visibleMonths` to `2` on a range picker.
+
+## html
+
+```html
+<s-date-picker
+  type="range"
+  name="reporting-period"
+  visibleMonths="2"
+  view="2025-05"
+  value="2025-05-20--2025-06-10"
+></s-date-picker>
 ```
 
 ***

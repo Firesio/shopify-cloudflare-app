@@ -4,7 +4,7 @@ description: >-
   New merchants need guidance to get started with your app. The setup guide
   composition provides an interactive checklist with visual progress tracking to
   walk them through essential onboarding or configuration tasks.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/patterns/compositions/setup-guide
@@ -23,25 +23,25 @@ Use this composition on your homepage or a dedicated onboarding page. Mark tasks
 
 ### Supported components
 
-* [Box](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/box)
-* [Button](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/button)
-* [Checkbox](https://shopify.dev/docs/api/app-home/v1.0/web-components/forms/checkbox)
-* [Divider](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/divider)
-* [Grid](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/grid)
-* [Heading](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/heading)
-* [Image](https://shopify.dev/docs/api/app-home/v1.0/web-components/media-and-visuals/image)
-* [Paragraph](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/paragraph)
-* [Section](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/section)
-* [Stack](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/stack)
+* [Box](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/box)
+* [Button](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/button)
+* [Checkbox](https://shopify.dev/docs/api/app-home/v2.0/web-components/forms/checkbox)
+* [Divider](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/divider)
+* [Grid](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/grid)
+* [Heading](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/heading)
+* [Image](https://shopify.dev/docs/api/app-home/v2.0/web-components/media-and-visuals/image)
+* [Paragraph](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/paragraph)
+* [Section](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/section)
+* [Stack](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/stack)
 
 ### Available APIs
 
-* [Navigation API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/navigation-api)
-* [Toast API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/toast-api)
+* [Navigation API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/navigation-api)
+* [Toast API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/toast-api)
 
 ### Recommended templates
 
-* [Homepage](https://shopify.dev/docs/api/app-home/v1.0/patterns/templates/homepage)
+* [Homepage](https://shopify.dev/docs/api/app-home/v2.0/patterns/templates/homepage)
 
 #### Use cases
 

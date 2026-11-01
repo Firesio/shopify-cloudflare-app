@@ -3,7 +3,7 @@ title: Modal
 description: >-
   The modal component displays content in an overlay. Use to create a
   distraction-free experience such as a confirmation dialog or a settings panel.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: 'https://shopify.dev/docs/api/app-home/latest/web-components/overlays/modal'
   md: >-
@@ -24,6 +24,14 @@ A button triggers the modal using the `commandFor` attribute. Content within the
 * **Data entry:** Collect structured input through forms displayed in a modal with save and cancel actions.
 * **Detail previews:** Show detailed information or previews without navigating away from the current page.
 
+```html
+<s-button commandFor="subject">View product details</s-button>
+<s-modal id="subject" heading="Product details">
+  <s-paragraph>Review product information without leaving this page.</s-paragraph>
+  <s-button slot="primary-action" variant="primary" commandFor="subject" command="--hide">Done</s-button>
+</s-modal>
+```
+
 ***
 
 ## Properties
@@ -34,8 +42,6 @@ Configure the following properties on the modal component.
 
   **string**
 
-  **required**
-
   A label that describes the purpose of the modal. When set, it will be announced to users using assistive technologies and will provide them with more context.
 
   This overrides the `heading` prop for screen readers.
@@ -44,9 +50,13 @@ Configure the following properties on the modal component.
 
   **string**
 
-  **required**
-
   A title that describes the content of the modal.
+
+* **hide​Overlay**
+
+  **() => void**
+
+  A method to programmatically hide the overlay.
 
 * **padding**
 
@@ -54,13 +64,17 @@ Configure the following properties on the modal component.
 
   **Default: 'base'**
 
-  **required**
-
   Adjust the padding around the modal content.
 
   `base`: applies padding that is appropriate for the element.
 
   `none`: removes all padding from the element. This can be useful when elements inside the modal need to span to the edge of the modal. For example, a full-width image. In this case, rely on box with a padding of 'base' to bring back the desired padding for the rest of the content.
+
+* **show​Overlay**
+
+  **() => void**
+
+  A method to programmatically show the overlay.
 
 * **size**
 
@@ -68,31 +82,11 @@ Configure the following properties on the modal component.
 
   **Default: 'base'**
 
-  **required**
-
   The size of the modal component, controlling its width and height. Larger sizes provide more space for content while smaller sizes are more compact.
-
-* **show​Overlay**
-
-  **() => void**
-
-  **required**
-
-  A method to programmatically show the overlay.
-
-* **hide​Overlay**
-
-  **() => void**
-
-  **required**
-
-  A method to programmatically hide the overlay.
 
 * **toggle​Overlay**
 
   **() => void**
-
-  **required**
 
   A method to programmatically toggle the visibility of the overlay.
 
@@ -102,33 +96,25 @@ The modal component provides event callbacks for handling user interactions. Lea
 
 * **afterhide**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TTagName> | null**
 
   A callback fired after the modal is hidden.
 
 * **aftershow**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TTagName> | null**
 
   A callback fired after the modal is shown.
 
 * **hide**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TTagName> | null**
 
   A callback fired when the modal is hidden.
 
 * **show**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TTagName> | null**
 
   A callback fired when the modal is shown.
 

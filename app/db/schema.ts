@@ -29,3 +29,4 @@ export * from "./schema/plan-grants";
 export * from "./schema/redacted-shops";
 export * from "./schema/staff-audit";
 export * from "./schema/staff-mfa";
+export * from "./schema/members";

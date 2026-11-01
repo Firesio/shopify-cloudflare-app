@@ -5,7 +5,7 @@ description: >-
   settings on and off. Use switch for binary controls that take effect
   immediately, like enabling features, activating settings, or controlling
   visibility.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: 'https://shopify.dev/docs/api/app-home/latest/web-components/forms/switch'
   md: 'https://shopify.dev/docs/api/app-home/latest/web-components/forms/switch.md'
@@ -25,19 +25,75 @@ Switches provide instant visual feedback and are ideal for settings that don't r
 * **Quick toggles:** Provide quick toggle controls for frequently changed settings.
 * **Status changes:** Toggle resource states like active/inactive or published/unpublished.
 
+```html
+<s-switch label="Enable notifications" checked></s-switch>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the switch component.
 
+* **accessibility​Label**
+
+  **string**
+
+  A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
+
+* **checked**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the control is currently checked. Use this for controlled components where you manage the checked state.
+
+* **default​Checked**
+
+  **boolean**
+
+  **Default: false**
+
+  The initial checked state for uncontrolled components. Use this when you want the control to start checked but don't need to control its state afterward.
+
+* **details**
+
+  **ComponentChildren**
+
+  Supplementary text displayed below the field to provide additional context, instructions, or help. Use this to clarify the expected input or provide guidance to users. This text is announced to screen readers.
+
+* **disabled**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the field is disabled, preventing any user interaction.
+
+* **error**
+
+  **ComponentChildren**
+
+  An error message displayed below the field to indicate validation problems. When set, the field is styled with error indicators and the message is announced to screen readers.
+
+* **id**
+
+  **string**
+
+  A unique identifier for the element. Use this to reference the element in JavaScript, link labels to form controls, or target specific elements for styling or scripting.
+
+* **label**
+
+  **ComponentChildren**
+
+  The text label displayed next to the control that describes what it does. Clicking the label will also toggle the control state.
+
 * **label​Accessibility​Visibility**
 
   **"visible" | "exclusive"**
 
   **Default: 'visible'**
-
-  **required**
 
   Controls whether the label is visible to all users or only to screen readers.
 
@@ -46,65 +102,11 @@ Configure the following properties on the switch component.
 
   Use `exclusive` when the surrounding context makes the label redundant visually, but screen reader users still need it for clarity.
 
-* **checked**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether the control is currently checked. Use this for controlled components where you manage the checked state.
-
-* **value**
+* **name**
 
   **string**
 
-  **required**
-
-  The value used in form data when the checkbox is checked.
-
-* **default​Checked**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  The initial checked state for uncontrolled components. Use this when you want the control to start checked but don't need to control its state afterward.
-
-* **accessibility​Label**
-
-  **string**
-
-  **required**
-
-  A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
-
-* **details**
-
-  **string**
-
-  **required**
-
-  Supplementary text displayed below the checkbox to provide additional context, instructions, or help. Use this to explain what checking the box means or provide guidance to users. This text is announced to screen readers.
-
-* **error**
-
-  **string**
-
-  **required**
-
-  An error message displayed below the checkbox to indicate validation problems. When set, the checkbox is styled with error indicators and the message is announced to screen readers.
-
-* **label**
-
-  **string**
-
-  **required**
-
-  The text label displayed next to the checkbox that describes what the checkbox controls. Clicking the label will also toggle the checkbox state.
+  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
 
 * **required**
 
@@ -112,45 +114,37 @@ Configure the following properties on the switch component.
 
   **Default: false**
 
-  **required**
-
   Whether the field needs a value. This requirement adds semantic value to the field, but it will not cause an error to appear automatically. If you want to present an error when this field is empty, you can do so with the `error` property.
 
-* **disabled**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether the field is disabled, preventing any user interaction.
-
-* **id**
+* **value**
 
   **string**
 
-  **required**
+  The value used in form data when the control is checked.
 
-  A unique identifier for the element. Use this to reference the element in JavaScript, link labels to form controls, or target specific elements for styling or scripting.
+### ComponentChildren
 
-* **name**
+Represents any valid children that can be rendered within a component, including elements, strings, numbers, or arrays of these types. This is an alias for Preact's \`ComponentChildren\` type.
 
-  **string**
-
-  **required**
-
-  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
+```ts
+preact.ComponentChildren
+```
 
 ### Events
 
 The switch component provides event callbacks for handling user interactions. Learn more about [handling events](https://shopify.dev/docs/api/polaris/using-polaris-web-components#handling-events).
 
-* **change**
+* **blur**
 
   **CallbackEventListener<'input'>**
 
-  **required**
+  A callback fired when the switch loses focus.
+
+  Learn more about the [blur event](https://developer.mozilla.org/en-US/docs/Web/API/Element/blur_event).
+
+* **change**
+
+  **CallbackEventListener<'input'>**
 
   A callback fired when the switch value changes.
 
@@ -159,8 +153,6 @@ The switch component provides event callbacks for handling user interactions. Le
 * **input**
 
   **CallbackEventListener<'input'>**
-
-  **required**
 
   A callback fired when the user inputs data into the switch.
 

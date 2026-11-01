@@ -2,7 +2,8 @@
   "nav": {
     "home": "Home",
     "billing": "Billing",
-    "support": "Support"
+    "support": "Support",
+    "members": "Team"
   },
   "home": {
     "heading": "Shopify + Cloudflare scaffold",
@@ -254,5 +255,126 @@
     "loading": "Loading your tickets",
     "loadFailedHeading": "We couldn't load your tickets",
     "loadFailedBody": "Reload the page to try again. If this keeps happening, contact support."
+  },
+  "noAccess": {
+    "pageHeading": "Access",
+    "pending": {
+      "heading": "Waiting for approval",
+      "body": "Your request to use {{appName}} has been sent. When an owner of this store lets you in, reload this page."
+    },
+    "removed": {
+      "heading": "You no longer have access",
+      "body": "An owner of this store removed you from {{appName}}. Ask them to restore your access."
+    },
+    "not_invited": {
+      "heading": "You need an invitation",
+      "body": "{{appName}} is open to people an owner of this store has invited. Ask an owner to invite your email address."
+    },
+    "forbidden": {
+      "heading": "You do not have permission for this",
+      "body": "Your role does not include this page. Ask an owner of this store to change your role."
+    },
+    "contact": "Ask {{who}}."
+  },
+  "members": {
+    "heading": "Team",
+    "intro": "The people from your store who can use {{appName}}, and what each of them can do.",
+    "policy": {
+      "auto_join": "Anyone on your store's Shopify staff who opens {{appName}} joins automatically as {{role}}. Change anyone's role here.",
+      "invite_only": "Only people you invite can use {{appName}}. They join the first time they open it with the invited email address.",
+      "approval": "Anyone on your store's Shopify staff who opens {{appName}} waits here until you let them in."
+    },
+    "roles": {
+      "owner": {
+        "label": "Owner",
+        "description": "Everything, including the plan. Every store always has at least one owner."
+      },
+      "admin": {
+        "label": "Admin",
+        "description": "Runs the app day to day and manages the team. Cannot change the plan."
+      },
+      "member": {
+        "label": "Member",
+        "description": "Uses the app and changes its settings and data."
+      },
+      "viewer": {
+        "label": "Viewer",
+        "description": "Can look but not change anything."
+      }
+    },
+    "invite": {
+      "action": "Invite member",
+      "heading": "Invite a member",
+      "email": "Email address",
+      "emailHint": "They join the first time they open {{appName}} with this address verified in Shopify.",
+      "role": "Role",
+      "submit": "Send invitation",
+      "cancel": "Cancel"
+    },
+    "seats": {
+      "heading": "Seats",
+      "used": "Seats in use: {{used}} of {{max}}",
+      "left": "Free: {{left}}",
+      "full": "Every seat is in use. Remove someone or change your plan to let more people in.",
+      "over": "Your plan's seat limit is {{max}} and {{used}} are in use. Nobody is removed, but nobody new can join until you are within the limit.",
+      "changePlan": "Change plan"
+    },
+    "waiting": {
+      "heading": "People are waiting to be let in: {{count}}",
+      "body": "They opened {{appName}} and cannot use it yet. Let them in below, or remove them."
+    },
+    "table": {
+      "label": "Team",
+      "member": "Member",
+      "role": "Role",
+      "status": "Status",
+      "lastSeen": "Last seen",
+      "you": "You",
+      "storeOwner": "Store owner",
+      "unnamed": "Unnamed staff member",
+      "invitation": "Invitation",
+      "never": "Not yet",
+      "actions": "Actions"
+    },
+    "status": {
+      "invited": "Invited",
+      "pending": "Waiting",
+      "active": "Active",
+      "removed": "Removed"
+    },
+    "actions": {
+      "menu": "Actions for {{name}}",
+      "changeRole": "Make {{role}}",
+      "approve": "Let in as {{role}}",
+      "restore": "Restore as {{role}}",
+      "remove": "Remove",
+      "cancelInvitation": "Cancel invitation"
+    },
+    "confirmRemove": {
+      "heading": "Remove {{name}}?",
+      "body": "They lose access to {{appName}} straight away. You can restore them later.",
+      "confirm": "Remove",
+      "keep": "Keep"
+    },
+    "success": {
+      "invited": "Invitation sent. They can join the next time they open the app.",
+      "roleChanged": "Role changed.",
+      "removed": "Member removed.",
+      "invitationCancelled": "Invitation cancelled.",
+      "approved": "They can use the app now.",
+      "restored": "Member restored."
+    },
+    "errors": {
+      "forbidden": "You cannot do that. Only an owner or admin can manage the team, and only for roles at or below their own.",
+      "notFound": "That person is no longer on the team.",
+      "notYourself": "You cannot change or remove your own membership here. Ask another owner.",
+      "lastOwner": "Every store needs at least one owner. Make someone else an owner first.",
+      "noSeat": "Your plan has no free seat for another person. Remove someone or change your plan.",
+      "invalidState": "That person changed in the meantime. Reload the page and try again.",
+      "emailInvalid": "Enter a valid email address.",
+      "alreadyMember": "That address is already on the team or has an open invitation.",
+      "roleInvalid": "Choose one of the listed roles.",
+      "unknownIntent": "That action is not available."
+    }
   }
 }

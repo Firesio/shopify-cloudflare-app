@@ -13,7 +13,7 @@ export type PlanFeatureKey =
   | "pro.features.1"
   | "pro.features.2";
 
-export type EntitlementKey = "ai.reply_draft" | "ai.monthly_tokens" | "projects.max";
+export type EntitlementKey = "ai.reply_draft" | "ai.monthly_tokens" | "projects.max" | "members.max";
 export type Entitlement =
   | { readonly kind: "disabled" }
   | { readonly kind: "enabled" }
@@ -57,7 +57,7 @@ export const PLANS: Readonly<Record<PlanHandle, Plan>> = {
     priceMonthly: unwrap(fromMinorUnits(0, USD)),
     priceAnnual: unwrap(fromMinorUnits(0, USD)),
     featureKeys: ["free.features.0", "free.features.1"],
-    entitlements: { "ai.reply_draft": { kind: "enabled" }, "ai.monthly_tokens": { kind: "limit", maximum: 10_000 }, "projects.max": { kind: "limit", maximum: 1 } },
+    entitlements: { "ai.reply_draft": { kind: "enabled" }, "ai.monthly_tokens": { kind: "limit", maximum: 10_000 }, "projects.max": { kind: "limit", maximum: 1 }, "members.max": { kind: "unlimited" } },
   },
   pro: {
     handle: "pro",
@@ -66,7 +66,7 @@ export const PLANS: Readonly<Record<PlanHandle, Plan>> = {
     // ~2 months free versus paying monthly — TODO: your real annual price.
     priceAnnual: unwrap(fromMinorUnits(19000, USD)),
     featureKeys: ["pro.features.0", "pro.features.1", "pro.features.2"],
-    entitlements: { "ai.reply_draft": { kind: "enabled" }, "ai.monthly_tokens": { kind: "unlimited" }, "projects.max": { kind: "limit", maximum: 10 } },
+    entitlements: { "ai.reply_draft": { kind: "enabled" }, "ai.monthly_tokens": { kind: "unlimited" }, "projects.max": { kind: "limit", maximum: 10 }, "members.max": { kind: "unlimited" } },
   },
 };
 

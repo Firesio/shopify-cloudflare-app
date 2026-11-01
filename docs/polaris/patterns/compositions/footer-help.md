@@ -4,7 +4,7 @@ description: >-
   Merchants sometimes need more context than a page can provide. The footer help
   composition offers a subtle way to link to documentation, support, or related
   information at the bottom of a page.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/patterns/compositions/footer-help
@@ -23,16 +23,16 @@ Place footer help at the bottom of the page or section it relates to with clear,
 
 ### Supported components
 
-* [Link](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/link)
-* [Stack](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/stack)
-* [Text](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/text)
+* [Link](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/link)
+* [Stack](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/stack)
+* [Text](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/text)
 
 ### Recommended templates
 
-* [Homepage](https://shopify.dev/docs/api/app-home/v1.0/patterns/templates/homepage)
-* [Index](https://shopify.dev/docs/api/app-home/v1.0/patterns/templates/resource-index)
-* [Details](https://shopify.dev/docs/api/app-home/v1.0/patterns/templates/details)
-* [Settings](https://shopify.dev/docs/api/app-home/v1.0/patterns/templates/settings)
+* [Homepage](https://shopify.dev/docs/api/app-home/v2.0/patterns/templates/homepage)
+* [Index](https://shopify.dev/docs/api/app-home/v2.0/patterns/templates/resource-index)
+* [Details](https://shopify.dev/docs/api/app-home/v2.0/patterns/templates/details)
+* [Settings](https://shopify.dev/docs/api/app-home/v2.0/patterns/templates/settings)
 
 #### Use cases
 

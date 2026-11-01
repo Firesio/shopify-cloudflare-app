@@ -6,7 +6,7 @@ description: >-
   follow tutorials. Use media cards on your homepage to introduce features, in
   settings to explain options, or anywhere visual context helps merchants make
   decisions.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/patterns/compositions/media-card
@@ -25,24 +25,24 @@ Use media cards on your homepage to introduce features, in settings to explain o
 
 ### Supported components
 
-* [Box](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/box)
-* [Button](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/button)
-* [Clickable](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/clickable)
-* [Divider](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/divider)
-* [Grid](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/grid)
-* [Heading](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/heading)
-* [Image](https://shopify.dev/docs/api/app-home/v1.0/web-components/media-and-visuals/image)
+* [Box](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/box)
+* [Button](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/button)
+* [Clickable](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/clickable)
+* [Divider](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/divider)
+* [Grid](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/grid)
+* [Heading](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/heading)
+* [Image](https://shopify.dev/docs/api/app-home/v2.0/web-components/media-and-visuals/image)
 
 ### Available APIs
 
-* [Intents API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/intents-api)
-* [Modal API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/modal-api)
-* [Share API](https://shopify.dev/docs/api/app-home/v1.0/apis/device-and-platform-integration/share-api)
-* [Toast API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/toast-api)
+* [Intents API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/intents-api)
+* [Modal API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/modal-api)
+* [Share API](https://shopify.dev/docs/api/app-home/v2.0/apis/device-and-platform-integration/share-api)
+* [Toast API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/toast-api)
 
 ### Recommended templates
 
-* [Homepage](https://shopify.dev/docs/api/app-home/v1.0/patterns/templates/homepage)
+* [Homepage](https://shopify.dev/docs/api/app-home/v2.0/patterns/templates/homepage)
 
 #### Use cases
 

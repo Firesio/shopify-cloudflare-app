@@ -4,7 +4,7 @@ import { data, useFetcher, useLoaderData, useNavigate } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { useTranslation } from "react-i18next";
 
-import { authenticateAdmin } from "~/admin/require-merchant.server";
+import { guardMember } from "~/admin/require-member.server";
 import { settle } from "~/admin/settle.server";
 import type { Outcome } from "~/admin/outcome";
 import { Deferred, FailedSection, PendingSection } from "~/components/admin/Deferred";
@@ -28,7 +28,7 @@ import {
   refreshShopSubscription,
   shopSubscriptions,
 } from "~/wiring.server";
-import { PlanCard, PLAN_CARD_CSS } from "~/components/billing/PlanCard";
+import { PlanCard } from "~/components/billing/PlanCard";
 import type { SubscriptionStatus } from "~/billing/subscription-status";
 import { isPricingReturn } from "~/billing/pricing-return";
 import { reconcileShop } from "~/services/reconcile-shop";
@@ -76,7 +76,7 @@ export function parseCurrentAppInstallationHandle(payload: unknown): string {
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin, session } = await authenticateAdmin(request);
+  const { admin, session } = await guardMember(request, "billing:manage");
   await persistShopIdentity(admin, session.shop);
   const result = await reconcileShop({
     refreshSubscription: () => refreshShopSubscription(getEnv(), session.shop),
@@ -145,7 +145,7 @@ async function readPlanLink({ shop, env, graphql }: PlanLinkSource): Promise<str
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Authentication is awaited: Shopify requires a valid session token on every
   // request, and its redirect / bounce responses must keep working.
-  const { admin, session } = await authenticateAdmin(request);
+  const { admin, session } = await guardMember(request, "billing:manage");
   if (shouldShowProcessing(request.url)) return { pricingReturn: true as const };
 
   const env = getEnv();
@@ -247,8 +247,7 @@ function PlanCatalog({ currentPlanHandle }: { currentPlanHandle: string | null }
   return (
     <s-section heading={t("billing.plans.heading")}>
       <s-paragraph color="subdued">{t("billing.plans.body")}</s-paragraph>
-      <style dangerouslySetInnerHTML={{ __html: PLAN_CARD_CSS }} />
-      <div className="bp-grid">
+      <s-grid gridTemplateColumns="repeat(auto-fit, minmax(16rem, 1fr))" gap="base">
         {PLAN_LIST.map((plan, index) => (
           <PlanCard
             key={plan.handle}
@@ -268,7 +267,7 @@ function PlanCatalog({ currentPlanHandle }: { currentPlanHandle: string | null }
             }
           />
         ))}
-      </div>
+      </s-grid>
     </s-section>
   );
 }

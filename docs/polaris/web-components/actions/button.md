@@ -4,7 +4,7 @@ description: >-
   The button component triggers actions or events, such as submitting forms,
   opening dialogs, or navigating to other pages. Use button to let users perform
   specific tasks or initiate interactions throughout the interface.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: 'https://shopify.dev/docs/api/app-home/latest/web-components/actions/button'
   md: >-
@@ -25,128 +25,19 @@ Buttons support various visual styles, tones, and interaction patterns to commun
 * **Secondary actions:** Provide supporting actions such as "Cancel," "Reset," or "View details."
 * **Loading states:** Show loading indicators during API calls while preventing duplicate submissions.
 
+```html
+<s-button>Button</s-button>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the button component.
 
-* **disabled**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether the button is disabled, preventing it from being clicked or receiving focus.
-
-* **icon**
-
-  **"" | "replace" | "search" | "split" | "link" | "edit" | "info" | "incomplete" | "complete" | "product" | "variant" | "collection" | "select" | "color" | "money" | "order" | "code" | ... 541 more ... | "x-circle-filled"**
-
-  **required**
-
-  An icon displayed inside the button, typically positioned before the button text. Use icons to help users quickly identify the button's action or to improve scannability. Accepts any icon name from the icon library or a custom string identifier.
-
-* **loading**
-
-  **boolean**
-
-  **Default: false**
-
-  **required**
-
-  Whether to replace the button content with a loading indicator while a background action is being performed.
-
-  This also disables the button component.
-
-* **variant**
-
-  **"auto" | "primary" | "secondary" | "tertiary"**
-
-  **Default: 'auto'**
-
-  **required**
-
-  The visual appearance of the button component.
-
-  * `auto`: The variant is automatically determined by the button component's context.
-  * `primary`: High emphasis button for the primary action on the page. Should be used sparingly.
-  * `secondary`: Medium emphasis button for secondary actions.
-  * `tertiary`: Low emphasis button for less important actions.
-
-* **tone**
-
-  **"critical" | "auto" | "neutral"**
-
-  **Default: 'auto'**
-
-  **required**
-
-  The semantic meaning and color treatment of the component.
-
-  * `critical`: Urgent problems or destructive actions.
-  * `auto`: Automatically determined based on context.
-  * `neutral`: General information without specific intent.
-
-* **target**
-
-  **"auto" | AnyString | "\_blank" | "\_self" | "\_parent" | "\_top"**
-
-  **Default: 'auto'**
-
-  **required**
-
-  The browsing context where the linked URL should be displayed.
-
-  * `auto`: The target is automatically determined based on the origin of the URL.
-  * `_blank`: Opens the URL in a new window or tab.
-  * `_self`: Opens the URL in the same browsing context as the current one.
-  * `_parent`: Opens the URL in the parent browsing context of the current one. If there is no parent, behaves as `_self`.
-  * `_top`: Opens the URL in the topmost browsing context (the highest ancestor of the current one). If there is no ancestor, behaves as `_self`.
-
-* **href**
-
-  **string**
-
-  **required**
-
-  The URL to navigate to when clicked. The `click` event fires first, then navigation occurs. If `commandFor` is also set, the command executes instead of navigation.
-
-* **download**
-
-  **string**
-
-  **required**
-
-  Prompts the browser to download the linked URL rather than navigate to it. When set, the value specifies the suggested filename for the downloaded file.
-
-  The filename suggestion is only respected for same-origin URLs, `blob:`, and `data:` schemes. Cross-origin URLs can still trigger downloads, but browsers might ignore the suggested filename.
-
-  Learn more about the [download attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a#download).
-
-* **type**
-
-  **"button" | "reset" | "submit"**
-
-  **Default: 'button'**
-
-  **required**
-
-  The behavior of the button component.
-
-  * `button`: Used to indicate the component acts as a button, meaning it has no default action.
-  * `reset`: Used to indicate the component acts as a reset button, meaning it resets the closest form (returning fields to their default values).
-  * `submit`: Used to indicate the component acts as a submit button, meaning it submits the closest form.
-
-  This property is ignored if the component supports `href` or `commandFor`/`command` and one of them is set.
-
 * **accessibility​Label**
 
   **string**
-
-  **required**
 
   A label that describes the purpose or content of the component for assistive technologies like screen readers. Use this to provide additional context when the visible content alone doesn't clearly convey the component's purpose.
 
@@ -155,8 +46,6 @@ Configure the following properties on the button component.
   **'--auto' | '--show' | '--hide' | '--toggle'**
 
   **Default: '--auto'**
-
-  **required**
 
   The action that [command](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/button#command) should take when this component is activated.
 
@@ -169,17 +58,120 @@ Configure the following properties on the button component.
 
   **string**
 
-  **required**
-
   The component that [commandFor](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/button#commandfor) should act on when this component is activated.
+
+* **disabled**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the button is disabled, preventing it from being clicked or receiving focus.
+
+* **download**
+
+  **string**
+
+  Prompts the browser to download the linked URL rather than navigate to it. When set, the value specifies the suggested filename for the downloaded file.
+
+  The filename suggestion is only respected for same-origin URLs, `blob:`, and `data:` schemes. Cross-origin URLs can still trigger downloads, but browsers might ignore the suggested filename.
+
+  Learn more about the [download attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a#download).
+
+* **href**
+
+  **string**
+
+  The URL to navigate to when clicked. The `click` event fires first, then navigation occurs. If `commandFor` is also set, the command executes instead of navigation.
+
+* **icon**
+
+  **"" | "replace" | "search" | "split" | "link" | "edit" | "info" | "incomplete" | "complete" | "product" | "variant" | "collection" | "select" | "color" | "money" | "order" | "code" | ... 588 more ... | "x-circle-filled"**
+
+  **Default: ''**
+
+  An icon displayed inside the button, typically positioned before the button text. Use icons to help users quickly identify the button's action or to improve scannability. Accepts any icon name from the icon library or a custom string identifier.
+
+* **inline​Size**
+
+  **"auto" | "fill" | "fit-content"**
+
+  **Default: 'auto'**
+
+  The displayed inline width of the Button.
+
+  * `auto`: the size of the button depends on the surface and context.
+  * `fill`: the button will takes up 100% of the available inline size.
+  * `fit-content`: the button will take up the minimum inline-size required to fit its content.
 
 * **interest​For**
 
   **string**
 
-  **required**
-
   The ID of the component to show when users hover over or focus on this component. Use this to connect interactive components to popovers or tooltips that provide additional context or information.
+
+* **loading**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether to replace the button content with a loading indicator while a background action is being performed.
+
+  This also disables the button component.
+
+* **target**
+
+  **"auto" | AnyString | "\_blank" | "\_self" | "\_parent" | "\_top"**
+
+  **Default: 'auto'**
+
+  The browsing context where the linked URL should be displayed.
+
+  * `auto`: The target is automatically determined based on the origin of the URL.
+  * `_blank`: Opens the URL in a new window or tab.
+  * `_self`: Opens the URL in the same browsing context as the current one.
+  * `_parent`: Opens the URL in the parent browsing context of the current one. If there is no parent, behaves as `_self`.
+  * `_top`: Opens the URL in the topmost browsing context (the highest ancestor of the current one). If there is no ancestor, behaves as `_self`.
+
+* **tone**
+
+  **"critical" | "auto" | "neutral"**
+
+  **Default: 'auto'**
+
+  The semantic meaning and color treatment of the component.
+
+  * `critical`: Urgent problems or destructive actions.
+  * `auto`: Automatically determined based on context.
+  * `neutral`: General information without specific intent.
+
+* **type**
+
+  **"button" | "reset" | "submit"**
+
+  **Default: 'button'**
+
+  The behavior of the button component.
+
+  * `button`: Used to indicate the component acts as a button, meaning it has no default action.
+  * `reset`: Used to indicate the component acts as a reset button, meaning it resets the closest form (returning fields to their default values).
+  * `submit`: Used to indicate the component acts as a submit button, meaning it submits the closest form.
+
+  This property is ignored if the component supports `href` or `commandFor`/`command` and one of them is set.
+
+* **variant**
+
+  **"auto" | "primary" | "secondary" | "tertiary"**
+
+  **Default: 'auto'**
+
+  The visual appearance of the button component.
+
+  * `auto`: The variant is automatically determined by the button component's context.
+  * `primary`: High emphasis button for the primary action on the page. Should be used sparingly.
+  * `secondary`: Medium emphasis button for secondary actions.
+  * `tertiary`: Low emphasis button for less important actions.
 
 ### AnyString
 
@@ -195,9 +187,7 @@ The button component provides event callbacks for handling user interactions. Le
 
 * **blur**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TTagName> | null**
 
   A callback fired when the button loses focus.
 
@@ -205,9 +195,7 @@ The button component provides event callbacks for handling user interactions. Le
 
 * **click**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TTagName> | null**
 
   A callback fired when the button is clicked.
 
@@ -215,9 +203,7 @@ The button component provides event callbacks for handling user interactions. Le
 
 * **focus**
 
-  **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
+  **CallbackEventListener\<TTagName> | null**
 
   A callback fired when the button receives focus.
 

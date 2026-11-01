@@ -4,7 +4,7 @@ description: >-
   The number field component captures numeric input with built-in number
   validation. Use it to collect quantities, prices, or other numeric
   information.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/forms/number-field
@@ -26,27 +26,67 @@ The component supports min/max constraints and step increments for guided numeri
 * **Thresholds:** Set numeric thresholds for alerts, reorder points, or limits.
 * **Measurements:** Input dimensions, weights, or other numeric product attributes.
 
+```html
+<s-number-field label="Quantity" value="3" min="0"></s-number-field>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the number field component.
 
-* **value**
+* **autocomplete**
+
+  **"on" | "off" | NumberAutocompleteField | \`section-${string} one-time-code\` | \`section-${string} cc-number\` | \`section-${string} cc-csc\` | "shipping one-time-code" | "shipping cc-number" | "shipping cc-csc" | "billing one-time-code" | ... 7 more ... | \`section-${string} billing cc-csc\`**
+
+  **Default: 'on' for everything else**
+
+  A hint as to the intended content of the field.
+
+  When set to `on` (the default), this property indicates that the field should support autofill, but you do not have any more semantic information on the intended contents.
+
+  When set to `off`, you are indicating that this field contains sensitive information, or contents that are never saved, like one-time codes.
+
+  Alternatively, you can provide value which describes the specific data you would like to be entered into this field during autofill.
+
+* **default​Value**
 
   **string**
 
-  **required**
+  The initial value of the field when it first loads. Unlike `placeholder`, this is a real value that the user can edit and that gets submitted with the form. Once the user starts typing, their input replaces it. Changing this property after the field has loaded has no effect. To update the field value at any time, use `value` instead.
 
-  The current numeric value in the field as a string. When setting this property programmatically, it updates the field's display value. When reading it, you get the user's current input. The value should be a numeric string (decimal or integer).
+* **details**
+
+  **ComponentChildren**
+
+  Supplementary text displayed below the field to provide additional context, instructions, or help. Use this to clarify the expected input or provide guidance to users. This text is announced to screen readers.
+
+* **disabled**
+
+  **boolean**
+
+  **Default: false**
+
+  Whether the field is disabled, preventing any user interaction.
+
+* **error**
+
+  **ComponentChildren**
+
+  An error message displayed below the field to indicate validation problems. When set, the field is styled with error indicators and the message is announced to screen readers.
+
+* **id**
+
+  **string**
+
+  A unique identifier for the element. Use this to reference the element in JavaScript, link labels to form controls, or target specific elements for styling or scripting.
 
 * **input​Mode**
 
   **"decimal" | "numeric"**
 
   **Default: 'decimal'**
-
-  **required**
 
   The type of virtual keyboard to display on mobile devices.
 
@@ -55,23 +95,30 @@ Configure the following properties on the number field component.
 
   Learn more about the [inputmode attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/inputmode).
 
-* **step**
+* **label**
 
-  **number**
+  **ComponentChildren**
 
-  **Default: 1**
+  The text displayed as the field label, which identifies the purpose of the field to users. This label is associated with the field for accessibility and helps users understand what information to provide.
 
-  **required**
+* **label​Accessibility​Visibility**
 
-  The amount the value can increase or decrease by. This can be an integer or decimal. If a `max` or `min` is specified with `step` when increasing/decreasing the value via the buttons, the final value will always round to the `max` or `min` rather than the closest valid amount.
+  **"visible" | "exclusive"**
+
+  **Default: 'visible'**
+
+  Controls whether the label is visible to all users or only to screen readers.
+
+  * `visible`: The label is shown to everyone (default).
+  * `exclusive`: The label is visually hidden but still announced by screen readers.
+
+  Use `exclusive` when the surrounding context makes the label redundant visually, but screen reader users still need it for clarity.
 
 * **max**
 
   **number**
 
   **Default: Infinity**
-
-  **required**
 
   The highest decimal or integer value accepted for the field. When used with `step`, the value rounds down to the maximum number.
 
@@ -83,11 +130,21 @@ Configure the following properties on the number field component.
 
   **Default: -Infinity**
 
-  **required**
-
   The lowest decimal or integer value accepted for the field. When used with `step`, the value rounds up to the minimum number.
 
   Users can still type values lower than the minimum using the keyboard. Implement validation to enforce this constraint.
+
+* **name**
+
+  **string**
+
+  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
+
+* **placeholder**
+
+  **string**
+
+  The placeholder text displayed in the field when it's empty, providing a hint about the expected input format or value.
 
 * **prefix**
 
@@ -95,111 +152,15 @@ Configure the following properties on the number field component.
 
   **Default: ''**
 
-  **required**
-
   A non-editable text value displayed immediately before the editable portion of the field. This is useful for displaying an implied part of the value, such as `https://` or `+353`.
 
   This text can't be edited by the user and is not included in the field's value. The prefix might not appear until the user interacts with the field. For example, an inline label might occupy the prefix position until the user focuses the field.
-
-* **suffix**
-
-  **string**
-
-  **Default: ''**
-
-  **required**
-
-  A non-editable text value displayed immediately after the editable portion of the field. This is useful for displaying an implied part of the value, such as `@shopify.com` or `%`.
-
-  This text can't be edited by the user and is not included in the field's value. The suffix might not appear until the user interacts with the field. For example, an inline label might occupy the suffix position until the user focuses the field.
-
-* **autocomplete**
-
-  **"on" | "off" | NumberAutocompleteField | \`section-${string} one-time-code\` | \`section-${string} cc-number\` | \`section-${string} cc-csc\` | "shipping one-time-code" | "shipping cc-number" | "shipping cc-csc" | "billing one-time-code" | ... 7 more ... | \`section-${string} billing cc-csc\`**
-
-  **Default: 'on' for everything else**
-
-  **required**
-
-  Controls browser autofill behavior for the field.
-
-  Basic values:
-
-  * `on` - Enables autofill without specifying content type (default)
-  * `off` - Disables autofill for sensitive data or one-time codes
-
-  Specific field values describe the expected data type. You can optionally prefix these with:
-
-  * `section-${string}` - Scopes autofill to a specific form section (when multiple forms exist on the same page)
-  * `shipping` or `billing` - Indicates whether the data is for shipping or billing purposes
-  * Both section and group (for example, `section-primary shipping email`)
-
-  Providing a specific autofill token helps browsers suggest more relevant saved data.
-
-  Learn more about the set of [autocomplete values](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#autofill-detail-tokens) supported in browsers.
-
-* **default​Value**
-
-  **string**
-
-  **required**
-
-  The initial value of the field when it first loads. Unlike `placeholder`, this is a real value that the user can edit and that gets submitted with the form. Once the user starts typing, their input replaces it. Changing this property after the field has loaded has no effect. To update the field value at any time, use `value` instead.
-
-* **details**
-
-  **string**
-
-  **required**
-
-  Supplementary text displayed below the checkbox to provide additional context, instructions, or help. Use this to explain what checking the box means or provide guidance to users. This text is announced to screen readers.
-
-* **error**
-
-  **string**
-
-  **required**
-
-  An error message displayed below the checkbox to indicate validation problems. When set, the checkbox is styled with error indicators and the message is announced to screen readers.
-
-* **label**
-
-  **string**
-
-  **required**
-
-  The text displayed as the field label, which identifies the purpose of the field to users. This label is associated with the field for accessibility and helps users understand what information to provide.
-
-* **label​Accessibility​Visibility**
-
-  **"visible" | "exclusive"**
-
-  **Default: 'visible'**
-
-  **required**
-
-  Controls whether the label is visible to all users or only to screen readers.
-
-  * `visible`: The label is shown to everyone (default).
-  * `exclusive`: The label is visually hidden but still announced by screen readers.
-
-  Use `exclusive` when the surrounding context makes the label redundant visually, but screen reader users still need it for clarity.
-
-* **placeholder**
-
-  **string**
-
-  **required**
-
-  The placeholder text displayed in the field when it's empty, providing a hint about the expected input format or value.
 
 * **read​Only**
 
   **boolean**
 
   **Default: false**
-
-  **required**
 
   Whether the field is read-only and can't be edited. Read-only fields remain focusable and their content is announced by screen readers.
 
@@ -209,35 +170,31 @@ Configure the following properties on the number field component.
 
   **Default: false**
 
-  **required**
-
   Whether the field requires a value before form submission. Displays a visual indicator and adds semantic meaning, but doesn't automatically validate or show errors. Use the `error` property to display validation messages.
 
-* **disabled**
+* **step**
 
-  **boolean**
+  **number**
 
-  **Default: false**
+  **Default: 1**
 
-  **required**
+  The amount the value can increase or decrease by. This can be an integer or decimal. If a `max` or `min` is specified with `step` when increasing/decreasing the value via the buttons, the final value will always round to the `max` or `min` rather than the closest valid amount.
 
-  Whether the field is disabled, preventing any user interaction.
-
-* **id**
+* **suffix**
 
   **string**
 
-  **required**
+  **Default: ''**
 
-  A unique identifier for the element. Use this to reference the element in JavaScript, link labels to form controls, or target specific elements for styling or scripting.
+  A non-editable text value displayed immediately after the editable portion of the field. This is useful for displaying an implied part of the value, such as `@shopify.com` or `%`.
 
-* **name**
+  This text can't be edited by the user and is not included in the field's value. The suffix might not appear until the user interacts with the field. For example, an inline label might occupy the suffix position until the user focuses the field.
+
+* **value**
 
   **string**
 
-  **required**
-
-  The name attribute for the field, used to identify the field's value when the form is submitted. Must be unique within the nearest containing form.
+  The current value for the field. If omitted, the field will be empty.
 
 ### NumberAutocompleteField
 
@@ -245,6 +202,14 @@ Represents autocomplete values that are valid for number input fields. This is a
 
 ```ts
 'one-time-code' | 'cc-number' | 'cc-csc'
+```
+
+### ComponentChildren
+
+Represents any valid children that can be rendered within a component, including elements, strings, numbers, or arrays of these types. This is an alias for Preact's \`ComponentChildren\` type.
+
+```ts
+preact.ComponentChildren
 ```
 
 ### Events
@@ -255,8 +220,6 @@ The number field component provides event callbacks for handling user interactio
 
   **CallbackEventListener<'input'>**
 
-  **required**
-
   A callback fired when the number field loses focus.
 
   Learn more about the [blur event](https://developer.mozilla.org/en-US/docs/Web/API/Element/blur_event).
@@ -264,8 +227,6 @@ The number field component provides event callbacks for handling user interactio
 * **change**
 
   **CallbackEventListener<'input'>**
-
-  **required**
 
   A callback fired when the number field value changes.
 
@@ -275,8 +236,6 @@ The number field component provides event callbacks for handling user interactio
 
   **CallbackEventListener<'input'>**
 
-  **required**
-
   A callback fired when the number field receives focus.
 
   Learn more about the [focus event](https://developer.mozilla.org/en-US/docs/Web/API/Element/focus_event).
@@ -284,8 +243,6 @@ The number field component provides event callbacks for handling user interactio
 * **input**
 
   **CallbackEventListener<'input'>**
-
-  **required**
 
   A callback fired when the user inputs data into the number field.
 

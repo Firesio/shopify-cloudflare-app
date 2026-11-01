@@ -4,7 +4,7 @@ description: >-
   Most apps need a way for merchants to manage collections of resources and
   perform actions on them. For React Router-based Shopify apps, that index route
   file (app.[resources].jsx) should use a plural noun for the resource type.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/patterns/templates/resource-index
@@ -19,43 +19,43 @@ Most apps need a way for merchants to manage collections of resources and perfor
 
 The index pattern provides this foundation while following proven design guidelines that help your app feel native to the Shopify admin. See [Built for Shopify requirements](https://shopify.dev/docs/apps/launch/built-for-shopify/requirements) for more details on these guidelines.
 
-### Related Components (20) APIs (4) Compositions (3)
+### Related Components (21) APIs (4) Compositions (2)
 
 ### Supported components
 
-* [Badge](https://shopify.dev/docs/api/app-home/v1.0/web-components/feedback-and-status-indicators/badge)
-* [Box](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/box)
-* [Button](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/button)
-* [Button group](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/button-group)
-* [Checkbox](https://shopify.dev/docs/api/app-home/v1.0/web-components/forms/checkbox)
-* [Choice list](https://shopify.dev/docs/api/app-home/v1.0/web-components/forms/choice-list)
-* [Grid](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/grid)
-* [Heading](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/heading)
-* [Icon](https://shopify.dev/docs/api/app-home/v1.0/web-components/media-and-visuals/icon)
-* [Image](https://shopify.dev/docs/api/app-home/v1.0/web-components/media-and-visuals/image)
-* [Link](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/link)
-* [Paragraph](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/paragraph)
-* [Popover](https://shopify.dev/docs/api/app-home/v1.0/web-components/overlays/popover)
-* [Section](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/section)
-* [Stack](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/stack)
-* [Table](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/table)
-* [Text](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/text)
-* [Text field](https://shopify.dev/docs/api/app-home/v1.0/web-components/forms/text-field)
-* [Thumbnail](https://shopify.dev/docs/api/app-home/v1.0/web-components/media-and-visuals/thumbnail)
-* [Tooltip](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/tooltip)
+* [Badge](https://shopify.dev/docs/api/app-home/v2.0/web-components/feedback-and-status-indicators/badge)
+* [Box](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/box)
+* [Button](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/button)
+* [Button group](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/button-group)
+* [Checkbox](https://shopify.dev/docs/api/app-home/v2.0/web-components/forms/checkbox)
+* [Choice list](https://shopify.dev/docs/api/app-home/v2.0/web-components/forms/choice-list)
+* [Empty state](https://shopify.dev/docs/api/app-home/v2.0/web-components/feedback-and-status-indicators/empty-state)
+* [Grid](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/grid)
+* [Heading](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/heading)
+* [Icon](https://shopify.dev/docs/api/app-home/v2.0/web-components/media-and-visuals/icon)
+* [Image](https://shopify.dev/docs/api/app-home/v2.0/web-components/media-and-visuals/image)
+* [Link](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/link)
+* [Paragraph](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/paragraph)
+* [Popover](https://shopify.dev/docs/api/app-home/v2.0/web-components/overlays/popover)
+* [Section](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/section)
+* [Stack](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/stack)
+* [Table](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/table)
+* [Text](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/text)
+* [Text field](https://shopify.dev/docs/api/app-home/v2.0/web-components/forms/text-field)
+* [Thumbnail](https://shopify.dev/docs/api/app-home/v2.0/web-components/media-and-visuals/thumbnail)
+* [Tooltip](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/tooltip)
 
 ### Available APIs
 
-* [Intents API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/intents-api)
-* [Modal API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/modal-api)
-* [Navigation API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/navigation-api)
-* [Toast API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/toast-api)
+* [Intents API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/intents-api)
+* [Modal API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/modal-api)
+* [Navigation API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/navigation-api)
+* [Toast API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/toast-api)
 
 ### Recommended compositions
 
-* [Empty state](https://shopify.dev/docs/api/app-home/v1.0/patterns/compositions/empty-state)
-* [Footer help](https://shopify.dev/docs/api/app-home/v1.0/patterns/compositions/footer-help)
-* [Metrics card](https://shopify.dev/docs/api/app-home/v1.0/patterns/compositions/metrics-card)
+* [Footer help](https://shopify.dev/docs/api/app-home/v2.0/patterns/compositions/footer-help)
+* [Metrics card](https://shopify.dev/docs/api/app-home/v2.0/patterns/compositions/metrics-card)
 
 #### Use cases
 
@@ -69,11 +69,12 @@ The index pattern provides this foundation while following proven design guideli
 
 ### Display an index table with filters, search, and bulk actions
 
-Merchants need to manage a collection of resources and perform actions on them. This example displays an index table for a Product Quality Auditor app with filter tabs, search, sortable columns, bulk selection, and bulk actions. The table shows product thumbnails, quality scores, issue counts, and status badges.
+Merchants need to manage a collection of resources and perform actions on them. This example displays an index page for a puzzle app, with page actions for creating, exporting, and importing puzzles, and a table of puzzles with thumbnails, piece counts, creation dates, and status badges. Merchants who haven't created a puzzle yet see an [empty state](https://shopify.dev/docs/api/app-home/latest/web-components/feedback-and-status-indicators/empty-state) instead, with its illustration in the `graphic` slot, its description in the `subheading` slot, and its buttons in the `secondary-actions` and `primary-action` slots.
 
 ##### jsx
 
 ```tsx
+// @validate-ignore: Property 's-empty-state' does not exist on type 'JSX.IntrinsicElements'
 <s-page heading="Puzzles">
       <s-button slot="primary-action" variant="primary">
         Create puzzle
@@ -89,8 +90,8 @@ Merchants need to manage a collection of resources and perform actions on them. 
       {/* This should only be visible if the merchant has not created any puzzles yet. */}
       {/* === */}
       <s-section accessibilityLabel="Empty state section">
-        <s-grid gap="base" justifyItems="center" paddingBlock="large-400">
-          <s-box maxInlineSize="200px" maxBlockSize="200px">
+        <s-empty-state heading="Start creating puzzles">
+          <s-box slot="graphic" maxInlineSize="200px">
             {/* aspectRatio should match the actual image dimensions (width/height) */}
             <s-image
               aspectRatio="1/0.5"
@@ -98,29 +99,19 @@ Merchants need to manage a collection of resources and perform actions on them. 
               alt="A stylized graphic of four characters, each holding a puzzle piece"
             />
           </s-box>
-          <s-grid justifyItems="center" maxInlineSize="450px" gap="base">
-            <s-stack alignItems="center">
-              <s-heading>Start creating puzzles</s-heading>
-              <s-paragraph>
-                Create and manage your collection of puzzles for players to
-                enjoy.
-              </s-paragraph>
-            </s-stack>
-            <s-button-group>
-              <s-button
-                slot="secondary-actions"
-                accessibilityLabel="Learn more about creating puzzles"
-              >
-                {" "}
-                Learn more{" "}
-              </s-button>
-              <s-button slot="primary-action" accessibilityLabel="Add a new puzzle">
-                {" "}
-                Create puzzle{" "}
-              </s-button>
-            </s-button-group>
-          </s-grid>
-        </s-grid>
+          <s-text slot="subheading">
+            Create and manage your collection of puzzles for players to enjoy.
+          </s-text>
+          <s-button
+            slot="secondary-actions"
+            accessibilityLabel="Learn more about creating puzzles"
+          >
+            Learn more
+          </s-button>
+          <s-button slot="primary-action" variant="primary">
+            Create puzzle
+          </s-button>
+        </s-empty-state>
       </s-section>
 
       {/* === */}
@@ -246,10 +237,11 @@ Merchants need to manage a collection of resources and perform actions on them. 
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://cdn.shopify.com/shopifycloud/polaris.js"></script>
+    <script src="https://cdn.shopify.com/shopifycloud/polaris-2.0.js"></script>
     <title>Pattern</title>
   </head>
   <body>
+    <!-- @validate-ignore: Property 's-empty-state' does not exist on type 'JSX.IntrinsicElements' -->
     <!-- === -->
     <!-- Index page pattern -->
     <!-- === -->
@@ -262,28 +254,21 @@ Merchants need to manage a collection of resources and perform actions on them. 
       <!-- This should only be visible if the merchant has not created any puzzles yet. -->
       <!-- === -->
       <s-section accessibilityLabel="Empty state section">
-        <s-grid gap="base" justifyItems="center" paddingBlock="large-400">
-          <s-box maxInlineSize="200px" maxBlockSize="200px">
+        <s-empty-state heading="Start creating puzzles">
+          <s-box slot="graphic" maxInlineSize="200px">
             <!-- aspectRatio should match the actual image dimensions (width/height) -->
             <s-image
               aspectRatio="1/0.5"
               src="https://cdn.shopify.com/static/images/polaris/patterns/callout.png"
               alt="A stylized graphic of four characters, each holding a puzzle piece"
-            />
+            ></s-image>
           </s-box>
-          <s-grid justifyItems="center" maxInlineSize="450px" gap="base">
-            <s-stack alignItems="center">
-              <s-heading>Start creating puzzles</s-heading>
-              <s-paragraph>
-                Create and manage your collection of puzzles for players to enjoy.
-              </s-paragraph>
-            </s-stack>
-            <s-button-group>
-              <s-button slot="secondary-actions" aria-label="Learn more about creating puzzles"> Learn more </s-button>
-              <s-button slot="primary-action" aria-label="Add a new puzzle"> Create puzzle </s-button>
-            </s-button-group>
-          </s-grid>
-        </s-grid>
+          <s-text slot="subheading">
+            Create and manage your collection of puzzles for players to enjoy.
+          </s-text>
+          <s-button slot="secondary-actions" accessibilityLabel="Learn more about creating puzzles">Learn more</s-button>
+          <s-button slot="primary-action" variant="primary">Create puzzle</s-button>
+        </s-empty-state>
       </s-section>
       <!-- === -->
       <!-- Table -->
@@ -384,82 +369,70 @@ Merchants need to manage a collection of resources and perform actions on them. 
 
 ### Make empty states actionable using Intents
 
-Use the [Intents API](https://shopify.dev/docs/api/app-home/latest/apis/user-interface-and-interactions/intents-api) to open native Shopify interfaces for creating products directly from an empty state.
+Use the [Intents API](https://shopify.dev/docs/api/app-home/latest/apis/user-interface-and-interactions/intents-api) to open native Shopify interfaces for creating products directly from an [empty state](https://shopify.dev/docs/api/app-home/latest/web-components/feedback-and-status-indicators/empty-state). Each button in the empty state's `secondary-actions` and `primary-action` slots invokes an intent.
 
 ##### jsx
 
 ```tsx
-{/* @validate-ignore: possibly 'undefined', Cannot invoke an object */}
+{/* @validate-ignore: possibly 'undefined', Cannot invoke an object, Property 's-empty-state' does not exist on type 'JSX.IntrinsicElements' */}
 <s-section accessibilityLabel="Empty state with intents">
-  <s-grid gap="base" justifyItems="center" paddingBlock="large-400">
-    <s-box maxInlineSize="200px" maxBlockSize="200px">
+  <s-empty-state heading="No products yet">
+    <s-box slot="graphic" maxInlineSize="200px">
       <s-image
         aspectRatio="1/0.5"
         src="https://cdn.shopify.com/static/images/polaris/patterns/callout.png"
         alt="Illustration showing product creation"
       />
     </s-box>
-    <s-grid justifyItems="center" maxInlineSize="450px" gap="base">
-      <s-stack alignItems="center">
-        <s-heading>No products yet</s-heading>
-        <s-paragraph>
-          Add products from your Shopify catalog to get started with quality auditing.
-        </s-paragraph>
-      </s-stack>
-      <s-button-group>
-        <s-button
-          slot="secondary-actions"
-          onClick={() => {
-            shopify.intents.invoke('browse:shopify/Product');
-          }}
-        >
-          Browse products
-        </s-button>
-        <s-button
-          slot="primary-action"
-          onClick={async () => {
-            const activity = await shopify.intents.invoke('create:shopify/Product');
-            const response = await activity.complete;
-            if (response.code === 'ok') {
-              shopify.toast.show('Product created');
-            }
-          }}
-        >
-          Create product
-        </s-button>
-      </s-button-group>
-    </s-grid>
-  </s-grid>
+    <s-text slot="subheading">
+      Add products from your Shopify catalog to get started with quality auditing.
+    </s-text>
+    <s-button
+      slot="secondary-actions"
+      onClick={() => {
+        shopify.intents.invoke('browse:shopify/Product');
+      }}
+    >
+      Browse products
+    </s-button>
+    <s-button
+      slot="primary-action"
+      variant="primary"
+      onClick={async () => {
+        const activity = await shopify.intents.invoke('create:shopify/Product');
+        const response = await activity.complete;
+        if (response.code === 'ok') {
+          shopify.toast.show('Product created');
+        }
+      }}
+    >
+      Create product
+    </s-button>
+  </s-empty-state>
 </s-section>
 ```
 
 ##### html
 
 ```html
+<!-- @validate-ignore: Property 's-empty-state' does not exist on type 'JSX.IntrinsicElements' -->
 <!-- Empty state with Intents API actions -->
 <!-- Note: Intents require JavaScript to invoke. This HTML shows the UI structure. -->
 <s-section accessibilityLabel="Empty state with intents">
-  <s-grid gap="base" justifyItems="center" paddingBlock="large-400">
-    <s-box maxInlineSize="200px" maxBlockSize="200px">
+  <s-empty-state heading="No products yet">
+    <s-box slot="graphic" maxInlineSize="200px">
       <s-image
         aspectRatio="1/0.5"
         src="https://cdn.shopify.com/static/images/polaris/patterns/callout.png"
         alt="Illustration showing product creation"
       ></s-image>
     </s-box>
-    <s-grid justifyItems="center" maxInlineSize="450px" gap="base">
-      <s-stack alignItems="center">
-        <s-heading>No products yet</s-heading>
-        <s-paragraph>
-          Add products from your Shopify catalog to get started with quality auditing.
-        </s-paragraph>
-      </s-stack>
-      <s-button-group>
-        <s-button slot="secondary-actions">Browse products</s-button>
-        <s-button slot="primary-action">Create product</s-button>
-      </s-button-group>
-    </s-grid>
-  </s-grid>
+    <s-text slot="subheading">
+      Add products from your Shopify catalog to get started with quality auditing.
+    </s-text>
+    <s-button slot="secondary-actions">Browse products</s-button>
+    <s-button slot="primary-action" variant="primary">Create product</s-button>
+  </s-empty-state>
 </s-section>
 
 <!-- 

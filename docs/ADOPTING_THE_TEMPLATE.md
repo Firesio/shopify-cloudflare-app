@@ -86,6 +86,17 @@ and evidence; a checked box is not a substitute for a tested implementation.
 - If the app does not use AI, remove its UI and provider configuration rather
   than leaving a merchant-facing path with an undefined policy.
 
+- Decide who may use the app: open `app/members/config.ts` and choose how a Shopify
+  user who is not yet a member is handled (`auto_join`, `invite_only`, `approval`),
+  the role strangers get, and whether to ask Shopify for the person's email and name
+  (`invite_only` needs it). Then give each role the permissions your features need
+  (`app/domain/member-access.ts`) and guard every embedded route with the one it
+  needs. Rules and extension points: `.claude/rules/members.md`. Members are staff of
+  the merchant, so they carry a name and an email: confirm the privacy copy covers them.
+  Decide whether the team is limited by plan: give a plan a `limit` on `members.max` in
+  `app/billing/plans.ts`, or leave it `unlimited` (or delete the key) for no limit. The Team
+  page is at `/app/members` and shows only to roles that may manage members.
+
 ## 4. Inventory customer data and compliance behavior
 
 - List every table, object, cache, log, queue payload, email, analytics event,

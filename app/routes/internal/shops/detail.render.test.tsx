@@ -12,6 +12,7 @@ import type { SubscriptionHistoryRow } from "~/models/shopify-events.server";
 import type { ShopPlanGrant } from "~/db/schema/plan-grants";
 import type { EffectivePlanResult } from "~/domain/plan-hierarchy";
 import type { PlanHandle } from "~/billing/plans";
+import type { SeatSummary, TeamMember } from "~/domain/member-team";
 
 type EventHistoryRow = {
   readonly id: string;
@@ -67,6 +68,8 @@ async function render(data: {
   events: EventHistoryRow[];
   reconciliation?: { lastSucceededAt: number | null; lastFailedAt: number | null; failureCode: string | null; failureDetail: string | null } | null;
   promoStatus?: { activeGrant: ShopPlanGrant | null; history: ShopPlanGrant[] };
+  team?: TeamMember[];
+  seats?: SeatSummary;
   effective?: EffectivePlanResult;
   promoAvailablePlans?: { handle: PlanHandle; name: string }[];
   now?: number;
@@ -82,6 +85,8 @@ async function render(data: {
         detail: {
           reconciliation: null,
           promoStatus: { activeGrant: null, history: [] },
+          team: [],
+          seats: { kind: "unlimited" },
           effective: { planHandle: "free", source: "organic", activePromo: null },
           promoAvailablePlans: [],
           now: 0,
@@ -172,5 +177,33 @@ describe("the internal shop detail page", () => {
     expect(html).toContain("Promotional Plan Overrides");
     expect(html).toContain("Promo Active: PRO");
     expect(html).toContain("10d left");
+  });
+
+  it("lists the shop's team read-only, waiting people first, with seats used", async () => {
+    const html = await render({
+      shop: shop(),
+      history: [],
+      events: [],
+      team: [
+        { id: "a", linked: true, name: "Olu", email: "olu@firesio.app", role: "owner", status: "active", accountOwner: true, lastSeenAt: Date.UTC(2026, 10, 1, 9, 30) },
+        { id: "w", linked: true, name: "Wes", email: "wes@firesio.app", role: "viewer", status: "pending", accountOwner: false, lastSeenAt: null },
+        { id: "i", linked: false, name: null, email: "invited@firesio.app", role: "admin", status: "invited", accountOwner: false, lastSeenAt: null },
+      ],
+      seats: { kind: "limit", maximum: 5, used: 1, left: 4, over: 0 },
+    });
+    expect(html).toContain("Read only");
+    expect(html).toContain("1 of 5 seats in use");
+    expect(html.indexOf("Wes")).toBeLessThan(html.indexOf("Olu"));
+    expect(html).toContain("store owner");
+    expect(html).toContain("invited@firesio.app");
+    expect(html).toContain("Waiting");
+    expect(html).toContain("Nov 1, 2026");
+    expect(html).not.toContain("shopifyUserId");
+  });
+
+  it("says when nobody has opened the app yet, and when the plan has no seat limit", async () => {
+    const html = await render({ shop: shop(), history: [], events: [] });
+    expect(html).toContain("Nobody has opened the app for this shop yet.");
+    expect(html).toContain("No seat limit");
   });
 });

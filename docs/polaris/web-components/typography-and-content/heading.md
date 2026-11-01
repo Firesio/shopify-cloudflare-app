@@ -5,7 +5,7 @@ description: >-
   and organization of page content. Use heading to create section titles and
   content headers that help users understand information hierarchy and navigate
   content.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/typography-and-content/heading
@@ -27,6 +27,10 @@ Heading levels adjust automatically based on nesting within parent [section](htt
 * **Content organization:** Organize complex forms or interfaces with logical heading structures.
 * **Visual hierarchy:** Establish visual hierarchy using different heading levels.
 
+```html
+<s-heading>Discover new ways to grow your business and connect with customers</s-heading>
+```
+
 ***
 
 ## Properties
@@ -39,25 +43,11 @@ Configure the following properties on the heading component.
 
   **Default: 'heading'**
 
-  **required**
-
   The semantic meaning of the component’s content. When set, the role will be used by assistive technologies to help users navigate the page.
 
-  * `none`: Completely hides the element and its content from assistive technologies
-  * `presentation`: Removes semantic meaning, making the image purely decorative and ignored by screen readers.
-  * `img`: Identifies the element as an image that conveys meaningful information to users.
-
-* **line​Clamp**
-
-  **number**
-
-  **Default: Infinity - no truncation is applied**
-
-  **required**
-
-  The maximum number of lines to display before truncating the text content.
-
-  Learn more about the [-webkit-line-clamp property](https://developer.mozilla.org/en-US/docs/Web/CSS/-webkit-line-clamp).
+  * `heading`: Identifies the element as a heading for assistive technologies.
+  * `none`: Removes semantic meaning from the heading element.
+  * `presentation`: Removes semantic meaning from the heading element.
 
 * **accessibility​Visibility**
 
@@ -65,13 +55,36 @@ Configure the following properties on the heading component.
 
   **Default: 'visible'**
 
-  **required**
-
   The visibility mode of the element for both visual and assistive technology users.
 
   * `visible`: The element is visible to all users (both sighted users and screen readers).
   * `hidden`: The element is visually visible but hidden from screen readers. Use this for decorative elements that don't provide meaningful information.
   * `exclusive`: The element is visually hidden but announced by screen readers. Use this for screen-reader-only content like skip links or additional context.
+
+* **font​Size**
+
+  **"small" | "base" | "large" | "large-100" | "large-200" | "large-300" | "large-400" | "auto"**
+
+  **Default: 'auto'**
+
+  The font size of the heading. The named values also apply their matching line-height and letter-spacing:
+
+  * 'small' maps to headingXs
+  * 'base' maps to headingSm
+  * 'large' / 'large-100' maps to headingMd
+  * 'large-200' maps to headingLg
+  * 'large-300' maps to headingXl
+  * 'large-400' maps to heading2xl
+
+* **line​Clamp**
+
+  **number**
+
+  **Default: Infinity - no truncation is applied**
+
+  The maximum number of lines to display before truncating the text content.
+
+  Learn more about the [-webkit-line-clamp property](https://developer.mozilla.org/en-US/docs/Web/CSS/-webkit-line-clamp).
 
 ### Slots
 
@@ -142,6 +155,19 @@ Nest headings inside section components to automatically assign appropriate head
     </s-section>
   </s-section>
 </s-section>
+```
+
+### Set the size of a heading
+
+Use the `fontSize` property to size a heading independently of the level it's assigned. This example shows a large page title above a small section label.
+
+## html
+
+```html
+<s-stack gap="small">
+  <s-heading fontSize="large-300">Store overview</s-heading>
+  <s-heading fontSize="small">Last 30 days</s-heading>
+</s-stack>
 ```
 
 ***

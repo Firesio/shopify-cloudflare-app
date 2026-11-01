@@ -4,7 +4,7 @@ description: >-
   Most apps need a way for merchants to manage collections of items. The index
   table composition provides a scannable list with search, filtering, sorting,
   and bulk actions.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/patterns/compositions/index-table
@@ -23,32 +23,32 @@ Use checkboxes for bulk selection, reveal row actions on hover, and include pagi
 
 ### Supported components
 
-* [Badge](https://shopify.dev/docs/api/app-home/v1.0/web-components/feedback-and-status-indicators/badge)
-* [Box](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/box)
-* [Button](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/button)
-* [Checkbox](https://shopify.dev/docs/api/app-home/v1.0/web-components/forms/checkbox)
-* [Choice list](https://shopify.dev/docs/api/app-home/v1.0/web-components/forms/choice-list)
-* [Clickable](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/clickable)
-* [Divider](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/divider)
-* [Grid](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/grid)
-* [Image](https://shopify.dev/docs/api/app-home/v1.0/web-components/media-and-visuals/image)
-* [Link](https://shopify.dev/docs/api/app-home/v1.0/web-components/actions/link)
-* [Popover](https://shopify.dev/docs/api/app-home/v1.0/web-components/overlays/popover)
-* [Section](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/section)
-* [Stack](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/stack)
-* [Table](https://shopify.dev/docs/api/app-home/v1.0/web-components/layout-and-structure/table)
-* [Text field](https://shopify.dev/docs/api/app-home/v1.0/web-components/forms/text-field)
-* [Tooltip](https://shopify.dev/docs/api/app-home/v1.0/web-components/typography-and-content/tooltip)
+* [Badge](https://shopify.dev/docs/api/app-home/v2.0/web-components/feedback-and-status-indicators/badge)
+* [Box](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/box)
+* [Button](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/button)
+* [Checkbox](https://shopify.dev/docs/api/app-home/v2.0/web-components/forms/checkbox)
+* [Choice list](https://shopify.dev/docs/api/app-home/v2.0/web-components/forms/choice-list)
+* [Clickable](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/clickable)
+* [Divider](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/divider)
+* [Grid](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/grid)
+* [Image](https://shopify.dev/docs/api/app-home/v2.0/web-components/media-and-visuals/image)
+* [Link](https://shopify.dev/docs/api/app-home/v2.0/web-components/actions/link)
+* [Popover](https://shopify.dev/docs/api/app-home/v2.0/web-components/overlays/popover)
+* [Section](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/section)
+* [Stack](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/stack)
+* [Table](https://shopify.dev/docs/api/app-home/v2.0/web-components/layout-and-structure/table)
+* [Text field](https://shopify.dev/docs/api/app-home/v2.0/web-components/forms/text-field)
+* [Tooltip](https://shopify.dev/docs/api/app-home/v2.0/web-components/typography-and-content/tooltip)
 
 ### Available APIs
 
-* [Modal API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/modal-api)
-* [Navigation API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/navigation-api)
-* [Toast API](https://shopify.dev/docs/api/app-home/v1.0/apis/user-interface-and-interactions/toast-api)
+* [Modal API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/modal-api)
+* [Navigation API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/navigation-api)
+* [Toast API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/toast-api)
 
 ### Recommended templates
 
-* [Index](https://shopify.dev/docs/api/app-home/v1.0/patterns/templates/resource-index)
+* [Index](https://shopify.dev/docs/api/app-home/v2.0/patterns/templates/resource-index)
 
 #### Use cases
 

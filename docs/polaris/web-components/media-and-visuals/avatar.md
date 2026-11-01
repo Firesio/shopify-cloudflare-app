@@ -5,7 +5,7 @@ description: >-
   and businesses in a compact visual format. Use avatar to represent people or
   entities throughout the interface, with automatic fallback to initials when
   images aren't available.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/media-and-visuals/avatar
@@ -27,49 +27,19 @@ Avatars support multiple sizes for different contexts and provide consistent col
 * **Visual recognition:** Help identify users or customers with avatar imagery.
 * **Compact displays:** Represent users in space-constrained interfaces.
 
+```html
+<s-avatar initials="JD" alt="Jane Doe"></s-avatar>
+```
+
 ***
 
 ## Properties
 
 Configure the following properties on the avatar component.
 
-* **initials**
-
-  **string**
-
-  **required**
-
-  The initials to display in the avatar when no image is provided or fails to load. Typically one or two characters representing a person's first and last name initials, such as "JD" for John Doe.
-
-* **src**
-
-  **string**
-
-  **required**
-
-  The URL or path to the avatar image. When provided, the image takes priority over `initials`. If the image fails to load or loads slowly, `initials` will be rendered as a fallback.
-
-* **size**
-
-  **"small" | "small-200" | "base" | "large" | "large-200"**
-
-  **Default: 'base'**
-
-  **required**
-
-  The size of the avatar image.
-
-  * `small-200`: Extra small avatar, suitable for compact displays or lists with many items.
-  * `small`: Small avatar, good for secondary contexts or tight layouts.
-  * `base`: Default size that works well in most contexts.
-  * `large`: Large avatar for emphasis or when the avatar is a focal point.
-  * `large-200`: Extra large avatar for prominent display.
-
 * **alt**
 
   **string**
-
-  **required**
 
   Alternative text that describes the avatar for accessibility.
 
@@ -79,6 +49,34 @@ Configure the following properties on the avatar component.
 
   Learn more about [writing effective alt text](https://www.shopify.com/ca/blog/image-alt-text#4) and the [alt attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img#alt).
 
+* **initials**
+
+  **string**
+
+  The initials to display in the avatar when no image is provided or fails to load. Typically one or two characters representing a person's first and last name initials, such as "JD" for John Doe.
+
+* **size**
+
+  **"small" | "small-200" | "small-100" | "base" | "large" | "large-100" | "large-200"**
+
+  **Default: 'base'**
+
+  The size of the avatar image.
+
+  * `small-200`: Extra small avatar, suitable for compact displays or lists with many items.
+  * `small-100`: Alias of `small`.
+  * `small`: Small avatar, good for secondary contexts or tight layouts.
+  * `base`: Default size that works well in most contexts.
+  * `large`: Large avatar for emphasis or when the avatar is a focal point.
+  * `large-100`: Alias of `large`.
+  * `large-200`: Extra large avatar for prominent display.
+
+* **src**
+
+  **string**
+
+  The URL or path to the avatar image. When provided, the image takes priority over `initials`. If the image fails to load or loads slowly, `initials` will be rendered as a fallback.
+
 ### Events
 
 The avatar component provides event callbacks for handling user interactions. Learn more about [handling events](https://shopify.dev/docs/api/polaris/using-polaris-web-components#handling-events).
@@ -87,8 +85,6 @@ The avatar component provides event callbacks for handling user interactions. Le
 
   **OnErrorEventHandler**
 
-  **required**
-
   A callback fired when the avatar image fails to load.
 
   Learn more about the [error event](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/error_event).
@@ -96,8 +92,6 @@ The avatar component provides event callbacks for handling user interactions. Le
 * **load**
 
   **CallbackEventListener\<typeof tagName> | null**
-
-  **required**
 
   A callback fired when the avatar image successfully loads.
 

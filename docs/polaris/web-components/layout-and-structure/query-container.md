@@ -5,7 +5,7 @@ description: >-
   responsive design. Use query container to define an element as a containment
   context, enabling child components or styles to adapt based on the container's
   size rather than viewport width.
-api_version: v1.0
+api_version: v2.0
 source_url:
   html: >-
     https://shopify.dev/docs/api/app-home/latest/web-components/layout-and-structure/query-container
@@ -27,6 +27,15 @@ Query containers support modern responsive patterns where components respond to 
 * **Named containers:** Target specific containers in responsive value strings using `containerName`.
 * **Component-level responsiveness:** Enable responsive behavior scoped to a container rather than the viewport.
 
+```html
+<s-query-container>
+  <s-stack direction="@container (inline-size > 400px) inline, block" gap="base" justifyContent="center">
+    <s-box padding="base" background="subdued" borderRadius="base">First item</s-box>
+    <s-box padding="base" background="subdued" borderRadius="base">Second item</s-box>
+  </s-stack>
+</s-query-container>
+```
+
 ***
 
 ## Properties
@@ -38,8 +47,6 @@ Configure the following properties on the query container component.
   **string**
 
   **Default: ''**
-
-  **required**
 
   An identifier for this container that you can reference in CSS container queries to apply styles based on this specific container's size.
 
