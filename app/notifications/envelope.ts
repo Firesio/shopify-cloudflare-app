@@ -77,6 +77,15 @@ const PAYLOAD_SCHEMAS: { [E in NotificationEvent]: z.ZodType<PayloadByEvent[E]> 
     adminUrl: z.string(),
   }),
   push_test: z.object(basePayload),
+  campaign_message: z.object({
+    ...basePayload,
+    shopName: z.string(),
+    subject: z.string(),
+    body: z.string(),
+    ctaLabel: z.string().optional(),
+    ctaUrl: z.string().optional(),
+    unsubscribeUrl: z.string(),
+  }),
 };
 
 /** Keyed by the union, so the guard below cannot miss an event. */
@@ -88,6 +97,7 @@ const EVENT_KEYS: Record<NotificationEvent, true> = {
   shop_uninstalled: true,
   webhook_dead_letter: true,
   push_test: true,
+  campaign_message: true,
 };
 
 /** Narrow a stored/queued string to a known event without a cast. */

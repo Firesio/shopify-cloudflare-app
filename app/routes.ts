@@ -27,6 +27,7 @@ export default [
     index("routes/public/landing.tsx"),
     route("pricing", "routes/public/pricing.tsx"),
     route("support", "routes/public/support.tsx"),
+    route("unsubscribe/:token", "routes/public/unsubscribe.tsx"),
     ...prefix("legal", [
       route("privacy", "routes/public/legal/privacy.tsx"),
       route("terms", "routes/public/legal/terms.tsx"),
@@ -78,6 +79,9 @@ export default [
     // Resetting someone else's password is its own page, not a dialog: the field
     // must exist without JavaScript.
     route("internal/admins/:adminId/reset", "routes/internal/admins/reset.tsx"),
+    route("internal/campaigns", "routes/internal/campaigns/index.tsx"),
+    route("internal/campaigns/new", "routes/internal/campaigns/new.tsx"),
+    route("internal/campaigns/:campaignId", "routes/internal/campaigns/detail.tsx"),
     route("internal/subscriptions", "routes/internal/subscriptions.tsx"),
     route("internal/ai", "routes/internal/ai.tsx"),
     route("internal/support", "routes/internal/support/index.tsx"),

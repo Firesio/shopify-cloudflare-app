@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/d1";
 import { count, eq, inArray, and, isTable, getTableName } from "drizzle-orm";
 import * as schema from "~/db/schema";
-import { shopMembers, redactedShops, aiRuns, entitlementAllocations, entitlementOperations, entitlementUsage, mcpAuditLogs, notificationLogs, notificationOptOuts, notificationPreferences, pendingUploads, shopGrantedScopes, shopPlanGrants, shopScopeChanges, shopSubscriptionItems, shopSubscriptions, shopifyEvents, shopifySyncCheckpoints, shops, staffAuditLogs, supportAttachments, supportMessages, supportTickets, webhookDeliveries, webhookScopeObservations } from "~/db/schema";
+import { campaignRecipients, campaigns, shopMembers, redactedShops, aiRuns, entitlementAllocations, entitlementOperations, entitlementUsage, mcpAuditLogs, notificationLogs, notificationOptOuts, notificationPreferences, pendingUploads, shopGrantedScopes, shopPlanGrants, shopScopeChanges, shopSubscriptionItems, shopSubscriptions, shopifyEvents, shopifySyncCheckpoints, shops, staffAuditLogs, supportAttachments, supportMessages, supportTickets, webhookDeliveries, webhookScopeObservations } from "~/db/schema";
 import { describe, expect, it } from "vitest";
 import { env } from "cloudflare:test";
 import { runWithRequestContext } from "~/request-context.server";
@@ -16,7 +16,7 @@ describe("TenantPurgeRepo", () => {
   it("inventory covers every table with a shop column", async () => {
     const tables = await runWithRequestContext(env, schemaShopColumns);
     expect(tables).toEqual([
-      "ai_runs", "entitlement_allocations", "entitlement_operations", "entitlement_usage", "mcp_audit_logs", "notification_logs", "pending_uploads", "shop_granted_scopes", "shop_members", "shop_plan_grants", "shop_scope_changes", "shop_subscription_items",
+      "ai_runs", "campaign_recipients", "entitlement_allocations", "entitlement_operations", "entitlement_usage", "mcp_audit_logs", "notification_logs", "pending_uploads", "shop_granted_scopes", "shop_members", "shop_plan_grants", "shop_scope_changes", "shop_subscription_items",
       "shop_subscriptions", "shopify_events", "shops", "staff_audit_logs", "support_attachments",
       "support_messages", "support_tickets", "webhook_deliveries", "webhook_scope_observations",
     ]);
@@ -101,8 +101,10 @@ describe("TenantPurgeRepo", () => {
     const target = "target.myshopify.com";
     const other = "other.myshopify.com";
     await runWithRequestContext(env, async () => {
+      await db.insert(campaigns).values({ id: "campaign-1", name: "n", subject: "s", body: "b", audience: "{}", createdByEmail: "staff@test.com", createdAt: 1, updatedAt: 1 }).run();
       for (const shop of [target, other]) {
         await db.insert(shops).values({ shop: shop, installedAt: 1 }).run();
+        await db.insert(campaignRecipients).values({ campaignId: "campaign-1", shop: shop, shopName: "Shop", email: `owner@${shop}` }).run();
         await db.insert(webhookDeliveries).values({ id: `delivery-${shop}`, eventId: "event", topic: "app/uninstalled", apiVersion: "2025-01", shop: shop, triggeredAt: 1, receivedAt: 1, payloadHash: "hash" }).run();
         await db.insert(webhookScopeObservations).values({ deliveryId: `delivery-${shop}`, shop: shop, scope: "read_products" }).run();
         await db.insert(shopifyEvents).values({ source: "webhook_observation", eventId: `event-${shop}`, eventType: "installed", shop: shop, shopifyShopId: "gid", occurredAt: 1, synchronizedAt: 1 }).run();
@@ -138,6 +140,9 @@ describe("TenantPurgeRepo", () => {
         expect(Number(targetRows?.count)).toBe(0);
         expect(Number(otherRows?.count)).toBeGreaterThan(0);
       }
+      // The announcement itself is ours and stays; only the rows that name the shop go.
+      const kept = await db.select({ count: count() }).from(campaigns).get();
+      expect(Number(kept?.count)).toBe(1);
       const checkpoint = await db.select({ count: count() }).from(shopifySyncCheckpoints).where(eq(shopifySyncCheckpoints.name, "tenant-purge-proof")).get();
       expect(Number(checkpoint?.count)).toBe(1);
       const preferences = await db.select({ scope: notificationPreferences.scope }).from(notificationPreferences).where(and(eq(notificationPreferences.event, "test"), eq(notificationPreferences.channel, "email"))).orderBy(notificationPreferences.scope).all();

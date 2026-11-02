@@ -155,5 +155,14 @@
         }
       }
     }
+  },
+  "unsubscribe": {
+    "heading": "Unsubscribe from announcements",
+    "intro": "Stop announcements from {{appName}} to {{address}}?",
+    "note": "You will still get messages about your support conversations.",
+    "confirm": "Unsubscribe",
+    "working": "Unsubscribing…",
+    "done": "Done. {{address}} will not receive announcements any more.",
+    "invalid": "This unsubscribe link is not valid. Write to us and we will remove you by hand."
   }
 }

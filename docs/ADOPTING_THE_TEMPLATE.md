@@ -97,6 +97,12 @@ and evidence; a checked box is not a substitute for a tested implementation.
   `app/billing/plans.ts`, or leave it `unlimited` (or delete the key) for no limit. The Team
   page is at `/app/members` and shows only to roles that may manage members.
 
+- Decide whether the app sends announcements to merchants (`.claude/rules/campaigns.md`):
+  the page is `/internal/campaigns` and an AI agent can run it through the MCP tools. Before
+  the first real send, do a small one to yourself through the real sender (the rules file
+  lists what is not yet verified), and make sure the audience's privacy copy matches who is
+  written to.
+
 ## 4. Inventory customer data and compliance behavior
 
 - List every table, object, cache, log, queue payload, email, analytics event,
@@ -111,7 +117,8 @@ and evidence; a checked box is not a substitute for a tested implementation.
 
 ## 5. Provision production resources and secrets
 
-- Create production D1, KV, R2, email, Queue/DLQ, and rate-limit resources;
+- Create production D1, KV, R2, email, Queue/DLQ, and rate-limit resources (including
+  the `campaigns-prod` queue and its `campaigns-dlq-prod` dead-letter queue);
   set their production binding details in `wrangler.jsonc`; then run
   `npm run cf-typegen`.
 - Declare and provision every required secret: `SHOPIFY_API_SECRET`,

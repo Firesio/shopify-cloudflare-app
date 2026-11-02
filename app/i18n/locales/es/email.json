@@ -1,4 +1,8 @@
 {
+  "campaign": {
+    "footer": "Recibes esto porque {{shopName}} usa {{appName}}. Solo te escribimos sobre cambios importantes.",
+    "unsubscribe": "Cancelar la suscripción a los anuncios"
+  },
   "support": {
     "reply": {
       "subject": "Re: {{subject}}",

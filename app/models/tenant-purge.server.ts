@@ -22,6 +22,7 @@ import {
   entitlementOperations,
   entitlementUsage,
   entitlementAllocations,
+  campaignRecipients,
   mcpAuditLogs,
   redactedShops,
   shopPlanGrants,
@@ -32,6 +33,7 @@ import { getDb } from "~/request-context.server";
 
 const PURGED_SHOP_TABLES = [
   "ai_runs",
+  "campaign_recipients",
   "entitlement_allocations",
   "entitlement_operations",
   "entitlement_usage",
@@ -90,6 +92,9 @@ export class TenantPurgeRepo {
       db.delete(shopifyEvents).where(eq(shopifyEvents.shop, shop)),
       db.delete(webhookDeliveries).where(eq(webhookDeliveries.shop, shop)),
       db.delete(aiRuns).where(eq(aiRuns.shop, shop)),
+      // Who an announcement went to names the shop and holds its address. `campaigns` itself is ours, and
+      // `campaign_unsubscribes` is a suppression list that must outlive a redaction (see its schema comment).
+      db.delete(campaignRecipients).where(eq(campaignRecipients.shop, shop)),
       db.delete(entitlementOperations).where(eq(entitlementOperations.shop, shop)),
       db.delete(entitlementUsage).where(eq(entitlementUsage.shop, shop)),
       db.delete(entitlementAllocations).where(eq(entitlementAllocations.shop, shop)),

@@ -127,6 +127,88 @@ export const TOOL_CATALOG: {
     ],
   },
   {
+    domain: "Campaigns",
+    tools: [
+      {
+        name: "list_campaigns",
+        domain: "Campaigns",
+        scope: "mcp:read",
+        isMutation: false,
+        summary: "List announcements by status, newest first.",
+      },
+      {
+        name: "get_campaign",
+        domain: "Campaigns",
+        scope: "mcp:read",
+        isMutation: false,
+        summary: "Full words, audience, status, delivery counts and a bounded recipient sample.",
+      },
+      {
+        name: "preview_campaign_audience",
+        domain: "Campaigns",
+        scope: "mcp:read",
+        isMutation: false,
+        summary: "Size an audience (recipients, unsubscribed, no address) before a draft exists.",
+      },
+      {
+        name: "create_campaign",
+        domain: "Campaigns",
+        scope: "mcp:campaigns:write",
+        isMutation: true,
+        summary: "Write a draft announcement. Sends nothing; returns the real recipient count.",
+      },
+      {
+        name: "update_campaign",
+        domain: "Campaigns",
+        scope: "mcp:campaigns:write",
+        isMutation: true,
+        summary: "Edit a draft's words, button or audience.",
+      },
+      {
+        name: "delete_campaign",
+        domain: "Campaigns",
+        scope: "mcp:campaigns:write",
+        isMutation: true,
+        summary: "Delete a draft that was never sent.",
+      },
+      {
+        name: "send_campaign_test",
+        domain: "Campaigns",
+        scope: "mcp:campaigns:write",
+        isMutation: true,
+        summary: "Email a [Test] copy to the token owner only.",
+      },
+      {
+        name: "pause_campaign",
+        domain: "Campaigns",
+        scope: "mcp:campaigns:write",
+        isMutation: true,
+        summary: "Pause a sending campaign; waiting merchants keep their place.",
+      },
+      {
+        name: "resume_campaign",
+        domain: "Campaigns",
+        scope: "mcp:campaigns:write",
+        isMutation: true,
+        summary: "Resume a paused campaign (mails merchants again).",
+      },
+      {
+        name: "cancel_campaign",
+        domain: "Campaigns",
+        scope: "mcp:campaigns:write",
+        isMutation: true,
+        summary: "End a campaign for good; mail already sent cannot be recalled.",
+      },
+      {
+        name: "start_campaign",
+        domain: "Campaigns",
+        scope: "mcp:campaigns:send",
+        isMutation: true,
+        summary: "EMAILS REAL MERCHANTS and cannot be undone. Needs the approved recipient count.",
+      },
+    ],
+  },
+  {
     domain: "Security & Audit",
     tools: [
       {

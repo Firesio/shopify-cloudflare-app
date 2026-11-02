@@ -6,6 +6,7 @@ import {
   LifeBuoy,
   Cpu,
   Bot,
+  Megaphone,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { SubmitOptions } from "react-router";
@@ -29,6 +30,7 @@ export const INTERNAL_NAV: readonly NavGroup[] = [
       { title: "Dashboard", href: "/internal/dashboard", icon: LayoutGrid },
       { title: "Shops", href: "/internal/shops", icon: Store },
       { title: "Support", href: "/internal/support", icon: LifeBuoy },
+      { title: "Campaigns", href: "/internal/campaigns", icon: Megaphone },
     ],
   },
   {

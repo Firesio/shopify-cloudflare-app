@@ -63,6 +63,7 @@ export async function action({ request }: ActionFunctionArgs) {
     transport: "http",
     tokenId: actor.token.id,
     clientId: actor.token.clientId,
+    adminUserId: actor.token.adminUserId,
     scopes: actor.scopes,
   });
 

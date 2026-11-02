@@ -3,12 +3,14 @@
 
 export const WEBHOOK_QUEUE_NAMES = ["shopify-webhooks", "shopify-webhooks-prod"] as const;
 export const NOTIFICATION_QUEUE_NAMES = ["notifications", "notifications-prod"] as const;
+export const CAMPAIGN_QUEUE_NAMES = ["campaigns", "campaigns-prod"] as const;
 
-export type QueueKind = "webhook" | "notification" | "unknown";
+export type QueueKind = "webhook" | "notification" | "campaign" | "unknown";
 
 /** Which consumer owns a batch. An unrecognised name is `unknown`, never a guess. */
 export function queueKind(name: string): QueueKind {
   if (WEBHOOK_QUEUE_NAMES.some((known) => known === name)) return "webhook";
   if (NOTIFICATION_QUEUE_NAMES.some((known) => known === name)) return "notification";
+  if (CAMPAIGN_QUEUE_NAMES.some((known) => known === name)) return "campaign";
   return "unknown";
 }

@@ -1,4 +1,8 @@
 {
+  "campaign": {
+    "footer": "You are getting this because {{shopName}} uses {{appName}}. We only write to you about changes that matter.",
+    "unsubscribe": "Unsubscribe from announcements"
+  },
   "support": {
     "reply": {
       "subject": "Re: {{subject}}",

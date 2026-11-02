@@ -22,4 +22,6 @@ export interface ScheduledDependencies {
   readonly entitlementReconcile: { run(now: number): Promise<Readonly<Record<string, number>>> };
   /** Looks for shops that uninstalled without Shopify's webhook reaching us. Returns counts for the log. */
   readonly uninstallProbe: { run(now: number): Promise<Readonly<Record<string, number>>> };
+  /** Restarts an announcement whose delivery chain went quiet (app/services/campaigns/restart-stalled.ts). Returns counts for the log. */
+  readonly campaignWatchdog: { run(now: number): Promise<Readonly<Record<string, number>>> };
 }

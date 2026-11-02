@@ -36,7 +36,11 @@
       { "binding": "WEBHOOK_QUEUE", "queue": "shopify-webhooks" },
       // Email is enqueued, never sent inside the request: the request returns
       // fast and a transient provider failure retries instead of being lost.
-      { "binding": "NOTIFICATION_QUEUE", "queue": "notifications" }
+      { "binding": "NOTIFICATION_QUEUE", "queue": "notifications" },
+      // An announcement to many merchants is sent one page at a time, each page a message that schedules the next
+      // (app/services/campaigns/pump-campaign.ts). Its own queue so a campaign's pacing and retries never share a
+      // line with a password reset or a support reply.
+      { "binding": "CAMPAIGN_QUEUE", "queue": "campaigns" }
     ],
     "consumers": [
       {
@@ -48,6 +52,11 @@
         "queue": "notifications",
         "max_retries": 8,
         "dead_letter_queue": "notifications-dlq"
+      },
+      {
+        "queue": "campaigns",
+        "max_retries": 8,
+        "dead_letter_queue": "campaigns-dlq"
       }
     ]
   },
@@ -226,7 +235,8 @@
       "queues": {
         "producers": [
           { "binding": "WEBHOOK_QUEUE", "queue": "shopify-webhooks-prod" },
-          { "binding": "NOTIFICATION_QUEUE", "queue": "notifications-prod" }
+          { "binding": "NOTIFICATION_QUEUE", "queue": "notifications-prod" },
+          { "binding": "CAMPAIGN_QUEUE", "queue": "campaigns-prod" }
         ],
         "consumers": [
           {
@@ -238,6 +248,11 @@
             "queue": "notifications-prod",
             "max_retries": 8,
             "dead_letter_queue": "notifications-dlq-prod"
+          },
+          {
+            "queue": "campaigns-prod",
+            "max_retries": 8,
+            "dead_letter_queue": "campaigns-dlq-prod"
           }
         ]
       },

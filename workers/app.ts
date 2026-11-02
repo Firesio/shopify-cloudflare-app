@@ -11,6 +11,8 @@ import { handleInboundEmail } from "./inbound-email";
 import { handleWebhookQueueBatch } from "../app/services/webhook-queue";
 import { handleNotificationBatch } from "../app/services/notification-queue";
 import { notificationConsumerDependencies } from "../app/wiring/notifications.server";
+import { handleCampaignBatch } from "../app/services/campaign-queue";
+import { campaignConsumerDependencies } from "../app/wiring/campaigns.server";
 import { queueKind } from "../app/lib/queue-names";
 
 /**
@@ -69,6 +71,10 @@ export default {
     await runWithRequestContext(env, async () => {
       if (kind === "notification") {
         await handleNotificationBatch(batch, notificationConsumerDependencies());
+        return;
+      }
+      if (kind === "campaign") {
+        await handleCampaignBatch(batch, campaignConsumerDependencies());
         return;
       }
       await handleWebhookQueueBatch(batch, webhookQueueDependencies());

@@ -155,5 +155,14 @@
         }
       }
     }
+  },
+  "unsubscribe": {
+    "heading": "Cancelar la suscripción a los anuncios",
+    "intro": "¿Dejar de enviar anuncios de {{appName}} a {{address}}?",
+    "note": "Seguirás recibiendo los mensajes sobre tus conversaciones de soporte.",
+    "confirm": "Cancelar la suscripción",
+    "working": "Cancelando…",
+    "done": "Listo. {{address}} ya no recibirá anuncios.",
+    "invalid": "Este enlace para cancelar la suscripción no es válido. Escríbenos y te daremos de baja a mano."
   }
 }

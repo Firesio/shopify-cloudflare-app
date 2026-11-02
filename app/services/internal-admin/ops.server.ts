@@ -14,3 +14,4 @@
 export * from "./support-ops.server";
 export * from "./shop-ops.server";
 export * from "./metrics-ops.server";
+export * from "./campaign-ops.server";

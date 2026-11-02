@@ -116,6 +116,23 @@ export interface WebhookDeadLetterPayload extends BasePayload {
   adminUrl: string;
 }
 
+/**
+ * One announcement to one merchant. The words are the team's own, so they are not translated: the fixed lines around
+ * them are (`campaign.*` in the `email` catalogue).
+ */
+export interface CampaignMessagePayload extends BasePayload {
+  /** The shop's own name, or its domain when Shopify has not told us one. */
+  shopName: string;
+  subject: string;
+  /** Plain text; a blank line starts a paragraph. */
+  body: string;
+  /** A button under the text, with its https link. Both or neither. */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  /** The signed link that stops announcements to this address. Built by the caller: templates never make links. */
+  unsubscribeUrl: string;
+}
+
 /** A test message carries no data: its copy is fixed. */
 export type PushTestPayload = BasePayload;
 
@@ -133,4 +150,5 @@ export interface PayloadByEvent extends Record<NotificationEvent, BasePayload> {
   shop_uninstalled: ShopUninstalledPayload;
   webhook_dead_letter: WebhookDeadLetterPayload;
   push_test: PushTestPayload;
+  campaign_message: CampaignMessagePayload;
 }

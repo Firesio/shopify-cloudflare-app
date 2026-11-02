@@ -97,6 +97,15 @@ export const EVENTS: Record<NotificationEvent, EventSpec> = {
     description: "A Shopify webhook ran out of retries and was dead-lettered.",
   },
 
+  campaign_message: {
+    audience: "merchant",
+    // The campaign layer decides: it leaves out anyone who unsubscribed from announcements before it asks. The legal
+    // channel-wide opt-out still applies underneath, because `recipientConsents` is never bypassable.
+    gate: "caller_gated",
+    channels: ["email"],
+    description: "An announcement the team wrote to merchants, such as a coming update.",
+  },
+
   push_test: {
     audience: "staff",
     // Essential: the person pressed "send a test" and is waiting for it. Only

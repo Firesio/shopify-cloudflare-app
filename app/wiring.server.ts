@@ -13,6 +13,7 @@
  *   billing                    subscriptions, entitlements, Partner refresh
  *   ai-support                 AI and support use cases
  *   notifications              queued notifier and consumer dependencies
+ *   campaigns                  announcements to many merchants: store, delivery steps, the queue, the watchdog
  *   staff-notifications        staff devices, per-person preferences, who hears about a topic
  *   push                       Web Push sender and the public VAPID key
  *   webhooks                   webhook consumer, tenant purge, scheduled work
@@ -58,6 +59,7 @@ export {
   staffMfa,
 } from "~/wiring/admin.server";
 export { memberDependencies, memberSeats, memberStore } from "~/wiring/members.server";
+export { campaignConsumerDependencies, campaignDependencies, campaignUnsubscribes } from "~/wiring/campaigns.server";
 export { persistDevStoreStatus, persistShopIdentity, shopTimeZone } from "~/wiring/shop-identity.server";
 export {
   entitlements,

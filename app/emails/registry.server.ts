@@ -8,6 +8,7 @@ import type { TextUnit, UnitKeys } from "~/i18n/text-units";
 import type { RenderedEmail } from "./render";
 import { adminPasswordResetEmail } from "./templates/admin-password-reset";
 import { shopInstalledEmail, shopUninstalledEmail } from "./templates/shop-change";
+import { campaignMessageEmail } from "./templates/campaign-message";
 import { webhookDeadLetterEmail } from "./templates/webhook-dead-letter";
 import { supportMerchantActivityEmail } from "./templates/support-merchant-activity";
 import { supportStaffReplyEmail } from "./templates/support-staff-reply";
@@ -51,6 +52,8 @@ const EMAILS = {
   shop_uninstalled: { unit: "email.layout", language: STAFF },
   webhook_dead_letter: { unit: "email.layout", language: STAFF },
   push_test: { unit: "email.layout", language: STAFF },
+  // The team writes announcements in the app's default language, so the lines around the words are in it too.
+  campaign_message: { unit: "email.campaign", language: STAFF },
 } as const satisfies { [E in NotificationEvent]: { readonly unit: TextUnit; readonly language: LanguageSource } };
 
 type UnitOf<E extends NotificationEvent> = (typeof EMAILS)[E]["unit"];
@@ -71,6 +74,7 @@ const BUILDERS: { [E in NotificationEvent]: EmailBuilder<E> | null } = {
   shop_uninstalled: shopUninstalledEmail,
   webhook_dead_letter: webhookDeadLetterEmail,
   push_test: null,
+  campaign_message: campaignMessageEmail,
 };
 
 /**

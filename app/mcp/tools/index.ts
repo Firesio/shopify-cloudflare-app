@@ -4,11 +4,13 @@ import { registerMetricsTools } from "./metrics";
 import { registerShopTools } from "./shops";
 import { registerTicketTools } from "./tickets";
 import { registerAuditTools } from "./audit";
+import { registerCampaignTools } from "./campaigns";
 
-/** Register all 15 operational tools onto an McpServer instance bound to an actor context. */
+/** Register all operational tools onto an McpServer instance bound to an actor context. */
 export function registerAllTools(server: McpServer, ctx: McpActorContext) {
   registerMetricsTools(server, ctx);
   registerShopTools(server, ctx);
   registerTicketTools(server, ctx);
+  registerCampaignTools(server, ctx);
   registerAuditTools(server, ctx);
 }

@@ -29,7 +29,9 @@ export type NotificationEvent =
   /** A Shopify webhook was dead-lettered after exhausting its retries → tell the staff, who must act on it. */
   | "webhook_dead_letter"
   /** A staff member asked for a test message on one of their devices. */
-  | "push_test";
+  | "push_test"
+  /** An announcement the team wrote to many merchants at once (`domain/campaign.ts`). */
+  | "campaign_message";
 
 // ─── Messages ────────────────────────────────────────────────────────────────
 

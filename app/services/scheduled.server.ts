@@ -24,6 +24,9 @@ export async function runScheduledSweeps(
   // Shopify tells apps not to rely on webhooks alone; this is what finds an uninstall whose webhook was lost.
   // It runs on every tick, including the hourly probe-only one.
   await sweep("uninstall_reconciliation", async () => ({ ...(await dependencies.uninstallProbe.run(now)) }));
+  // An announcement is sent by a chain of queue steps; one that went quiet (a lost message, a deploy mid-step) is
+  // restarted here. Cheap (one indexed query), so it runs on every tick.
+  await sweep("campaign_watchdog", async () => ({ ...(await dependencies.campaignWatchdog.run(now)) }));
 }
 
 async function runDailyMaintenance(now: number, dependencies: ScheduledDependencies): Promise<void> {

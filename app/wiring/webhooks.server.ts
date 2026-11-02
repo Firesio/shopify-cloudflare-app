@@ -26,6 +26,7 @@ import { invalidateEntitlements } from "~/wiring/entitlement-cache.server";
 import { entitlementHeldSweep } from "~/wiring/entitlement-held-sweep.server";
 import { shops, shopSyncCheckpoints, support, webhookDeliveryRepository, webhookScopeObservations } from "~/wiring/repositories.server";
 import { redactionGuard } from "~/wiring/redaction.server";
+import { campaignWatchdog } from "~/wiring/campaigns.server";
 import { shopChangeAnnouncer, webhookDeadLetterAnnouncer } from "~/wiring/shop-announcements.server";
 import { appRuntime } from "~/wiring/runtime.server";
 
@@ -169,6 +170,7 @@ export function scheduledDependencies() {
     },
     // Default policy: release what has been held for 30 minutes. Pass `{ decide, maxAgeMs }` to change it per app.
     entitlementReconcile: entitlementHeldSweep(),
+    campaignWatchdog: campaignWatchdog(),
     uninstallProbe: {
       run: (now: number) => probeInstalledShops({
         probes: new ShopTokenProbeRepo(),

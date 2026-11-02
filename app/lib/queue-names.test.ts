@@ -7,7 +7,10 @@ describe("queueKind", () => {
     ["shopify-webhooks-prod", "webhook"],
     ["notifications", "notification"],
     ["notifications-prod", "notification"],
+    ["campaigns", "campaign"],
+    ["campaigns-prod", "campaign"],
     ["notifications-dlq", "unknown"],
+    ["campaigns-dlq", "unknown"],
     ["", "unknown"],
   ])("%s -> %s", (name, kind) => {
     expect(queueKind(name)).toBe(kind);

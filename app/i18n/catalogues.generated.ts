@@ -356,6 +356,8 @@ export type CommonKey =
   | "state.loading"
   | "tagline";
 export type EmailKey =
+  | "campaign.footer"
+  | "campaign.unsubscribe"
   | "cta.copyLink"
   | "senderDisclosure"
   | "support.reply.cta"
@@ -458,7 +460,14 @@ export type PublicKey =
   | "support.gettingStartedBody"
   | "support.heading"
   | "support.subheading"
-  | "support.warning";
+  | "support.warning"
+  | "unsubscribe.confirm"
+  | "unsubscribe.done"
+  | "unsubscribe.heading"
+  | "unsubscribe.intro"
+  | "unsubscribe.invalid"
+  | "unsubscribe.note"
+  | "unsubscribe.working";
 
 export type CatalogueKeys = {
   "admin": AdminKey;

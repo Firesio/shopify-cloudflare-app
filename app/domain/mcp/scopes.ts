@@ -4,12 +4,16 @@
  * Scopes are hierarchical:
  * - `mcp:admin` satisfies any `mcp:*` scope.
  * - `mcp:read` satisfies read-only permissions across all domains.
+ * - `mcp:campaigns:send` is separate from `mcp:campaigns:write` on purpose: preparing an announcement and emailing real
+ *   merchants are different powers, and neither `mcp:read` nor `mcp:campaigns:write` implies the other.
  */
 export const MCP_SCOPES = [
   "mcp:read",
   "mcp:tickets:write",
   "mcp:shops:read",
   "mcp:shops:write",
+  "mcp:campaigns:write",
+  "mcp:campaigns:send",
   "mcp:admin",
 ] as const;
 
@@ -33,6 +37,16 @@ export const SCOPE_DESCRIPTIONS: Record<McpScope, { label: string; description: 
   "mcp:shops:write": {
     label: "Update Store Metadata",
     description: "Update store flags such as marking or unmarking development stores.",
+  },
+  "mcp:campaigns:write": {
+    label: "Draft & Manage Announcements",
+    description:
+      "Create, edit and delete draft announcements, send a test copy to the token owner only, and pause, resume or cancel one. Never emails merchants.",
+  },
+  "mcp:campaigns:send": {
+    label: "Send Announcements to Merchants",
+    description:
+      "Start a real send: emails the whole audience of merchants, and it cannot be undone. Grant only to agents a person supervises.",
   },
   "mcp:admin": {
     label: "Full Admin Access",

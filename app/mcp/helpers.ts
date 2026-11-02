@@ -7,6 +7,8 @@ export interface McpActorContext {
   readonly transport: "http" | "stdio";
   readonly tokenId?: string | null;
   readonly clientId?: string | null;
+  /** The staff account the token was issued to. Note `actorEmail` is the token's label, not an address. */
+  readonly adminUserId?: string | null;
   readonly scopes: readonly string[];
 }
 

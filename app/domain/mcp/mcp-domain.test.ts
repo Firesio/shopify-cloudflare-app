@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   hasRequiredScope,
   isMcpScope,
+  MCP_SCOPES,
   parseScopes,
+  SCOPE_DESCRIPTIONS,
 } from "./scopes";
 import {
   generateAccessToken,
@@ -42,6 +44,25 @@ describe("MCP Scopes Domain", () => {
     expect(hasRequiredScope(["mcp:read"], "mcp:shops:read")).toBe(true);
     expect(hasRequiredScope(["mcp:read"], "mcp:tickets:write")).toBe(false);
     expect(hasRequiredScope(["mcp:tickets:write"], "mcp:tickets:write")).toBe(true);
+  });
+
+  it("keeps preparing a campaign and sending it as separate powers", () => {
+    expect(isMcpScope("mcp:campaigns:write")).toBe(true);
+    expect(isMcpScope("mcp:campaigns:send")).toBe(true);
+    expect(hasRequiredScope(["mcp:admin"], "mcp:campaigns:send")).toBe(true);
+    expect(hasRequiredScope(["mcp:admin"], "mcp:campaigns:write")).toBe(true);
+    expect(hasRequiredScope(["mcp:campaigns:write"], "mcp:campaigns:send")).toBe(false);
+    expect(hasRequiredScope(["mcp:read"], "mcp:campaigns:send")).toBe(false);
+    expect(hasRequiredScope(["mcp:read"], "mcp:campaigns:write")).toBe(false);
+    expect(hasRequiredScope(["mcp:campaigns:send"], "mcp:campaigns:write")).toBe(false);
+    expect(hasRequiredScope(["mcp:campaigns:send"], "mcp:campaigns:send")).toBe(true);
+    expect(parseScopes("mcp:campaigns:send mcp:campaigns:write")).toEqual(["mcp:campaigns:send", "mcp:campaigns:write"]);
+  });
+
+  it("describes every scope, and says plainly that send emails merchants", () => {
+    for (const scope of MCP_SCOPES) expect(SCOPE_DESCRIPTIONS[scope].label).not.toBe("");
+    expect(SCOPE_DESCRIPTIONS["mcp:campaigns:send"].description).toMatch(/emails the whole audience of merchants/);
+    expect(SCOPE_DESCRIPTIONS["mcp:campaigns:write"].description).toMatch(/Never emails merchants/);
   });
 });
 

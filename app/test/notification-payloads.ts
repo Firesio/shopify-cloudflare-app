@@ -51,4 +51,13 @@ export const SAMPLE_PAYLOADS: { readonly [E in NotificationEvent]: PayloadByEven
     adminUrl: "https://app.workmanjsc.vn/internal/shops/alpha.myshopify.com",
   },
   push_test: { recipientName: "Staff" },
+  campaign_message: {
+    recipientName: "Alpha Store",
+    shopName: "Alpha Store",
+    subject: "A big update is coming next week",
+    body: "Next week we ship a redesigned dashboard.\n\nNothing changes until you open it.",
+    ctaLabel: "See what is new",
+    ctaUrl: "https://app.workmanjsc.vn/news/big-update",
+    unsubscribeUrl: "https://app.workmanjsc.vn/unsubscribe/token",
+  },
 };

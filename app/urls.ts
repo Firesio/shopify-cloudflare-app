@@ -24,6 +24,12 @@ export const paths = {
   /** Embedded Shopify admin. */
   app: () => "/app",
 
+  /**
+   * The link at the foot of an announcement. The token names the address and carries our signature, so it is a
+   * credential in the path and is encoded like the reset token below.
+   */
+  unsubscribe: (token: string) => `/unsubscribe/${encodeURIComponent(token)}`,
+
   /** OAuth. Fixed by `authPathPrefix` and the TOML redirect_urls. */
   login: () => "/auth/login",
 
@@ -33,6 +39,8 @@ export const paths = {
     logout: () => "/internal/logout",
     dashboard: () => "/internal/dashboard",
     admins: () => "/internal/admins",
+    campaigns: () => "/internal/campaigns",
+    campaign: (campaignId: string) => `/internal/campaigns/${encodeURIComponent(campaignId)}`,
     /** An owner resetting another admin's password. */
     resetAdminPassword: (adminId: string) =>
       `/internal/admins/${encodeURIComponent(adminId)}/reset`,

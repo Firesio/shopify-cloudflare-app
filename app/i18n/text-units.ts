@@ -31,6 +31,11 @@ export const TEXT_UNITS = {
     { namespace: "email", key: "support.reply.cta" },
     { namespace: "email", key: "support.reply.footer" },
   ],
+  "email.campaign": [
+    ...EMAIL_LAYOUT,
+    { namespace: "email", key: "campaign.footer" },
+    { namespace: "email", key: "campaign.unsubscribe" },
+  ],
   // The loader-built page titles and descriptions of the public pages (the page body itself is rendered by react-i18next).
   "public.landing": [
     { namespace: "public", key: "landing.heading" },
@@ -38,6 +43,7 @@ export const TEXT_UNITS = {
   ],
   "public.pricing": [{ namespace: "public", key: "pricing.heading" }],
   "public.support": [{ namespace: "public", key: "support.heading" }],
+  "public.unsubscribe": [{ namespace: "public", key: "unsubscribe.heading" }],
   "public.terms": [{ namespace: "public", key: "legal.terms.heading" }],
   "public.privacy": [{ namespace: "public", key: "legal.privacy.heading" }],
 } as const satisfies Readonly<Record<string, readonly UnitKey[]>>;

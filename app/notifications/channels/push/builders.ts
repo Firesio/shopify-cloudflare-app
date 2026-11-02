@@ -31,6 +31,8 @@ const DEAD_LETTER_TTL_SECONDS = 24 * 60 * 60;
 export const PUSH_BUILDERS: { [E in NotificationEvent]: PushBuilder<E> | null } = {
   admin_password_reset: null,
   support_staff_reply: null,
+  // An announcement goes to merchants, and push is for staff.
+  campaign_message: null,
 
   support_merchant_activity: (payload) => {
     const url = toInternalPath(payload.threadUrl);

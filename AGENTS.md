@@ -211,6 +211,7 @@ shops, so a module-scope cache is a cross-tenant leak.
 @.claude/rules/i18n.md
 @.claude/rules/money.md
 @.claude/rules/members.md
+@.claude/rules/campaigns.md
 
 # Cloudflare — the infra invariants
 
