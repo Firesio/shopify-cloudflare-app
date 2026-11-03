@@ -35,7 +35,7 @@ import { streamRegion } from "~/internal/stream-region.server";
 import { ConversationCard, DetailsCard } from "./detail-cards";
 import { STATUS_LABEL, STATUS_VARIANT } from "./status-display";
 import { ReplyCard } from "./detail-reply-card";
-import { AssignShopCard } from "./detail-assign-card";
+import { AssignShopDialog } from "./detail-assign-card";
 
 type StaffThread = NonNullable<Awaited<ReturnType<ReturnType<typeof supportService>["findForStaff"]>>>;
 
@@ -225,7 +225,6 @@ function TicketBody({ ticket, messages, plan, assignableShops }: LoadedTicket) {
         </div>
 
         <div className="flex flex-col gap-4">
-          {ticket.shop === null && <AssignShopCard shops={assignableShops} />}
           <DetailsCard
             status={ticket.status}
             shop={ticket.shop}
@@ -234,6 +233,7 @@ function TicketBody({ ticket, messages, plan, assignableShops }: LoadedTicket) {
             createdAt={ticket.createdAt}
             merchantEmail={ticket.merchantEmail}
             ccEmails={ticket.ccEmails}
+            assignShop={ticket.shop === null ? <AssignShopDialog shops={assignableShops} /> : undefined}
           />
         </div>
       </div>

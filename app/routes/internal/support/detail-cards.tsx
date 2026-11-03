@@ -57,9 +57,11 @@ export interface DetailsCardProps {
   /** Where replies go: the merchant's address, or the sender's for a conversation with no merchant. */
   readonly merchantEmail: string | null;
   readonly ccEmails: readonly string[];
+  /** Shown beside "Not assigned" (the assign dialog's button); nothing for a conversation that has a shop. */
+  readonly assignShop?: ReactNode;
 }
 
-export function DetailsCard({ status, shop, source, plan, createdAt, merchantEmail, ccEmails }: DetailsCardProps) {
+export function DetailsCard({ status, shop, source, plan, createdAt, merchantEmail, ccEmails, assignShop }: DetailsCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -71,7 +73,14 @@ export function DetailsCard({ status, shop, source, plan, createdAt, merchantEma
             <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABEL[status]}</Badge>
           </Detail>
           <Detail label="Source">{SOURCE_LABEL[source]}</Detail>
-          <Detail label="Shop">{shop ?? "Not assigned"}</Detail>
+          <Detail label="Shop">
+            {shop ?? (
+              <span className="flex flex-wrap items-center gap-2">
+                Not assigned
+                {assignShop}
+              </span>
+            )}
+          </Detail>
           <Detail label="Plan">{plan ? `${plan.name} · ${plan.status}` : "Free"}</Detail>
           {plan && <Detail label="Subscription">{plan.status}</Detail>}
           <Detail label="Opened">{formatDateTime(LANGUAGE, createdAt, UTC)}</Detail>
