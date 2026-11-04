@@ -11,7 +11,7 @@ import { Spinner } from "~/internal/components/ui/spinner";
 import { requireAdminUser } from "~/services/admin-auth.server";
 import { adminUsers } from "~/wiring.server";
 import { issueAuthorizationCode, validateAuthorizeRequest } from "~/services/mcp/oauth.server";
-import { MCP_SCOPES, SCOPE_DESCRIPTIONS, type McpScope } from "~/domain/mcp/scopes";
+import { allowedScopesOf, SCOPE_DESCRIPTIONS, type McpScope } from "~/domain/mcp/scopes";
 import { INTERNAL_FONT_LINKS } from "~/internal/components";
 import internalStyles from "~/styles/internal/internal.tailwind.css?url";
 
@@ -92,7 +92,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<LoaderDat
       clientName: validation.client.clientName,
     },
     scopes: validation.scopes,
-    choices: MCP_SCOPES.filter((scope) => validation.client.allowedScopes.includes(scope)),
+    choices: allowedScopesOf(validation.client),
     redirectUri: validation.redirectUri,
     state,
     codeChallenge,

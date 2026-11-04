@@ -41,6 +41,26 @@ function post(cookie: string, fields: URLSearchParams) {
 }
 
 describe("OAuth consent: choosing scopes", () => {
+  it("a dynamic client registered before a scope existed is still offered it", async () => {
+    await inRequest(async () => {
+      const staff = await signIn();
+      const client = await new McpOAuthRepo().createClient({
+        id: "cli-old",
+        clientId: "mcp_cid_old",
+        clientName: "Old agent",
+        clientType: "public",
+        registrationType: "dynamic",
+        redirectUris: [CALLBACK],
+        allowedScopes: ["mcp:read", "mcp:tickets:write", "mcp:shops:read"],
+        createdAt: Date.now(),
+      });
+      const query = new URLSearchParams({ client_id: client.clientId, redirect_uri: CALLBACK, response_type: "code", scope: "mcp:read mcp:campaigns:send mcp:admin", code_challenge: "c" });
+      const opened = await loader(args(new Request(`https://example.test/api/oauth/authorize?${query}`, { headers: { Cookie: staff.cookie } })));
+      expect(opened).toMatchObject({ ok: true, scopes: ["mcp:read", "mcp:campaigns:send"] });
+      expect(opened.ok ? opened.choices : []).toContain("mcp:campaigns:write");
+    });
+  });
+
   it("offers a dynamically registered client every scope but admin, grants only the ticked ones, and refuses none ticked", async () => {
     await inRequest(async () => {
       const staff = await signIn();

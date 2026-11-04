@@ -7,7 +7,7 @@ import {
   isTokenRevoked,
   sha256,
 } from "~/domain/mcp/tokens";
-import { MCP_SCOPES, parseScopes, type McpScope } from "~/domain/mcp/scopes";
+import { allowedScopesOf, DYNAMIC_CLIENT_SCOPES, parseScopes, type McpScope } from "~/domain/mcp/scopes";
 import { verifyCodeChallenge } from "~/domain/mcp/pkce";
 import { appRuntime, mcpOAuth, mcpTokens } from "~/wiring.server";
 import type { McpAuthorizationCode, McpClient, McpToken } from "~/db/schema/mcp";
@@ -16,12 +16,6 @@ import type { Clock, Runtime } from "~/ports/runtime";
 const AUTH_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-/**
- * What a dynamically registered client MAY ask for: every scope except `mcp:admin` (which only covers the others). The consent screen
- * shows what the client asked for, lets the person tick which to grant, and a signed-in staff member must approve it: a ceiling, not a grant.
- */
-const DYNAMIC_CLIENT_SCOPES: McpScope[] = MCP_SCOPES.filter((scope) => scope !== "mcp:admin");
 
 /** RFC 7591: Dynamic Client Registration. */
 export async function registerDynamicClient({
@@ -41,7 +35,7 @@ export async function registerDynamicClient({
     clientType: "public",
     registrationType: "dynamic",
     redirectUris: [...redirectUris],
-    allowedScopes: DYNAMIC_CLIENT_SCOPES,
+    allowedScopes: [...DYNAMIC_CLIENT_SCOPES],
     createdAt: now,
   });
 }
@@ -84,7 +78,7 @@ export async function validateAuthorizeRequest({
   }
 
   // Only what the client was registered for can be granted, whatever it asks (or a form posts back).
-  const scopes = parseScopes(scope).filter((granted) => client.allowedScopes.includes(granted));
+  const scopes = parseScopes(scope).filter((granted) => allowedScopesOf(client).includes(granted));
   if (scopes.length === 0) {
     return { ok: false, error: "invalid_scope", description: "None of the requested scopes is allowed for this client." };
   }

@@ -19,6 +19,19 @@ export const MCP_SCOPES = [
 
 export type McpScope = (typeof MCP_SCOPES)[number];
 
+/**
+ * What a dynamically registered client MAY be granted: every scope except `mcp:admin` (which only covers the others). Read at
+ * consent time, not from the row stored at registration, so clients registered before a scope existed are not stuck without it.
+ * A ceiling, not a grant: the person still ticks each scope on the consent page.
+ */
+export const DYNAMIC_CLIENT_SCOPES: readonly McpScope[] = MCP_SCOPES.filter((scope) => scope !== "mcp:admin");
+
+/** Every scope this client may be granted, in the console's order. A dynamic client gets today's ceiling, whatever its row says. */
+export function allowedScopesOf(client: { allowedScopes: readonly string[]; registrationType: string }): McpScope[] {
+  const allowed: readonly string[] = client.registrationType === "dynamic" ? DYNAMIC_CLIENT_SCOPES : client.allowedScopes;
+  return MCP_SCOPES.filter((scope) => allowed.includes(scope));
+}
+
 export const DEFAULT_MCP_SCOPES: readonly McpScope[] = ["mcp:read"];
 
 export const SCOPE_DESCRIPTIONS: Record<McpScope, { label: string; description: string }> = {
