@@ -78,7 +78,7 @@ write (draft) → choose who → preview the exact number → [send me a test] �
 | `mcp:campaigns:write` | `create_campaign` (draft only), `update_campaign`, `delete_campaign`, `send_campaign_test`, `pause_campaign`, `resume_campaign`, `cancel_campaign` |
 | `mcp:campaigns:send` | `start_campaign` (emails real merchants) |
 
-- `send` is implied by neither `write` nor `read` (only `mcp:admin` covers it). Preparing and sending are separate powers; the OAuth default scopes and the console's default checkboxes do not include either new scope.
+- `send` is implied by neither `write` nor `read` (only `mcp:admin` covers it). Preparing and sending are separate powers; a dynamically registered OAuth client may be granted any scope but `mcp:admin`, and the consent page lets the person tick which ones (it opens with what the client asked for); the console's default token checkboxes do not include either new scope.
 - `start_campaign` REQUIRES `expectedRecipients`, the number the human saw in the latest `create_campaign`, `update_campaign`, preview or `get_campaign`. A different current size returns `audience_changed` with the new count and sends nothing. Its description tells the model not to call it unless the human explicitly asked to send.
 - `send_campaign_test` mails only the staff account that owns the token. `ctx.actorEmail` is the token's LABEL, not an address, so the owner is resolved from `ctx.adminUserId` (`resolveCampaignActor`); a token with no resolvable owner gets `no_owner_address` and nothing is sent.
 - Results are structured JSON with a `next` hint. Invalid content or a bad date returns `{ ok: false, reason: "invalid", errors: [{ field, fault, message }] }` (not a thrown error). A missing scope throws `Forbidden`.
