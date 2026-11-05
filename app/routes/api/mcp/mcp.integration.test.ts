@@ -116,8 +116,8 @@ describe("MCP HTTP JSON-RPC Server Integration", () => {
         result?: { tools: Array<{ name: string; description: string }> };
       };
       expect(listJson.result?.tools).toBeDefined();
-      // 16 operational tools plus the 11 campaign tools.
-      expect(listJson.result?.tools.length).toBe(27);
+      // 18 operational tools plus the 11 campaign tools.
+      expect(listJson.result?.tools.length).toBe(29);
 
       // 2. tools/call get_revenue_and_plans (verify dev store excluded from MRR)
       const callReq = new Request("http://localhost/api/mcp", {

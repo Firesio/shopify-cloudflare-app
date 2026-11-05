@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Form, useNavigation } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { Form, useActionData, useNavigation } from "react-router";
 import { Button } from "~/internal/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/internal/components/ui/card";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "~/internal/components/ui/field";
@@ -123,6 +123,16 @@ export function ReplyCard({ ticketId, isClosed }: { readonly ticketId: string; r
   // Targets the composer's textarea by id and rewrites what is in it.
   const draft = useReplyDraft("body");
   const uploads = usePendingUploads(ticketId);
+  const formRef = useRef<HTMLFormElement>(null);
+  const actionData = useActionData<{ success?: string }>();
+  const { reset } = uploads;
+  // A sent reply empties the composer (text and attachments).
+  useEffect(() => {
+    if (actionData?.success === "replied") {
+      formRef.current?.reset();
+      reset();
+    }
+  }, [actionData, reset]);
 
   return (
     <Card>
@@ -131,7 +141,7 @@ export function ReplyCard({ ticketId, isClosed }: { readonly ticketId: string; r
         <CardDescription>This reply is emailed to the merchant and their copy list.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Form method="post">
+        <Form method="post" ref={formRef}>
           <FieldGroup>
             <AiBox ticketId={ticketId} draft={draft} busy={busy} />
 

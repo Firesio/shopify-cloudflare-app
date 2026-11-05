@@ -3,6 +3,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   closeTicket,
   createTicketOnBehalf,
+  deleteStaffMessage,
+  editStaffMessage,
   getTicketThread,
   listTickets,
   replyToTicket,
@@ -93,6 +95,49 @@ function registerReplyToTicket(server: McpServer, ctx: McpActorContext) {
       });
       if (!result.ok) throw new Error(`Failed to reply: ticket '${args.ticketId}' not found`);
       return { success: true, ticketId: args.ticketId, messageId: result.value.messageId };
+    }),
+  );
+}
+
+function registerEditTicketMessage(server: McpServer, ctx: McpActorContext) {
+  server.registerTool(
+    "edit_ticket_message",
+    {
+      title: "Edit Staff Message",
+      description:
+        "Rewrites the text of a STAFF message already in the ticket thread (message ids come from get_ticket_thread). Merchant messages cannot be edited. The merchant is not emailed again.",
+      inputSchema: {
+        ticketId: z.string().min(1).describe("The support ticket ID"),
+        messageId: z.string().min(1).describe("The staff message ID"),
+        body: z.string().min(1).max(10000).describe("The new message text"),
+      },
+      annotations: MUTATION,
+    },
+    mcpMutation("edit_ticket_message", "mcp:tickets:write", ctx, async (args) => {
+      const edited = await editStaffMessage(args.ticketId, args.messageId, args.body.trim());
+      if (!edited) throw new Error(`Staff message '${args.messageId}' not found on ticket '${args.ticketId}'`);
+      return { success: true, ticketId: args.ticketId, messageId: args.messageId };
+    }),
+  );
+}
+
+function registerDeleteTicketMessage(server: McpServer, ctx: McpActorContext) {
+  server.registerTool(
+    "delete_ticket_message",
+    {
+      title: "Delete Staff Message",
+      description:
+        "Deletes a STAFF message (and its attachments) from the ticket thread. Merchant messages cannot be deleted. An email already sent cannot be recalled.",
+      inputSchema: {
+        ticketId: z.string().min(1).describe("The support ticket ID"),
+        messageId: z.string().min(1).describe("The staff message ID"),
+      },
+      annotations: MUTATION,
+    },
+    mcpMutation("delete_ticket_message", "mcp:tickets:write", ctx, async (args) => {
+      const deleted = await deleteStaffMessage(args.ticketId, args.messageId);
+      if (!deleted) throw new Error(`Staff message '${args.messageId}' not found on ticket '${args.ticketId}'`);
+      return { success: true, ticketId: args.ticketId, messageId: args.messageId };
     }),
   );
 }
@@ -193,6 +238,8 @@ export function registerTicketTools(server: McpServer, ctx: McpActorContext) {
   registerListTickets(server, ctx);
   registerGetTicketThread(server, ctx);
   registerReplyToTicket(server, ctx);
+  registerEditTicketMessage(server, ctx);
+  registerDeleteTicketMessage(server, ctx);
   registerUpdateTicketStatus(server, ctx);
   registerCreateTicket(server, ctx);
   registerUploadSupportAttachment(server, ctx);

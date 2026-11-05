@@ -315,6 +315,20 @@ export async function replyToTicket({
   return result;
 }
 
+/** Rewrite a staff message already sent. Nothing is re-emailed. False when there is no such staff message. */
+export async function editStaffMessage(ticketId: string, messageId: string, body: string): Promise<boolean> {
+  return support().editStaffMessage(ticketId, messageId, body);
+}
+
+/** Delete a staff message (and its files). The email that carried it cannot be recalled. False when there is no such staff message. */
+export async function deleteStaffMessage(ticketId: string, messageId: string, context: OpsContext = appContext()): Promise<boolean> {
+  const keys = await support().deleteStaffMessage(ticketId, messageId);
+  if (keys === null) return false;
+  const uploads = context.env.UPLOADS;
+  if (uploads && keys.length > 0) await Promise.all(keys.map((key) => uploads.delete(key)));
+  return true;
+}
+
 /**
  * Close ticket as staff.
  */

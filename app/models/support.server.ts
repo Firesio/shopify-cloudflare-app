@@ -329,6 +329,42 @@ export class SupportRepo {
     return { shop: ticket.shop, messageId };
   }
 
+  /** Rewrite the text of a STAFF message of this ticket. False when there is no such staff message. */
+  async editStaffMessage(ticketId: string, messageId: string, body: string): Promise<boolean> {
+    const rows = await getDb()
+      .update(supportMessages)
+      .set({ body })
+      .where(and(eq(supportMessages.id, messageId), eq(supportMessages.ticketId, ticketId), eq(supportMessages.author, "staff")))
+      .returning({ id: supportMessages.id });
+    return rows.length > 0;
+  }
+
+  /**
+   * Delete a STAFF message of this ticket with its attachment rows, and bring the ticket's last-message fields back in line
+   * with what is left. Returns the R2 keys of the removed files, or null when there is no such staff message.
+   */
+  async deleteStaffMessage(ticketId: string, messageId: string): Promise<readonly string[] | null> {
+    const db = getDb();
+    const [message] = await db
+      .select({ id: supportMessages.id })
+      .from(supportMessages)
+      .where(and(eq(supportMessages.id, messageId), eq(supportMessages.ticketId, ticketId), eq(supportMessages.author, "staff")))
+      .limit(1);
+    if (!message) return null;
+    const files = await db.select({ r2Key: supportAttachments.r2Key }).from(supportAttachments).where(eq(supportAttachments.messageId, messageId));
+    await db.delete(supportMessages).where(eq(supportMessages.id, messageId));
+    const [latest] = await db
+      .select({ author: supportMessages.author, at: supportMessages.createdAt })
+      .from(supportMessages)
+      .where(eq(supportMessages.ticketId, ticketId))
+      .orderBy(desc(supportMessages.createdAt))
+      .limit(1);
+    if (latest) {
+      await db.update(supportTickets).set({ lastAuthor: latest.author, lastMessageAt: latest.at }).where(eq(supportTickets.id, ticketId));
+    }
+    return files.map((file) => file.r2Key);
+  }
+
   private async appendMessage(
     shop: string | null,
     input: {

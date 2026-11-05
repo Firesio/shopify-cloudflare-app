@@ -24,7 +24,7 @@ import { useActionToast } from "~/internal/use-action-toast";
 import { requireAdminUser } from "~/services/admin-auth.server";
 import { adminUsers } from "~/wiring.server";
 import { supportService } from "~/wiring.server";
-import { assignTicketToShop, replyToTicket, closeTicket } from "~/services/internal-admin/ops.server";
+import { assignTicketToShop, replyToTicket, closeTicket, editStaffMessage, deleteStaffMessage } from "~/services/internal-admin/ops.server";
 import { planForShopifyHandle } from "~/billing/plans";
 import { statusOf } from "~/support/status";
 import { CATEGORY_LABEL_EN } from "~/support/categories";
@@ -118,6 +118,24 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
   return { ticketId, detail: streamRegion("support_detail", "ticket", loadTicketDetail(ticketId)) };
 };
 
+/** Edit or delete a staff message; null when the form is some other intent. */
+async function messageAction(ticketId: string, form: FormData) {
+  const intent = String(form.get("intent"));
+  const messageId = String(form.get("messageId") ?? "");
+  if (intent === "delete_message") {
+    return (await deleteStaffMessage(ticketId, messageId))
+      ? { success: "deleted" as const }
+      : { error: "That message no longer exists." as const };
+  }
+  if (intent !== "edit_message") return null;
+  const edited = String(form.get("body") ?? "").trim();
+  if (!edited) return { error: "A message cannot be empty." as const };
+  if (edited.length > BODY_MAX) return { error: "That reply is too long." as const };
+  return (await editStaffMessage(ticketId, messageId, edited))
+    ? { success: "edited" as const }
+    : { error: "That message no longer exists." as const };
+}
+
 export const action = async ({ params, request }: ActionFunctionArgs) => {
   const actor = await requireAdminUser(request, { users: adminUsers() });
   const ticketId = params.ticketId ?? "";
@@ -127,6 +145,9 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
     await closeTicket(ticketId);
     return { success: "closed" as const };
   }
+
+  const messageIntent = await messageAction(ticketId, form);
+  if (messageIntent) return messageIntent;
 
   if (String(form.get("intent")) === "assign_shop") {
     const assigned = await assignTicketToShop(ticketId, String(form.get("shop") ?? ""));
@@ -167,7 +188,7 @@ export default function InternalSupportThread() {
 
   useActionToast(actionData, {
     error: failure,
-    success: outcome === "closed" ? "Ticket closed." : outcome === "replied" ? "Reply sent." : outcome === "assigned" ? "Shop assigned." : undefined,
+    success: outcome === "closed" ? "Ticket closed." : outcome === "replied" ? "Reply sent." : outcome === "assigned" ? "Shop assigned." : outcome === "edited" ? "Message updated." : outcome === "deleted" ? "Message deleted." : undefined,
   });
 
   return (

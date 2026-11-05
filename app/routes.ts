@@ -120,6 +120,7 @@ export default [
     route("tickets", "routes/api/v1/tickets/index.ts"),
     route("tickets/detail", "routes/api/v1/tickets/detail.ts"),
     route("tickets/reply", "routes/api/v1/tickets/reply.ts"),
+    route("tickets/message", "routes/api/v1/tickets/message.ts"),
     route("support/upload", "routes/api/v1/support/upload.ts"),
     route("audit", "routes/api/v1/audit.ts"),
   ]),

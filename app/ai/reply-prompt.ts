@@ -53,9 +53,11 @@ export function buildReplyPrompt(input: {
   const task =
     mode === "generate"
       ? [
-          "Write the reply. Turn the note below into a complete, well-formed message —",
-          "it is shorthand from the person replying, not text to quote back.",
-          "Say everything it says and nothing it does not.",
+          "Rewrite the note below as a clear, polite, professional message.",
+          "The note is what the person replying wants to say: keep exactly its meaning, and say nothing beyond it.",
+          "Do NOT add requests, questions, instructions, promises or facts that the note does not contain, even if the thread suggests them.",
+          "Use the thread only to pick the right wording, names and language, and so the message reads naturally as a reply.",
+          "A short note stays a short message.",
           "",
           "Note:",
           input.instruction.trim(),
@@ -80,7 +82,7 @@ export function buildReplyPrompt(input: {
         "",
         "Write ONLY the body of the reply. No subject, no preamble such as \"Here is a draft\", no commentary about what you changed.",
         "Match the merchant's language.",
-        "Do not invent facts. If something needed is missing, ask for it plainly instead of guessing.",
+        "Do not invent facts. Only when asked to suggest a reply with no draft or note, ask for missing information; otherwise never add questions or requests the person did not write.",
         "A human will read and edit this before it is sent.",
       ].join("\n"),
     },

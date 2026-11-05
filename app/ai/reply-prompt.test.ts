@@ -43,8 +43,8 @@ describe("generating from an instruction", () => {
     expect(user(messages)).toContain("ships Friday");
   });
 
-  it("asks for a complete message, not a paraphrase of the instruction", () => {
-    expect(user(messages).toLowerCase()).toMatch(/complete|well-formed|full/);
+  it("keeps to what the note says and adds nothing", () => {
+    expect(user(messages).toLowerCase()).toMatch(/nothing beyond it|do not add/);
   });
 
   it("still carries the thread for context", () => {

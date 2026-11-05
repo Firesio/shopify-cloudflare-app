@@ -111,6 +111,20 @@ export const TOOL_CATALOG: {
         summary: "Post staff reply and email the merchant automatically.",
       },
       {
+        name: "edit_ticket_message",
+        domain: "Support Ticket Operations",
+        scope: "mcp:tickets:write",
+        isMutation: true,
+        summary: "Rewrite a staff message already in the thread (no new email).",
+      },
+      {
+        name: "delete_ticket_message",
+        domain: "Support Ticket Operations",
+        scope: "mcp:tickets:write",
+        isMutation: true,
+        summary: "Delete a staff message and its files from the thread.",
+      },
+      {
         name: "update_ticket_status",
         domain: "Support Ticket Operations",
         scope: "mcp:tickets:write",
