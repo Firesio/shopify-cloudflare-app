@@ -53,11 +53,12 @@ export function buildReplyPrompt(input: {
   const task =
     mode === "generate"
       ? [
-          "Rewrite the note below as a clear, polite, professional message.",
-          "The note is what the person replying wants to say: keep exactly its meaning, and say nothing beyond it.",
-          "Do NOT add requests, questions, instructions, promises or facts that the note does not contain, even if the thread suggests them.",
-          "Use the thread only to pick the right wording, names and language, and so the message reads naturally as a reply.",
-          "A short note stays a short message.",
+          "Write a complete, natural reply to the merchant from the note below.",
+          "The note is what the person replying wants to say. Expand it into smooth, well-flowing prose: fix grammar, reorder and join its sentences, and do not copy it word for word.",
+          "You may add a short greeting, a brief thank-you for the merchant's message or for contacting support, and a polite closing line.",
+          "Every point the note makes must stay, with the same meaning, promises and conditions.",
+          "Do NOT add new requests, questions, instructions, promises, reasons, opinions or facts that the note does not contain, even if the thread suggests them.",
+          "Use the thread only for names, wording and language.",
           "",
           "Note:",
           input.instruction.trim(),
@@ -82,7 +83,7 @@ export function buildReplyPrompt(input: {
         "",
         "Write ONLY the body of the reply. No subject, no preamble such as \"Here is a draft\", no commentary about what you changed.",
         "Match the merchant's language.",
-        "Do not invent facts. Only when asked to suggest a reply with no draft or note, ask for missing information; otherwise never add questions or requests the person did not write.",
+        "Do not invent facts. Only when asked to suggest a reply with no draft or note, ask for missing information; otherwise never add questions, requests or commitments the person did not write. Courtesy (greeting, thanks, closing) is fine.",
         "A human will read and edit this before it is sent.",
       ].join("\n"),
     },

@@ -126,7 +126,15 @@ export function ReplyCard({ ticketId, isClosed }: { readonly ticketId: string; r
   const formRef = useRef<HTMLFormElement>(null);
   const actionData = useActionData<{ success?: string }>();
   const { reset } = uploads;
-  // A sent reply empties the composer (text and attachments).
+  // Bumped on each sent reply; it is the AI box's key, so its note and tone start over.
+  // Derived while rendering (a new action answer), not in an effect.
+  const [sentCount, setSentCount] = useState(0);
+  const [seenAnswer, setSeenAnswer] = useState(actionData);
+  if (actionData !== seenAnswer) {
+    setSeenAnswer(actionData);
+    if (actionData?.success === "replied") setSentCount((count) => count + 1);
+  }
+  // A sent reply empties the composer (text, attachments and the AI box).
   useEffect(() => {
     if (actionData?.success === "replied") {
       formRef.current?.reset();
@@ -143,7 +151,7 @@ export function ReplyCard({ ticketId, isClosed }: { readonly ticketId: string; r
       <CardContent>
         <Form method="post" ref={formRef}>
           <FieldGroup>
-            <AiBox ticketId={ticketId} draft={draft} busy={busy} />
+            <AiBox key={sentCount} ticketId={ticketId} draft={draft} busy={busy} />
 
             <Field>
               <FieldLabel htmlFor="body" className="sr-only">

@@ -43,8 +43,11 @@ describe("generating from an instruction", () => {
     expect(user(messages)).toContain("ships Friday");
   });
 
-  it("keeps to what the note says and adds nothing", () => {
-    expect(user(messages).toLowerCase()).toMatch(/nothing beyond it|do not add/);
+  it("keeps the note's points, allows courtesy, forbids new content", () => {
+    const text = user(messages).toLowerCase();
+    expect(text).toMatch(/do not copy it word for word/);
+    expect(text).toMatch(/thank-you/);
+    expect(text).toMatch(/do not add new requests/);
   });
 
   it("still carries the thread for context", () => {
