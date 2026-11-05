@@ -16,7 +16,6 @@ export interface MailSource {
 const INVISIBLE_CODE_POINTS = [0x200a, 0x200b, 0x200c, 0x200d, 0x2060, 0xfeff, 0x00a0];
 const INVISIBLE = new RegExp(`[${INVISIBLE_CODE_POINTS.map((code) => String.fromCodePoint(code)).join("")}]`, "g");
 const SHOPIFY_SENDER = "no-reply@shopify.com";
-const SHOPIFY_DOMAIN = "shopify.com";
 const BODY_START = "sent you a message. See it below.";
 const BODY_END = "Reply directly to";
 const SHOP_URL = /https:\/\/([a-z0-9][a-z0-9-]*\.myshopify\.com)/i;
@@ -39,12 +38,14 @@ function between(text: string, start: string, end: string): string | null {
  * The Shopify "has a question about <app>" relay. The mail is FROM Shopify and
  * the person who asked is in Reply-To, so the sender recorded is Reply-To; the
  * shop comes from the text part (the HTML link is a tracking redirect).
+ *
+ * Matched by sender, Reply-To and subject, WITHOUT checking DKIM (no `Authentication-Results` is read at all). A forged relay mail
+ * can at worst open a conversation in the staff console.
  */
 const shopifyRelay: MailSource = {
   source: "shopify_relay",
   matches: (mail) =>
     mail.from.address.toLowerCase() === SHOPIFY_SENDER &&
-    mail.dkimPassDomains.includes(SHOPIFY_DOMAIN) &&
     mail.replyTo !== null &&
     RELAY_SUBJECT.test(mail.subject),
   normalize: (mail, externalId) => {

@@ -185,12 +185,6 @@
     // email is disabled and sendEmail() reports notConfigured.
     "EMAIL_FROM": "",
     "EMAIL_FROM_NAME": "",
-    // Inbound support mail (Email Routing -> this Worker's `email` handler). The
-    // authserv-id of the receiver whose Authentication-Results header is trusted
-    // to say a DKIM signature passed. Empty trusts none: mail is still stored, but
-    // no sender counts as verified, so the Shopify relay is read as plain mail.
-    // A sender can forge the header, so set it only to the id seen on real mail.
-    "INBOUND_AUTH_SERVER_ID": "",
     // Optional. The domain support mail lives on, when it is not the host of
     // SHOPIFY_APP_URL. Leave empty in production (the app URL is used). Set it in
     // .dev.vars to try `support+<id>@` replies locally, where the app URL is a tunnel.
@@ -325,7 +319,6 @@
         "SHOPIFY_APP_HANDLE": "",
         "EMAIL_FROM": "",
         "EMAIL_FROM_NAME": "",
-        "INBOUND_AUTH_SERVER_ID": "",
         "SUPPORT_MAIL_DOMAIN": "",
         "TURNSTILE_SITE_KEY": "",
         "SHOPIFY_PARTNER_APP_ID": "",

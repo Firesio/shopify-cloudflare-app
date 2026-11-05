@@ -29,7 +29,6 @@ function mail(overrides: Partial<ParsedMail> = {}): ParsedMail {
     text: "It broke.",
     autoSubmitted: null,
     precedence: null,
-    dkimPassDomains: [],
     ...overrides,
   };
 }
@@ -41,7 +40,6 @@ const relay = (overrides: Partial<ParsedMail> = {}) =>
     replyTo: { address: "josh.johnson@atelier-studios.com", name: "Josh" },
     subject: "Dev Playground has a question about Repair & Service Ops",
     text: RELAY_TEXT,
-    dkimPassDomains: ["shopify.com"],
     ...overrides,
   });
 

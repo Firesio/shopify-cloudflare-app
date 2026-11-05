@@ -1,5 +1,4 @@
 import PostalMime, { type Address, type Mailbox } from "postal-mime";
-import { dkimPassDomains } from "~/support/inbound/authentication";
 import type { MailAddress, ParsedMail } from "~/support/inbound/types";
 
 function mailbox(address: Address | undefined): Mailbox | null {
@@ -26,8 +25,6 @@ export interface InboundEnvelope {
   /** The envelope recipient: the address the mail was really sent to. */
   readonly to: string;
   readonly raw: ReadableStream<Uint8Array>;
-  /** The authserv-id of the receiver whose `Authentication-Results` is trusted; empty trusts none. */
-  readonly trustedAuthServerId: string;
 }
 
 /**
@@ -54,6 +51,5 @@ export async function parseInboundMail(envelope: InboundEnvelope): Promise<Parse
     text: email.text ?? "",
     autoSubmitted: headerValue(email.headers, "auto-submitted"),
     precedence: headerValue(email.headers, "precedence"),
-    dkimPassDomains: dkimPassDomains(email.headers, envelope.trustedAuthServerId),
   };
 }

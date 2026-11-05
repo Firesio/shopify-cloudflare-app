@@ -64,7 +64,6 @@ function mail(overrides: Partial<ParsedMail>): ParsedMail {
     text: "It broke.",
     autoSubmitted: null,
     precedence: null,
-    dkimPassDomains: [],
     ...overrides,
   };
 }
@@ -132,7 +131,6 @@ describe("a conversation, end to end", () => {
         replyTo: { address: "josh@atelier-studios.com", name: "Josh" },
         subject: "Dev Playground has a question about Repair & Service Ops",
         text: `Dev Playground${HAIR}\n( https://dev-playground-3getbhj4.myshopify.com )\nsent you a message. See it below.\n\nCan photos be uploaded?\n\nReply directly to josh@atelier-studios.com\n`,
-        dkimPassDomains: ["shopify.com"],
       });
       const opened = await inbox.receive(relay);
       if (opened.status !== "opened") throw new Error("expected opened");

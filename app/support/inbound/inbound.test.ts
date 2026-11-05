@@ -50,7 +50,6 @@ function mail(overrides: Partial<ParsedMail> = {}): ParsedMail {
     text: RELAY_TEXT,
     autoSubmitted: null,
     precedence: null,
-    dkimPassDomains: ["shopify.com", "sendgrid.info"],
     ...overrides,
   };
 }
@@ -71,9 +70,8 @@ describe("shopify relay source", () => {
     expect(result.value.body).not.toContain(HAIR);
   });
 
-  it("does not claim a lookalike whose DKIM did not pass for shopify.com", () => {
-    expect(detectMailSource(mail({ dkimPassDomains: [] })).source).toBe("email");
-    expect(detectMailSource(mail({ dkimPassDomains: ["evil.example"] })).source).toBe("email");
+  it("claims the relay without needing DKIM", () => {
+    expect(detectMailSource(mail({})).source).toBe("shopify_relay");
   });
 
   it("does not claim a mail from another sender using the same subject", () => {
@@ -94,7 +92,6 @@ describe("plain email source", () => {
     replyTo: null,
     subject: "Help please",
     text: "Hello,\n\nit broke.\n",
-    dkimPassDomains: [],
   });
 
   it("is the fallback and records the sender", () => {

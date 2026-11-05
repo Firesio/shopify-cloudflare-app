@@ -53,7 +53,6 @@ export default {
     await runWithRequestContext(env, () =>
       handleInboundEmail(message, {
         receive: (mail) => supportInboxService().receive(mail),
-        trustedAuthServerId: env.INBOUND_AUTH_SERVER_ID,
         log: (entry) => console.log(JSON.stringify(entry)),
       }),
     );

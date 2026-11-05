@@ -7,7 +7,6 @@ export const INBOUND_MAX_BYTES = 10 * 1024 * 1024;
 
 export interface InboundEmailDependencies {
   readonly receive: (mail: ParsedMail) => Promise<ReceiveOutcome>;
-  readonly trustedAuthServerId: string;
   readonly log: (entry: { readonly event: string; readonly status: string }) => void;
 }
 
@@ -31,7 +30,6 @@ export async function handleInboundEmail(message: ForwardableEmailMessage, depen
     const mail = await parseInboundMail({
       to: message.to,
       raw: message.raw,
-      trustedAuthServerId: dependencies.trustedAuthServerId,
     });
     if (mail === null) {
       dependencies.log({ event: "support.inbound_mail", status: "unreadable" });

@@ -39,7 +39,7 @@ function messageOf(text: string, over: { rawSize?: number } = {}) {
   return { message: message as unknown as ForwardableEmailMessage, rejected };
 }
 
-function deps(over: { trusted?: string; receive?: (mail: ParsedMail) => Promise<ReceiveOutcome> } = {}) {
+function deps(over: { receive?: (mail: ParsedMail) => Promise<ReceiveOutcome> } = {}) {
   const received: ParsedMail[] = [];
   const logs: string[] = [];
   return {
@@ -47,7 +47,6 @@ function deps(over: { trusted?: string; receive?: (mail: ParsedMail) => Promise<
     logs,
     dependencies: {
       receive: over.receive ?? (async (mail: ParsedMail) => { received.push(mail); return { status: "duplicate" } as const; }),
-      trustedAuthServerId: over.trusted ?? "mx.trusted.example",
       log: (entry: { event: string; status: string }) => { logs.push(entry.status); },
     },
   };
@@ -64,23 +63,8 @@ describe("handleInboundEmail", () => {
     expect(mail?.replyTo?.address).toBe("josh.johnson@atelier-studios.com");
     expect(mail?.messageId).toBe("<E103008F-18DFE423CE0CCFDC-C2352D16@shopify.com>");
     expect(mail?.recipients).toContain("support+abcd1234-ef56@vip.firesio.app");
-    expect(mail?.dkimPassDomains).toEqual(["shopify.com"]);
     expect(mail?.text).toContain(`Dev Playground${HAIR}`);
     expect(mail?.text).toContain("Hi, can he upload photos?");
-  });
-
-  it("does not believe an Authentication-Results header from a receiver it does not trust", async () => {
-    const { message } = messageOf(RELAY);
-    const { received, dependencies } = deps({ trusted: "mx.other.example" });
-    await handleInboundEmail(message, dependencies);
-    expect(received[0]?.dkimPassDomains).toEqual([]);
-  });
-
-  it("trusts no sender when no receiver is configured", async () => {
-    const { message } = messageOf(RELAY);
-    const { received, dependencies } = deps({ trusted: "" });
-    await handleInboundEmail(message, dependencies);
-    expect(received[0]?.dkimPassDomains).toEqual([]);
   });
 
   it("rejects a message too large to read, without parsing it", async () => {

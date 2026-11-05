@@ -42,7 +42,7 @@ Read from the Cloudflare Email Service docs ([headers](https://developers.cloudf
 
 - Cloudflare Email Routing delivers to the Worker's `email` handler (`workers/inbound-email.ts`): parse (`postal-mime`), hand to `SupportInboxService.receive`, answer. A mail we cannot read or store is **rejected** so the sender is bounced; a mail we choose to ignore (auto-reply, our own domain) is **accepted and dropped** — bouncing it would start a loop.
 - Only the text/plain part is read. The HTML part's links are tracking redirects.
-- **Sender verification**: `Authentication-Results` is a header a sender can forge, so it is trusted only from the receiver named by `INBOUND_AUTH_SERVER_ID`. Empty (the default) trusts none: mail is stored, no sender counts as verified, and the Shopify relay is read as plain mail. Set it to the authserv-id seen on a real delivery.
+- **No sender verification**: no `Authentication-Results` header is read and there is no `INBOUND_AUTH_SERVER_ID` (removed 2026-11-05). The Shopify relay is recognised by sender, Reply-To and subject; a forged one can only open a conversation in the console.
 - Mail is never stored for a stranger beyond the conversation row; the body is cut at `INBOUND_BODY_MAX`, and no address or body is logged.
 
 ## The public form
@@ -73,7 +73,6 @@ Verified 2026-10-31: that opened an `email` ticket in the local D1 (`Worker succ
 ## Unverified — confirm before relying on it
 
 - That Email Routing delivers mail sent to `support+<id>@` to a rule for `support@` (subaddressing). If not, mail still threads by `In-Reply-To` for threads the customer started, but not for replies to our mail.
-- That the Email Worker receives an `Authentication-Results` header, and what its authserv-id is.
 - That the `messageId` `send()` returns equals the header Message-ID (it is not stored for that reason; `support_messages.mail_id` is reserved and unused).
 - That Gmail and Outlook thread our reply under the customer's original mail from `In-Reply-To`/`References` alone.
 - The relay parser is built from ONE sample (English). A changed Shopify template parses as `unparseable` and falls back to plain mail, so nothing a person wrote is lost.

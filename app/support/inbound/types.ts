@@ -40,11 +40,6 @@ export interface ParsedMail {
   readonly text: string;
   readonly autoSubmitted: string | null;
   readonly precedence: string | null;
-  /**
-   * Domains whose DKIM signature the adapter saw pass. The adapter derives it
-   * from `Authentication-Results`; a mail with none has no verified sender.
-   */
-  readonly dkimPassDomains: readonly string[];
 }
 
 /** What every mail source reduces a message to before a thread is chosen. */
