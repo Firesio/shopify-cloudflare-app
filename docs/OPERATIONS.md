@@ -42,6 +42,24 @@ two-step verification for each person on the Admins page and they enroll again. 
 latter only in the secret store and local `.dev.vars`; their *names* belong in
 `wrangler.jsonc` so `Env` can be generated on a clean checkout.
 
+## Automatic deploys from `main` (Workers Builds)
+
+When the Worker is connected to its GitHub repository in Cloudflare Workers Builds, **every push to the configured
+branch builds and deploys production**. The settings (Workers & Pages > the Worker > Settings > Builds) are:
+
+| Setting        | Value                                                                                          |
+| -------------- | ---------------------------------------------------------------------------------------------- |
+| Branch         | `main`                                                                                         |
+| Build command  | `npm run build`                                                                                |
+| Deploy command | `npx wrangler deploy`                                                                          |
+| Build variable | `CLOUDFLARE_ENV=production` (selects `env.production`; without it the build bakes local config) |
+
+`npm run build` runs `scripts/ci-release.mjs` after the Vite build. It acts only inside Workers Builds (`WORKERS_CI`):
+it applies the D1 migrations (fatal on failure, so code never lands ahead of its schema) and then, best effort, the
+Shopify app deploy. The build does **not** run `npm run verify`: run it (or `npm run cf:deploy`) before pushing to
+`main`. Runtime secrets are not build variables; they stay on the Worker. Whether the build's own API token may edit D1
+and Queues depends on how it was created: check it against `scripts/ci-release.mjs` on the first run.
+
 ## Roll back safely
 
 A Worker rollback does not roll back a D1 schema or data change. First stop and

@@ -89,6 +89,12 @@ policy-free; both seams below are where an app adds its own.
 
 Two calls that recur and deserve a recorded answer rather than a reflex:
 
+- **A queue consumer that needs the shop's offline session** finds it through `KVSessionStorage.findSessionsByShop`
+  (which also reads it by id). KV is eventually consistent and caches a miss for about a minute, so right after a
+  reinstall a session can read as missing. An INSTALLED shop with no readable session is **retried with a growing
+  delay, never settled**; only an uninstalled or unknown shop settles. A listing never deletes an index entry.
+  Evidence and what is unverified: `@rules/shopify-api-invariants.md`, "Session lookup after a quick uninstall and
+  reinstall".
 - **Queues vs Workflows.** Queues fit enqueue-and-forget single steps.
   **Workflows** fit multi-step processes where each step must survive failure
   independently. Pick per pipeline, and say which and why.

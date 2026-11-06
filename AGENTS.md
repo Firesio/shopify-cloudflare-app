@@ -244,4 +244,9 @@ generates `Env` — never hand-write it. **Never destructure `ctx`** (loses
 `timingSafeEqual` for webhook HMACs. Long work goes to a Queue — `waitUntil`
 gets only ~30s.
 
+**If the Worker is connected to Workers Builds, a push to `main` builds and
+deploys production** (`npm run build` runs `scripts/ci-release.mjs`, which
+applies D1 migrations first). That build does **not** run `npm run verify`: run
+it before pushing to `main`. Setup: `docs/OPERATIONS.md`, "Automatic deploys".
+
 @.claude/rules/cloudflare.md

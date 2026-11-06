@@ -90,6 +90,12 @@ build for a topic without a handler (`Record<WebhookTopic, …>`).
    permanent failure (rule 3), and a refresh of the offline token has the open per-shop serialisation gap recorded in
    the invariants file.
 7. **No personal data in logs or notifications.** Ids and names only, shop by hash in logs.
+8. **A handler that needs the offline session retries when an installed shop has none readable.** KV is eventually
+   consistent and caches a miss for about a minute, so right after a reinstall the session can read as missing. Throw
+   (retry with the growing delay) for an INSTALLED shop; settle only for an uninstalled or unknown one. And a destructive
+   step that follows a slow one (cleanup after an announcement) re-reads the shop's facts first, as `recordUninstall`
+   does: a reinstall can land in between. See `.claude/rules/shopify-api-invariants.md`, "Session lookup after a quick
+   uninstall and reinstall".
 
 ## Topic classes
 

@@ -148,6 +148,12 @@ and evidence; a checked box is not a substitute for a tested implementation.
   change.
 - Verify installation, OAuth callback, billing, uninstall, mandatory webhooks,
   support, privacy, and terms end to end on a production-like environment.
+- Uninstall, then reinstall within seconds (Shopify's reviewers do exactly
+  this): the app opens and authenticates, background jobs for the shop still
+  find its offline session (they may retry for a minute or two, never skip),
+  and the late `app/uninstalled` webhook does not delete the new install's
+  sessions (look for `shopify.uninstall.ignored`, reason
+  `reinstalled_before_cleanup`). Not verifiable without a real store.
 - Review listing copy, screenshots, support contact, permissions, data use,
   merchant-facing error states, and accessibility with the final product.
 
