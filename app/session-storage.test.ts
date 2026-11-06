@@ -78,11 +78,71 @@ describe("KVSessionStorage", () => {
     expect(await storage.findSessionsByShop(other.shop)).toHaveLength(1);
   });
 
-  it("does not scan every session when a shop index entry is missing", async () => {
+  /**
+   * An offline session whose shop index entry was lost (a quick uninstall and reinstall can do it) must still be found:
+   * the merchant's own requests load a session by id and keep working, but every background job that asks for the
+   * shop's sessions would find "no session" and skip. The offline session is the record every Admin call outside a
+   * merchant's request needs, so it is read by its id as well as through the index.
+   */
+  it("finds the offline session by its id when its shop index entry is missing", async () => {
     const session = offlineSession("orphan.myshopify.com");
     await env.SESSION.put(`session:${session.id}`, JSON.stringify(session.toPropertyArray()));
     const found = await new KVSessionStorage(env.SESSION).findSessionsByShop(session.shop);
+    expect(found.map((s) => s.id)).toEqual([session.id]);
+  });
+
+  it("returns the offline session once when the index lists it as well", async () => {
+    const storage = new KVSessionStorage(env.SESSION);
+    const session = offlineSession("listed-once.myshopify.com");
+    await storage.storeSession(session);
+
+    const found = await storage.findSessionsByShop(session.shop);
+
+    expect(found.map((s) => s.id)).toEqual([session.id]);
+  });
+
+  it("never reads another shop's session when the index is missing", async () => {
+    const mine = offlineSession("mine.myshopify.com");
+    const other = offlineSession("other.myshopify.com");
+    await env.SESSION.put(`session:${other.id}`, JSON.stringify(other.toPropertyArray()));
+
+    const found = await new KVSessionStorage(env.SESSION).findSessionsByShop(mine.shop);
+
     expect(found).toEqual([]);
+  });
+
+  /**
+   * KV is eventually consistent across locations: a session just written elsewhere can read as missing here for up to
+   * a minute (a miss is cached) while its index entry already lists. Deleting the entry on that read would orphan a
+   * live session for good, so listing is a pure read. `deleteSession` is what removes an entry.
+   */
+  it("keeps a shop index entry whose session cannot be read right now", async () => {
+    const storage = new KVSessionStorage(env.SESSION);
+    const session = offlineSession("lagging.myshopify.com");
+    await storage.storeSession(session);
+    const deletes: string[] = [];
+    const lagging = new Proxy(env.SESSION, {
+      get(target, property) {
+        if (property === "get") {
+          return async (key: string, ...rest: unknown[]) =>
+            key.startsWith("session:") ? null : Reflect.apply(target.get, target, [key, ...rest]);
+        }
+        if (property === "delete") {
+          return async (key: string) => {
+            deletes.push(key);
+            await target.delete(key);
+          };
+        }
+        const member = Reflect.get(target, property, target);
+        return typeof member === "function" ? member.bind(target) : member;
+      },
+    });
+
+    const found = await new KVSessionStorage(lagging).findSessionsByShop(session.shop);
+
+    expect(found).toEqual([]);
+    expect(deletes).toEqual([]);
+    expect(await env.SESSION.get(`shopidx:${session.shop}:${session.id}`)).not.toBeNull();
   });
 
   it("removes a stale shop index when the primary session has expired", async () => {

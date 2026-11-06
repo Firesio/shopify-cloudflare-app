@@ -32,10 +32,10 @@ function fitsAsMetadata(payload: string): boolean {
  *
  * Key layout:
  *   session:{id}          -> the session property array as JSON
- *   shopidx:{shop}:{id}   -> "" with the property array in KV metadata, so
- *                            findSessionsByShop reads sessions straight off the
- *                            list page with no per-id get. Sessions too large
- *                            for the metadata cap fall back to a load by id.
+ *   shopidx:{shop}:{id}   -> "" with the property array in KV metadata. It
+ *                            lists a shop's sessions; findSessionsByShop then
+ *                            loads each by id, plus the offline session by its
+ *                            id even when no entry lists it.
  */
 export class KVSessionStorage implements SessionStorage {
   constructor(private readonly kv: KVNamespace) {}
@@ -101,28 +101,29 @@ export class KVSessionStorage implements SessionStorage {
     return true;
   }
 
+  /**
+   * Every session of the shop. The offline session is always read by its id as well as through the index, so a shop
+   * that lost its index entry still has its session found. And this is a PURE READ: KV is eventually consistent, a
+   * session just written elsewhere can read as missing here (a miss is cached for about a minute) while its entry
+   * already lists, and deleting the entry on that read would orphan a live session for good. `deleteSession` is what
+   * removes an entry.
+   */
   async findSessionsByShop(shop: string): Promise<Session[]> {
     const prefix = `shopidx:${shop}:`;
-    const sessions: Session[] = [];
-    const indexed: Array<{ id: string; metadata?: SessionProps }> = [];
+    const ids = new Set<string>([offlineSessionId(shop)]);
     let cursor: string | undefined;
     do {
       const list = await this.kv.list<SessionProps>({ prefix, cursor });
-      for (const key of list.keys) {
-        indexed.push({ id: key.name.slice(prefix.length), metadata: key.metadata });
-      }
+      for (const key of list.keys) ids.add(key.name.slice(prefix.length));
       cursor = list.list_complete ? undefined : list.cursor;
     } while (cursor);
 
-    const loaded = await Promise.all(indexed.map(({ id }) => this.loadSession(id)));
-    for (let index = 0; index < loaded.length; index += 1) {
-      const session = loaded[index];
-      if (session) {
-        sessions.push(session);
-      } else {
-        await this.kv.delete(this.shopIndexKey(shop, indexed[index].id));
-      }
-    }
-    return sessions;
+    const loaded = await Promise.all([...ids].map((id) => this.loadSession(id)));
+    return loaded.filter((session) => session !== undefined);
   }
+}
+
+/** The id the Shopify library gives a shop's offline session (`getOfflineId`). */
+function offlineSessionId(shop: string): string {
+  return `offline_${shop}`;
 }
