@@ -59,6 +59,37 @@ describe("recordUninstall", () => {
     expect(calls).toEqual(["write"]);
   });
 
+  // Handling the webhook takes seconds (announcing comes before the cleanup), and a reviewer reinstalls at once: the
+  // reinstall can land after the uninstall was written and before its cleanup, and the cleanup would then take the
+  // NEW install's sessions away.
+  it("leaves the sessions alone when the shop reinstalled while the uninstall was being handled", async () => {
+    const { ports, calls } = fakePorts(undefined);
+    const reads = [installedAt(1_000), installedAt(2_500)];
+    const racing: RecordUninstallPorts = { ...ports, shops: { ...ports.shops, facts: async () => reads.shift() } };
+    await expect(recordUninstall(racing, SHOP, { occurredAt: 2_000, externalId: "webhook:a" })).resolves.toBe("ignored_stale");
+    expect(calls).toEqual(["write"]);
+  });
+
+  it("leaves the sessions alone when a retry finds the shop uninstalled but it has reinstalled since", async () => {
+    const { ports, calls } = fakePorts(undefined);
+    const reads = [uninstalledAt(2_000), installedAt(2_500)];
+    const racing: RecordUninstallPorts = { ...ports, shops: { ...ports.shops, facts: async () => reads.shift() } };
+    await expect(recordUninstall(racing, SHOP, { occurredAt: 2_000, externalId: "webhook:2000" })).resolves.toBe("ignored_stale");
+    expect(calls).toEqual([]);
+  });
+
+  it("logs the reinstall that stopped the cleanup, by shop hash", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const { ports } = fakePorts(undefined);
+    const reads = [installedAt(1_000), installedAt(2_500)];
+    const racing: RecordUninstallPorts = { ...ports, shops: { ...ports.shops, facts: async () => reads.shift() } };
+    await recordUninstall(racing, SHOP, { occurredAt: 2_000, externalId: "webhook:a" });
+    const output = log.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(output).toContain("shopify.uninstall.ignored");
+    expect(output).toContain("reinstalled_before_cleanup");
+    expect(output).not.toContain(SHOP);
+  });
+
   it("finishes cleanup without rewriting when a retry finds the shop already uninstalled", async () => {
     const { ports, calls } = fakePorts(uninstalledAt(2_000));
     await expect(recordUninstall(ports, SHOP, { occurredAt: 2_000, externalId: "webhook:2000" })).resolves.toBe("already_uninstalled");

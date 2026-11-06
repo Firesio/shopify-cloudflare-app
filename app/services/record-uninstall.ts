@@ -59,12 +59,27 @@ export async function recordUninstall(
     await announceUninstall(ports, shop, observation.occurredAt);
   }
 
+  if (await reinstalledSince(ports, shop, observation)) {
+    await shopLog("shopify.uninstall.ignored", shop, { reason: "reinstalled_before_cleanup", occurredAt: observation.occurredAt });
+    return "ignored_stale";
+  }
   await ports.cleanup(shop);
   const reconciled = await ports.reconcile(shop);
   if (!reconciled.ok) {
     await shopLog("shopify.uninstall.reconciliation_failed", shop, { code: reconciled.code, detail: reconciled.detail });
   }
   return decision.outcome === "apply" ? "recorded" : "already_uninstalled";
+}
+
+/**
+ * A reinstall can land while this uninstall is being handled (announcing alone takes seconds, and a reviewer reinstalls
+ * at once): the sessions that exist by now are the NEW install's, and cleaning them up would leave the shop with none
+ * until a merchant opens the app. Asked again right before the cleanup, with the ordering key of the first decision.
+ */
+async function reinstalledSince(ports: RecordUninstallPorts, shop: string, observation: UninstallObservation): Promise<boolean> {
+  const facts = await ports.shops.facts(shop);
+  const decision = decideUninstall(facts ? relationshipOf(facts) : null, observation);
+  return decision.outcome === "ignore" && decision.reason === "stale_uninstall";
 }
 
 async function announceUninstall(ports: RecordUninstallPorts, shop: string, occurredAt: number): Promise<void> {
