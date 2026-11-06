@@ -42,7 +42,10 @@ export async function requireMember<A extends AuthenticatedRequest>(
   if (!identity) {
     throw new Response("Unauthorized", { status: 401, headers: { "X-Shopify-Retry-Invalid-Session-Request": "1" } });
   }
-  if (userIdsDisagree(auth)) await deps.onUserIdMismatch(identity.shop);
+  // The layout and its page each run this guard: the disagreement is one fact about the request, so it is told once.
+  if (userIdsDisagree(auth)) {
+    await requestMemo(`member-id-mismatch:${identity.shop}:${identity.shopifyUserId}`, async () => deps.onUserIdMismatch(identity.shop));
+  }
 
   // The layout and its page both ask in one request, and several requests can run together: one lookup per person.
   const access = await requestMemo(`member:${identity.shop}:${identity.shopifyUserId}`, () => deps.resolve(identity));

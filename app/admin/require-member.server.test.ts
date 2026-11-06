@@ -145,6 +145,31 @@ describe("requireMember", () => {
     expect(mismatches).toEqual([SHOP]);
   });
 
+  it("admits by the ID token's user, not the online profile's, when they disagree", async () => {
+    const auth = { admin: "client", session: { shop: SHOP, onlineAccessInfo: { associated_user: { id: 7, email: "a@x.com", email_verified: true } } }, sessionToken: { sub: "42" } };
+    const { deps, resolved } = harness({ ok: true, member: member("owner") }, auth);
+    await inRequest(() => requireMember(request, "app:view", deps));
+    expect(resolved.map((identity) => identity.shopifyUserId)).toEqual(["42"]);
+  });
+
+  it("reports a disagreement once per request, however many guards the request runs (layout and page)", async () => {
+    const auth = { admin: "client", session: { shop: SHOP, onlineAccessInfo: { associated_user: { id: 7 } } }, sessionToken: { sub: "42" } };
+    const { deps, mismatches } = harness({ ok: true, member: member("owner") }, auth);
+    await inRequest(async () => {
+      await requireMember(request, "app:view", deps);
+      await requireMember(request, "billing:manage", deps);
+    });
+    expect(mismatches).toEqual([SHOP]);
+  });
+
+  it("reports a disagreement again in the next request", async () => {
+    const auth = { admin: "client", session: { shop: SHOP, onlineAccessInfo: { associated_user: { id: 7 } } }, sessionToken: { sub: "42" } };
+    const { deps, mismatches } = harness({ ok: true, member: member("owner") }, auth);
+    await inRequest(() => requireMember(request, "app:view", deps));
+    await inRequest(() => requireMember(request, "app:view", deps));
+    expect(mismatches).toEqual([SHOP, SHOP]);
+  });
+
   it("stays quiet when they agree", async () => {
     const auth = { admin: "client", session: { shop: SHOP, onlineAccessInfo: { associated_user: { id: 42 } } }, sessionToken: { sub: "42" } };
     const { deps, mismatches } = harness({ ok: true, member: member("owner") }, auth);

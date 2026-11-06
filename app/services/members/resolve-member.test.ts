@@ -283,3 +283,83 @@ describe("seats", () => {
     expect(members.rows.find((row) => row.shopifyUserId === "2")?.status).toBe("pending");
   });
 });
+
+// Regression: a member is identified by the Shopify user id (`sub`), never by an email. Two different people on one
+// store can legitimately present the same verified email (a shared mailbox, an agency login), and neither may be refused
+// or take over the other's membership.
+describe("two Shopify users with the same verified email", () => {
+  const EMAIL = "shop@x.com";
+  const auto: AdmissionConfig = { onUnknownUser: "auto_join", autoJoinRole: "viewer" };
+
+  it("admits the second one as a new member with the default role when no invitation exists, leaving the first untouched", async () => {
+    const { deps, members } = setup(auto);
+    members.add({ id: "boss", shop: SHOP, role: "owner", status: "active", shopifyUserId: "9" });
+    members.add({ id: "a", shop: SHOP, role: "admin", status: "active", shopifyUserId: "1", email: EMAIL, lastSeenAt: deps.runtime.clock.now() });
+    const before = { ...members.rows.find((row) => row.id === "a") };
+
+    const access = await resolveMember(identity({ shopifyUserId: "2", email: EMAIL }), deps);
+
+    expect(access).toMatchObject({ ok: true, member: { shopifyUserId: "2", role: "viewer", status: "active" } });
+    expect(members.rows.find((row) => row.id === "a")).toEqual(before);
+    expect(members.rows.filter((row) => row.email === EMAIL)).toHaveLength(2);
+  });
+
+  it("admits the second one when the invitation to that address was already taken up by the first, without taking over its membership", async () => {
+    const { deps, members } = setup(auto);
+    members.add({ id: "boss", shop: SHOP, role: "owner", status: "active", shopifyUserId: "9" });
+    members.add({ id: "inv", shop: SHOP, role: "admin", status: "invited", email: EMAIL, invitedBy: "boss" });
+
+    await resolveMember(identity({ shopifyUserId: "1", email: EMAIL }), deps);
+    const first = { ...members.rows.find((row) => row.id === "inv") };
+    expect(first).toMatchObject({ shopifyUserId: "1", status: "active", role: "admin" });
+
+    const access = await resolveMember(identity({ shopifyUserId: "2", email: EMAIL }), deps);
+
+    expect(access).toMatchObject({ ok: true, member: { shopifyUserId: "2", role: "viewer", status: "active" } });
+    expect(access.ok && access.member.id).not.toBe("inv");
+    expect(members.rows.find((row) => row.id === "inv")).toEqual(first);
+  });
+});
+
+describe("the store's own owner with a different user id than the existing owner", () => {
+  it.each(["auto_join", "invite_only", "approval"] as const)("gets in as owner under %s while the existing owner keeps theirs", async (onUnknownUser) => {
+    const { deps, members } = setup({ onUnknownUser, autoJoinRole: "member" });
+    members.add({ id: "first", shop: SHOP, role: "owner", status: "active", shopifyUserId: "9" });
+    const before = { ...members.rows.find((row) => row.id === "first") };
+
+    const access = await resolveMember(identity({ shopifyUserId: "2", accountOwner: true }), deps);
+
+    expect(access).toMatchObject({ ok: true, member: { shopifyUserId: "2", role: "owner", status: "active" } });
+    expect(members.rows.find((row) => row.id === "first")).toEqual(before);
+    expect(members.rows.filter((row) => row.role === "owner" && row.status === "active")).toHaveLength(2);
+  });
+});
+
+describe("a shop with no members at all", () => {
+  it("makes the first person its owner and the second, who is not the account owner, a member", async () => {
+    const { deps, members } = setup({ onUnknownUser: "auto_join", autoJoinRole: "member" });
+    expect(members.rows).toHaveLength(0);
+
+    expect(await resolveMember(identity({ shopifyUserId: "1" }), deps)).toMatchObject({ ok: true, member: { shopifyUserId: "1", role: "owner" } });
+    expect(await resolveMember(identity({ shopifyUserId: "2" }), deps)).toMatchObject({ ok: true, member: { shopifyUserId: "2", role: "member" } });
+    expect(members.rows.filter((row) => row.role === "owner")).toHaveLength(1);
+  });
+});
+
+describe("a removed member", () => {
+  it("stays out under every policy, and is let back in only when they are the store's account owner", async () => {
+    for (const onUnknownUser of ["auto_join", "invite_only", "approval"] as const) {
+      const { deps, members } = setup({ onUnknownUser, autoJoinRole: "member" });
+      members.add({ id: "boss", shop: SHOP, role: "owner", status: "active", shopifyUserId: "9" });
+      members.add({ id: "gone", shop: SHOP, role: "member", status: "removed", shopifyUserId: "1", email: "gone@x.com" });
+
+      expect(await resolveMember(identity({ shopifyUserId: "1", email: "gone@x.com" }), deps)).toEqual({ ok: false, reason: "removed" });
+      expect(members.rows.find((row) => row.id === "gone")?.status).toBe("removed");
+
+      expect(await resolveMember(identity({ shopifyUserId: "1", accountOwner: true }), deps)).toMatchObject({
+        ok: true,
+        member: { id: "gone", role: "owner", status: "active" },
+      });
+    }
+  });
+});
