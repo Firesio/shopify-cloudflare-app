@@ -32,7 +32,7 @@ request → authenticateAdmin (Shopify proves who)  →  guardMember (the app de
 | The guard routes call | `app/admin/require-member.server.ts` | 5 |
 | A member's own set: what it may hold, how a stored one is read, who may be given one | `app/domain/member-permissions.ts` | 1 |
 | The Team page (`/app/members`): the list, the invitation, and a link to each person | `app/routes/app/members/index.tsx`, `members.server.ts`, `app/components/members/` | 5 |
-| One person's page (`/app/members/:memberId`): their detail, and EVERY action on them (role, let in, restore, remove, their own permissions). A person not on this shop's team is a 404 | `app/routes/app/members/detail.tsx`, `loadMember` in `members.server.ts`, `memberDetail` in `app/domain/member-team.ts` | 5, 1 |
+| One person's page (`/app/members/:memberId`): their detail, and EVERY action on them. The role and the permissions are ONE draft (a select and boxes) saved with the save bar; letting in, restoring and removing are acts sent at once. A person not on this shop's team is a 404 | `app/routes/app/members/detail.tsx` (loads and answers), `app/components/members/MemberDetailView.tsx`, `use-access-draft.ts`, `app/domain/member-access-draft.ts` (the draft's rules, pure), `loadMember` in `members.server.ts`, `memberDetail` in `app/domain/member-team.ts` | 5, 1 |
 | The page that says why someone is kept out, and who to ask | `app/components/admin/NoAccess.tsx` | 5 |
 | A shop's team, read-only, for staff | `app/routes/internal/shops/detail-team.tsx` | 5 |
 
@@ -80,9 +80,29 @@ Rules, in `member-permissions.ts` and held by every layer (the service, the sing
 - **An owner and Shopify's account owner never have a set** (`ownerFixed`); only an ACTIVE member can be given one (`invalidState`).
 - **A set always includes the way in** (`FLOOR_PERMISSION`, `app:view`); one that does not is `permissionInvalid`. So is a name that is not a permission, said before a refusal for policy.
 - **Applying a role, letting someone in, restoring them, removing them and restoring the account owner all drop the set.** A returning person starts on a preset.
-- **A damaged stored value reads as an EMPTY set, never as "no set"** (which would hand back a preset wider than what was chosen). A name the code no longer knows is dropped.
+- **A damaged stored value reads as an EMPTY set, never as "no set"** (which would hand back a preset wider than what was chosen): `readStoredPermissions` answers `damaged`, and the repository logs `member.permissions_damaged` by shop hash. A name the code no longer knows is dropped.
 - Seat trimming and the notice recipients read the set (`can`), so a member with a set is not counted as a manager and is not told about seats; where they stand in a trim is the
   role they were based on.
+
+## Asking a permission: three entry points, one rule
+
+A page, a route and the domain ask the same question, each in one line, and none knows where the answer comes from (a role's
+preset or a member's own set):
+
+| Where | Ask | Notes |
+|---|---|---|
+| A route (loader or action) | `await guardMember(request, "app:manage")` | 403 when the person lacks it; the lock |
+| The domain and the use cases | `can(member, "app:manage")` | takes the MEMBER, never a role |
+| A page (to hide what cannot be used) | `const { can } = useAccess()` (`app/admin/access.tsx`) | the layout provides it; outside it every answer is no; courtesy only |
+
+## The member's page: role and permissions are one edit
+
+The role select and the permission boxes are ONE draft (`member-access-draft.ts`, pure and tested): choosing a role fills the boxes
+with its preset; ticking a box keeps the role as what the member is based on. Save (the admin's save bar, driven by the draft through
+`FormSaveBar`'s `dirty` prop) sends `changeRole` when the ticks are exactly a role's preset, else `setPermissions` with the role named
+(one write). Discard puts the draft back. "Use {role} permissions" returns to the preset. A permission that cannot be changed (the way
+in, what only comes with a role, what the looker lacks) is a PLAIN ROW, not a disabled checkbox: a disabled control fades the words
+the merchant is reading. Once the ticks stop being a preset, what only comes with a role is let go (a set never holds it).
 
 ## Rules that never change, whatever an app configures
 

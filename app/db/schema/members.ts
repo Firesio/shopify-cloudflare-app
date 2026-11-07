@@ -47,7 +47,7 @@ export const shopMembers = sqliteTable(
      * do (`MEMBERS.customPermissions`). NULL, the usual value, means the member holds their role's preset. A set is read
      * whole and never as a difference from the preset; `role` is then only what they were based on. Never set for an owner,
      * for Shopify's account owner or for a member who is not active, and cleared whenever a role is chosen. Plain TEXT, so
-     * a permission added to the registry needs no migration; `parseStoredPermissions` reads it and a damaged value reads as
+     * a permission added to the registry needs no migration; `readStoredPermissions` reads it and a damaged value reads as
      * an EMPTY set, never as null.
      */
     permissions: text("permissions"),

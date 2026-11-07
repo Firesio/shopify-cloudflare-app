@@ -7,7 +7,8 @@ import {
   customPolicy,
   grantableBy,
   isCustomizable,
-  parseStoredPermissions,
+  heldBy,
+  readStoredPermissions,
   serializePermissions,
 } from "./member-permissions";
 
@@ -37,33 +38,38 @@ describe("the policy", () => {
 
 describe("reading a stored set", () => {
   it("reads no value as no set: the role's preset applies", () => {
-    expect(parseStoredPermissions(null)).toBeNull();
+    expect(readStoredPermissions(null)).toEqual({ kind: "preset" });
   });
 
   it("reads a list as the permissions it names, in the registry's order and once each", () => {
-    expect(parseStoredPermissions('["app:manage","app:view","app:view"]')).toEqual(["app:view", "app:manage"]);
-    expect(parseStoredPermissions("[]")).toEqual([]);
+    expect(readStoredPermissions('["app:manage","app:view","app:view"]')).toEqual({ kind: "set", permissions: ["app:view", "app:manage"] });
+    expect(readStoredPermissions("[]")).toEqual({ kind: "set", permissions: [] });
   });
 
   it("drops a permission the code no longer knows rather than keeping a name nothing checks", () => {
-    expect(parseStoredPermissions('["app:view","retired:thing","__proto__"]')).toEqual(["app:view"]);
+    expect(readStoredPermissions('["app:view","retired:thing","__proto__"]')).toEqual({ kind: "set", permissions: ["app:view"] });
   });
 
-  it.each(["", "not json", "{}", '"app:view"', "42", "true", "null", '{"permissions":["app:view"]}'])(
-    "reads the damaged value %j as an EMPTY set, never as 'no set', which would hand back the role's preset",
-    (raw) => {
-      expect(parseStoredPermissions(raw)).toEqual([]);
-    },
-  );
-
   it("keeps the names in a list and drops entries that are not names", () => {
-    expect(parseStoredPermissions('[1,"app:view",null,{"a":1}]')).toEqual(["app:view"]);
+    expect(readStoredPermissions('[1,"app:view",null,{"a":1}]')).toEqual({ kind: "set", permissions: ["app:view"] });
+  });
+
+  it.each(["", "not json", "{}", '"app:view"', "42", "true", "null", '{"permissions":["app:view"]}'])("says the damaged value %j is damaged, so the caller can say so and read it as an empty set, never as 'no set'", (raw) => {
+    expect(readStoredPermissions(raw)).toEqual({ kind: "damaged" });
   });
 
   it("round-trips through what it writes, in the registry's order", () => {
     const set: MemberPermission[] = ["app:manage", "app:view"];
     expect(serializePermissions(set)).toBe('["app:view","app:manage"]');
-    expect(parseStoredPermissions(serializePermissions(set))).toEqual(["app:view", "app:manage"]);
+    expect(readStoredPermissions(serializePermissions(set))).toEqual({ kind: "set", permissions: ["app:view", "app:manage"] });
+  });
+});
+
+describe("what a stored set holds", () => {
+  it("is nothing set for a preset, the permissions for a set, and an EMPTY set for a damaged value", () => {
+    expect(heldBy({ kind: "preset" })).toBeNull();
+    expect(heldBy({ kind: "set", permissions: ["app:view"] })).toEqual(["app:view"]);
+    expect(heldBy({ kind: "damaged" })).toEqual([]);
   });
 });
 

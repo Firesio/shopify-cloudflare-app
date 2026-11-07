@@ -14,13 +14,12 @@ const row = (overrides: Partial<TeamRow> & Pick<TeamRow, "id">): TeamRow => ({
   lastSeenAt: null,
   noSeat: false,
   custom: false,
-  can: { changeRole: true, remove: true, approve: false, restore: false },
   ...overrides,
 });
 
 const base = {
   rows: [
-    row({ id: "me", name: "Olu", email: "olu@firesio.app", role: "owner", isYou: true, accountOwner: true, can: { changeRole: false, remove: false, approve: false, restore: false } }),
+    row({ id: "me", name: "Olu", email: "olu@firesio.app", role: "owner", isYou: true, accountOwner: true }),
     row({ id: "mia", name: "Mia", email: "mia@firesio.app", lastSeenAt: Date.UTC(2026, 10, 1, 9, 30) }),
   ],
   seats: { kind: "unlimited" as const },

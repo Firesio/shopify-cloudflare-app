@@ -115,12 +115,13 @@ export interface MemberStore {
    */
   setRole(shop: string, id: string, role: MemberRole, now: number): Promise<Member | undefined>;
   /**
-   * Gives an ACTIVE member a set of their own, replacing any they had; `role` stays as it was. ONE conditional statement,
+   * Gives an ACTIVE member a set of their own, replacing any they had. `role`, when given, is the role the set is based on and is
+   * written in the same statement; without it the role stays as it was. ONE conditional statement,
    * refused (undefined) for a member who is not active, who is an owner or Shopify's account owner, or who is the shop's
    * last active team manager (a set never holds `members:manage`, so this takes them out of managing). The caller has
    * already checked what the set may contain (`checkCustomPermissions`).
    */
-  setPermissions(shop: string, id: string, permissions: readonly MemberPermission[], now: number): Promise<Member | undefined>;
+  setPermissions(shop: string, id: string, permissions: readonly MemberPermission[], now: number, role?: MemberRole): Promise<Member | undefined>;
   /**
    * Takes an active member's seat: they become `pending` and are marked trimmed. ONE conditional statement that writes
    * only if the member is still `active`, is not an owner or Shopify's account owner, is not the shop's last active member

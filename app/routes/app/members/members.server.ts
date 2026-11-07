@@ -123,7 +123,11 @@ export const MEMBER_INTENTS = {
     async run(form, { actor, deps }) {
       // A group of checkboxes arrives as one field per ticked box. Anything that is not text (a file) is not a permission.
       const permissions = form.getAll("permissions").map(String);
-      const saved = await setMemberPermissions({ actor, targetId: readId(form), permissions }, deps);
+      // The role the set is based on comes with it from the page; a role that is present and not ours is refused, not ignored.
+      const named = form.get("role");
+      const role = named === null ? undefined : readRole(form);
+      if (named !== null && role === undefined) return roleInvalid;
+      const saved = await setMemberPermissions({ actor, targetId: readId(form), permissions, ...(role === undefined ? {} : { role }) }, deps);
       return saved.ok ? { success: "permissionsChanged" } : failed(saved.reason);
     },
   },

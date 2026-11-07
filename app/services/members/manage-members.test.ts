@@ -448,6 +448,28 @@ describe("setMemberPermissions", () => {
     expect(members.writes).toEqual([]);
   });
 
+  it("takes the role the set is based on in the same write, and logs the role it ended with", async () => {
+    const { deps, members, logs } = setup();
+    const result = await setMemberPermissions({ actor: owner, targetId: "mem", permissions: ["app:view"], role: "viewer" }, deps);
+    expect(result).toMatchObject({ ok: true, value: { role: "viewer", permissions: ["app:view"] } });
+    expect(members.rows.find((row) => row.id === "mem")).toMatchObject({ role: "viewer", permissions: ["app:view"] });
+    expect(logs.at(-1)).toMatchObject({ event: "member.permissions_changed", role: "viewer" });
+  });
+
+  it("keeps the role when none is named", async () => {
+    const { deps, members } = setup();
+    await give(owner, deps, "mem", ["app:view"]);
+    expect(members.rows.find((row) => row.id === "mem")?.role).toBe("member");
+  });
+
+  it("refuses a role the actor may not hand out, and one that no set can be based on, and writes nothing", async () => {
+    const { deps, members } = setup();
+    expect(await setMemberPermissions({ actor: admin, targetId: "mem", permissions: ["app:view"], role: "owner" }, deps)).toEqual({ ok: false, reason: "forbidden" });
+    expect(await setMemberPermissions({ actor: owner, targetId: "mem", permissions: ["app:view"], role: "owner" }, deps)).toEqual({ ok: false, reason: "ownerFixed" });
+    expect(members.writes).toEqual([]);
+    expect(stored(members, "mem")).toBeNull();
+  });
+
   it("refuses an actor whose own set no longer holds members:manage, even on an admin role", async () => {
     const { deps, members } = setup();
     members.rows.splice(members.rows.findIndex((row) => row.id === "admin"), 1, { ...members.rows.find((row) => row.id === "admin")!, permissions: ["app:view", "app:manage"] });

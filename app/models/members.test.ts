@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { drizzle } from "drizzle-orm/d1";
 import { eq } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { shopMembers, shops } from "~/db/schema";
 import type { MemberRole } from "~/domain/member-access";
 import type { MemberProfile } from "~/ports/members";
@@ -912,6 +912,25 @@ describe("a member's own set of permissions", () => {
     expect(outcome).toEqual({ custom: ["app:view"], preset: null });
   });
 
+  it("can name the role it is based on in the same write, and a write without one leaves the role alone", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["owner", "member", "member"]);
+      const withRole = await repo.setPermissions(A, "m1", ["app:view"], 5, "viewer");
+      const without = await repo.setPermissions(A, "m2", ["app:view"], 5);
+      return { withRole, without };
+    });
+    expect(outcome.withRole).toMatchObject({ role: "viewer", permissions: ["app:view"], updatedAt: 5 });
+    expect(outcome.without).toMatchObject({ role: "member", permissions: ["app:view"] });
+  });
+
+  it("is refused, and the role stays, when the member is the last team manager: a set takes them out of managing", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["admin"]);
+      return { refused: await repo.setPermissions(A, "m0", ["app:view"], 5, "member"), role: (await repo.findById(A, "m0"))?.role };
+    });
+    expect(outcome).toEqual({ refused: undefined, role: "admin" });
+  });
+
   it("is replaced, not merged, by the next one", async () => {
     const found = await inRequest(async () => {
       const repo = await team(["owner", "member"]);
@@ -1032,6 +1051,22 @@ describe("a member's own set of permissions", () => {
       return { accepted: accepted?.permissions, created: created.kind === "created" ? created.member.permissions : "exists" };
     });
     expect(outcome).toEqual({ accepted: null, created: null });
+  });
+
+  it("says so in the log, by shop hash and with nothing of the value, when a stored value is damaged", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    await inRequest(async () => {
+      await seedShops();
+      await env.DB.prepare("INSERT INTO shop_members (id, shop, shopify_user_id, role, status, permissions, created_at, updated_at) VALUES ('d1', ?, '70', 'admin', 'active', 'secret-garbage', 1, 1)").bind(A).run();
+      await env.DB.prepare("INSERT INTO shop_members (id, shop, shopify_user_id, role, status, permissions, created_at, updated_at) VALUES ('ok', ?, '71', 'admin', 'active', '[\"app:view\"]', 1, 1)").bind(A).run();
+      await new MemberRepo().list(A);
+    });
+    await vi.waitFor(() => expect(log).toHaveBeenCalled());
+    const output = log.mock.calls.map((call) => String(call[0]));
+    log.mockRestore();
+    expect(output.filter((line) => line.includes("member.permissions_damaged"))).toHaveLength(1);
+    expect(output.join("\n")).not.toContain(A);
+    expect(output.join("\n")).not.toContain("secret-garbage");
   });
 
   it("is read as an empty set when the stored value is damaged, never as the role's preset", async () => {

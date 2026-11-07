@@ -400,7 +400,10 @@
       "roleOnlyHint": "Solo viene con el rol de Propietario o Administrador.",
       "notYoursHint": "Tú no tienes este permiso.",
       "customHint": "Al guardar, tendrá permisos propios. Elegir un rol más tarde los sustituye.",
-      "savePermissions": "Guardar permisos"
+      "roleLabel": "Rol",
+      "usePreset": "Usar los permisos de {{role}}",
+      "allowed": "Permitido",
+      "notAllowed": "No permitido"
     },
     "permissions": {
       "appView": {
@@ -419,12 +422,6 @@
         "label": "Gestionar el equipo",
         "description": "Invitar personas, cambiar roles y permisos, y quitar personas."
       }
-    },
-    "applyRole": {
-      "heading": "¿Sustituir sus permisos por {{role}}?",
-      "body": "Tendrá exactamente lo que tiene el rol {{role}}. Los permisos que elegiste para esta persona se descartan.",
-      "confirm": "Aplicar {{role}}",
-      "keep": "Cancelar"
     }
   }
 }

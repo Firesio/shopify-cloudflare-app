@@ -1,11 +1,12 @@
-import { and, eq, gt, inArray, isNotNull, isNull, ne, notExists, sql, type SQL } from "drizzle-orm";
-import { alias } from "drizzle-orm/sqlite-core";
+import { and, eq, gt, inArray, isNotNull, isNull, ne, notExists, sql } from "drizzle-orm";
 import { shopMembers, shops, type ShopMemberRow } from "~/db/schema";
-import { isMemberRole, rolesHolding, type MemberPermission, type MemberRole } from "~/domain/member-access";
-import { parseStoredPermissions, serializePermissions } from "~/domain/member-permissions";
+import { isMemberRole, type MemberPermission, type MemberRole } from "~/domain/member-access";
+import { heldBy, readStoredPermissions, serializePermissions } from "~/domain/member-permissions";
+import { shopLog } from "~/observability/shop-log";
 import { isMemberStatus, type MemberStatus } from "~/domain/member-lifecycle";
 import type { CreateOutcome, Member, MemberProfile, MemberStore, NewMember, SeatCap } from "~/ports/members";
 import { getDb } from "~/request-context.server";
+import { MANAGER_ROLES, activeMembers, hasSeat, notLastManager, notLastOwner, statusFor } from "./member-guards.server";
 
 /**
  * Stored values outlive the code that wrote them. A role the code no longer knows reads as `viewer`, the least a member
@@ -19,6 +20,9 @@ function statusOf(value: string): MemberStatus {
 }
 
 function toMember(row: ShopMemberRow): Member {
+  const stored = readStoredPermissions(row.permissions);
+  // A degraded read is reported, by shop hash and with nothing of the value: it reads as an empty set, so someone loses access.
+  if (stored.kind === "damaged") void shopLog("member.permissions_damaged", row.shop);
   return {
     id: row.id,
     shop: row.shop,
@@ -34,7 +38,7 @@ function toMember(row: ShopMemberRow): Member {
     updatedAt: row.updatedAt,
     lastSeenAt: row.lastSeenAt,
     trimmedAt: row.trimmedAt,
-    permissions: parseStoredPermissions(row.permissions),
+    permissions: heldBy(stored),
   };
 }
 
@@ -49,51 +53,6 @@ const TEAM_LIMIT = 500;
 /** D1 reports a unique-index violation only in the message; anything else is a real failure and is not hidden. */
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Error && /UNIQUE constraint failed/i.test(`${error.message} ${String(error.cause ?? "")}`);
-}
-
-/** The table seen from inside a subquery: the same name would otherwise shadow the row an UPDATE is changing. */
-const other = alias(shopMembers, "other");
-
-/** How many active members the shop has, as an expression for a statement to use. One statement sees one consistent count. */
-function activeMembers(shop: string): SQL {
-  return sql`${getDb().select({ n: sql`count(*)` }).from(other).where(and(eq(other.shop, shop), eq(other.status, "active")))}`;
-}
-
-/** True while the cap leaves a seat. The count and the write that depends on it are ONE statement. */
-function hasSeat(shop: string, cap: SeatCap): SQL {
-  return cap === null ? sql`1 = 1` : sql`${activeMembers(shop)} < ${cap}`;
-}
-
-/** `active` while there is a seat, `pending` otherwise; or `pending` outright when that is all that was asked for. */
-function statusFor(shop: string, wanted: "active" | "pending", cap: SeatCap): SQL<MemberStatus> {
-  return wanted === "pending" ? sql<MemberStatus>`'pending'` : sql<MemberStatus>`case when ${hasSeat(shop, cap)} then 'active' else 'pending' end`;
-}
-
-/** True when the member is NOT the shop's last active owner: the condition a demotion or removal needs. */
-function notLastOwner(shop: string): SQL {
-  const owners = sql`${getDb()
-    .select({ n: sql`count(*)` })
-    .from(other)
-    .where(and(eq(other.shop, shop), eq(other.role, "owner"), eq(other.status, "active")))}`;
-  return sql`not (${shopMembers.role} = 'owner' and ${shopMembers.status} = 'active' and ${owners} <= 1)`;
-}
-
-/** The roles that may manage the team: the last active member holding one of them can neither be demoted out of it nor removed. */
-const MANAGER_ROLES: readonly MemberRole[] = rolesHolding("members:manage");
-
-/**
- * A manager is an active member on a manager role's PRESET. Someone with a set of their own is never one, whatever role they
- * were based on: a set never holds `members:manage` (`ALWAYS_PROTECTED`), which is what lets the database decide this from
- * roles alone. Written once, for the member the statement is changing (`shopMembers`) and for the others it counts (`other`).
- */
-function isManager(row: typeof shopMembers | typeof other): SQL {
-  return and(inArray(row.role, [...MANAGER_ROLES]), isNull(row.permissions), eq(row.status, "active")) ?? sql`1 = 0`;
-}
-
-/** True when the member is NOT the shop's last active team manager: the second guard a demotion or removal needs. */
-function notLastManager(shop: string): SQL {
-  const managers = sql`${getDb().select({ n: sql`count(*)` }).from(other).where(and(eq(other.shop, shop), isManager(other)))}`;
-  return sql`not (${isManager(shopMembers)} and ${managers} <= 1)`;
 }
 
 /**
@@ -364,10 +323,10 @@ export class MemberRepo implements MemberStore {
     return row === undefined ? undefined : toMember(row);
   }
 
-  async setPermissions(shop: string, id: string, permissions: readonly MemberPermission[], now: number): Promise<Member | undefined> {
+  async setPermissions(shop: string, id: string, permissions: readonly MemberPermission[], now: number, role?: MemberRole): Promise<Member | undefined> {
     const [row] = await getDb()
       .update(shopMembers)
-      .set({ permissions: serializePermissions(permissions), updatedAt: now })
+      .set({ permissions: serializePermissions(permissions), ...(role === undefined ? {} : { role }), updatedAt: now })
       .where(
         and(
           eq(shopMembers.shop, shop),

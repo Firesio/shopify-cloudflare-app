@@ -400,7 +400,10 @@
       "roleOnlyHint": "Only comes with the Owner or Admin role.",
       "notYoursHint": "You do not have this permission yourself.",
       "customHint": "Saving gives them permissions of their own. Choosing a role later replaces them.",
-      "savePermissions": "Save permissions"
+      "roleLabel": "Role",
+      "usePreset": "Use {{role}} permissions",
+      "allowed": "Allowed",
+      "notAllowed": "Not allowed"
     },
     "permissions": {
       "appView": {
@@ -419,12 +422,6 @@
         "label": "Manage the team",
         "description": "Invite people, change roles and permissions, and remove people."
       }
-    },
-    "applyRole": {
-      "heading": "Replace their permissions with {{role}}?",
-      "body": "They will hold exactly what the {{role}} role holds. The permissions you chose for them are discarded.",
-      "confirm": "Apply {{role}}",
-      "keep": "Cancel"
     }
   }
 }

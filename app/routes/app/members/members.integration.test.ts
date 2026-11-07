@@ -349,6 +349,25 @@ describe("giving a member a set of permissions, end to end", () => {
     expect(JSON.stringify(outcome.row)).not.toContain("billing:manage");
   });
 
+  it("saves the role the set is based on with it, from the form's role field", async () => {
+    const page = await inRequest(async () => {
+      const { d, owner, mia } = await setup();
+      const saved = await runIntent(form({ intent: "setPermissions", id: mia.id, role: "viewer", permissions: ["app:view", "app:manage"] }), { actor: owner, deps: d });
+      return { saved, page: await loadMember(owner, mia.id, d) };
+    });
+    expect(page.saved).toEqual({ success: "permissionsChanged" });
+    expect(page.page?.member).toMatchObject({ custom: true, role: "viewer", permissions: ["app:view", "app:manage"] });
+  });
+
+  it("refuses a role that is not one of ours, and stores nothing", async () => {
+    const outcome = await inRequest(async () => {
+      const { d, owner, mia } = await setup();
+      const result = await runIntent(form({ intent: "setPermissions", id: mia.id, role: "god", permissions: ["app:view"] }), { actor: owner, deps: d });
+      return { result, custom: (await loadMember(owner, mia.id, d))?.member.custom };
+    });
+    expect(outcome).toEqual({ result: { error: "roleInvalid" }, custom: false });
+  });
+
   it("is judged by the set from then on: the person can use what it holds and nothing their role would have given", async () => {
     const outcome = await inRequest(async () => {
       const { d, owner, mia } = await setup();

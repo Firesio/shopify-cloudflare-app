@@ -46,13 +46,6 @@ export interface TeamRow {
   readonly noSeat: boolean;
   /** Holds a set of permissions of their own, so their role is only what they were based on. */
   readonly custom: boolean;
-  /** What the person looking may offer for this row, and which roles they could give. */
-  readonly can: {
-    readonly changeRole: boolean;
-    readonly remove: boolean;
-    readonly approve: boolean;
-    readonly restore: boolean;
-  };
 }
 
 /** Waiting people first (they need an answer), then the team, then invitations, then those who were removed. */
@@ -91,9 +84,30 @@ export function orderTeam<T extends Pick<TeamMember, "id" | "name" | "email" | "
   );
 }
 
-/** One member as a row: the same rules for the list and the detail page, so neither offers what the other would refuse. */
-function rowOf(actor: Viewer, member: TeamMember): TeamRow {
+/** What the person looking may do to a member: change their role, remove them, let them in, bring them back. */
+export interface RowActions {
+  readonly changeRole: boolean;
+  readonly remove: boolean;
+  readonly approve: boolean;
+  readonly restore: boolean;
+}
+
+/**
+ * What `actor` may do to `member`. A courtesy, not the lock: the server asks the same rules again where the action happens
+ * (`manage-members`), so the page never offers what it would refuse.
+ */
+function canOf(actor: Viewer, member: TeamMember): RowActions {
   const touchable = can(actor, "members:manage") && member.id !== actor.id && canAssignRole(actor, member.role);
+  return {
+    changeRole: touchable && member.status !== "removed",
+    remove: touchable && canTransition(member.status, "removed"),
+    approve: touchable && member.status === "pending",
+    restore: touchable && member.status === "removed",
+  };
+}
+
+/** One member as a row of the list: who they are and where they stand. Everything to do to them is on their own page. */
+function rowOf(actor: Viewer, member: TeamMember): TeamRow {
   return {
     id: member.id,
     name: member.name,
@@ -106,12 +120,6 @@ function rowOf(actor: Viewer, member: TeamMember): TeamRow {
     lastSeenAt: member.lastSeenAt,
     noSeat: member.status === "pending" && member.trimmed,
     custom: member.custom,
-    can: {
-      changeRole: touchable && member.status !== "removed",
-      remove: touchable && canTransition(member.status, "removed"),
-      approve: touchable && member.status === "pending",
-      restore: touchable && member.status === "removed",
-    },
   };
 }
 
@@ -137,6 +145,8 @@ export interface MemberDetail extends TeamRow {
    * looker may touch them), and which permissions the looker may tick. The server checks the same rules again.
    */
   readonly customize: { readonly allowed: boolean; readonly grantable: readonly MemberPermission[] };
+  /** What the person looking may do to them: the page's acts, each checked again by the server. */
+  readonly can: RowActions;
 }
 
 /**
@@ -144,14 +154,16 @@ export interface MemberDetail extends TeamRow {
  * same shop); only a name and an address of them come along, never an id.
  */
 export function memberDetail(actor: Viewer, member: StoredMember, inviter: Pick<TeamMember, "name" | "email"> | undefined, policy: CustomPermissionPolicy): MemberDetail {
-  const row = rowOf(actor, toTeamMember(member));
+  const asMember = toTeamMember(member);
+  const actions = canOf(actor, asMember);
   return {
-    ...row,
+    ...rowOf(actor, asMember),
+    can: actions,
     collaborator: member.collaborator,
     createdAt: member.createdAt,
     invitedBy: inviter === undefined ? null : { name: inviter.name, email: inviter.email },
     permissions: grantsOf(member),
-    customize: { allowed: row.can.changeRole && isCustomizable(member, policy), grantable: grantableBy(actor, policy) },
+    customize: { allowed: actions.changeRole && isCustomizable(member, policy), grantable: grantableBy(actor, policy) },
   };
 }
 

@@ -21,7 +21,7 @@ const owner = { id: "me", role: "owner" };
 describe("a person whose seat was taken by a trim", () => {
   it("is a row with no seat, let back in the way a waiting person is, and a waiting person is not", () => {
     const rows = teamRows(owner, [member({ id: "t", status: "pending", trimmed: true }), member({ id: "w", status: "pending" })]);
-    expect(rows.find((row) => row.id === "t")).toMatchObject({ noSeat: true, status: "pending", can: { approve: true, remove: true } });
+    expect(rows.find((row) => row.id === "t")).toMatchObject({ noSeat: true, status: "pending" });
     expect(rows.find((row) => row.id === "w")).toMatchObject({ noSeat: false });
   });
 
@@ -76,6 +76,12 @@ const memberRecord = (overrides: Partial<TeamMember> & Pick<TeamMember, "id">) =
   return { ...rest, trimmedAt: null, permissions: null };
 };
 
+const policyOn = customPolicy({ enabled: true, alsoProtected: [] });
+
+/** What the person looking may do to one member: read from that member's own page, the only place actions are offered. */
+const offers = (actor: { readonly id: string; readonly role: string; readonly permissions?: readonly MemberPermission[] | null }, target: TeamMember) =>
+  memberDetail(actor, { ...memberRecord(target), shopifyUserId: target.linked ? "1" : null, collaborator: false, createdAt: 1 }, undefined, policyOn).can;
+
 describe("a member with a set of their own, in the list", () => {
   const stored = { ...memberRecord({ id: "x" }), shopifyUserId: "1" };
 
@@ -93,14 +99,12 @@ describe("a member with a set of their own, in the list", () => {
   });
 
   it("is offered what any member is: the same rules, whatever their set holds", () => {
-    const [custom] = teamRows(owner, [member({ id: "a", custom: true })]);
-    const [plain] = teamRows(owner, [member({ id: "a" })]);
-    expect(custom?.can).toEqual(plain?.can);
+    expect(offers(owner, member({ id: "a", custom: true }))).toEqual(offers(owner, member({ id: "a" })));
   });
 
   it("judges the person looking by their own set: an admin with a set that lacks members:manage offers nothing", () => {
     const limited = { id: "me", role: "admin", permissions: ["app:view", "app:manage"] satisfies MemberPermission[] };
-    expect(teamRows(limited, [member({ id: "a" })])[0]!.can).toEqual({ changeRole: false, remove: false, approve: false, restore: false });
+    expect(offers(limited, member({ id: "a" }))).toEqual({ changeRole: false, remove: false, approve: false, restore: false });
   });
 });
 
@@ -111,6 +115,11 @@ describe("teamRows content", () => {
     expect(rows.find((row) => row.id === "inv")).toMatchObject({ isYou: false, isInvitation: true, email: "i@firesio.app" });
   });
 
+  it("carries nothing to do to the person: a list has no actions, so a row has none to offer", () => {
+    const [row] = teamRows(owner, [member({ id: "a" })]);
+    expect(row).not.toHaveProperty("can");
+  });
+
   it("carries only what the page shows: no Shopify user id", () => {
     const [row] = teamRows(owner, [toTeamMember({ ...memberRecord({ id: "x" }), shopifyUserId: "4242" })]);
     expect(JSON.stringify(row)).not.toContain("4242");
@@ -118,12 +127,12 @@ describe("teamRows content", () => {
   });
 });
 
-describe("what a row offers", () => {
+describe("what a member's page offers", () => {
   const status = (id: string, value: (typeof MEMBER_STATUSES)[number], role: (typeof MEMBER_ROLES)[number] = "member") =>
-    teamRows(owner, [member({ id, status: value, role, linked: value !== "invited" })])[0]!.can;
+    offers(owner, member({ id, status: value, role, linked: value !== "invited" }));
 
   it("offers nothing on the person's own row: nobody changes or removes themselves", () => {
-    expect(teamRows(owner, [member({ id: "me", role: "owner" })])[0]!.can).toEqual({ changeRole: false, remove: false, approve: false, restore: false });
+    expect(offers(owner, member({ id: "me", role: "owner" }))).toEqual({ changeRole: false, remove: false, approve: false, restore: false });
   });
 
   it("offers each status exactly what applies to it", () => {
@@ -135,24 +144,23 @@ describe("what a row offers", () => {
 
   it("offers an admin nothing on an owner, and everything on those below", () => {
     const admin = { id: "me", role: "admin" };
-    expect(teamRows(admin, [member({ id: "o", role: "owner" })])[0]!.can).toEqual({ changeRole: false, remove: false, approve: false, restore: false });
-    expect(teamRows(admin, [member({ id: "m", role: "member" })])[0]!.can).toMatchObject({ changeRole: true, remove: true });
+    expect(offers(admin, member({ id: "o", role: "owner" }))).toEqual({ changeRole: false, remove: false, approve: false, restore: false });
+    expect(offers(admin, member({ id: "m", role: "member" }))).toMatchObject({ changeRole: true, remove: true });
   });
 
   it("offers an admin everything on another admin and nothing on a removed or pending owner, which only an owner may restore or approve", () => {
     const admin = { id: "me", role: "admin" };
-    expect(teamRows(admin, [member({ id: "a", role: "admin" })])[0]!.can).toMatchObject({ changeRole: true, remove: true });
-    expect(teamRows(admin, [member({ id: "o", role: "owner", status: "removed" })])[0]!.can).toEqual({ changeRole: false, remove: false, approve: false, restore: false });
-    expect(teamRows(admin, [member({ id: "o", role: "owner", status: "pending" })])[0]!.can).toEqual({ changeRole: false, remove: false, approve: false, restore: false });
-    expect(teamRows({ id: "me", role: "owner" }, [member({ id: "o", role: "owner", status: "removed" })])[0]!.can.restore).toBe(true);
+    expect(offers(admin, member({ id: "a", role: "admin" }))).toMatchObject({ changeRole: true, remove: true });
+    expect(offers(admin, member({ id: "o", role: "owner", status: "removed" }))).toEqual({ changeRole: false, remove: false, approve: false, restore: false });
+    expect(offers(admin, member({ id: "o", role: "owner", status: "pending" }))).toEqual({ changeRole: false, remove: false, approve: false, restore: false });
+    expect(offers({ id: "me", role: "owner" }, member({ id: "o", role: "owner", status: "removed" })).restore).toBe(true);
   });
 
   it("offers a member and a viewer nothing at all, whoever the row is", () => {
     for (const role of ["member", "viewer"]) {
       for (const target of MEMBER_ROLES) {
         for (const state of MEMBER_STATUSES) {
-          const row = teamRows({ id: "me", role }, [member({ id: "t", role: target, status: state })])[0]!;
-          expect(Object.values(row.can)).toEqual([false, false, false, false]);
+          expect(Object.values(offers({ id: "me", role }, member({ id: "t", role: target, status: state })))).toEqual([false, false, false, false]);
         }
       }
     }
@@ -161,9 +169,8 @@ describe("what a row offers", () => {
   it("agrees with the rule the server applies for who may be touched", () => {
     for (const actorRole of MEMBER_ROLES) {
       for (const target of MEMBER_ROLES) {
-        const row = teamRows({ id: "me", role: actorRole }, [member({ id: "t", role: target })])[0]!;
         const mayManage = actorRole === "owner" || actorRole === "admin";
-        expect(row.can.remove).toBe(mayManage && canAssignRole({ role: actorRole }, target));
+        expect(offers({ id: "me", role: actorRole }, member({ id: "t", role: target })).remove).toBe(mayManage && canAssignRole({ role: actorRole }, target));
       }
     }
   });
@@ -264,16 +271,6 @@ describe("memberDetail", () => {
   it("carries what the row shows and what only a detail page shows, and who invited them by name and address", () => {
     const detail = memberDetail(owner, stored({ collaborator: true }), { name: "Bo", email: "bo@firesio.app" }, on);
     expect(detail).toMatchObject({ id: "x", name: "Ada", email: "ada@firesio.app", role: "member", status: "active", collaborator: true, createdAt: 1_000, invitedBy: { name: "Bo", email: "bo@firesio.app" } });
-  });
-
-  it("offers exactly what the same person's row in the list offered", () => {
-    for (const status of MEMBER_STATUSES) {
-      for (const role of MEMBER_ROLES) {
-        const member = member_(status, role);
-        const [row] = teamRows({ id: "me", role: "admin" }, [toTeamMember(member)]);
-        expect(memberDetail({ id: "me", role: "admin" }, member, undefined, on).can).toEqual(row?.can);
-      }
-    }
   });
 
   it("has nobody who invited them when there is no such member, and never carries the Shopify user id or the inviter's id", () => {

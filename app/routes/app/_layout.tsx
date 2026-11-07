@@ -3,6 +3,7 @@ import { Outlet, isRouteErrorResponse, useLoaderData, useRouteError, useRouteLoa
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { useTranslation } from "react-i18next";
 
+import { AccessProvider, makeAccess } from "~/admin/access";
 import { accessRefusalOf, guardMember } from "~/admin/require-member.server";
 import { EmbeddedProvider } from "~/components/admin/EmbeddedProvider";
 import { NoAccess } from "~/components/admin/NoAccess";
@@ -85,17 +86,20 @@ export default function App() {
     );
   }
 
+  const allowed = makeAccess(access.permissions);
   return (
     <EmbeddedProvider apiKey={apiKey}>
       <s-app-nav>
         <s-link href="/app" rel="home">{t("nav.home")}</s-link>
         {/* A link the person cannot open is not offered. The page checks the permission itself. */}
-        {access.permissions.some((permission) => permission === "billing:manage") ? <s-link href="/app/billing">{t("nav.billing")}</s-link> : null}
-        {access.permissions.some((permission) => permission === "members:manage") ? <s-link href="/app/members">{t("nav.members")}</s-link> : null}
+        {allowed.can("billing:manage") ? <s-link href="/app/billing">{t("nav.billing")}</s-link> : null}
+        {allowed.can("members:manage") ? <s-link href="/app/members">{t("nav.members")}</s-link> : null}
         <s-link href="/app/support">{t("nav.support")}</s-link>
       </s-app-nav>
       <TimeZoneProvider value={timeZone}>
-        <Outlet />
+        <AccessProvider permissions={access.permissions}>
+          <Outlet />
+        </AccessProvider>
       </TimeZoneProvider>
     </EmbeddedProvider>
   );

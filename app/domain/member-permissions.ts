@@ -43,22 +43,37 @@ function inRegistryOrder(values: readonly unknown[]): readonly MemberPermission[
   return MEMBER_PERMISSIONS.filter((permission) => values.includes(permission));
 }
 
+/** What a stored `shop_members.permissions` value is: nothing (the role's preset), a set, or a value that is not a list. */
+export type StoredPermissions =
+  | { readonly kind: "preset" }
+  | { readonly kind: "set"; readonly permissions: readonly MemberPermission[] }
+  /** Not a list of names. The caller says so (a log line) and reads it as an empty set via `heldBy`. */
+  | { readonly kind: "damaged" };
+
 /**
- * A set as it was stored (`shop_members.permissions`): no value is no set, the role's preset applies. Anything that is not
- * a list of names is an EMPTY set, never "no set": a damaged value must not hand back a preset that is wider than what
- * someone chose. A name the code no longer knows is dropped.
+ * A set as it was stored. No value is no set. A list is the permissions it names, once each in the registry's order, a name
+ * the code no longer knows dropped. Anything else is `damaged`, which is a result and not an exception: the caller reports it.
  */
-export function parseStoredPermissions(raw: string | null): readonly MemberPermission[] | null {
-  if (raw === null) return null;
+export function readStoredPermissions(raw: string | null): StoredPermissions {
+  if (raw === null) return { kind: "preset" };
   const parsed = ((): unknown => {
     try {
       return JSON.parse(raw);
     } catch {
-      // Not JSON: the damage is the decision, and it is the safe one (an empty set), so there is nothing to report here.
+      // Not JSON at all: that is the `damaged` answer below, which the caller reports.
       return undefined;
     }
   })();
-  return Array.isArray(parsed) ? inRegistryOrder(parsed.filter(isPermission)) : [];
+  return Array.isArray(parsed) ? { kind: "set", permissions: inRegistryOrder(parsed.filter(isPermission)) } : { kind: "damaged" };
+}
+
+/**
+ * What a stored value makes a member hold: null for the preset, the set itself, and an EMPTY set for a damaged value, never
+ * "no set": a damaged value must not hand back a preset that is wider than what someone chose.
+ */
+export function heldBy(stored: StoredPermissions): readonly MemberPermission[] | null {
+  if (stored.kind === "preset") return null;
+  return stored.kind === "set" ? stored.permissions : [];
 }
 
 /** What is written for a set: the names, in the registry's order. */

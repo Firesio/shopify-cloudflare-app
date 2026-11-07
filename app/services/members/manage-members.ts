@@ -147,25 +147,27 @@ const namesOf = (list: readonly string[]): string => list.join(",");
 
 /**
  * Gives an active member a set of permissions of their own, for an app that lets merchants choose what each person can do.
- * The role they were based on stays; choosing a role later drops the set. Refused when the app does not allow it, for an
+ * The role they were based on stays unless one is named (the page does, with the set); choosing a role later drops the set. Refused when the app does not allow it, for an
  * owner or the store's own owner, for someone who is not active, and for a set the actor may not give
  * (`checkCustomPermissions`). The log says what was added and taken away against what the member held before.
  */
 export async function setMemberPermissions(
-  input: { actor: Actor; targetId: string; permissions: readonly string[] },
+  input: { actor: Actor; targetId: string; permissions: readonly string[]; role?: MemberRole },
   deps: ManageDependencies,
 ): Promise<Result<Member, PermissionsFailure>> {
   if (!deps.customPermissions.enabled) return err("customUnavailable");
   const found = await target(input.actor, input.targetId, deps);
   if (!found.ok) return found;
   const member = found.value;
-  if (member.role === "owner" || member.accountOwner) return err("ownerFixed");
+  // The role the set is based on is handed out like any role, and an owner has no set to be based on.
+  if (input.role !== undefined && !canAssignRole(input.actor, input.role)) return err("forbidden");
+  if (member.role === "owner" || member.accountOwner || input.role === "owner") return err("ownerFixed");
   if (member.status !== "active") return err("invalidState");
   const checked = checkCustomPermissions(input.actor, input.permissions, deps.customPermissions);
   if (!checked.ok) return err(checked.reason);
 
   const before = grantsOf(member);
-  const changed = await deps.members.setPermissions(input.actor.shop, member.id, checked.value, deps.runtime.clock.now());
+  const changed = await deps.members.setPermissions(input.actor.shop, member.id, checked.value, deps.runtime.clock.now(), input.role);
   if (!changed) return err(await whyPermissionsRefused(input.actor, member, deps));
   await deps.log({
     event: "member.permissions_changed",

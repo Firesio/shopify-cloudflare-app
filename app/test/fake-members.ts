@@ -204,11 +204,11 @@ export class FakeMemberStore implements MemberStore {
     return this.replace(id, { role, permissions: null, updatedAt: now });
   }
 
-  async setPermissions(shop: string, id: string, permissions: readonly MemberPermission[], now: number) {
+  async setPermissions(shop: string, id: string, permissions: readonly MemberPermission[], now: number, role?: MemberRole) {
     this.write("setPermissions");
     const target = this.rows.find((row) => row.shop === shop && row.id === id);
     if (target === undefined || target.status !== "active" || target.role === "owner" || target.accountOwner || this.isLastManager(target)) return undefined;
-    return this.replace(id, { permissions: MEMBER_PERMISSIONS.filter((permission) => permissions.includes(permission)), updatedAt: now });
+    return this.replace(id, { permissions: MEMBER_PERMISSIONS.filter((permission) => permissions.includes(permission)), ...(role === undefined ? {} : { role }), updatedAt: now });
   }
 
   async remove(shop: string, id: string, now: number) {
