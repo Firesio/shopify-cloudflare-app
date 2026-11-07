@@ -307,8 +307,27 @@ describe("selectTrimmed: the shop always keeps someone who can manage the team",
       for (let limit = 0; limit <= members.length; limit += 1) {
         const taken = new Set(selectTrimmed(members, limit).ids);
         const remaining = members.filter((member) => !taken.has(member.id));
-        expect(remaining.some((member) => can(member.role, "members:manage")), `${role} limit ${limit}`).toBe(true);
+        expect(remaining.some((member) => can(member, "members:manage")), `${role} limit ${limit}`).toBe(true);
       }
+    }
+  });
+
+  it("does not count an admin who has a set of their own as a manager: the one preset admin is the last manager and stays", () => {
+    const owner = person("owner");
+    // Never seen, so first in line without the protection; the custom admin holds no members:manage whatever their role says.
+    const manager = person("admin", { id: "manager", lastSeenAt: null });
+    const limited = person("admin", { id: "limited", lastSeenAt: 5000, permissions: ["app:view", "app:manage"] });
+    // The owner is protected and counts as a manager too, so two admins can go while the owner remains.
+    expect(selectTrimmed([owner, manager, limited], 1).ids).toEqual(["manager", "limited"]);
+    // Without the owner the preset admin is the only manager: the custom one goes, the manager stays.
+    expect(selectTrimmed([manager, limited], 1)).toEqual({ ids: ["limited"], shortfall: 0 });
+  });
+
+  it("keeps a manager when everyone else has a set of their own, whatever role they were based on", () => {
+    const members = [person("admin", { id: "a", permissions: ["app:view"] }), person("admin", { id: "b", permissions: ["app:view"] }), person("admin", { id: "c" })];
+    for (let limit = 0; limit <= members.length; limit += 1) {
+      const taken = new Set(selectTrimmed(members, limit).ids);
+      expect(members.filter((member) => !taken.has(member.id)).some((member) => can(member, "members:manage")), `limit ${limit}`).toBe(true);
     }
   });
 
@@ -319,7 +338,7 @@ describe("selectTrimmed: the shop always keeps someone who can manage the team",
 });
 
 describe("noticeRecipients", () => {
-  const member = (role: MemberRole, email: string | null, name: string | null = null) => ({ role, email, name });
+  const member = (role: MemberRole, email: string | null, name: string | null = null, permissions: OverageMember["permissions"] = null) => ({ role, email, name, permissions });
   const contact = { email: "shop@alpha.example", name: "Alpha" };
 
   it("is the active owners with an address", () => {
@@ -342,6 +361,11 @@ describe("noticeRecipients", () => {
 
   it("writes each address once, lower-cased, so nobody is told twice", () => {
     expect(noticeRecipients([member("owner", "Olu@A.example", "Olu"), member("owner", "olu@a.example", "Olu again")], null)).toEqual([{ email: "olu@a.example", name: "Olu" }]);
+  });
+
+  it("never reaches someone with a set of their own, whatever role they were based on: they cannot fix a seat problem", () => {
+    expect(noticeRecipients([member("owner", null), member("admin", "a@a.example", "Ada", ["app:view", "app:manage"])], contact)).toEqual([{ email: "shop@alpha.example", name: "Alpha" }]);
+    expect(noticeRecipients([member("admin", "a@a.example", "Ada", ["app:view"]), member("admin", "b@a.example", "Bo")], contact)).toEqual([{ email: "b@a.example", name: "Bo" }]);
   });
 
   it("never reaches a member or a viewer, however many addresses there are", () => {

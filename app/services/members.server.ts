@@ -7,8 +7,10 @@ export {
   changeRole,
   removeMember,
   restoreMember,
+  setMemberPermissions,
   type Actor,
   type ManageDependencies,
   type ManageFailure,
+  type PermissionsFailure,
 } from "./members/manage-members";
 export { resolveMember, SEEN_REFRESH_MS, type MemberAccess, type MemberDependencies, type MemberLogEntry } from "./members/resolve-member";

@@ -8,12 +8,9 @@ import { guardMember } from "~/admin/require-member.server";
 import { useActionToast } from "~/admin/use-action-toast";
 import { ERROR_TEXT, SUCCESS_TEXT } from "~/components/members/feedback-text";
 import { INVITE_MODAL_ID, InviteModal } from "~/components/members/InviteModal";
-import { REMOVE_MODAL_ID, RemoveModal } from "~/components/members/RemoveModal";
-import { ROLE_TEXT } from "~/components/members/role-text";
 import { SeatsSection } from "~/components/members/SeatsSection";
-import { TeamTable, type RowAction } from "~/components/members/TeamTable";
+import { TeamTable } from "~/components/members/TeamTable";
 import { can } from "~/domain/member-access";
-import type { TeamRow } from "~/domain/member-team";
 import { MEMBERS } from "~/members/config";
 import { memberDependencies } from "~/wiring.server";
 import { MEMBER_INTENTS, loadTeam, readIntent, runIntent } from "./members.server";
@@ -22,17 +19,16 @@ export const handle = { i18n: ["common", "admin"] };
 
 /**
  * The team: who from the store can use the app, and what each of them may do. One page for the owner's whole job:
- * see who is in, let waiting people in, invite, change a role, remove. Needs `members:manage`.
+ * see who is in and invite. Each person is a link to their own page (`./detail.tsx`), where the rest is done. Needs `members:manage`.
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { member } = await guardMember(request, "members:manage");
   const page = await loadTeam(member, memberDependencies());
   return {
     ...page,
-    // How strangers are handled and as what, so the page can say so in plain words.
-    policy: MEMBERS.onUnknownUser,
+    // The role the invitation form starts on.
     autoJoinRole: MEMBERS.autoJoinRole,
-    canChangePlan: can(member.role, "billing:manage"),
+    canChangePlan: can(member, "billing:manage"),
     // Whether going over the plan's seats can cost people theirs, so the seats section says the right thing.
     trimsOverage: MEMBERS.seatOverage.policy !== "never_remove",
   };
@@ -47,20 +43,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return data(result, { status: "error" in result ? 400 : 200 });
 };
 
-/** Literal keys for how strangers are handled, so a policy without words fails the build. */
-const POLICY_TEXT = {
-  auto_join: "members.policy.auto_join",
-  invite_only: "members.policy.invite_only",
-  approval: "members.policy.approval",
-} as const;
-
 export default function Members() {
-  const { rows, seats, waiting, roles, policy, autoJoinRole, canChangePlan, trimsOverage } = useLoaderData<typeof loader>();
+  const { rows, seats, waiting, roles, autoJoinRole, canChangePlan, trimsOverage } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const submit = useSubmit();
   const { t } = useTranslation("admin");
-  const [removing, setRemoving] = useState<TeamRow | null>(null);
 
   const error = actionData && "error" in actionData ? actionData.error : undefined;
   const success = actionData && "success" in actionData ? actionData.success : undefined;
@@ -77,17 +65,8 @@ export default function Members() {
 
   const sending = navigation.formData;
   const pendingIntent = sending?.get("intent");
-  const pendingId = navigation.state === "idle" ? undefined : String(sending?.get("id") ?? "") || undefined;
 
   const send = (fields: Record<string, string>) => void submit(fields, { method: "post" });
-  const onAct = (act: RowAction) => {
-    if (act.intent === "remove") {
-      setRemoving(act.row);
-      void globalThis.shopify.modal.show(REMOVE_MODAL_ID);
-      return;
-    }
-    send({ intent: act.intent, id: act.id, role: act.role });
-  };
 
   return (
     <s-page heading={t("members.heading")} inlineSize="base">
@@ -101,13 +80,6 @@ export default function Members() {
         </s-section>
       )}
 
-      <s-section>
-        <s-stack gap="small-200">
-          <s-paragraph>{t("members.intro")}</s-paragraph>
-          <s-paragraph color="subdued">{t(POLICY_TEXT[policy], { role: t(ROLE_TEXT[autoJoinRole].label) })}</s-paragraph>
-        </s-stack>
-      </s-section>
-
       {waiting > 0 && (
         <s-section>
           <s-banner tone="warning" heading={t("members.waiting.heading", { count: waiting })}>
@@ -117,7 +89,7 @@ export default function Members() {
       )}
 
       <SeatsSection seats={seats} canChangePlan={canChangePlan} trimsOverage={trimsOverage} />
-      <TeamTable rows={rows} roles={roles} pendingId={pendingId} onAct={onAct} />
+      <TeamTable rows={rows} />
 
       <InviteModal
         key={inviteKey}
@@ -125,14 +97,6 @@ export default function Members() {
         defaultRole={autoJoinRole}
         busy={navigation.state !== "idle" && pendingIntent === "invite"}
         onInvite={({ email, role }) => send({ intent: "invite", email, role })}
-      />
-      <RemoveModal
-        row={removing}
-        busy={navigation.state !== "idle" && pendingIntent === "remove"}
-        onConfirm={(row) => {
-          send({ intent: "remove", id: row.id });
-          void globalThis.shopify.modal.hide(REMOVE_MODAL_ID);
-        }}
       />
     </s-page>
   );

@@ -1,7 +1,8 @@
 import { and, eq, gt, inArray, isNotNull, isNull, ne, notExists, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { shopMembers, shops, type ShopMemberRow } from "~/db/schema";
-import { isMemberRole, rolesHolding, type MemberRole } from "~/domain/member-access";
+import { isMemberRole, rolesHolding, type MemberPermission, type MemberRole } from "~/domain/member-access";
+import { parseStoredPermissions, serializePermissions } from "~/domain/member-permissions";
 import { isMemberStatus, type MemberStatus } from "~/domain/member-lifecycle";
 import type { CreateOutcome, Member, MemberProfile, MemberStore, NewMember, SeatCap } from "~/ports/members";
 import { getDb } from "~/request-context.server";
@@ -33,6 +34,7 @@ function toMember(row: ShopMemberRow): Member {
     updatedAt: row.updatedAt,
     lastSeenAt: row.lastSeenAt,
     trimmedAt: row.trimmedAt,
+    permissions: parseStoredPermissions(row.permissions),
   };
 }
 
@@ -79,13 +81,19 @@ function notLastOwner(shop: string): SQL {
 /** The roles that may manage the team: the last active member holding one of them can neither be demoted out of it nor removed. */
 const MANAGER_ROLES: readonly MemberRole[] = rolesHolding("members:manage");
 
+/**
+ * A manager is an active member on a manager role's PRESET. Someone with a set of their own is never one, whatever role they
+ * were based on: a set never holds `members:manage` (`ALWAYS_PROTECTED`), which is what lets the database decide this from
+ * roles alone. Written once, for the member the statement is changing (`shopMembers`) and for the others it counts (`other`).
+ */
+function isManager(row: typeof shopMembers | typeof other): SQL {
+  return and(inArray(row.role, [...MANAGER_ROLES]), isNull(row.permissions), eq(row.status, "active")) ?? sql`1 = 0`;
+}
+
 /** True when the member is NOT the shop's last active team manager: the second guard a demotion or removal needs. */
 function notLastManager(shop: string): SQL {
-  const managers = sql`${getDb()
-    .select({ n: sql`count(*)` })
-    .from(other)
-    .where(and(eq(other.shop, shop), inArray(other.role, [...MANAGER_ROLES]), eq(other.status, "active")))}`;
-  return sql`not (${inArray(shopMembers.role, [...MANAGER_ROLES])} and ${shopMembers.status} = 'active' and ${managers} <= 1)`;
+  const managers = sql`${getDb().select({ n: sql`count(*)` }).from(other).where(and(eq(other.shop, shop), isManager(other)))}`;
+  return sql`not (${isManager(shopMembers)} and ${managers} <= 1)`;
 }
 
 /**
@@ -118,7 +126,7 @@ export class MemberRepo implements MemberStore {
     const rows = await getDb()
       .select()
       .from(shopMembers)
-      .where(and(eq(shopMembers.shop, shop), eq(shopMembers.status, "active"), inArray(shopMembers.role, [...roles])))
+      .where(and(eq(shopMembers.shop, shop), eq(shopMembers.status, "active"), inArray(shopMembers.role, [...roles]), isNull(shopMembers.permissions)))
       .orderBy(shopMembers.createdAt, shopMembers.id)
       .limit(limit);
     return rows.map(toMember);
@@ -218,6 +226,7 @@ export class MemberRepo implements MemberStore {
               updatedAt: sql<number>`${member.now}`.as("updated_at"),
               lastSeenAt: sql<number | null>`${member.now}`.as("last_seen_at"),
               trimmedAt: sql<number | null>`null`.as("trimmed_at"),
+              permissions: sql<string | null>`null`.as("permissions"),
             })
             .from(shops)
             .where(and(eq(shops.shop, shop), nobodyOpened)),
@@ -254,6 +263,7 @@ export class MemberRepo implements MemberStore {
             updatedAt: sql<number>`${member.now}`.as("updated_at"),
             lastSeenAt: sql<number | null>`${member.now}`.as("last_seen_at"),
             trimmedAt: sql<number | null>`null`.as("trimmed_at"),
+            permissions: sql<string | null>`null`.as("permissions"),
           })
           .from(shops)
           .where(eq(shops.shop, shop)),
@@ -314,6 +324,7 @@ export class MemberRepo implements MemberStore {
         role: "owner",
         status: "active",
         trimmedAt: null,
+        permissions: null,
         ...(profile.email === null ? {} : { email: normalizeEmail(profile.email) }),
         ...(profile.name === null ? {} : { name: profile.name }),
         accountOwner: profile.accountOwner,
@@ -329,7 +340,7 @@ export class MemberRepo implements MemberStore {
   async activate(shop: string, id: string, input: { from: readonly MemberStatus[]; role: MemberRole; cap: SeatCap; now: number }): Promise<Member | undefined> {
     const [row] = await getDb()
       .update(shopMembers)
-      .set({ status: "active", role: input.role, trimmedAt: null, updatedAt: input.now })
+      .set({ status: "active", role: input.role, trimmedAt: null, permissions: null, updatedAt: input.now })
       .where(and(eq(shopMembers.shop, shop), eq(shopMembers.id, id), inArray(shopMembers.status, [...input.from]), hasSeat(shop, input.cap)))
       .returning();
     return row === undefined ? undefined : toMember(row);
@@ -338,7 +349,7 @@ export class MemberRepo implements MemberStore {
   async setRole(shop: string, id: string, role: MemberRole, now: number): Promise<Member | undefined> {
     const [row] = await getDb()
       .update(shopMembers)
-      .set({ role, updatedAt: now })
+      .set({ role, permissions: null, updatedAt: now })
       // Becoming an owner needs no guard against losing the last owner, and a role that still manages the team none against
       // losing the last manager; anything else must not take the last active owner's role or the last manager's.
       .where(
@@ -347,6 +358,26 @@ export class MemberRepo implements MemberStore {
           eq(shopMembers.id, id),
           role === "owner" ? undefined : notLastOwner(shop),
           MANAGER_ROLES.includes(role) ? undefined : notLastManager(shop),
+        ),
+      )
+      .returning();
+    return row === undefined ? undefined : toMember(row);
+  }
+
+  async setPermissions(shop: string, id: string, permissions: readonly MemberPermission[], now: number): Promise<Member | undefined> {
+    const [row] = await getDb()
+      .update(shopMembers)
+      .set({ permissions: serializePermissions(permissions), updatedAt: now })
+      .where(
+        and(
+          eq(shopMembers.shop, shop),
+          eq(shopMembers.id, id),
+          eq(shopMembers.status, "active"),
+          // An owner and the store's own owner hold everything: they have no set.
+          ne(shopMembers.role, "owner"),
+          eq(shopMembers.accountOwner, false),
+          // A set never holds `members:manage`, so this takes a manager out of managing: not the last one.
+          notLastManager(shop),
         ),
       )
       .returning();
@@ -377,7 +408,7 @@ export class MemberRepo implements MemberStore {
   async remove(shop: string, id: string, now: number): Promise<Member | undefined> {
     const [row] = await getDb()
       .update(shopMembers)
-      .set({ status: "removed", trimmedAt: null, updatedAt: now })
+      .set({ status: "removed", trimmedAt: null, permissions: null, updatedAt: now })
       .where(and(eq(shopMembers.shop, shop), eq(shopMembers.id, id), ne(shopMembers.status, "removed"), notLastOwner(shop), notLastManager(shop)))
       .returning();
     return row === undefined ? undefined : toMember(row);

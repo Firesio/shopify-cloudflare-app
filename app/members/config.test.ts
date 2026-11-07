@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MEMBER_ROLES } from "~/domain/member-access";
+import { FLOOR_PERMISSION } from "~/domain/member-permissions";
 import { UNKNOWN_USER_POLICIES } from "~/domain/member-admission";
 import { MEMBERS, memberConfigProblems, type MembersConfig } from "./config";
 
@@ -9,7 +10,7 @@ describe("the shipped configuration", () => {
   });
 
   it("is the default the template documents: strangers join as members, online tokens on", () => {
-    expect(MEMBERS).toEqual({ onUnknownUser: "auto_join", autoJoinRole: "member", onlineTokens: true, seatOverage: { policy: "never_remove" } });
+    expect(MEMBERS).toEqual({ onUnknownUser: "auto_join", autoJoinRole: "member", onlineTokens: true, seatOverage: { policy: "never_remove" }, customPermissions: { enabled: false, alsoProtected: [] } });
   });
 
   it("removes nobody by default: a plan change never costs anyone a seat until the app opts in", () => {
@@ -18,7 +19,7 @@ describe("the shipped configuration", () => {
 });
 
 describe("memberConfigProblems", () => {
-  const base: MembersConfig = { onUnknownUser: "auto_join", autoJoinRole: "member", onlineTokens: true, seatOverage: { policy: "never_remove" } };
+  const base: MembersConfig = { onUnknownUser: "auto_join", autoJoinRole: "member", onlineTokens: true, seatOverage: { policy: "never_remove" }, customPermissions: { enabled: false, alsoProtected: [] } };
 
   it("refuses invite_only without online tokens: no email, nobody can be matched to an invitation", () => {
     expect(memberConfigProblems({ ...base, onUnknownUser: "invite_only", onlineTokens: false })).toHaveLength(1);
@@ -44,7 +45,7 @@ describe("memberConfigProblems", () => {
 });
 
 describe("seatOverage", () => {
-  const base: MembersConfig = { onUnknownUser: "auto_join", autoJoinRole: "member", onlineTokens: true, seatOverage: { policy: "never_remove" } };
+  const base: MembersConfig = { onUnknownUser: "auto_join", autoJoinRole: "member", onlineTokens: true, seatOverage: { policy: "never_remove" }, customPermissions: { enabled: false, alsoProtected: [] } };
   const trimming = (noticeHours: number): MembersConfig => ({ ...base, seatOverage: { policy: "notify_then_trim", noticeHours } });
 
   it.each([1, 24, 72, 168])("accepts a notice period of %s hours", (noticeHours) => {
@@ -59,5 +60,30 @@ describe("seatOverage", () => {
 
   it("asks nothing of noticeHours when nobody is removed", () => {
     expect(memberConfigProblems({ ...base, seatOverage: { policy: "never_remove" } })).toEqual([]);
+  });
+});
+
+describe("customPermissions", () => {
+  const base: MembersConfig = { onUnknownUser: "auto_join", autoJoinRole: "member", onlineTokens: true, seatOverage: { policy: "never_remove" }, customPermissions: { enabled: false, alsoProtected: [] } };
+  const custom = (alsoProtected: MembersConfig["customPermissions"]["alsoProtected"]): MembersConfig => ({ ...base, customPermissions: { enabled: true, alsoProtected } });
+
+  it("is off in the shipped configuration: a merchant picks a role, and nothing else is stored", () => {
+    expect(MEMBERS.customPermissions.enabled).toBe(false);
+  });
+
+  it("is sound on, with nothing extra protected or with the plan protected", () => {
+    expect(memberConfigProblems(custom([]))).toEqual([]);
+    expect(memberConfigProblems(custom(["billing:manage"]))).toEqual([]);
+  });
+
+  it("reports protecting the way in: every set carries it, so no set could ever be given", () => {
+    const problems = memberConfigProblems(custom([FLOOR_PERMISSION]));
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("customPermissions.alsoProtected");
+    expect(problems[0]).toContain(FLOOR_PERMISSION);
+  });
+
+  it("says nothing about it while the app does not let merchants give a set", () => {
+    expect(memberConfigProblems({ ...base, customPermissions: { enabled: false, alsoProtected: [FLOOR_PERMISSION] } })).toEqual([]);
   });
 });

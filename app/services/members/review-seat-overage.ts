@@ -91,7 +91,7 @@ async function gather(shop: string, now: number, deps: SeatOverageDependencies):
   const scores = over && deps.privilege ? await privilegeScores(shop, members, deps.privilege, deps.log) : new Map<string, number>();
   const active = members.map((member): OverageMember => {
     const privilege = scores?.get(member.id);
-    return { id: member.id, role: member.role, accountOwner: member.accountOwner, lastSeenAt: member.lastSeenAt, createdAt: member.createdAt, ...(privilege === undefined ? {} : { privilege }) };
+    return { id: member.id, role: member.role, permissions: member.permissions, accountOwner: member.accountOwner, lastSeenAt: member.lastSeenAt, createdAt: member.createdAt, ...(privilege === undefined ? {} : { privilege }) };
   });
   const recipients = noticeRecipients(members, shopContactOf(shopFacts));
   return {

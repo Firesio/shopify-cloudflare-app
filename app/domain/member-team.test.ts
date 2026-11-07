@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { MEMBER_ROLES, canAssignRole } from "./member-access";
+import { MEMBER_PERMISSIONS, MEMBER_ROLES, canAssignRole, presetOf, type MemberPermission } from "./member-access";
+import { customPolicy, grantableBy } from "./member-permissions";
 import { MEMBER_STATUSES } from "./member-lifecycle";
-import { contactsOf, orderTeam, rolesToOffer, seatSummary, teamRows, toTeamMember, type TeamMember } from "./member-team";
+import { contactsOf, memberDetail, orderTeam, rolesToOffer, seatSummary, teamRows, toTeamMember, type TeamMember } from "./member-team";
 
 const member = (overrides: Partial<TeamMember> & Pick<TeamMember, "id">): TeamMember => ({
   linked: true,
@@ -12,6 +13,7 @@ const member = (overrides: Partial<TeamMember> & Pick<TeamMember, "id">): TeamMe
   accountOwner: false,
   lastSeenAt: null,
   trimmed: false,
+  custom: false,
   ...overrides,
 });
 const owner = { id: "me", role: "owner" };
@@ -70,9 +72,37 @@ describe("teamRows order", () => {
 
 /** A stored member as the repository returns it: what `toTeamMember` is given. */
 const memberRecord = (overrides: Partial<TeamMember> & Pick<TeamMember, "id">) => {
-  const { linked: _linked, trimmed: _trimmed, ...rest } = member(overrides);
-  return { ...rest, trimmedAt: null };
+  const { linked: _linked, trimmed: _trimmed, custom: _custom, ...rest } = member(overrides);
+  return { ...rest, trimmedAt: null, permissions: null };
 };
+
+describe("a member with a set of their own, in the list", () => {
+  const stored = { ...memberRecord({ id: "x" }), shopifyUserId: "1" };
+
+  it("is read from the stored set: any set, an empty one included, is custom, and no set is not", () => {
+    expect(toTeamMember({ ...stored, permissions: ["app:view"] }).custom).toBe(true);
+    expect(toTeamMember({ ...stored, permissions: [] }).custom).toBe(true);
+    expect(toTeamMember({ ...stored, permissions: null }).custom).toBe(false);
+  });
+
+  it("is marked on the row, without the permissions themselves: the list says only that it is custom", () => {
+    const [row] = teamRows(owner, [toTeamMember({ ...stored, permissions: ["app:view", "billing:manage"] })]);
+    expect(row).toMatchObject({ custom: true });
+    expect(JSON.stringify(row)).not.toContain("billing:manage");
+    expect(row).not.toHaveProperty("permissions");
+  });
+
+  it("is offered what any member is: the same rules, whatever their set holds", () => {
+    const [custom] = teamRows(owner, [member({ id: "a", custom: true })]);
+    const [plain] = teamRows(owner, [member({ id: "a" })]);
+    expect(custom?.can).toEqual(plain?.can);
+  });
+
+  it("judges the person looking by their own set: an admin with a set that lacks members:manage offers nothing", () => {
+    const limited = { id: "me", role: "admin", permissions: ["app:view", "app:manage"] satisfies MemberPermission[] };
+    expect(teamRows(limited, [member({ id: "a" })])[0]!.can).toEqual({ changeRole: false, remove: false, approve: false, restore: false });
+  });
+});
 
 describe("teamRows content", () => {
   it("marks the person looking, and an invitation nobody took up", () => {
@@ -133,7 +163,7 @@ describe("what a row offers", () => {
       for (const target of MEMBER_ROLES) {
         const row = teamRows({ id: "me", role: actorRole }, [member({ id: "t", role: target })])[0]!;
         const mayManage = actorRole === "owner" || actorRole === "admin";
-        expect(row.can.remove).toBe(mayManage && canAssignRole(actorRole, target));
+        expect(row.can.remove).toBe(mayManage && canAssignRole({ role: actorRole }, target));
       }
     }
   });
@@ -141,10 +171,10 @@ describe("what a row offers", () => {
 
 describe("rolesToOffer", () => {
   it("is every role an owner holds, and fewer for an admin", () => {
-    expect(rolesToOffer("owner")).toEqual(MEMBER_ROLES);
-    expect(rolesToOffer("admin")).toEqual(["admin", "member", "viewer"]);
-    expect(rolesToOffer("viewer")).toEqual(["viewer"]);
-    expect(rolesToOffer("retired")).toEqual([]);
+    expect(rolesToOffer({ role: "owner" })).toEqual(MEMBER_ROLES);
+    expect(rolesToOffer({ role: "admin" })).toEqual(["admin", "member", "viewer"]);
+    expect(rolesToOffer({ role: "viewer" })).toEqual(["viewer"]);
+    expect(rolesToOffer({ role: "retired" })).toEqual([]);
   });
 });
 
@@ -209,10 +239,121 @@ describe("orderTeam and toTeamMember", () => {
   it("projects a member to what the views read and nothing more", () => {
     const stored = { ...memberRecord({ id: "x", name: "Ada" }), shopifyUserId: "4242", secret: "not for the page" };
     const projected = toTeamMember(stored);
-    expect(Object.keys(projected).sort()).toEqual(["accountOwner", "email", "id", "lastSeenAt", "linked", "name", "role", "status", "trimmed"]);
+    expect(Object.keys(projected).sort()).toEqual(["accountOwner", "custom", "email", "id", "lastSeenAt", "linked", "name", "role", "status", "trimmed"]);
     expect(projected.linked).toBe(true);
     expect(JSON.stringify(projected)).not.toContain("not for the page");
     expect(JSON.stringify(projected)).not.toContain("4242");
     expect(toTeamMember({ ...stored, shopifyUserId: null }).linked).toBe(false);
   });
+});
+
+describe("memberDetail", () => {
+  const on = customPolicy({ enabled: true, alsoProtected: [] });
+  const off = customPolicy({ enabled: false, alsoProtected: [] });
+  const stored = (overrides: Partial<Parameters<typeof memberDetail>[1]> = {}) => ({
+    ...memberRecord({ id: "x", name: "Ada", email: "ada@firesio.app" }),
+    shopifyUserId: "4242",
+    trimmedAt: null,
+    collaborator: false,
+    createdAt: 1_000,
+    invitedBy: "boss-id",
+    ...overrides,
+  });
+
+
+  it("carries what the row shows and what only a detail page shows, and who invited them by name and address", () => {
+    const detail = memberDetail(owner, stored({ collaborator: true }), { name: "Bo", email: "bo@firesio.app" }, on);
+    expect(detail).toMatchObject({ id: "x", name: "Ada", email: "ada@firesio.app", role: "member", status: "active", collaborator: true, createdAt: 1_000, invitedBy: { name: "Bo", email: "bo@firesio.app" } });
+  });
+
+  it("offers exactly what the same person's row in the list offered", () => {
+    for (const status of MEMBER_STATUSES) {
+      for (const role of MEMBER_ROLES) {
+        const member = member_(status, role);
+        const [row] = teamRows({ id: "me", role: "admin" }, [toTeamMember(member)]);
+        expect(memberDetail({ id: "me", role: "admin" }, member, undefined, on).can).toEqual(row?.can);
+      }
+    }
+  });
+
+  it("has nobody who invited them when there is no such member, and never carries the Shopify user id or the inviter's id", () => {
+    const detail = memberDetail(owner, stored(), undefined, on);
+    expect(detail.invitedBy).toBeNull();
+    expect(JSON.stringify(detail)).not.toContain("4242");
+    expect(JSON.stringify(detail)).not.toContain("boss-id");
+  });
+
+  it("marks the person looking, an invitation nobody took up, and a lost seat", () => {
+    expect(memberDetail({ id: "x", role: "owner" }, stored(), undefined, on).isYou).toBe(true);
+    expect(memberDetail(owner, stored({ status: "invited", shopifyUserId: null }), undefined, on).isInvitation).toBe(true);
+    expect(memberDetail(owner, stored({ status: "pending", trimmedAt: 7 }), undefined, on).noSeat).toBe(true);
+  });
+
+  describe("what they hold", () => {
+    it("is their role's preset while they have no set", () => {
+      const detail = memberDetail(owner, stored({ role: "member", permissions: null }), undefined, on);
+      expect(detail).toMatchObject({ custom: false, permissions: presetOf("member") });
+    });
+
+    it("is exactly their set when they have one, whatever their role was", () => {
+      const detail = memberDetail(owner, stored({ role: "admin", permissions: ["app:view", "app:manage"] }), undefined, on);
+      expect(detail).toMatchObject({ custom: true, role: "admin", permissions: ["app:view", "app:manage"] });
+    });
+
+    it("is nothing for an empty set: an empty set is a set", () => {
+      expect(memberDetail(owner, stored({ permissions: [] }), undefined, on)).toMatchObject({ custom: true, permissions: [] });
+    });
+  });
+
+  describe("whether they can be given a set, and what the person looking may tick", () => {
+    it("allows it for an active member of an app that lets merchants do it, and offers what the giver holds without what is protected", () => {
+      const detail = memberDetail(owner, stored(), undefined, on);
+      expect(detail.customize).toEqual({ allowed: true, grantable: grantableBy(owner, on) });
+      expect(detail.customize.grantable).not.toContain("members:manage");
+    });
+
+    it("offers less when the app protects more, and never the permission that manages the team", () => {
+      const strict = customPolicy({ enabled: true, alsoProtected: ["billing:manage"] });
+      expect(memberDetail(owner, stored(), undefined, strict).customize.grantable).toEqual(["app:view", "app:manage"]);
+    });
+
+    it("is never allowed when the app does not let merchants do it", () => {
+      expect(memberDetail(owner, stored(), undefined, off).customize.allowed).toBe(false);
+    });
+
+    it("is never allowed on your own page, on an owner, on the store's owner, or on anyone who is not active", () => {
+      expect(memberDetail({ id: "x", role: "owner" }, stored(), undefined, on).customize.allowed).toBe(false);
+      expect(memberDetail(owner, stored({ role: "owner" }), undefined, on).customize.allowed).toBe(false);
+      expect(memberDetail(owner, stored({ accountOwner: true }), undefined, on).customize.allowed).toBe(false);
+      for (const status of MEMBER_STATUSES.filter((status) => status !== "active")) {
+        expect(memberDetail(owner, stored({ status, shopifyUserId: status === "invited" ? null : "4242" }), undefined, on).customize.allowed, status).toBe(false);
+      }
+    });
+
+    it("is never allowed to someone who cannot manage the team, nor on someone they may not touch", () => {
+      expect(memberDetail({ id: "me", role: "member" }, stored(), undefined, on).customize.allowed).toBe(false);
+      expect(memberDetail({ id: "me", role: "admin" }, stored({ role: "owner" }), undefined, on).customize.allowed).toBe(false);
+      expect(memberDetail({ id: "me", role: "admin", permissions: ["app:view", "app:manage"] }, stored(), undefined, on).customize.allowed).toBe(false);
+    });
+
+    it("offers a giver with a set of their own only what that set holds", () => {
+      const giver = { id: "me", role: "admin", permissions: [...MEMBER_PERMISSIONS] satisfies MemberPermission[] };
+      expect(memberDetail(giver, stored(), undefined, on).customize.grantable).toEqual(["app:view", "app:manage", "billing:manage"]);
+    });
+
+    it("allows exactly what its row says the person may change, and nothing the row refuses", () => {
+      for (const status of MEMBER_STATUSES) {
+        for (const role of MEMBER_ROLES) {
+          for (const actorRole of MEMBER_ROLES) {
+            const detail = memberDetail({ id: "me", role: actorRole }, member_(status, role), undefined, on);
+            if (detail.customize.allowed) expect(detail.can.changeRole, `${actorRole} on ${status} ${role}`).toBe(true);
+          }
+        }
+      }
+    });
+  });
+
+  function member_(status: (typeof MEMBER_STATUSES)[number], role: (typeof MEMBER_ROLES)[number]) {
+    return stored({ id: `${status}-${role}`, status, role });
+  }
 });

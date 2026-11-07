@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { describe, expect, it } from "vitest";
 import { shopMembers, shops } from "~/db/schema";
 import type { AdmissionConfig } from "~/domain/member-admission";
+import { customPolicy } from "~/domain/member-permissions";
 import type { SeatLimit } from "~/domain/member-seats";
 import type { SeatOverageConfig } from "~/domain/member-seat-overage";
 import { MemberSeatEpisodeRepo } from "~/models/member-seat-episodes.server";
@@ -36,7 +37,7 @@ function setup(limit: SeatLimit) {
   const members = new MemberRepo();
   const logs: MemberLogEntry[] = [];
   const access = { members, seats, config: POLICY, runtime: fakeRuntime({ idPrefix: "new" }), log: (entry: MemberLogEntry) => void logs.push(entry) };
-  const manage = { members, seats, runtime: access.runtime, log: access.log };
+  const manage = { members, seats, customPermissions: customPolicy({ enabled: false, alsoProtected: [] }), runtime: access.runtime, log: access.log };
   const notifier = fakeHandoffNotifier();
   const review: SeatOverageDependencies = {
     members,

@@ -1,9 +1,10 @@
 import { isMemberRole, type MemberPermission, type MemberRole } from "~/domain/member-access";
-import { rolesToOffer, seatSummary, teamRows, toTeamMember, type SeatSummary, type TeamRow } from "~/domain/member-team";
+import type { CustomPermissionPolicy } from "~/domain/member-permissions";
+import { memberDetail, rolesToOffer, seatSummary, teamRows, toTeamMember, type MemberDetail, type SeatSummary, type TeamRow } from "~/domain/member-team";
 import type { MemberActionResult } from "~/members/feedback";
 import type { Member } from "~/ports/members";
 import type { Runtime } from "~/ports/runtime";
-import { approveMember, changeRole, inviteMember, removeMember, restoreMember, type ManageDependencies } from "~/services/members.server";
+import { approveMember, changeRole, inviteMember, removeMember, restoreMember, setMemberPermissions, type Actor, type ManageDependencies } from "~/services/members.server";
 
 /**
  * The members page's server half, beside its route: what the page loads and what each of its forms does.
@@ -22,14 +23,33 @@ export interface TeamPage {
 }
 
 /** One batch of reads: the team, how many seats are in use, and what the plan allows. */
-export async function loadTeam(actor: Pick<Member, "id" | "role" | "shop">, deps: Pick<ManageDependencies, "members" | "seats">): Promise<TeamPage> {
+export async function loadTeam(actor: Actor, deps: Pick<ManageDependencies, "members" | "seats">): Promise<TeamPage> {
   const [members, counts, limit] = await Promise.all([deps.members.list(actor.shop), deps.members.countByStatus(actor.shop), deps.seats.limit(actor.shop)]);
   return {
     rows: teamRows(actor, members.map(toTeamMember)),
     seats: seatSummary(limit, counts.active),
     waiting: counts.pending,
-    roles: rolesToOffer(actor.role),
+    roles: rolesToOffer(actor),
   };
+}
+
+export interface MemberPage {
+  readonly member: MemberDetail;
+  /** The roles the person looking may hand out. */
+  readonly roles: readonly MemberRole[];
+  /** What the app lets merchants do with a member's own set of permissions, and which permissions only come with a role. */
+  readonly policy: CustomPermissionPolicy;
+}
+
+/**
+ * One member's page: their detail, and who invited them when that member is still in this shop. Undefined when this shop's
+ * team has nobody with that id: another shop's member is never found, because every read is shop-scoped.
+ */
+export async function loadMember(actor: Actor, id: string, deps: Pick<ManageDependencies, "members" | "customPermissions">): Promise<MemberPage | undefined> {
+  const found = await deps.members.findById(actor.shop, id);
+  if (found === undefined) return undefined;
+  const inviter = found.invitedBy === null ? undefined : await deps.members.findById(actor.shop, found.invitedBy);
+  return { member: memberDetail(actor, found, inviter, deps.customPermissions), roles: rolesToOffer(actor), policy: deps.customPermissions };
 }
 
 /** The role field, or undefined when it is not one of ours: a guard, never `as`. */
@@ -96,6 +116,15 @@ export const MEMBER_INTENTS = {
       if (!role) return roleInvalid;
       const approved = await approveMember({ actor, targetId: readId(form), role }, deps);
       return approved.ok ? { success: "approved" } : failed(approved.reason);
+    },
+  },
+  setPermissions: {
+    needs: "members:manage",
+    async run(form, { actor, deps }) {
+      // A group of checkboxes arrives as one field per ticked box. Anything that is not text (a file) is not a permission.
+      const permissions = form.getAll("permissions").map(String);
+      const saved = await setMemberPermissions({ actor, targetId: readId(form), permissions }, deps);
+      return saved.ok ? { success: "permissionsChanged" } : failed(saved.reason);
     },
   },
   restore: {

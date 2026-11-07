@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { accessRefusalOf, guardMember } from "~/admin/require-member.server";
 import { EmbeddedProvider } from "~/components/admin/EmbeddedProvider";
 import { NoAccess } from "~/components/admin/NoAccess";
-import { permissionsOf } from "~/domain/member-access";
+import { grantsOf } from "~/domain/member-access";
 import { isAccessRefusal } from "~/domain/member-admission";
 import { UTC } from "~/i18n/time-zone";
 import { contactsToAsk } from "~/services/members.server";
@@ -43,7 +43,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // posts it with the form (`useLanguage()`, parsed on the server with `languageCodeOf`), because an in-app request
     // may not carry `?locale=`. Do NOT add a language switcher to this surface: the app would then be able to disagree
     // with the admin around it.
-    return { apiKey, timeZone, access: { granted: true as const, permissions: permissionsOf(member.role) } };
+    return { apiKey, timeZone, access: { granted: true as const, permissions: grantsOf(member) } };
   } catch (thrown) {
     // Not being let in is a page, not an error: the person is signed in to Shopify and deserves to be told why. It is
     // returned from here (not thrown to the boundary) because this loader is the only place the API key is at hand

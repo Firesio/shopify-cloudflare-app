@@ -23,8 +23,10 @@ export const paths = {
 
   /** Embedded Shopify admin. */
   app: () => "/app",
-  /** The Team page of the embedded admin (`routes/app/members.tsx`). */
+  /** The Team page of the embedded admin (`routes/app/members/index.tsx`). */
   members: () => "/app/members",
+  /** One member's page (`routes/app/members/detail.tsx`). The id is ours, and encoded like every id in a path. */
+  member: (id: string) => `/app/members/${encodeURIComponent(id)}`,
   /** The plan page of the embedded admin (`routes/app/billing.tsx`). */
   billing: () => "/app/billing",
 

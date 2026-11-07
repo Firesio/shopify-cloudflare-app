@@ -4,14 +4,17 @@ import type { SeatLimit } from "~/domain/member-seats";
 import { FakeMemberStore } from "~/test/fake-members";
 import { fakeSeats, noSeats, seatsFor } from "~/test/fake-seats";
 import { fakeClock } from "~/test/fake-runtime";
-import { approveMember, changeRole, removeMember, restoreMember, type Actor, type ManageDependencies } from "./manage-members";
+import { customPolicy, type CustomPermissionPolicy } from "~/domain/member-permissions";
+import { approveMember, changeRole, removeMember, restoreMember, setMemberPermissions, type Actor, type ManageDependencies } from "./manage-members";
 import type { MemberLogEntry } from "./resolve-member";
 
 const SHOP = "alpha.myshopify.com";
 const owner: Actor = { id: "owner", shop: SHOP, role: "owner" };
 const admin: Actor = { id: "admin", shop: SHOP, role: "admin" };
 
-function setup(limit?: SeatLimit) {
+const allowed = customPolicy({ enabled: true, alsoProtected: [] });
+
+function setup(limit?: SeatLimit, customPermissions: CustomPermissionPolicy = allowed) {
   const members = new FakeMemberStore();
   members.add({ id: "owner", shop: SHOP, role: "owner", status: "active", shopifyUserId: "1" });
   members.add({ id: "admin", shop: SHOP, role: "admin", status: "active", shopifyUserId: "2" });
@@ -21,7 +24,7 @@ function setup(limit?: SeatLimit) {
   members.add({ id: "inv", shop: SHOP, role: "viewer", status: "invited", email: "i@firesio.app" });
   const logs: MemberLogEntry[] = [];
   const seats = fakeSeats(limit);
-  const deps: ManageDependencies = { members, seats, runtime: { clock: fakeClock() }, log: (entry) => void logs.push(entry) };
+  const deps: ManageDependencies = { members, seats, customPermissions, runtime: { clock: fakeClock() }, log: (entry) => void logs.push(entry) };
   return { members, logs, seats, deps };
 }
 const statusOf = (members: FakeMemberStore, id: string) => members.rows.find((row) => row.id === id)?.status;
@@ -83,6 +86,21 @@ describe("changeRole", () => {
     expect(await changeRole({ actor: owner, targetId: "mem", role: "member" }, deps)).toMatchObject({ ok: true });
     expect(members.writes).toEqual([]);
     expect(logs).toEqual([]);
+  });
+
+  it("applies the preset of the role a member with a set of their own was based on: choosing it drops the set", async () => {
+    const { deps, members, logs } = setup();
+    await setMemberPermissions({ actor: owner, targetId: "mem", permissions: ["app:view"] }, deps);
+    expect(await changeRole({ actor: owner, targetId: "mem", role: "member" }, deps)).toMatchObject({ ok: true, value: { role: "member", permissions: null } });
+    expect(members.rows.find((row) => row.id === "mem")?.permissions).toBeNull();
+    expect(logs.at(-1)).toEqual({ event: "member.role_changed", shop: SHOP, role: "member", by: "owner" });
+  });
+
+  it("drops the set when a different role is chosen too", async () => {
+    const { deps, members } = setup();
+    await setMemberPermissions({ actor: owner, targetId: "mem", permissions: ["app:view"] }, deps);
+    await changeRole({ actor: owner, targetId: "mem", role: "viewer" }, deps);
+    expect(members.rows.find((row) => row.id === "mem")).toMatchObject({ role: "viewer", permissions: null });
   });
 
   it("never lets an admin hand out a role above their own", async () => {
@@ -311,7 +329,7 @@ describe("a shop always keeps someone who can manage the team", () => {
     members.add({ id: "a2", shop: SHOP, role: "admin", status: "active", shopifyUserId: "2" });
     members.add({ id: "m", shop: SHOP, role: "member", status: "active", shopifyUserId: "3" });
     const logs: MemberLogEntry[] = [];
-    const deps: ManageDependencies = { members, seats: fakeSeats(), runtime: { clock: fakeClock() }, log: (entry) => void logs.push(entry) };
+    const deps: ManageDependencies = { members, seats: fakeSeats(), customPermissions: allowed, runtime: { clock: fakeClock() }, log: (entry) => void logs.push(entry) };
     return { members, deps, logs };
   }
   const a1: Actor = { id: "a1", shop: SHOP, role: "admin" };
@@ -379,5 +397,134 @@ describe("a shop always keeps someone who can manage the team", () => {
     expect(await changeRole({ actor, targetId: "owner", role: "admin" }, deps)).toEqual({ ok: false, reason: "lastOwner" });
     expect(await changeRole({ actor, targetId: "owner", role: "member" }, deps)).toEqual({ ok: false, reason: "lastOwner" });
     expect(await removeMember({ actor, targetId: "owner" }, deps)).toEqual({ ok: false, reason: "lastOwner" });
+  });
+});
+
+describe("setMemberPermissions", () => {
+  const give = (actor: Actor, deps: ManageDependencies, targetId: string, permissions: readonly string[]) => setMemberPermissions({ actor, targetId, permissions }, deps);
+  const stored = (members: FakeMemberStore, id: string) => members.rows.find((row) => row.id === id)?.permissions;
+
+  it("gives an active member a set of their own, keeps their role, and says what changed in the log without any personal detail", async () => {
+    const { deps, members, logs } = setup();
+    const result = await give(owner, deps, "mem", ["app:manage", "app:view", "billing:manage"]);
+    expect(result).toMatchObject({ ok: true, value: { id: "mem", role: "member", permissions: ["app:view", "app:manage", "billing:manage"] } });
+    expect(stored(members, "mem")).toEqual(["app:view", "app:manage", "billing:manage"]);
+    expect(logs).toEqual([{ event: "member.permissions_changed", shop: SHOP, role: "member", by: "owner", granted: "billing:manage", revoked: "" }]);
+  });
+
+  it("names what was taken away as well as what was added, against what they held before", async () => {
+    const { deps, logs } = setup();
+    await give(owner, deps, "mem", ["app:view"]);
+    expect(logs.at(-1)).toMatchObject({ granted: "", revoked: "app:manage" });
+    await give(owner, deps, "mem", ["app:view", "billing:manage"]);
+    // Against the set they held, not the preset: app:manage was already gone.
+    expect(logs.at(-1)).toMatchObject({ granted: "billing:manage", revoked: "" });
+  });
+
+  it("lets an admin do it, for anyone below an owner", async () => {
+    const { deps } = setup();
+    expect(await give(admin, deps, "mem", ["app:view"])).toMatchObject({ ok: true });
+    expect(await give(admin, deps, "owner", ["app:view"])).toEqual({ ok: false, reason: "forbidden" });
+  });
+
+  it("is not available at all when the app does not let merchants do it, and nothing is read or written", async () => {
+    const { deps, members } = setup(undefined, customPolicy({ enabled: false, alsoProtected: [] }));
+    const before = JSON.stringify(members.rows);
+    expect(await give(owner, deps, "mem", ["app:view"])).toEqual({ ok: false, reason: "customUnavailable" });
+    expect(JSON.stringify(members.rows)).toBe(before);
+    expect(members.writes).toEqual([]);
+  });
+
+  it("refuses an actor without members:manage, a member of another shop, a missing member and oneself, and changes nothing", async () => {
+    const { deps, members } = setup();
+    members.add({ id: "foreign", shop: "beta.myshopify.com", role: "member", status: "active", shopifyUserId: "9" });
+    const before = JSON.stringify(members.rows);
+    expect(await give({ id: "x", shop: SHOP, role: "member" }, deps, "mem", ["app:view"])).toEqual({ ok: false, reason: "forbidden" });
+    expect(await give({ id: "x", shop: SHOP, role: "viewer" }, deps, "mem", ["app:view"])).toEqual({ ok: false, reason: "forbidden" });
+    expect(await give(owner, deps, "foreign", ["app:view"])).toEqual({ ok: false, reason: "notFound" });
+    expect(await give(owner, deps, "nobody", ["app:view"])).toEqual({ ok: false, reason: "notFound" });
+    expect(await give(admin, deps, "admin", ["app:view"])).toEqual({ ok: false, reason: "notYourself" });
+    expect(JSON.stringify(members.rows)).toBe(before);
+    expect(members.writes).toEqual([]);
+  });
+
+  it("refuses an actor whose own set no longer holds members:manage, even on an admin role", async () => {
+    const { deps, members } = setup();
+    members.rows.splice(members.rows.findIndex((row) => row.id === "admin"), 1, { ...members.rows.find((row) => row.id === "admin")!, permissions: ["app:view", "app:manage"] });
+    const actor: Actor = { id: "admin", shop: SHOP, role: "admin", permissions: ["app:view", "app:manage"] };
+    expect(await give(actor, deps, "mem", ["app:view"])).toEqual({ ok: false, reason: "forbidden" });
+    expect(members.writes).toEqual([]);
+  });
+
+  it("refuses an owner and the person Shopify says owns the store: they always hold everything", async () => {
+    const { deps, members } = setup();
+    members.add({ id: "boss2", shop: SHOP, role: "owner", status: "active", shopifyUserId: "7" });
+    members.add({ id: "so", shop: SHOP, role: "admin", status: "active", shopifyUserId: "8", accountOwner: true });
+    expect(await give(owner, deps, "boss2", ["app:view"])).toEqual({ ok: false, reason: "ownerFixed" });
+    expect(await give(owner, deps, "so", ["app:view"])).toEqual({ ok: false, reason: "ownerFixed" });
+    expect(members.writes).toEqual([]);
+  });
+
+  it.each([["waiting", "wait"], ["removed", "gone"], ["an invitation", "inv"]])("refuses someone who is %s: they get a role when they are let in, and a set after that", async (_label, id) => {
+    const { deps, members } = setup();
+    expect(await give(owner, deps, id, ["app:view"])).toEqual({ ok: false, reason: "invalidState" });
+    expect(members.writes).toEqual([]);
+  });
+
+  it.each([
+    ["a name that is not a permission", ["app:view", "nonsense"], "permissionInvalid"],
+    ["a set without the way in", ["app:manage"], "permissionInvalid"],
+    ["an empty set", [], "permissionInvalid"],
+    ["the permission that manages the team", ["app:view", "members:manage"], "cannotGrant"],
+  ] as const)("refuses %s, and writes nothing", async (_label, requested, reason) => {
+    const { deps, members } = setup();
+    expect(await give(owner, deps, "mem", requested)).toEqual({ ok: false, reason });
+    expect(members.writes).toEqual([]);
+    expect(stored(members, "mem")).toBeNull();
+  });
+
+  it("refuses what the app also protects, and gives it when the app does not", async () => {
+    const strict = setup(undefined, customPolicy({ enabled: true, alsoProtected: ["billing:manage"] }));
+    expect(await give(owner, strict.deps, "mem", ["app:view", "billing:manage"])).toEqual({ ok: false, reason: "cannotGrant" });
+    expect(await give(owner, setup().deps, "mem", ["app:view", "billing:manage"])).toMatchObject({ ok: true });
+  });
+
+  it("says the last manager stays when another request removed the other manager first", async () => {
+    const { deps, members } = setup();
+    // Between the checks and the write, the owner is removed: the admin acting is now the shop's last manager... and the target.
+    members.add({ id: "admin2", shop: SHOP, role: "admin", status: "active", shopifyUserId: "6" });
+    members.beforeWrite = (kind) => {
+      if (kind !== "setPermissions") return;
+      for (const id of ["owner", "admin"]) {
+        const index = members.rows.findIndex((row) => row.id === id);
+        const row = members.rows[index];
+        if (row) members.rows[index] = { ...row, status: "removed" };
+      }
+    };
+    expect(await give(owner, deps, "admin2", ["app:view"])).toEqual({ ok: false, reason: "lastManager" });
+    expect(stored(members, "admin2")).toBeNull();
+  });
+
+  it("says the member changed in the meantime when they were removed between the check and the write", async () => {
+    const { deps, members } = setup();
+    members.beforeWrite = (kind) => {
+      if (kind !== "setPermissions") return;
+      const index = members.rows.findIndex((row) => row.id === "mem");
+      const row = members.rows[index];
+      if (row) members.rows[index] = { ...row, status: "removed" };
+    };
+    expect(await give(owner, deps, "mem", ["app:view"])).toEqual({ ok: false, reason: "invalidState" });
+  });
+
+  it("agrees with the rule it checks first: what changeRole would let the same actor touch", async () => {
+    const { deps } = setup();
+    for (const targetId of ["owner", "admin", "mem", "wait", "gone", "inv"]) {
+      for (const actor of [owner, admin]) {
+        const touched = await changeRole({ actor, targetId, role: "viewer" }, deps);
+        const given = await give(actor, deps, targetId, ["app:view"]);
+        // Anything changeRole refuses as forbidden, notFound or notYourself is refused the same way here.
+        if (!touched.ok && ["forbidden", "notFound", "notYourself"].includes(touched.reason)) expect(given).toEqual({ ok: false, reason: touched.reason });
+      }
+    }
   });
 });

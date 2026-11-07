@@ -9,9 +9,9 @@ import { accessRefusalOf, requireMember, type MemberGuardDependencies } from "./
 const inRequest = <T>(fn: () => Promise<T>) => runWithRequestContext(env, fn);
 
 const SHOP = "alpha.myshopify.com";
-const member = (role: Member["role"]): Member => ({
+const member = (role: Member["role"], permissions: Member["permissions"] = null): Member => ({
   id: "m1", shop: SHOP, shopifyUserId: "42", email: null, name: null, role, status: "active",
-  accountOwner: false, collaborator: false, invitedBy: null, createdAt: 1, updatedAt: 1, lastSeenAt: 1, trimmedAt: null,
+  accountOwner: false, collaborator: false, invitedBy: null, createdAt: 1, updatedAt: 1, lastSeenAt: 1, trimmedAt: null, permissions,
 });
 
 interface Harness {
@@ -66,7 +66,7 @@ describe("requireMember", () => {
     async (role, permission: MemberPermission) => {
       const { deps } = harness({ ok: true, member: member(role) });
       const outcome = await inRequest(() => requireMember(request, permission, deps).then(() => "allowed" as const, (error: unknown) => refusal(error)));
-      expect(outcome).toEqual(can(role, permission) ? "allowed" : { status: 403, reason: "forbidden", shop: SHOP });
+      expect(outcome).toEqual(can({ role, permissions: null }, permission) ? "allowed" : { status: 403, reason: "forbidden", shop: SHOP });
     },
   );
 
@@ -200,5 +200,27 @@ describe("accessRefusalOf", () => {
     ["a refusal whose shop is blank", { data: { reason: "pending", shop: "" }, init: { status: 403 } }],
   ])("is undefined for %s", (_name, value) => {
     expect(accessRefusalOf(value)).toBeUndefined();
+  });
+});
+
+describe("requireMember for a member with a set of their own", () => {
+  const ask = (found: Member, permission: MemberPermission) => {
+    const { deps } = harness({ ok: true, member: found });
+    return inRequest(() => requireMember(request, permission, deps).then(() => "allowed" as const, (error: unknown) => refusal(error)));
+  };
+
+  it("judges them by the set, not by the role they were based on", async () => {
+    const limited = member("admin", ["app:view", "app:manage"]);
+    expect(await ask(limited, "app:manage")).toBe("allowed");
+    expect(await ask(limited, "billing:manage")).toEqual({ status: 403, reason: "forbidden", shop: SHOP });
+    expect(await ask(limited, "members:manage")).toEqual({ status: 403, reason: "forbidden", shop: SHOP });
+  });
+
+  it("gives a member a permission their role lacks when the set holds it", async () => {
+    expect(await ask(member("member", ["app:view", "billing:manage"]), "billing:manage")).toBe("allowed");
+  });
+
+  it("refuses everything to an empty set, even to look", async () => {
+    for (const permission of MEMBER_PERMISSIONS) expect(await ask(member("admin", []), permission)).toEqual({ status: 403, reason: "forbidden", shop: SHOP });
   });
 });

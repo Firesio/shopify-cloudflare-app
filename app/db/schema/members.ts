@@ -42,6 +42,15 @@ export const shopMembers = sqliteTable(
      * has no seat for them"; without it, "waiting to be let in". Cleared when they become active again or are removed.
      */
     trimmedAt: integer("trimmed_at"),
+    /**
+     * The member's OWN set of permissions, as a JSON list of names, when an app lets merchants choose what each person can
+     * do (`MEMBERS.customPermissions`). NULL, the usual value, means the member holds their role's preset. A set is read
+     * whole and never as a difference from the preset; `role` is then only what they were based on. Never set for an owner,
+     * for Shopify's account owner or for a member who is not active, and cleared whenever a role is chosen. Plain TEXT, so
+     * a permission added to the registry needs no migration; `parseStoredPermissions` reads it and a damaged value reads as
+     * an EMPTY set, never as null.
+     */
+    permissions: text("permissions"),
   },
   (table) => [
     uniqueIndex("shop_members_user_idx").on(table.shop, table.shopifyUserId),

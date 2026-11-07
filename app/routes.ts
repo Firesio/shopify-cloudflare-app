@@ -40,8 +40,9 @@ export default [
   route("app", "routes/app/_layout.tsx", [
     index("routes/app/home.tsx"),
     route("billing", "routes/app/billing.tsx"),
-    // Who from the store can use the app, and what they may do. Needs `members:manage`.
-    route("members", "routes/app/members.tsx"),
+    // Who from the store can use the app, and what they may do. Needs `members:manage`; one page for the team, one for a person.
+    route("members", "routes/app/members/index.tsx"),
+    route("members/:memberId", "routes/app/members/detail.tsx"),
     route("support", "routes/app/support/index.tsx"),
     route("support/new", "routes/app/support/new.tsx"),
     route("support/:ticketId", "routes/app/support/detail.tsx"),

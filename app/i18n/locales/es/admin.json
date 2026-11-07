@@ -282,12 +282,6 @@
   },
   "members": {
     "heading": "Equipo",
-    "intro": "Las personas de tu tienda que pueden usar {{appName}} y lo que puede hacer cada una.",
-    "policy": {
-      "auto_join": "Cualquier persona del personal de Shopify de tu tienda que abra {{appName}} se une automáticamente como {{role}}. Cambia el rol de cualquiera aquí.",
-      "invite_only": "Solo las personas que invites pueden usar {{appName}}. Se unen la primera vez que la abren con el correo invitado.",
-      "approval": "Cualquier persona del personal de Shopify de tu tienda que abra {{appName}} espera aquí hasta que la dejes entrar."
-    },
     "roles": {
       "owner": {
         "label": "Propietario",
@@ -326,7 +320,7 @@
     },
     "waiting": {
       "heading": "Personas esperando a que las dejes entrar: {{count}}",
-      "body": "Abrieron {{appName}} y todavía no pueden usarla. Déjalas entrar abajo o quítalas."
+      "body": "Abrieron {{appName}} y todavía no pueden usarla. Abre a cada persona más abajo para dejarla entrar o quitarla."
     },
     "table": {
       "label": "Equipo",
@@ -339,7 +333,7 @@
       "unnamed": "Persona sin nombre",
       "invitation": "Invitación",
       "never": "Aún no",
-      "actions": "Acciones"
+      "custom": "Personalizado"
     },
     "status": {
       "invited": "Invitado",
@@ -349,7 +343,6 @@
       "noSeat": "Sin plaza"
     },
     "actions": {
-      "menu": "Acciones para {{name}}",
       "changeRole": "Hacer {{role}}",
       "approve": "Dejar entrar como {{role}}",
       "restore": "Restaurar como {{role}}",
@@ -368,7 +361,8 @@
       "removed": "Miembro eliminado.",
       "invitationCancelled": "Invitación cancelada.",
       "approved": "Ya puede usar la app.",
-      "restored": "Miembro restaurado."
+      "restored": "Miembro restaurado.",
+      "permissionsChanged": "Permisos guardados."
     },
     "errors": {
       "forbidden": "No puedes hacer eso. Solo un propietario o administrador puede gestionar el equipo, y solo un propietario puede nombrar, cambiar o quitar a un propietario.",
@@ -381,7 +375,56 @@
       "emailInvalid": "Introduce un correo electrónico válido.",
       "alreadyMember": "Ese correo ya está en el equipo o tiene una invitación abierta.",
       "roleInvalid": "Elige uno de los roles de la lista.",
-      "unknownIntent": "Esa acción no está disponible."
+      "unknownIntent": "Esa acción no está disponible.",
+      "customUnavailable": "Esta aplicación no permite elegir los permisos uno por uno. Elige un rol.",
+      "ownerFixed": "Un propietario siempre tiene todos los permisos.",
+      "permissionInvalid": "Elige permisos de la lista y conserva el que permite abrir la aplicación.",
+      "cannotGrant": "Solo puedes dar permisos que tú mismo tienes. Gestionar el equipo viene con el rol de Propietario o Administrador."
+    },
+    "detail": {
+      "profile": "Perfil",
+      "email": "Correo electrónico",
+      "noEmail": "Sin correo registrado",
+      "collaborator": "Colaborador",
+      "accessHeading": "Acceso",
+      "notChangeable": "No puedes cambiar el acceso de esta persona.",
+      "isYou": "Eres tú. Pide a otro propietario o administrador que cambie tu acceso.",
+      "asideHeading": "Detalles",
+      "added": "Añadido",
+      "invitedBy": "Invitado por",
+      "customLabel": "Permisos personalizados",
+      "basedOn": "Empezó con {{role}}. Elegir un rol sustituye sus permisos.",
+      "permissionsHeading": "Permisos",
+      "permissionsEditable": "Elige lo que puede hacer {{name}}. Todas las personas pueden abrir la aplicación.",
+      "permissionsReadOnly": "Lo que puede hacer {{name}}.",
+      "roleOnlyHint": "Solo viene con el rol de Propietario o Administrador.",
+      "notYoursHint": "Tú no tienes este permiso.",
+      "customHint": "Al guardar, tendrá permisos propios. Elegir un rol más tarde los sustituye.",
+      "savePermissions": "Guardar permisos"
+    },
+    "permissions": {
+      "appView": {
+        "label": "Usar la aplicación",
+        "description": "Abrir la aplicación y ver todo lo que contiene."
+      },
+      "appManage": {
+        "label": "Cambiar ajustes y datos",
+        "description": "Crear y editar lo que guarda la aplicación."
+      },
+      "billingManage": {
+        "label": "Gestionar el plan",
+        "description": "Ver y cambiar el plan y la facturación."
+      },
+      "membersManage": {
+        "label": "Gestionar el equipo",
+        "description": "Invitar personas, cambiar roles y permisos, y quitar personas."
+      }
+    },
+    "applyRole": {
+      "heading": "¿Sustituir sus permisos por {{role}}?",
+      "body": "Tendrá exactamente lo que tiene el rol {{role}}. Los permisos que elegiste para esta persona se descartan.",
+      "confirm": "Aplicar {{role}}",
+      "keep": "Cancelar"
     }
   }
 }

@@ -1,4 +1,5 @@
 import { createMemberSeats } from "~/adapters/member-seats.server";
+import { customPolicy } from "~/domain/member-permissions";
 import { MemberRepo } from "~/models/members.server";
 import { MEMBERS } from "~/members/config";
 import { shopLog } from "~/observability/shop-log";
@@ -27,6 +28,7 @@ export function memberDependencies(): MemberDependencies & ManageDependencies {
     members: memberStore(),
     seats: memberSeats(),
     config: MEMBERS,
+    customPermissions: customPolicy(MEMBERS.customPermissions),
     runtime: appRuntime(),
     log: ({ event, shop, ...fields }) => shopLog(event, shop, fields),
   };

@@ -1,4 +1,4 @@
-import type { MemberRole } from "~/domain/member-access";
+import type { MemberPermission, MemberRole } from "~/domain/member-access";
 import type { MemberStatus } from "~/domain/member-lifecycle";
 
 /** What the use cases need to read and change a shop's members. Implemented by `models/members.server.ts`. */
@@ -20,6 +20,11 @@ export interface Member {
   readonly lastSeenAt: number | null;
   /** When a seat-overage trim took this person's seat; null otherwise. A `pending` member with it set has no seat, rather than waiting for approval. */
   readonly trimmedAt: number | null;
+  /**
+   * The member's own set of permissions, or null while they hold their role's preset. With a set, `role` is only what they
+   * were based on: ask `can(member, permission)`, never the role. See `domain/member-permissions.ts`.
+   */
+  readonly permissions: readonly MemberPermission[] | null;
 }
 
 /** What Shopify told us about the person, kept on their row. */
@@ -65,7 +70,10 @@ export interface MemberStore {
   hasOpenedApp(shop: string): Promise<boolean>;
   /** The shop's team: people first (owners, then by name), invitations last. */
   list(shop: string): Promise<readonly Member[]>;
-  /** Active members whose role is one of `roles` (the people to ask for access), oldest first, at most `limit`. */
+  /**
+   * Active members whose role is one of `roles` AND who hold that role's preset (the people to ask for access), oldest
+   * first, at most `limit`. Someone with a set of their own is left out: their role is only what they were based on.
+   */
   listWithRoles(shop: string, roles: readonly MemberRole[], limit: number): Promise<readonly Member[]>;
   /** Every ACTIVE member of the shop, oldest first, at most 500 (a team is people). For the seat-overage review. */
   listActive(shop: string): Promise<readonly Member[]>;
@@ -90,18 +98,29 @@ export interface MemberStore {
    * reached. Undefined when it was no longer open, or the user already has a membership.
    */
   acceptInvite(shop: string, inviteId: string, link: { shopifyUserId: string; profile: MemberProfile; now: number }, cap: SeatCap): Promise<Member | undefined>;
-  /** Makes an existing member an active owner (the store's own owner, who cannot be locked out). Owners never wait for a seat. */
+  /**
+   * Makes an existing member an active owner (the store's own owner, who cannot be locked out). Owners never wait for a
+   * seat, and never have a set of their own: any they had is dropped.
+   */
   restoreOwner(shop: string, id: string, profile: MemberProfile, now: number): Promise<Member | undefined>;
   /**
    * Makes a member `active` with `role`, only if they are in one of `from` and `cap` leaves a seat. Undefined otherwise;
-   * the caller reads the member again to say which.
+   * the caller reads the member again to say which. They start on the role's preset: any set they had is dropped.
    */
   activate(shop: string, id: string, input: { from: readonly MemberStatus[]; role: MemberRole; cap: SeatCap; now: number }): Promise<Member | undefined>;
   /**
-   * Changes a role. Refused (undefined) when it would take the last active owner's role, or the last active member who
-   * may manage the team (`members:manage`) out of a role that holds it.
+   * Changes a role, which applies the role's preset: a set the member had is dropped. Refused (undefined) when it would
+   * take the last active owner's role, or the last active member who may manage the team (`members:manage`) out of a role
+   * that holds it.
    */
   setRole(shop: string, id: string, role: MemberRole, now: number): Promise<Member | undefined>;
+  /**
+   * Gives an ACTIVE member a set of their own, replacing any they had; `role` stays as it was. ONE conditional statement,
+   * refused (undefined) for a member who is not active, who is an owner or Shopify's account owner, or who is the shop's
+   * last active team manager (a set never holds `members:manage`, so this takes them out of managing). The caller has
+   * already checked what the set may contain (`checkCustomPermissions`).
+   */
+  setPermissions(shop: string, id: string, permissions: readonly MemberPermission[], now: number): Promise<Member | undefined>;
   /**
    * Takes an active member's seat: they become `pending` and are marked trimmed. ONE conditional statement that writes
    * only if the member is still `active`, is not an owner or Shopify's account owner, is not the shop's last active member
@@ -109,7 +128,10 @@ export interface MemberStore {
    * that both want the last seat cannot take two. Undefined when any of that no longer holds.
    */
   trim(shop: string, id: string, limit: number, now: number): Promise<Member | undefined>;
-  /** Marks a member removed. Refused (undefined) for the last active owner, and for the last active member who may manage the team. */
+  /**
+   * Marks a member removed, and drops any set of their own. Refused (undefined) for the last active owner, and for the last
+   * active member who may manage the team.
+   */
   remove(shop: string, id: string, now: number): Promise<Member | undefined>;
   /** Keeps what Shopify says about the person, and when they were last seen. */
   recordSeen(shop: string, id: string, profile: MemberProfile, now: number): Promise<void>;

@@ -1,6 +1,7 @@
 # Members — who may use the app, and what they may do
 
-A **member** is a person from the merchant's side: a Shopify staff user linked to one shop, with one role. Identity is
+A **member** is a person from the merchant's side: a Shopify staff user linked to one shop, with one role (and, in an app that
+lets merchants choose, optionally a set of permissions of their own). Identity is
 Shopify's (the ID token's `sub`); the app has no password and no sign-up. What a member may do to the shop's Shopify
 data is Shopify's decision (the store owner's staff permissions); roles here decide only what they may do **in this
 app**.
@@ -9,7 +10,7 @@ app**.
 request → authenticateAdmin (Shopify proves who)  →  guardMember (the app decides)
                                                          │ identityFromAuth   who is asking
                                                          │ resolveMember      find / admit / refuse  (pure rules + store)
-                                                         └ can(role, permission)
+                                                         └ can(member, permission)   a role's preset, or the member's own set
 ```
 
 ## Where each decision lives
@@ -29,7 +30,9 @@ request → authenticateAdmin (Shopify proves who)  →  guardMember (the app de
 | The only queries on `shop_members`, and on `member_seat_episodes` | `app/models/members.server.ts`, `app/models/member-seat-episodes.server.ts` | 4 |
 | Binding the review: dependencies, the plan-change hook, the cron sweep | `app/wiring/member-seat-overage.server.ts` | 5 |
 | The guard routes call | `app/admin/require-member.server.ts` | 5 |
-| The Team page (`/app/members`) and its forms | `app/routes/app/members.tsx`, `members.server.ts`, `app/components/members/` | 5 |
+| A member's own set: what it may hold, how a stored one is read, who may be given one | `app/domain/member-permissions.ts` | 1 |
+| The Team page (`/app/members`): the list, the invitation, and a link to each person | `app/routes/app/members/index.tsx`, `members.server.ts`, `app/components/members/` | 5 |
+| One person's page (`/app/members/:memberId`): their detail, and EVERY action on them (role, let in, restore, remove, their own permissions). A person not on this shop's team is a 404 | `app/routes/app/members/detail.tsx`, `loadMember` in `members.server.ts`, `memberDetail` in `app/domain/member-team.ts` | 5, 1 |
 | The page that says why someone is kept out, and who to ask | `app/components/admin/NoAccess.tsx` | 5 |
 | A shop's team, read-only, for staff | `app/routes/internal/shops/detail-team.tsx` | 5 |
 
@@ -44,7 +47,42 @@ request → authenticateAdmin (Shopify proves who)  →  guardMember (the app de
 
 `canAssignRole(actor, role)` is the one place for both rules: `owner` only by an owner; any other role only by an actor
 holding every permission it carries. `manage-members` reads it for the target as well, so touching an owner needs an owner;
-the Team page's `can.*` flags read it too, so a button never offers what the server refuses.
+the Team page's and the person page's `can.*` flags read it too (one `rowOf`), so a button never offers what the server refuses.
+
+## What a member holds: a preset, or a set of their own
+
+```
+holds = member.permissions ?? ROLE_SPECS[member.role]          (grantsOf)
+```
+
+A role is a **preset**. A member holds EITHER their role's preset, read live from code, OR a set of their own (`shop_members.permissions`,
+a JSON list; NULL is the usual value), never a difference from the preset. With a set, `role` is only what they were based on. That keeps
+what someone holds visible and stable: it never changes because a preset did, and a permission an app adds later is shown unchecked.
+
+Every question about what someone may do takes the **member** (`can(member, permission)`, `grantsOf`, `canAssignRole(actor, role)`), never a
+bare role: the compiler rejects `can(member.role, ...)`, so no call site can read the role of someone with a set of their own. `presetOf(role)` is
+the preset alone (the config check, the "who could be asked" query).
+
+Whether a merchant may give a member a set is the app's choice, `MEMBERS.customPermissions`:
+
+| | `enabled: false` (the template's default) | `enabled: true` |
+|---|---|---|
+| The member's page | the role and what it allows, read-only list of permissions | the same, and every permission is a checkbox; saving gives the member a set |
+| The column | never written | written whole, in the registry's order |
+| Choosing a role | applies the preset | applies the preset and DROPS the set (asked first, in a dialog) |
+
+Rules, in `member-permissions.ts` and held by every layer (the service, the single UPDATE, the page):
+
+- **Nobody gives what they do not hold** (`checkCustomPermissions`: `cannotGrant`).
+- **`members:manage` only comes with a role** (`ALWAYS_PROTECTED`, and `alsoProtected` adds more, the plan for instance). The "shop keeps someone who can manage the team" guard is
+  decided by the database from roles alone, so a manager is an active member on a manager role's PRESET (`permissions IS NULL`). A member with a set is never one,
+  whatever role they were based on, and giving a set to the last manager is refused in the same statement (`lastManager`).
+- **An owner and Shopify's account owner never have a set** (`ownerFixed`); only an ACTIVE member can be given one (`invalidState`).
+- **A set always includes the way in** (`FLOOR_PERMISSION`, `app:view`); one that does not is `permissionInvalid`. So is a name that is not a permission, said before a refusal for policy.
+- **Applying a role, letting someone in, restoring them, removing them and restoring the account owner all drop the set.** A returning person starts on a preset.
+- **A damaged stored value reads as an EMPTY set, never as "no set"** (which would hand back a preset wider than what was chosen). A name the code no longer knows is dropped.
+- Seat trimming and the notice recipients read the set (`can`), so a member with a set is not counted as a manager and is not told about seats; where they stand in a trim is the
+  role they were based on.
 
 ## Rules that never change, whatever an app configures
 
@@ -91,7 +129,9 @@ the Team page's `can.*` flags read it too, so a button never offers what the ser
 | How strangers are handled (`auto_join`, `invite_only`, `approval`) | `MEMBERS.onUnknownUser` | one value |
 | The role strangers get | `MEMBERS.autoJoinRole` | one value |
 | A new policy | `UNKNOWN_USER_POLICIES` + one entry in `UNKNOWN_USER` | the compiler names the rest |
-| A new permission | `MEMBER_PERMISSIONS`, then the roles that hold it; routes ask with `guardMember(request, "x:y")` | no migration |
+| A new permission | `MEMBER_PERMISSIONS`, then the roles that hold it, then its name and description in `permission-text.ts` and `members.permissions.<key>` in every language (no colon in the key: i18next reads it as a namespace); routes ask with `guardMember(request, "x:y")` | no migration |
+| Let merchants choose each person's permissions | `MEMBERS.customPermissions = { enabled: true, alsoProtected: [...] }` | one value; the column and the editor already exist |
+| Permissions that only ever come with a role in this app | `customPermissions.alsoProtected` (`members:manage` always is) | one value |
 | A new role | `MEMBER_ROLES` + `ROLE_SPECS`, and `members.roles.<role>` in the `admin` catalogue | no migration (the column is plain text) |
 | Ask Shopify for the person's email and name | `MEMBERS.onlineTokens` | `invite_only` needs it |
 | Hold the team to the plan's seats (notify, then trim) | `MEMBERS.seatOverage = { policy: "notify_then_trim", noticeHours: 72 }` and a plan with `members.max` | one value; see "Seats" |
@@ -193,7 +233,7 @@ back within the limit / plan upgraded / unlimited / app uninstalled, at any time
 ## Edge cases that are decided, and where they are tested
 
 Tests: `O` = `app/services/members/review-seat-overage.test.ts` (real local D1, the notifier and the plan faked), `W` = `app/wiring/member-seat-overage.test.ts`, `X` = `sweep-seat-overage.test.ts`, `D` = `app/domain/member-admission.test.ts`, `A` = `member-access.test.ts`, `R` = `app/services/members/resolve-member.test.ts`,
-`M` = `manage-members.test.ts`, `S` = `app/models/members.test.ts` (real local D1), `I` = `app/routes/app/members.integration.test.ts`
+`M` = `manage-members.test.ts`, `S` = `app/models/members.test.ts` (real local D1), `I` = `app/routes/app/members/members.integration.test.ts`
 (real D1 through the page's use cases), `C` = `app/members/config.test.ts`, `T` = `app/domain/member-team.test.ts`, `K` = `contacts.test.ts`.
 
 | Case | Decision | Tested in |
@@ -249,7 +289,7 @@ Tests: `O` = `app/services/members/review-seat-overage.test.ts` (real local D1, 
   invited until a member exists, so the first admitted person has to be that admin.
 - **A team without an owner is valid and common** (every first-user shop starts without one). Only Shopify's account owner
   opening the app, or an existing owner, creates one.
-- **Team changes are logged, not stored**: `member.role_changed | removed | approved | restored` carry the acting member's id
+- **Team changes are logged, not stored**: `member.role_changed | removed | approved | restored | permissions_changed` (the last names the permissions added and taken away) carry the acting member's id
   and the shop's hash. An app that needs an audit table adds it beside `shop_members`.
 - **Seat trimming (`notify_then_trim`) is only as good as its inputs.** The plan's limit comes from the entitlement projection
   in D1 (the template's default snapshot sets no `verifiedAt`, so it never goes stale and `check` never calls Partner), so a
@@ -261,6 +301,9 @@ Tests: `O` = `app/services/members/review-seat-overage.test.ts` (real local D1, 
 - **Privilege scores only order people of the same role.** Role rank comes first, and a member the app gave no score is
   protected, so an app that scores only some people trims the scored ones first.
 - **No "request access" email yet**: a kept-out person is shown who to ask; nobody is notified.
+- **A member with a set of their own does not receive a permission added later.** It is shown unchecked in their editor and access fails closed; choosing a role gives them the preset again.
+- **There are no merchant-named roles.** A set belongs to one person; to give several people the same set the merchant ticks it for each, or an app stores roles beside the registry and passes them through `can`.
+- **The team page does not show which permissions a person with a set holds**, only that they have a set (a badge); the permissions are on their own page. The staff console shows the same marker and no list.
 
 ## Writing a route
 

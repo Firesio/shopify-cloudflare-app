@@ -1,4 +1,4 @@
-import { rolesHolding, type MemberRole } from "~/domain/member-access";
+import { MEMBER_PERMISSIONS, rolesHolding, type MemberPermission, type MemberRole } from "~/domain/member-access";
 import type { MemberStatus } from "~/domain/member-lifecycle";
 import type { CreateOutcome, Member, MemberProfile, MemberStore, NewMember, SeatCap } from "~/ports/members";
 
@@ -27,6 +27,7 @@ export class FakeMemberStore implements MemberStore {
       updatedAt: 1,
       lastSeenAt: null,
       trimmedAt: null,
+      permissions: null,
       ...member,
     };
     this.rows.push(full);
@@ -134,6 +135,7 @@ export class FakeMemberStore implements MemberStore {
       role: "owner",
       status: "active",
       trimmedAt: null,
+      permissions: null,
       email: profile.email ?? current?.email ?? null,
       name: profile.name ?? current?.name ?? null,
       accountOwner: profile.accountOwner,
@@ -152,7 +154,7 @@ export class FakeMemberStore implements MemberStore {
   }
 
   async listWithRoles(shop: string, roles: readonly MemberRole[], limit: number) {
-    return this.rows.filter((row) => row.shop === shop && row.status === "active" && roles.includes(row.role)).slice(0, limit);
+    return this.rows.filter((row) => row.shop === shop && row.status === "active" && roles.includes(row.role) && row.permissions === null).slice(0, limit);
   }
 
   async listActive(shop: string) {
@@ -175,7 +177,7 @@ export class FakeMemberStore implements MemberStore {
     this.write("activate");
     const target = this.rows.find((row) => row.shop === shop && row.id === id);
     if (target === undefined || !input.from.includes(target.status) || !this.hasSeat(shop, input.cap)) return undefined;
-    return this.replace(id, { status: "active", role: input.role, trimmedAt: null, updatedAt: input.now });
+    return this.replace(id, { status: "active", role: input.role, trimmedAt: null, permissions: null, updatedAt: input.now });
   }
 
   /** The member is the shop's last active owner: changing them would leave it with none. */
@@ -183,10 +185,14 @@ export class FakeMemberStore implements MemberStore {
     return target.role === "owner" && target.status === "active" && this.rows.filter((row) => row.shop === target.shop && row.role === "owner" && row.status === "active").length <= 1;
   }
 
-  /** The member is the shop's last active team manager: changing them out of a managing role would leave it with none. */
+  /** A manager is an active member on a manager role's preset: someone with a set of their own is never one. */
+  private isManager(row: Member): boolean {
+    return row.status === "active" && row.permissions === null && rolesHolding("members:manage").includes(row.role);
+  }
+
+  /** The member is the shop's last active team manager: changing them out of managing would leave it with none. */
   private isLastManager(target: Member): boolean {
-    const managers = rolesHolding("members:manage");
-    return managers.includes(target.role) && target.status === "active" && this.rows.filter((row) => row.shop === target.shop && managers.includes(row.role) && row.status === "active").length <= 1;
+    return this.isManager(target) && this.rows.filter((row) => row.shop === target.shop && this.isManager(row)).length <= 1;
   }
 
   async setRole(shop: string, id: string, role: MemberRole, now: number) {
@@ -195,14 +201,21 @@ export class FakeMemberStore implements MemberStore {
     if (target === undefined) return undefined;
     if (role !== "owner" && this.isLastOwner(target)) return undefined;
     if (!rolesHolding("members:manage").includes(role) && this.isLastManager(target)) return undefined;
-    return this.replace(id, { role, updatedAt: now });
+    return this.replace(id, { role, permissions: null, updatedAt: now });
+  }
+
+  async setPermissions(shop: string, id: string, permissions: readonly MemberPermission[], now: number) {
+    this.write("setPermissions");
+    const target = this.rows.find((row) => row.shop === shop && row.id === id);
+    if (target === undefined || target.status !== "active" || target.role === "owner" || target.accountOwner || this.isLastManager(target)) return undefined;
+    return this.replace(id, { permissions: MEMBER_PERMISSIONS.filter((permission) => permissions.includes(permission)), updatedAt: now });
   }
 
   async remove(shop: string, id: string, now: number) {
     this.write("remove");
     const target = this.rows.find((row) => row.shop === shop && row.id === id);
     if (target === undefined || target.status === "removed" || this.isLastOwner(target) || this.isLastManager(target)) return undefined;
-    return this.replace(id, { status: "removed", trimmedAt: null, updatedAt: now });
+    return this.replace(id, { status: "removed", trimmedAt: null, permissions: null, updatedAt: now });
   }
 
   async trim(shop: string, id: string, limit: number, now: number) {

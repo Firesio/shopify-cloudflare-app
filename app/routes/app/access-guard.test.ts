@@ -21,7 +21,7 @@ describe("the embedded routes", () => {
 
   it("finds the routes it is meant to check", () => {
     expect(entries.length).toBeGreaterThan(5);
-    expect(entries.map(([path]) => path).some((path) => path.endsWith("/members.tsx"))).toBe(true);
+    expect(entries.map(([path]) => path).some((path) => path.endsWith("/members/index.tsx"))).toBe(true);
   });
 
   it("never call authenticateAdmin or authenticate.admin themselves", () => {

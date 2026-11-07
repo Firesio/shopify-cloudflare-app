@@ -52,6 +52,7 @@ export function TeamCard({ team, seats }: { readonly team: readonly TeamMember[]
                   </TableCell>
                   <TableCell>
                     {ROLE_LABEL[member.role]}
+                    {member.custom && <span className="ml-2 text-xs text-muted-foreground">custom permissions</span>}
                     {member.accountOwner && <span className="ml-2 text-xs text-muted-foreground">store owner</span>}
                   </TableCell>
                   <TableCell>

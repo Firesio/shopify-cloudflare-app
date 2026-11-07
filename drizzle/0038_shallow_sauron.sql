@@ -1,0 +1,1 @@
+ALTER TABLE `shop_members` ADD `permissions` text;

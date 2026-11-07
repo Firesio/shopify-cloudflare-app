@@ -1,5 +1,6 @@
-import { can, canAssignRole, type MemberRole } from "~/domain/member-access";
+import { can, canAssignRole, grantsOf, type MemberRole } from "~/domain/member-access";
 import { canTransition } from "~/domain/member-lifecycle";
+import { checkCustomPermissions, type CustomPermissionPolicy, type PermissionFailure } from "~/domain/member-permissions";
 import { seatCapOf } from "~/domain/member-seats";
 import { err, ok, type Result } from "~/lib/result";
 import type { Member, MemberStore } from "~/ports/members";
@@ -23,24 +24,39 @@ import type { MemberLogEntry } from "./resolve-member";
  */
 export type ManageFailure = "forbidden" | "notFound" | "notYourself" | "lastOwner" | "lastManager" | "noSeat" | "invalidState";
 
+/**
+ * What `setMemberPermissions` can refuse: everything above that applies, and
+ *
+ *   customUnavailable   the app does not let merchants give a member a set of their own
+ *   ownerFixed          an owner and the store's own owner always hold everything: they have no set
+ *   permissionInvalid   a name that is not a permission, or a set without the way in
+ *   cannotGrant         a permission the actor lacks, or one that only comes with a role
+ */
+export type PermissionsFailure = ManageFailure | PermissionFailure | "customUnavailable" | "ownerFixed";
+
 export interface ManageDependencies {
   readonly members: MemberStore;
   readonly seats: MemberSeats;
+  /** Whether merchants may give a member a set of their own, and what only comes with a role. The app's choice. */
+  readonly customPermissions: CustomPermissionPolicy;
   readonly runtime: Pick<Runtime, "clock">;
   readonly log: (entry: MemberLogEntry) => void | Promise<void>;
 }
 
-/** Who is acting: enough to check what they may do. */
-export type Actor = Pick<Member, "id" | "shop" | "role">;
+/**
+ * Who is acting: enough to check what they may do. `permissions` is the actor's own set when they have one; a bare
+ * `{ id, shop, role }` is someone on their role's preset, which is what a test says in the fewest words.
+ */
+export type Actor = Pick<Member, "id" | "shop" | "role"> & Partial<Pick<Member, "permissions">>;
 
 /** The member to act on, checked against everything that does not depend on what the action is. */
 async function target(actor: Actor, targetId: string, deps: ManageDependencies): Promise<Result<Member, ManageFailure>> {
-  if (!can(actor.role, "members:manage")) return err("forbidden");
+  if (!can(actor, "members:manage")) return err("forbidden");
   const member = await deps.members.findById(actor.shop, targetId);
   if (!member) return err("notFound");
   if (member.id === actor.id) return err("notYourself");
   // Nobody touches a member whose role they could not hand out themselves; for an owner that means only an owner.
-  if (!canAssignRole(actor.role, member.role)) return err("forbidden");
+  if (!canAssignRole(actor, member.role)) return err("forbidden");
   return ok(member);
 }
 
@@ -53,16 +69,17 @@ async function whyRefused(actor: Actor, before: Member, expected: "role" | "remo
   // An owner who is refused is the last owner (while there are two, there are two managers too). Otherwise only the
   // last-manager guard can have fired, and it names a role that holds `members:manage`.
   if (now.role === "owner") return "lastOwner";
-  return can(now.role, "members:manage") ? "lastManager" : "invalidState";
+  return can(now, "members:manage") ? "lastManager" : "invalidState";
 }
 
 export async function changeRole(input: { actor: Actor; targetId: string; role: MemberRole }, deps: ManageDependencies): Promise<Result<Member, ManageFailure>> {
   const found = await target(input.actor, input.targetId, deps);
   if (!found.ok) return found;
   const member = found.value;
-  if (!canAssignRole(input.actor.role, input.role)) return err("forbidden");
+  if (!canAssignRole(input.actor, input.role)) return err("forbidden");
   if (member.status === "removed") return err("invalidState");
-  if (member.role === input.role) return ok(member);
+  // Choosing the role a member with a set of their own was based on still applies its preset, which drops the set.
+  if (member.role === input.role && member.permissions === null) return ok(member);
 
   const changed = await deps.members.setRole(input.actor.shop, member.id, input.role, deps.runtime.clock.now());
   if (!changed) return err(await whyRefused(input.actor, member, "role", deps));
@@ -102,7 +119,7 @@ async function activate(
   const found = await target(input.actor, input.targetId, deps);
   if (!found.ok) return found;
   const member = found.value;
-  if (!canAssignRole(input.actor.role, input.role)) return err("forbidden");
+  if (!canAssignRole(input.actor, input.role)) return err("forbidden");
   if (member.status !== from || !canTransition(member.status, "active")) return err("invalidState");
 
   const cap = seatCapOf(await deps.seats.limit(input.actor.shop));
@@ -114,4 +131,49 @@ async function activate(
   }
   await deps.log({ event, shop: input.actor.shop, role: activated.role, by: input.actor.id });
   return ok(activated);
+}
+
+/** After a refused write of a set: read the member again to say why. Only the last-manager guard is left once the rest still holds. */
+async function whyPermissionsRefused(actor: Actor, before: Member, deps: ManageDependencies): Promise<PermissionsFailure> {
+  const now = await deps.members.findById(actor.shop, before.id);
+  if (!now) return "notFound";
+  if (now.status !== "active") return "invalidState";
+  if (now.role === "owner" || now.accountOwner) return "ownerFixed";
+  return "lastManager";
+}
+
+/** `list` as the one string a log line carries: the names of permissions are not personal data. */
+const namesOf = (list: readonly string[]): string => list.join(",");
+
+/**
+ * Gives an active member a set of permissions of their own, for an app that lets merchants choose what each person can do.
+ * The role they were based on stays; choosing a role later drops the set. Refused when the app does not allow it, for an
+ * owner or the store's own owner, for someone who is not active, and for a set the actor may not give
+ * (`checkCustomPermissions`). The log says what was added and taken away against what the member held before.
+ */
+export async function setMemberPermissions(
+  input: { actor: Actor; targetId: string; permissions: readonly string[] },
+  deps: ManageDependencies,
+): Promise<Result<Member, PermissionsFailure>> {
+  if (!deps.customPermissions.enabled) return err("customUnavailable");
+  const found = await target(input.actor, input.targetId, deps);
+  if (!found.ok) return found;
+  const member = found.value;
+  if (member.role === "owner" || member.accountOwner) return err("ownerFixed");
+  if (member.status !== "active") return err("invalidState");
+  const checked = checkCustomPermissions(input.actor, input.permissions, deps.customPermissions);
+  if (!checked.ok) return err(checked.reason);
+
+  const before = grantsOf(member);
+  const changed = await deps.members.setPermissions(input.actor.shop, member.id, checked.value, deps.runtime.clock.now());
+  if (!changed) return err(await whyPermissionsRefused(input.actor, member, deps));
+  await deps.log({
+    event: "member.permissions_changed",
+    shop: input.actor.shop,
+    role: changed.role,
+    by: input.actor.id,
+    granted: namesOf(checked.value.filter((permission) => !before.includes(permission))),
+    revoked: namesOf(before.filter((permission) => !checked.value.includes(permission))),
+  });
+  return ok(changed);
 }

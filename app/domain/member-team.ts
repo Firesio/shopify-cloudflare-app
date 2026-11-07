@@ -1,4 +1,5 @@
-import { MEMBER_ROLES, assignableRoles, can, canAssignRole, type MemberRole } from "./member-access";
+import { MEMBER_ROLES, assignableRoles, can, canAssignRole, grantsOf, type AccessSubject, type MemberPermission, type MemberRole } from "./member-access";
+import { grantableBy, isCustomizable, type CustomPermissionPolicy } from "./member-permissions";
 import { canTransition, type MemberStatus } from "./member-lifecycle";
 import type { SeatLimit } from "./member-seats";
 
@@ -22,7 +23,12 @@ export interface TeamMember {
   readonly lastSeenAt: number | null;
   /** A seat-overage trim took this person's seat: `pending` here means "no seat", not "waiting for approval". */
   readonly trimmed: boolean;
+  /** They have a set of permissions of their own instead of a role's preset. The set itself is not a list's business. */
+  readonly custom: boolean;
 }
+
+/** Who is looking: their id, and what they may do (their role, and their own set if they have one). */
+type Viewer = { readonly id: string } & AccessSubject;
 
 export interface TeamRow {
   readonly id: string;
@@ -38,6 +44,8 @@ export interface TeamRow {
   readonly lastSeenAt: number | null;
   /** Lost a seat to a seat-overage trim: shown as "no seat", and let back in the same way as someone waiting. */
   readonly noSeat: boolean;
+  /** Holds a set of permissions of their own, so their role is only what they were based on. */
+  readonly custom: boolean;
   /** What the person looking may offer for this row, and which roles they could give. */
   readonly can: {
     readonly changeRole: boolean;
@@ -55,7 +63,9 @@ function sortKey(member: Pick<TeamMember, "id" | "name" | "email">): string {
 }
 
 /** A stored member as the views read it: the Shopify user id becomes "is there one", and nothing that is not shown comes along. */
-export function toTeamMember(member: Omit<TeamMember, "linked" | "trimmed"> & { readonly shopifyUserId: string | null; readonly trimmedAt: number | null }): TeamMember {
+export function toTeamMember(
+  member: Omit<TeamMember, "linked" | "trimmed" | "custom"> & { readonly shopifyUserId: string | null; readonly trimmedAt: number | null; readonly permissions: readonly MemberPermission[] | null },
+): TeamMember {
   return {
     id: member.id,
     linked: member.shopifyUserId !== null,
@@ -66,6 +76,7 @@ export function toTeamMember(member: Omit<TeamMember, "linked" | "trimmed"> & { 
     accountOwner: member.accountOwner,
     lastSeenAt: member.lastSeenAt,
     trimmed: member.trimmedAt !== null,
+    custom: member.permissions !== null,
   };
 }
 
@@ -80,35 +91,73 @@ export function orderTeam<T extends Pick<TeamMember, "id" | "name" | "email" | "
   );
 }
 
-export function teamRows(actor: { readonly id: string; readonly role: string }, members: readonly TeamMember[]): readonly TeamRow[] {
-  const manages = can(actor.role, "members:manage");
-  return orderTeam(members)
-    .map((member) => {
-      const touchable = manages && member.id !== actor.id && canAssignRole(actor.role, member.role);
-      return {
-        id: member.id,
-        name: member.name,
-        email: member.email,
-        role: member.role,
-        status: member.status,
-        isYou: member.id === actor.id,
-        accountOwner: member.accountOwner,
-        isInvitation: member.status === "invited" && !member.linked,
-        lastSeenAt: member.lastSeenAt,
-        noSeat: member.status === "pending" && member.trimmed,
-        can: {
-          changeRole: touchable && member.status !== "removed",
-          remove: touchable && canTransition(member.status, "removed"),
-          approve: touchable && member.status === "pending",
-          restore: touchable && member.status === "removed",
-        },
-      };
-    });
+/** One member as a row: the same rules for the list and the detail page, so neither offers what the other would refuse. */
+function rowOf(actor: Viewer, member: TeamMember): TeamRow {
+  const touchable = can(actor, "members:manage") && member.id !== actor.id && canAssignRole(actor, member.role);
+  return {
+    id: member.id,
+    name: member.name,
+    email: member.email,
+    role: member.role,
+    status: member.status,
+    isYou: member.id === actor.id,
+    accountOwner: member.accountOwner,
+    isInvitation: member.status === "invited" && !member.linked,
+    lastSeenAt: member.lastSeenAt,
+    noSeat: member.status === "pending" && member.trimmed,
+    custom: member.custom,
+    can: {
+      changeRole: touchable && member.status !== "removed",
+      remove: touchable && canTransition(member.status, "removed"),
+      approve: touchable && member.status === "pending",
+      restore: touchable && member.status === "removed",
+    },
+  };
+}
+
+export function teamRows(actor: Viewer, members: readonly TeamMember[]): readonly TeamRow[] {
+  return orderTeam(members).map((member) => rowOf(actor, member));
+}
+
+/** A stored member with what only the detail page reads: whether they are a collaborator, when they joined, who invited them. */
+type StoredMember = Parameters<typeof toTeamMember>[0] & { readonly collaborator: boolean; readonly createdAt: number };
+
+/** One person as their own page shows it: their row, and the facts a list has no room for. */
+export interface MemberDetail extends TeamRow {
+  /** Shopify said this is a collaborator (an agency or freelancer), not staff of the store. */
+  readonly collaborator: boolean;
+  /** When the membership began: an invitation sent, or the first time they opened the app. */
+  readonly createdAt: number;
+  /** Who sent the invitation this membership began as; null when nobody did, or that member is gone. */
+  readonly invitedBy: TeamContact | null;
+  /** What they hold right now: their own set, or their role's preset. In the registry's order. */
+  readonly permissions: readonly MemberPermission[];
+  /**
+   * Whether the person looking may give them a set of their own (the app allows it, they are active and not an owner, and the
+   * looker may touch them), and which permissions the looker may tick. The server checks the same rules again.
+   */
+  readonly customize: { readonly allowed: boolean; readonly grantable: readonly MemberPermission[] };
+}
+
+/**
+ * The detail of one member. `inviter` is the member who sent their invitation, if there is one (the caller reads it in the
+ * same shop); only a name and an address of them come along, never an id.
+ */
+export function memberDetail(actor: Viewer, member: StoredMember, inviter: Pick<TeamMember, "name" | "email"> | undefined, policy: CustomPermissionPolicy): MemberDetail {
+  const row = rowOf(actor, toTeamMember(member));
+  return {
+    ...row,
+    collaborator: member.collaborator,
+    createdAt: member.createdAt,
+    invitedBy: inviter === undefined ? null : { name: inviter.name, email: inviter.email },
+    permissions: grantsOf(member),
+    customize: { allowed: row.can.changeRole && isCustomizable(member, policy), grantable: grantableBy(actor, policy) },
+  };
 }
 
 /** The roles the person looking may hand to someone, in the order the roles are declared. */
-export function rolesToOffer(actorRole: string): readonly MemberRole[] {
-  return assignableRoles(actorRole);
+export function rolesToOffer(actor: AccessSubject): readonly MemberRole[] {
+  return assignableRoles(actor);
 }
 
 /** Who a person who is kept out can ask: a name and an address, nothing else of the member. */

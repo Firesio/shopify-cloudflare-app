@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TeamRow } from "~/domain/member-team";
 import { renderRoute } from "~/test/render-route";
-import Members from "./members";
+import Members from "./index";
 
 const row = (overrides: Partial<TeamRow> & Pick<TeamRow, "id">): TeamRow => ({
   name: null,
@@ -13,6 +13,7 @@ const row = (overrides: Partial<TeamRow> & Pick<TeamRow, "id">): TeamRow => ({
   isInvitation: false,
   lastSeenAt: null,
   noSeat: false,
+  custom: false,
   can: { changeRole: true, remove: true, approve: false, restore: false },
   ...overrides,
 });
@@ -25,7 +26,6 @@ const base = {
   seats: { kind: "unlimited" as const },
   waiting: 0,
   roles: ["owner", "admin", "member", "viewer"] as const,
-  policy: "auto_join" as const,
   autoJoinRole: "member" as const,
   canChangePlan: true,
   trimsOverage: false,
@@ -46,28 +46,38 @@ describe("the team page", () => {
     expect(html).toContain("Active");
   });
 
-  it("offers a menu on someone you may act on, and none on your own row", async () => {
+  it("links each person to their own page, and has no actions column or menu on the list", async () => {
     const html = await render(base);
-    expect(html).toContain('id="member-menu-mia"');
-    expect(html).not.toContain('id="member-menu-me"');
-    expect(html).toContain("Make Admin");
-    expect(html).not.toContain("Make Member");
-    expect(html).toContain("Remove");
+    expect(html).toContain('href="/app/members/mia"');
+    expect(html).toContain('href="/app/members/me"');
+    expect(html).not.toContain("member-menu-");
+    expect(html).not.toContain("<s-menu");
+    expect(html).not.toContain(">Actions<");
+    expect(html).not.toContain("Make Admin");
   });
 
-  it("offers an invitation to be cancelled rather than removed", async () => {
-    const html = await render({ ...base, rows: [row({ id: "inv", email: "i@firesio.app", status: "invited", isInvitation: true })] });
-    expect(html).toContain("Cancel invitation");
+  it("marks only a person who has permissions of their own, and does not list the permissions", async () => {
+    const html = await render({ ...base, rows: [row({ id: "a", name: "Ada" }), row({ id: "b", name: "Bo", custom: true })] });
+    expect(html.match(/>Custom</g)).toHaveLength(1);
+    expect(html.indexOf(">Custom<")).toBeGreaterThan(html.indexOf("Bo"));
+    expect(html).not.toContain("billing:manage");
+  });
+
+  it("shows an invitation as invited, a waiting person as waiting and a removed one as removed", async () => {
+    const html = await render({
+      ...base,
+      waiting: 1,
+      rows: [
+        row({ id: "inv", email: "i@firesio.app", status: "invited", isInvitation: true }),
+        row({ id: "w", name: "Wes", status: "pending" }),
+        row({ id: "r", name: "Rex", status: "removed" }),
+        row({ id: "n", name: "Nan", status: "pending", noSeat: true }),
+      ],
+    });
     expect(html).toContain("Invited");
-  });
-
-  it("offers to let a waiting person in as each role, and to restore a removed one", async () => {
-    const waiting = await render({ ...base, waiting: 1, rows: [row({ id: "w", name: "Wes", status: "pending", can: { changeRole: true, remove: true, approve: true, restore: false } })] });
-    expect(waiting).toContain("Let in as Viewer");
-    expect(waiting).toContain("Let in as Admin");
-    const removed = await render({ ...base, rows: [row({ id: "r", name: "Rex", status: "removed", can: { changeRole: false, remove: false, approve: false, restore: true } })] });
-    expect(removed).toContain("Restore as Member");
-    expect(removed).toContain("Removed");
+    expect(html).toContain("Waiting");
+    expect(html).toContain("Removed");
+    expect(html).toContain("No seat");
   });
 
   it("names a person with no name by their address, then as unnamed", async () => {
@@ -117,12 +127,20 @@ describe("the team page", () => {
     expect(html).not.toContain("<s-progress");
   });
 
-  it.each([
-    ["auto_join", "joins automatically as Member"],
-    ["invite_only", "Only people you invite can use"],
-    ["approval", "waits here until you let them in"],
-  ] as const)("says in plain words how strangers are handled (%s)", async (policy, words) => {
-    expect(await render({ ...base, policy })).toContain(words);
+  it("opens with the team itself: no introduction and no sentence about how strangers are handled", async () => {
+    const html = await render(base);
+    expect(html).not.toContain("who can use");
+    expect(html).not.toContain("joins automatically");
+    expect(html).not.toContain("Only people you invite");
+    expect(html).not.toContain("waits here until you let them in");
+  });
+
+  it("makes the whole row open the person: the row delegates its click to the person's link", async () => {
+    const html = await render(base);
+    for (const id of ["mia", "me"]) {
+      expect(html).toMatch(new RegExp(`<s-table-row[^>]*clickDelegate="member-link-${id}"`));
+      expect(html).toMatch(new RegExp(`<s-link[^>]*id="member-link-${id}"[^>]*href="/app/members/${id}"|<s-link[^>]*href="/app/members/${id}"[^>]*id="member-link-${id}"`));
+    }
   });
 
   it("has the invite form behind the primary action, offering only the roles on offer", async () => {
@@ -134,14 +152,9 @@ describe("the team page", () => {
     expect(html).not.toContain('value="owner"');
   });
 
-  it("has a confirmation before anyone is removed", async () => {
-    const html = await render(base);
-    expect(html).toContain('id="remove-modal"');
-    expect(html).toContain("They lose access to");
-  });
-
   it("speaks Spanish with the same structure", async () => {
-    const html = await render({ ...base, waiting: 1 }, "es");
+    const html = await render({ ...base, waiting: 1, rows: [row({ id: "a", name: "Ada", custom: true })] }, "es");
+    expect(html).toContain(">Personalizado<");
     expect(html).toContain("Equipo");
     expect(html).toContain("Propietario");
     expect(html).toContain("Invitar a un miembro");

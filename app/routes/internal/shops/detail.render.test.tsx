@@ -185,9 +185,9 @@ describe("the internal shop detail page", () => {
       history: [],
       events: [],
       team: [
-        { id: "a", linked: true, name: "Olu", email: "olu@firesio.app", role: "owner", status: "active", accountOwner: true, lastSeenAt: Date.UTC(2026, 10, 1, 9, 30), trimmed: false },
-        { id: "w", linked: true, name: "Wes", email: "wes@firesio.app", role: "viewer", status: "pending", accountOwner: false, lastSeenAt: null, trimmed: false },
-        { id: "i", linked: false, name: null, email: "invited@firesio.app", role: "admin", status: "invited", accountOwner: false, lastSeenAt: null, trimmed: false },
+        { id: "a", linked: true, name: "Olu", email: "olu@firesio.app", role: "owner", status: "active", accountOwner: true, lastSeenAt: Date.UTC(2026, 10, 1, 9, 30), trimmed: false, custom: false },
+        { id: "w", linked: true, name: "Wes", email: "wes@firesio.app", role: "viewer", status: "pending", accountOwner: false, lastSeenAt: null, trimmed: false, custom: true },
+        { id: "i", linked: false, name: null, email: "invited@firesio.app", role: "admin", status: "invited", accountOwner: false, lastSeenAt: null, trimmed: false, custom: false },
       ],
       seats: { kind: "limit", maximum: 5, used: 1, left: 4, over: 0 },
     });
@@ -199,6 +199,22 @@ describe("the internal shop detail page", () => {
     expect(html).toContain("Waiting");
     expect(html).toContain("Nov 1, 2026");
     expect(html).not.toContain("shopifyUserId");
+  });
+
+  it("marks only the person who has a set of permissions of their own, and does not list the permissions", async () => {
+    const html = await render({
+      shop: shop(),
+      history: [],
+      events: [],
+      team: [
+        { id: "a", linked: true, name: "Olu", email: "olu@firesio.app", role: "owner", status: "active", accountOwner: false, lastSeenAt: null, trimmed: false, custom: false },
+        { id: "w", linked: true, name: "Wes", email: "wes@firesio.app", role: "admin", status: "active", accountOwner: false, lastSeenAt: null, trimmed: false, custom: true },
+      ],
+      seats: { kind: "unlimited" },
+    });
+    expect(html.match(/custom permissions/g)).toHaveLength(1);
+    expect(html.indexOf("custom permissions")).toBeGreaterThan(html.indexOf("Wes"));
+    expect(html).not.toContain("billing:manage");
   });
 
   it("says when nobody has opened the app yet, and when the plan has no seat limit", async () => {

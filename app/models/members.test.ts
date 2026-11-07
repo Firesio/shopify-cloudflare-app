@@ -888,3 +888,160 @@ describe("listActive and listShopsWithSeveralActive", () => {
     expect(found).toEqual([]);
   });
 });
+
+describe("a member's own set of permissions", () => {
+  /** `roles` are the active members of A, in order: "m0", "m1" ... with user ids "0", "1" ... */
+  async function team(roles: readonly MemberRole[]) {
+    await seedShops();
+    const repo = new MemberRepo();
+    for (const [index, role] of roles.entries()) await repo.create(A, { ...person(`m${index}`, `${index}`), role, status: "active", now: 1 }, null);
+    return repo;
+  }
+
+  it("is written whole, in the registry's order, and the role they were based on stays", async () => {
+    const changed = await inRequest(async () => (await team(["owner", "member"])).setPermissions(A, "m1", ["app:manage", "app:view"], 5));
+    expect(changed).toMatchObject({ id: "m1", role: "member", permissions: ["app:view", "app:manage"], updatedAt: 5 });
+  });
+
+  it("reads back as the same set, and a member who was never given one reads as having none", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["owner", "member"]);
+      await repo.setPermissions(A, "m1", ["app:view"], 5);
+      return { custom: (await repo.findById(A, "m1"))?.permissions, preset: (await repo.findById(A, "m0"))?.permissions };
+    });
+    expect(outcome).toEqual({ custom: ["app:view"], preset: null });
+  });
+
+  it("is replaced, not merged, by the next one", async () => {
+    const found = await inRequest(async () => {
+      const repo = await team(["owner", "member"]);
+      await repo.setPermissions(A, "m1", ["app:view", "app:manage"], 5);
+      await repo.setPermissions(A, "m1", ["app:view", "billing:manage"], 6);
+      return (await repo.findById(A, "m1"))?.permissions;
+    });
+    expect(found).toEqual(["app:view", "billing:manage"]);
+  });
+
+  it("is refused for a member who is not active, and changes nothing", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["owner"]);
+      await seedMember(A, "p", "member", { status: "pending" });
+      await seedMember(A, "r", "member", { status: "removed" });
+      await seedMember(A, "i", "member", { status: "invited", shopifyUserId: null });
+      return {
+        results: await Promise.all(["p", "r", "i"].map((id) => repo.setPermissions(A, id, ["app:view"], 5))),
+        stored: await Promise.all(["p", "r", "i"].map(async (id) => (await repo.findById(A, id))?.permissions)),
+      };
+    });
+    expect(outcome.results).toEqual([undefined, undefined, undefined]);
+    expect(outcome.stored).toEqual([null, null, null]);
+  });
+
+  it("is refused for an owner, and for the person Shopify says owns the store, whatever role they hold", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["owner", "owner"]);
+      await seedMember(A, "so", "admin", { accountOwner: true });
+      return { owner: await repo.setPermissions(A, "m1", ["app:view"], 5), accountOwner: await repo.setPermissions(A, "so", ["app:view"], 5) };
+    });
+    expect(outcome).toEqual({ owner: undefined, accountOwner: undefined });
+  });
+
+  it("cannot reach a member of another shop", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["owner", "member"]);
+      await repo.create(B, { ...person("b1", "7"), role: "member", status: "active", now: 1 }, null);
+      return { refused: await repo.setPermissions(B, "m1", ["app:view"], 5), mine: (await repo.findById(A, "m1"))?.permissions };
+    });
+    expect(outcome).toEqual({ refused: undefined, mine: null });
+  });
+
+  it("is refused for the last active team manager, and allowed while another remains", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["admin", "member"]);
+      const refused = await repo.setPermissions(A, "m0", ["app:view"], 5);
+      await repo.create(A, { ...person("o", "o"), role: "owner", status: "active", now: 2 }, null);
+      return { refused, stillPreset: (await repo.findById(A, "m0"))?.permissions, allowed: (await repo.setPermissions(A, "m0", ["app:view"], 6))?.permissions };
+    });
+    expect(outcome).toEqual({ refused: undefined, stillPreset: null, allowed: ["app:view"] });
+  });
+
+  it("lets exactly one of two admins win when they give each other a set at once", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["admin", "admin"]);
+      const results = await Promise.all([repo.setPermissions(A, "m0", ["app:view"], 5), repo.setPermissions(A, "m1", ["app:view"], 5)]);
+      return results.filter((result) => result !== undefined).length;
+    });
+    expect(outcome).toBe(1);
+  });
+
+  it("does not count someone who has a set as a team manager, whatever role they were based on", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["admin", "admin", "admin"]);
+      await repo.setPermissions(A, "m2", ["app:view"], 5);
+      // m2 is an admin by role and no manager by set. With m0 gone, m1 is the last manager and cannot be removed.
+      await repo.remove(A, "m0", 6);
+      return { lastManager: await repo.remove(A, "m1", 7), listed: (await repo.listWithRoles(A, ["admin"], 10)).map((member) => member.id) };
+    });
+    expect(outcome.lastManager).toBeUndefined();
+    expect(outcome.listed).toEqual(["m1"]);
+  });
+
+  it("is dropped when a role is chosen: applying a preset replaces the set", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["owner", "member"]);
+      await repo.setPermissions(A, "m1", ["app:view"], 5);
+      return (await repo.setRole(A, "m1", "admin", 6))?.permissions;
+    });
+    expect(outcome).toBeNull();
+  });
+
+  it("is dropped when a member is let in or restored, so a returning person gets a role's preset, not an old set", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["owner", "member"]);
+      await repo.setPermissions(A, "m1", ["app:view"], 5);
+      await repo.remove(A, "m1", 6);
+      return (await repo.activate(A, "m1", { from: ["removed"], role: "member", cap: null, now: 7 }))?.permissions;
+    });
+    expect(outcome).toBeNull();
+  });
+
+  it("is dropped when the store's owner is restored as owner", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["owner", "member"]);
+      await repo.setPermissions(A, "m1", ["app:view"], 5);
+      return (await repo.restoreOwner(A, "m1", profile({ accountOwner: true }), 6))?.permissions;
+    });
+    expect(outcome).toBeNull();
+  });
+
+  it("is dropped when someone is removed, so nothing of it is kept past their membership", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["owner", "member"]);
+      await repo.setPermissions(A, "m1", ["app:view"], 5);
+      return (await repo.remove(A, "m1", 6))?.permissions;
+    });
+    expect(outcome).toBeNull();
+  });
+
+  it("is never given to anyone by a new membership: a created member and a taken-up invitation start on their role", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["owner"]);
+      await repo.createInvite(A, { id: "inv", email: "i@firesio.app", role: "viewer", invitedBy: "m0", now: 2 });
+      const accepted = await repo.acceptInvite(A, "inv", { shopifyUserId: "50", profile: profile(), now: 3 }, null);
+      const created = await repo.create(A, { ...person("n", "51"), role: "member", status: "active", now: 4 }, null);
+      return { accepted: accepted?.permissions, created: created.kind === "created" ? created.member.permissions : "exists" };
+    });
+    expect(outcome).toEqual({ accepted: null, created: null });
+  });
+
+  it("is read as an empty set when the stored value is damaged, never as the role's preset", async () => {
+    const found = await inRequest(async () => {
+      await seedShops();
+      await env.DB.prepare("INSERT INTO shop_members (id, shop, shopify_user_id, role, status, permissions, created_at, updated_at) VALUES ('d1', ?, '70', 'admin', 'active', 'not json', 1, 1)").bind(A).run();
+      await env.DB.prepare("INSERT INTO shop_members (id, shop, shopify_user_id, role, status, permissions, created_at, updated_at) VALUES ('d2', ?, '71', 'admin', 'active', '[\"app:view\",\"retired:thing\"]', 1, 1)").bind(A).run();
+      const repo = new MemberRepo();
+      return { damaged: (await repo.findById(A, "d1"))?.permissions, unknownName: (await repo.findById(A, "d2"))?.permissions };
+    });
+    expect(found).toEqual({ damaged: [], unknownName: ["app:view"] });
+  });
+});

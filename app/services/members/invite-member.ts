@@ -18,10 +18,10 @@ function looksLikeEmail(value: string): boolean {
  * address that already belongs to a member, or to an open invitation, is refused rather than duplicated.
  */
 export async function inviteMember(
-  input: { readonly actor: Pick<Member, "id" | "shop" | "role">; readonly email: string; readonly role: MemberRole },
+  input: { readonly actor: Pick<Member, "id" | "shop" | "role"> & Partial<Pick<Member, "permissions">>; readonly email: string; readonly role: MemberRole },
   deps: { readonly members: MemberStore; readonly runtime: Pick<Runtime, "clock" | "ids"> },
 ): Promise<Result<Member, InviteFailure>> {
-  if (!can(input.actor.role, "members:manage") || !canAssignRole(input.actor.role, input.role)) return err("forbidden");
+  if (!can(input.actor, "members:manage") || !canAssignRole(input.actor, input.role)) return err("forbidden");
 
   const email = input.email.trim().toLowerCase();
   if (!looksLikeEmail(email)) return err("emailInvalid");

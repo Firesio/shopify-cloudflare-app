@@ -1,5 +1,6 @@
-import { permissionsOf, type MemberPermission } from "~/domain/member-access";
+import { presetOf, type MemberPermission } from "~/domain/member-access";
 import type { AdmissionConfig } from "~/domain/member-admission";
+import { FLOOR_PERMISSION } from "~/domain/member-permissions";
 import { noticeHoursProblem, type SeatOverageConfig } from "~/domain/member-seat-overage";
 
 /**
@@ -20,6 +21,17 @@ export interface MembersConfig extends AdmissionConfig {
    * (`members.max` in the entitlement catalogue).
    */
   readonly seatOverage: SeatOverageConfig;
+  /**
+   * Whether merchants may give a member a set of permissions of their own instead of a role's preset. Off, the team page
+   * offers roles only and nothing else is ever stored. On, a member's page lets an owner or admin choose each permission
+   * (starting from a role's preset if they like); the member then holds exactly that set, and applying a role later
+   * replaces it. `members:manage` is only ever given with the Owner or Admin role; `alsoProtected` adds permissions that,
+   * in this app, only come with a role too (the plan, say).
+   */
+  readonly customPermissions: {
+    readonly enabled: boolean;
+    readonly alsoProtected: readonly MemberPermission[];
+  };
 }
 
 export const MEMBERS: MembersConfig = {
@@ -35,6 +47,10 @@ export const MEMBERS: MembersConfig = {
   //   seatOverage: { policy: "notify_then_trim", noticeHours: 72 }
   // (1 to 168 hours). Owners are never removed, and neither is the last person who can manage the team.
   seatOverage: { policy: "never_remove" },
+  // false: roles only. For merchants who choose each person's permissions write
+  //   customPermissions: { enabled: true, alsoProtected: ["billing:manage"] }
+  // (`alsoProtected` is optional: the permissions that, here, come with a role and are never given one by one).
+  customPermissions: { enabled: false, alsoProtected: [] },
 };
 
 /** What a role handed to people nobody chose must never carry: it would let a stranger change who has access or the plan. */
@@ -46,11 +62,14 @@ export function memberConfigProblems(config: MembersConfig): readonly string[] {
   if (config.onUnknownUser === "invite_only" && !config.onlineTokens) {
     problems.push("invite_only needs onlineTokens: an invitation is matched to the person by their verified email.");
   }
-  const sensitive = NOT_FOR_STRANGERS.filter((permission) => permissionsOf(config.autoJoinRole).includes(permission));
+  const sensitive = NOT_FOR_STRANGERS.filter((permission) => presetOf(config.autoJoinRole).includes(permission));
   if (sensitive.length > 0) {
     problems.push(`autoJoinRole "${config.autoJoinRole}" carries ${sensitive.join(", ")}, which a stranger must not get.`);
   }
   const notice = noticeHoursProblem(config.seatOverage);
   if (notice !== null) problems.push(notice);
+  if (config.customPermissions.enabled && config.customPermissions.alsoProtected.includes(FLOOR_PERMISSION)) {
+    problems.push(`customPermissions.alsoProtected must not include ${FLOOR_PERMISSION}: every set carries it, so no set could ever be given.`);
+  }
   return problems;
 }

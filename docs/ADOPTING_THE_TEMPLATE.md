@@ -95,7 +95,13 @@ and evidence; a checked box is not a substitute for a tested implementation.
   the merchant, so they carry a name and an email: confirm the privacy copy covers them.
   Decide whether the team is limited by plan: give a plan a `limit` on `members.max` in
   `app/billing/plans.ts`, or leave it `unlimited` (or delete the key) for no limit. The Team
-  page is at `/app/members` and shows only to roles that may manage members.
+  page is at `/app/members` and shows only to roles that may manage members; each person has a
+  page of their own (`/app/members/:memberId`) where a role is applied and a person removed.
+  Decide whether merchants may give a person permissions of their own instead of a role's
+  preset: `customPermissions: { enabled: true }` in `app/members/config.ts` turns on a checkbox
+  per permission on that page (`alsoProtected` lists permissions that only ever come with a role;
+  `members:manage` always does). Name each permission your app adds in
+  `app/components/members/permission-text.ts` and the `admin` catalogue.
   If you limit seats, decide what happens to a team that is over the limit after a downgrade:
   the default (`seatOverage: { policy: "never_remove" }`) removes nobody; `notify_then_trim`
   tells the shop's owners and admins and, after `noticeHours`, takes the extra people off their

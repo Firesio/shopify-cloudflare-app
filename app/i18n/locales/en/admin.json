@@ -282,12 +282,6 @@
   },
   "members": {
     "heading": "Team",
-    "intro": "The people from your store who can use {{appName}}, and what each of them can do.",
-    "policy": {
-      "auto_join": "Anyone on your store's Shopify staff who opens {{appName}} joins automatically as {{role}}. Change anyone's role here.",
-      "invite_only": "Only people you invite can use {{appName}}. They join the first time they open it with the invited email address.",
-      "approval": "Anyone on your store's Shopify staff who opens {{appName}} waits here until you let them in."
-    },
     "roles": {
       "owner": {
         "label": "Owner",
@@ -326,7 +320,7 @@
     },
     "waiting": {
       "heading": "People are waiting to be let in: {{count}}",
-      "body": "They opened {{appName}} and cannot use it yet. Let them in below, or remove them."
+      "body": "They opened {{appName}} and cannot use it yet. Open a person below to let them in, or remove them."
     },
     "table": {
       "label": "Team",
@@ -339,7 +333,7 @@
       "unnamed": "Unnamed staff member",
       "invitation": "Invitation",
       "never": "Not yet",
-      "actions": "Actions"
+      "custom": "Custom"
     },
     "status": {
       "invited": "Invited",
@@ -349,7 +343,6 @@
       "noSeat": "No seat"
     },
     "actions": {
-      "menu": "Actions for {{name}}",
       "changeRole": "Make {{role}}",
       "approve": "Let in as {{role}}",
       "restore": "Restore as {{role}}",
@@ -368,7 +361,8 @@
       "removed": "Member removed.",
       "invitationCancelled": "Invitation cancelled.",
       "approved": "They can use the app now.",
-      "restored": "Member restored."
+      "restored": "Member restored.",
+      "permissionsChanged": "Permissions saved."
     },
     "errors": {
       "forbidden": "You cannot do that. Only an owner or admin can manage the team, and only an owner can make, change or remove an owner.",
@@ -381,7 +375,56 @@
       "emailInvalid": "Enter a valid email address.",
       "alreadyMember": "That address is already on the team or has an open invitation.",
       "roleInvalid": "Choose one of the listed roles.",
-      "unknownIntent": "That action is not available."
+      "unknownIntent": "That action is not available.",
+      "customUnavailable": "This app does not let you choose permissions one by one. Pick a role instead.",
+      "ownerFixed": "An owner always has every permission.",
+      "permissionInvalid": "Choose permissions from the list, and keep the one that lets someone open the app.",
+      "cannotGrant": "You can only give permissions you have yourself. Managing the team comes with the Owner or Admin role."
+    },
+    "detail": {
+      "profile": "Profile",
+      "email": "Email address",
+      "noEmail": "No address on file",
+      "collaborator": "Collaborator",
+      "accessHeading": "Access",
+      "notChangeable": "You cannot change this person's access.",
+      "isYou": "This is you. Ask another owner or admin to change your access.",
+      "asideHeading": "Details",
+      "added": "Added",
+      "invitedBy": "Invited by",
+      "customLabel": "Custom permissions",
+      "basedOn": "Started from {{role}}. Choosing a role replaces their permissions.",
+      "permissionsHeading": "Permissions",
+      "permissionsEditable": "Choose what {{name}} can do. Everyone can open the app.",
+      "permissionsReadOnly": "What {{name}} can do.",
+      "roleOnlyHint": "Only comes with the Owner or Admin role.",
+      "notYoursHint": "You do not have this permission yourself.",
+      "customHint": "Saving gives them permissions of their own. Choosing a role later replaces them.",
+      "savePermissions": "Save permissions"
+    },
+    "permissions": {
+      "appView": {
+        "label": "Use the app",
+        "description": "Open the app and look at everything in it."
+      },
+      "appManage": {
+        "label": "Change settings and data",
+        "description": "Create and edit what the app holds."
+      },
+      "billingManage": {
+        "label": "Manage the plan",
+        "description": "See and change the plan and billing."
+      },
+      "membersManage": {
+        "label": "Manage the team",
+        "description": "Invite people, change roles and permissions, and remove people."
+      }
+    },
+    "applyRole": {
+      "heading": "Replace their permissions with {{role}}?",
+      "body": "They will hold exactly what the {{role}} role holds. The permissions you chose for them are discarded.",
+      "confirm": "Apply {{role}}",
+      "keep": "Cancel"
     }
   }
 }

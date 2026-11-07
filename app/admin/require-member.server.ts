@@ -50,7 +50,7 @@ export async function requireMember<A extends AuthenticatedRequest>(
   // The layout and its page both ask in one request, and several requests can run together: one lookup per person.
   const access = await requestMemo(`member:${identity.shop}:${identity.shopifyUserId}`, () => deps.resolve(identity));
   if (!access.ok) return refuse(access.reason, identity.shop);
-  if (!can(access.member.role, permission)) return refuse("forbidden", identity.shop);
+  if (!can(access.member, permission)) return refuse("forbidden", identity.shop);
   return { ...auth, member: access.member };
 }
 

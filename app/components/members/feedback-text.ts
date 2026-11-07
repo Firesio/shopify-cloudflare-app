@@ -8,6 +8,7 @@ export const SUCCESS_TEXT = {
   invitationCancelled: "members.success.invitationCancelled",
   approved: "members.success.approved",
   restored: "members.success.restored",
+  permissionsChanged: "members.success.permissionsChanged",
 } as const satisfies Record<MemberSuccess, string>;
 
 export const ERROR_TEXT = {
@@ -22,4 +23,8 @@ export const ERROR_TEXT = {
   alreadyMember: "members.errors.alreadyMember",
   roleInvalid: "members.errors.roleInvalid",
   unknownIntent: "members.errors.unknownIntent",
+  customUnavailable: "members.errors.customUnavailable",
+  ownerFixed: "members.errors.ownerFixed",
+  permissionInvalid: "members.errors.permissionInvalid",
+  cannotGrant: "members.errors.cannotGrant",
 } as const satisfies Record<MemberError, string>;

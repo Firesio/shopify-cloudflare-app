@@ -1,4 +1,4 @@
-import { can, type MemberRole } from "./member-access";
+import { can, type MemberPermission, type MemberRole } from "./member-access";
 import type { OverageLimit } from "./member-seats";
 
 /**
@@ -57,7 +57,8 @@ export function deadlineFor(config: SeatOverageConfig, notifiedAt: number): numb
 
 /**
  * Where a role stands in a trim: lower goes first. `null` is a role that is NEVER trimmed. Keyed by the role union, so a
- * new role cannot be added without saying where it stands.
+ * new role cannot be added without saying where it stands. A member with a set of their own stands where the role they
+ * started from does (what they can do is read from the set wherever it matters: `can`).
  */
 const TRIM_RANK: Readonly<Record<MemberRole, number | null>> = { viewer: 0, member: 1, admin: 2, owner: null };
 
@@ -65,6 +66,11 @@ const TRIM_RANK: Readonly<Record<MemberRole, number | null>> = { viewer: 0, memb
 export interface OverageMember {
   readonly id: string;
   readonly role: MemberRole;
+  /**
+   * The member's own set, when they have one: it decides whether they can manage the team (`can`), whatever role they were
+   * based on. Without one, their role's preset applies.
+   */
+  readonly permissions?: readonly MemberPermission[] | null;
   /** Shopify said this user owns the store: never trimmed, like an owner, because they come back as one the moment they open the app. */
   readonly accountOwner: boolean;
   readonly lastSeenAt: number | null;
@@ -105,11 +111,11 @@ export interface TrimSelection {
 export function selectTrimmed(active: readonly OverageMember[], limit: number): TrimSelection {
   const needed = Math.max(0, active.length - limit);
   const candidates = active.filter((member) => !member.accountOwner && TRIM_RANK[member.role] !== null).sort(trimOrder);
-  let managers = active.filter((member) => can(member.role, "members:manage")).length;
+  let managers = active.filter((member) => can(member, "members:manage")).length;
   const ids: string[] = [];
   for (const candidate of candidates) {
     if (ids.length >= needed) break;
-    const manages = can(candidate.role, "members:manage");
+    const manages = can(candidate, "members:manage");
     // Taking the last manager would leave a shop nobody can manage the team of.
     if (manages && managers <= 1) continue;
     ids.push(candidate.id);
@@ -129,11 +135,14 @@ interface Contactable {
   readonly role: MemberRole;
   readonly email: string | null;
   readonly name: string | null;
+  /** A member with a set of their own is not reached by role: they cannot be assumed to be able to fix a seat problem. */
+  readonly permissions?: readonly MemberPermission[] | null;
 }
 
 /**
  * Who hears about it: active owners with an address; failing that active admins with one; failing that the shop's own
- * contact address if the app passes one; else nobody. One entry per address.
+ * contact address if the app passes one; else nobody. One entry per address. Someone with a set of their own is never
+ * reached by role, whatever role they were based on.
  */
 export function noticeRecipients(active: readonly Contactable[], shopContact: { readonly email: string | null; readonly name: string | null } | null): readonly NoticeRecipient[] {
   const reachable = (role: MemberRole): NoticeRecipient[] => {
@@ -141,7 +150,7 @@ export function noticeRecipients(active: readonly Contactable[], shopContact: { 
     const found: NoticeRecipient[] = [];
     for (const member of active) {
       const email = member.email?.trim().toLowerCase() ?? "";
-      if (member.role !== role || email === "" || seen.has(email)) continue;
+      if (member.role !== role || (member.permissions ?? null) !== null || email === "" || seen.has(email)) continue;
       seen.add(email);
       found.push({ email, name: member.name });
     }

@@ -3,7 +3,7 @@ import { renderToString } from "react-dom/server";
 import { createInstance } from "i18next";
 import { I18nextProvider, initReactI18next } from "react-i18next";
 import { createStaticHandler, createStaticRouter, data, StaticRouterProvider, type RouteObject } from "react-router";
-import { MEMBER_PERMISSIONS, permissionsOf } from "~/domain/member-access";
+import { MEMBER_PERMISSIONS, presetOf } from "~/domain/member-access";
 import { i18nOptions } from "~/i18n/options";
 import App, { ErrorBoundary } from "./_layout";
 
@@ -22,7 +22,7 @@ async function html(routes: RouteObject[], path = "/app"): Promise<string> {
 const granted = (role: "owner" | "admin" | "member" | "viewer") => ({
   apiKey: "test",
   timeZone: "UTC",
-  access: { granted: true as const, permissions: permissionsOf(role) },
+  access: { granted: true as const, permissions: presetOf(role) },
 });
 
 describe("Shopify admin navigation", () => {
@@ -37,7 +37,7 @@ describe("Shopify admin navigation", () => {
   it("offers the billing link to a role that can manage the plan, and to no other", async () => {
     for (const role of ["owner", "admin", "member", "viewer"] as const) {
       const out = await html([{ path: "/app", Component: App, loader: () => granted(role) }]);
-      expect(out.includes('href="/app/billing"')).toBe(permissionsOf(role).includes("billing:manage"));
+      expect(out.includes('href="/app/billing"')).toBe(presetOf(role).includes("billing:manage"));
       expect(out).toContain('href="/app/support"');
     }
     expect(MEMBER_PERMISSIONS).toContain("billing:manage");
