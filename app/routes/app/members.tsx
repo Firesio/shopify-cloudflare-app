@@ -33,6 +33,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     policy: MEMBERS.onUnknownUser,
     autoJoinRole: MEMBERS.autoJoinRole,
     canChangePlan: can(member.role, "billing:manage"),
+    // Whether going over the plan's seats can cost people theirs, so the seats section says the right thing.
+    trimsOverage: MEMBERS.seatOverage.policy !== "never_remove",
   };
 };
 
@@ -53,7 +55,7 @@ const POLICY_TEXT = {
 } as const;
 
 export default function Members() {
-  const { rows, seats, waiting, roles, policy, autoJoinRole, canChangePlan } = useLoaderData<typeof loader>();
+  const { rows, seats, waiting, roles, policy, autoJoinRole, canChangePlan, trimsOverage } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const submit = useSubmit();
@@ -114,7 +116,7 @@ export default function Members() {
         </s-section>
       )}
 
-      <SeatsSection seats={seats} canChangePlan={canChangePlan} />
+      <SeatsSection seats={seats} canChangePlan={canChangePlan} trimsOverage={trimsOverage} />
       <TeamTable rows={rows} roles={roles} pendingId={pendingId} onAct={onAct} />
 
       <InviteModal

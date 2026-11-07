@@ -274,7 +274,11 @@
       "heading": "You do not have permission for this",
       "body": "Your role does not include this page. Ask an owner of this store to change your role."
     },
-    "contact": "Ask {{who}}."
+    "contact": "Ask {{who}}.",
+    "seat_limit": {
+      "heading": "Your plan has no free seat for you",
+      "body": "This store's {{appName}} plan has a limited number of seats, and yours was given up when the team went over it. When a seat is free, an owner or admin of this store can let you back in."
+    }
   },
   "members": {
     "heading": "Team",
@@ -317,7 +321,8 @@
       "left": "Free: {{left}}",
       "full": "Every seat is in use. Remove someone or change your plan to let more people in.",
       "over": "Your plan's seat limit is {{max}} and {{used}} are in use. Nobody is removed, but nobody new can join until you are within the limit.",
-      "changePlan": "Change plan"
+      "changePlan": "Change plan",
+      "overTrim": "Your plan's seat limit is {{max}} and {{used}} are in use. Nobody new can join. If the team is still over the limit when the notice period ends, the people with the fewest privileges lose their seat. Owners never do."
     },
     "waiting": {
       "heading": "People are waiting to be let in: {{count}}",
@@ -340,7 +345,8 @@
       "invited": "Invited",
       "pending": "Waiting",
       "active": "Active",
-      "removed": "Removed"
+      "removed": "Removed",
+      "noSeat": "No seat"
     },
     "actions": {
       "menu": "Actions for {{name}}",

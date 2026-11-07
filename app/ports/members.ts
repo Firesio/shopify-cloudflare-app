@@ -18,6 +18,8 @@ export interface Member {
   readonly createdAt: number;
   readonly updatedAt: number;
   readonly lastSeenAt: number | null;
+  /** When a seat-overage trim took this person's seat; null otherwise. A `pending` member with it set has no seat, rather than waiting for approval. */
+  readonly trimmedAt: number | null;
 }
 
 /** What Shopify told us about the person, kept on their row. */
@@ -65,6 +67,13 @@ export interface MemberStore {
   list(shop: string): Promise<readonly Member[]>;
   /** Active members whose role is one of `roles` (the people to ask for access), oldest first, at most `limit`. */
   listWithRoles(shop: string, roles: readonly MemberRole[], limit: number): Promise<readonly Member[]>;
+  /** Every ACTIVE member of the shop, oldest first, at most 500 (a team is people). For the seat-overage review. */
+  listActive(shop: string): Promise<readonly Member[]>;
+  /**
+   * Shops (in alphabetical order, after `afterShop` when given) that have more than one active member and are installed,
+   * at most `limit`: the only shops a seat limit could be over, for the cron's scan. Reads across shops on purpose.
+   */
+  listShopsWithSeveralActive(afterShop: string | null, limit: number): Promise<readonly string[]>;
   /** How many members are in each status. */
   countByStatus(shop: string): Promise<Readonly<Record<MemberStatus, number>>>;
   /**
@@ -93,6 +102,13 @@ export interface MemberStore {
    * may manage the team (`members:manage`) out of a role that holds it.
    */
   setRole(shop: string, id: string, role: MemberRole, now: number): Promise<Member | undefined>;
+  /**
+   * Takes an active member's seat: they become `pending` and are marked trimmed. ONE conditional statement that writes
+   * only if the member is still `active`, is not an owner or Shopify's account owner, is not the shop's last active member
+   * who can manage the team, AND the shop's active count is still above `limit` in that same statement, so two reviews
+   * that both want the last seat cannot take two. Undefined when any of that no longer holds.
+   */
+  trim(shop: string, id: string, limit: number, now: number): Promise<Member | undefined>;
   /** Marks a member removed. Refused (undefined) for the last active owner, and for the last active member who may manage the team. */
   remove(shop: string, id: string, now: number): Promise<Member | undefined>;
   /** Keeps what Shopify says about the person, and when they were last seen. */

@@ -33,6 +33,9 @@ export const PUSH_BUILDERS: { [E in NotificationEvent]: PushBuilder<E> | null } 
   support_staff_reply: null,
   // An announcement goes to merchants, and push is for staff.
   campaign_message: null,
+  // Seat notices go to the shop's own owners and admins, and push is for staff.
+  members_seat_trim_notice: null,
+  members_seats_trimmed: null,
 
   support_merchant_activity: (payload) => {
     const url = toInternalPath(payload.threadUrl);

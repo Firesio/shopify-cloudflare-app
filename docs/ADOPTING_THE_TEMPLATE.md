@@ -96,6 +96,11 @@ and evidence; a checked box is not a substitute for a tested implementation.
   Decide whether the team is limited by plan: give a plan a `limit` on `members.max` in
   `app/billing/plans.ts`, or leave it `unlimited` (or delete the key) for no limit. The Team
   page is at `/app/members` and shows only to roles that may manage members.
+  If you limit seats, decide what happens to a team that is over the limit after a downgrade:
+  the default (`seatOverage: { policy: "never_remove" }`) removes nobody; `notify_then_trim`
+  tells the shop's owners and admins and, after `noticeHours`, takes the extra people off their
+  seats (never an owner, never the last team manager). Before choosing it, read "Seats" in
+  `.claude/rules/members.md` and check the two notice emails read well in every language you ship.
 
 - Decide whether the app sends announcements to merchants (`.claude/rules/campaigns.md`):
   the page is `/internal/campaigns` and an AI agent can run it through the MCP tools. Before

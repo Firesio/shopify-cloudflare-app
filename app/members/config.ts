@@ -1,5 +1,6 @@
 import { permissionsOf, type MemberPermission } from "~/domain/member-access";
 import type { AdmissionConfig } from "~/domain/member-admission";
+import { noticeHoursProblem, type SeatOverageConfig } from "~/domain/member-seat-overage";
 
 /**
  * THE ONE PLACE an app decides how its members work, like `app/billing/plans.ts` is for plans. Change a value here and
@@ -12,6 +13,13 @@ export interface MembersConfig extends AdmissionConfig {
    * an invitation to the person who opens the app.
    */
   readonly onlineTokens: boolean;
+  /**
+   * What happens when a shop has more active members than its plan's seats (after a downgrade, or an owner admitted past
+   * the limit). `never_remove` leaves the team alone; `notify_then_trim` tells the shop and, if it is still over when the
+   * notice period ends, takes the extra people off their seats. Only meaningful when the plan limits seats at all
+   * (`members.max` in the entitlement catalogue).
+   */
+  readonly seatOverage: SeatOverageConfig;
 }
 
 export const MEMBERS: MembersConfig = {
@@ -23,6 +31,10 @@ export const MEMBERS: MembersConfig = {
   onUnknownUser: "auto_join",
   autoJoinRole: "member",
   onlineTokens: true,
+  // never_remove: a plan change removes nobody. For the other choice write
+  //   seatOverage: { policy: "notify_then_trim", noticeHours: 72 }
+  // (1 to 168 hours). Owners are never removed, and neither is the last person who can manage the team.
+  seatOverage: { policy: "never_remove" },
 };
 
 /** What a role handed to people nobody chose must never carry: it would let a stranger change who has access or the plan. */
@@ -38,5 +50,7 @@ export function memberConfigProblems(config: MembersConfig): readonly string[] {
   if (sensitive.length > 0) {
     problems.push(`autoJoinRole "${config.autoJoinRole}" carries ${sensitive.join(", ")}, which a stranger must not get.`);
   }
+  const notice = noticeHoursProblem(config.seatOverage);
+  if (notice !== null) problems.push(notice);
   return problems;
 }

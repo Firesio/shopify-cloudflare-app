@@ -1,11 +1,12 @@
 import { drizzle } from "drizzle-orm/d1";
 import { count, eq, inArray, and, isTable, getTableName } from "drizzle-orm";
 import * as schema from "~/db/schema";
-import { campaignRecipients, campaigns, shopMembers, redactedShops, aiRuns, entitlementAllocations, entitlementOperations, entitlementUsage, mcpAuditLogs, notificationLogs, notificationOptOuts, notificationPreferences, pendingUploads, shopGrantedScopes, shopPlanGrants, shopScopeChanges, shopSubscriptionItems, shopSubscriptions, shopifyEvents, shopifySyncCheckpoints, shops, staffAuditLogs, supportAttachments, supportMessages, supportTickets, webhookDeliveries, webhookScopeObservations } from "~/db/schema";
+import { campaignRecipients, campaigns, memberSeatEpisodes, shopMembers, redactedShops, aiRuns, entitlementAllocations, entitlementOperations, entitlementUsage, mcpAuditLogs, notificationLogs, notificationOptOuts, notificationPreferences, pendingUploads, shopGrantedScopes, shopPlanGrants, shopScopeChanges, shopSubscriptionItems, shopSubscriptions, shopifyEvents, shopifySyncCheckpoints, shops, staffAuditLogs, supportAttachments, supportMessages, supportTickets, webhookDeliveries, webhookScopeObservations } from "~/db/schema";
 import { describe, expect, it } from "vitest";
 import { env } from "cloudflare:test";
 import { runWithRequestContext } from "~/request-context.server";
 import { setupTestDatabase } from "~/test/db";
+import { SEAT_SCAN_CHECKPOINT } from "~/domain/member-seat-overage";
 import { assertTenantPurgeCoverage, schemaShopColumns, TenantPurgeRepo } from "./tenant-purge.server";
 
 setupTestDatabase();
@@ -16,7 +17,7 @@ describe("TenantPurgeRepo", () => {
   it("inventory covers every table with a shop column", async () => {
     const tables = await runWithRequestContext(env, schemaShopColumns);
     expect(tables).toEqual([
-      "ai_runs", "campaign_recipients", "entitlement_allocations", "entitlement_operations", "entitlement_usage", "mcp_audit_logs", "notification_logs", "pending_uploads", "shop_granted_scopes", "shop_members", "shop_plan_grants", "shop_scope_changes", "shop_subscription_items",
+      "ai_runs", "campaign_recipients", "entitlement_allocations", "entitlement_operations", "entitlement_usage", "mcp_audit_logs", "member_seat_episodes", "notification_logs", "pending_uploads", "shop_granted_scopes", "shop_members", "shop_plan_grants", "shop_scope_changes", "shop_subscription_items",
       "shop_subscriptions", "shopify_events", "shops", "staff_audit_logs", "support_attachments",
       "support_messages", "support_tickets", "webhook_deliveries", "webhook_scope_observations",
     ]);
@@ -112,6 +113,7 @@ describe("TenantPurgeRepo", () => {
         await db.insert(shopSubscriptionItems).values({ shop: shop, subscriptionId: "sub", position: 0, itemType: "flat" }).run();
         await db.insert(shopGrantedScopes).values({ shop: shop, scope: "read_products", grantedAt: 1 }).run();
         await db.insert(shopMembers).values({ id: `member-${shop}`, shop: shop, shopifyUserId: "42", role: "owner", status: "active", createdAt: 1, updatedAt: 1 }).run();
+        await db.insert(memberSeatEpisodes).values({ id: `episode-${shop}`, shop: shop, detectedAt: 1, notifiedAt: 2, deadlineAt: 3 }).run();
         await db.insert(shopScopeChanges).values({ id: `change-${shop}`, shop: shop, source: "webhook", occurredAt: 1 }).run();
         await db.insert(aiRuns).values({ id: `run-${shop}`, role: "writing", modelId: "model", feature: "test", shop: shop, status: "ok", createdAt: 1 }).run();
         await db.insert(notificationLogs).values({ id: `log-${shop}`, event: "test", channel: "email", recipient: "x@y.com", status: "sent", shop: shop, createdAt: 1 }).run();
@@ -151,6 +153,44 @@ describe("TenantPurgeRepo", () => {
       expect(optOuts.map(({ scope }) => scope)).toEqual(["global", other]);
     });
   });
+  it("erases a shop's seat episodes, open or resolved, and leaves another shop's alone", async () => {
+    const target = "episodes-target.myshopify.com";
+    const other = "episodes-other.myshopify.com";
+    const remaining = await runWithRequestContext(env, async () => {
+      for (const shop of [target, other]) {
+        await db.insert(shops).values({ shop, installedAt: 1 });
+        await db.insert(memberSeatEpisodes).values([
+          { id: `open-${shop}`, shop, detectedAt: 1 },
+          { id: `done-${shop}`, shop, detectedAt: 1, resolvedAt: 2, outcome: "trimmed", trimmedCount: 2 },
+        ]);
+      }
+      await new TenantPurgeRepo().deleteTenantRows(target, tombstone(target));
+      return db.select({ shop: memberSeatEpisodes.shop }).from(memberSeatEpisodes);
+    });
+    expect(remaining.map((row) => row.shop)).toEqual([other, other]);
+  });
+
+  it("clears the seat-overage scan's cursor when it names the purged shop, so the domain does not outlive the redaction", async () => {
+    const shop = "cursor-purge.myshopify.com";
+    const rows = await runWithRequestContext(env, async () => {
+      await db.insert(shops).values({ shop, installedAt: 1 });
+      await db.insert(shopifySyncCheckpoints).values({ name: SEAT_SCAN_CHECKPOINT, cursor: shop, lastSucceededAt: 1 });
+      await new TenantPurgeRepo().deleteTenantRows(shop, tombstone(shop));
+      return db.select().from(shopifySyncCheckpoints).where(eq(shopifySyncCheckpoints.name, SEAT_SCAN_CHECKPOINT));
+    });
+    expect(rows).toEqual([]);
+  });
+
+  it("keeps the scan's cursor when it names another shop", async () => {
+    const rows = await runWithRequestContext(env, async () => {
+      await db.insert(shops).values({ shop: "cursor-purged.myshopify.com", installedAt: 1 });
+      await db.insert(shopifySyncCheckpoints).values({ name: SEAT_SCAN_CHECKPOINT, cursor: "zzz.myshopify.com", lastSucceededAt: 1 });
+      await new TenantPurgeRepo().deleteTenantRows("cursor-purged.myshopify.com", tombstone("cursor-purged.myshopify.com"));
+      return db.select().from(shopifySyncCheckpoints).where(eq(shopifySyncCheckpoints.name, SEAT_SCAN_CHECKPOINT));
+    });
+    expect(rows).toMatchObject([{ cursor: "zzz.myshopify.com" }]);
+  });
+
   it("writes the redaction tombstone in the same batch, keeps it across a second purge, and leaves no domain behind", async () => {
     const shop = "tombstone-purge.myshopify.com";
     await runWithRequestContext(env, async () => {

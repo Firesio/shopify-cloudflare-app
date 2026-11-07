@@ -2,7 +2,7 @@ import { CloudflareNotificationQueue } from "~/adapters/notification-queue.serve
 import { textBuilders } from "~/wiring/audience.server";
 import type { TextBuilders } from "~/i18n/audience";
 import { notify } from "~/notifications/notify.server";
-import type { ImmediateNotifier, Notifier } from "~/ports/notifier";
+import type { HandoffNotifier, ImmediateNotifier, Notifier } from "~/ports/notifier";
 import type { PushTransport } from "~/ports/push-transport";
 import { pushTransport } from "~/wiring/push.server";
 import { getEnv } from "~/request-context.server";
@@ -40,6 +40,17 @@ export function notificationDependencies(): {
 
 /** The `Notifier` use cases receive: enqueues, never sends inline. */
 export function queuedNotifier(): Notifier {
+  return createQueuedNotifier({
+    queue: new CloudflareNotificationQueue(getEnv().NOTIFICATION_QUEUE),
+    logs: notificationLogs(),
+    newId: () => appRuntime().ids.uuid(),
+    now: () => appRuntime().clock.now(),
+    log: (entry) => console.error(JSON.stringify(entry)),
+  });
+}
+
+/** The same queue as `queuedNotifier`, for the caller that must know whether a message was handed over (the seat-overage review). */
+export function handoffNotifier(): HandoffNotifier {
   return createQueuedNotifier({
     queue: new CloudflareNotificationQueue(getEnv().NOTIFICATION_QUEUE),
     logs: notificationLogs(),

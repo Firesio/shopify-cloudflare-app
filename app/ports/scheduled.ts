@@ -24,4 +24,10 @@ export interface ScheduledDependencies {
   readonly uninstallProbe: { run(now: number): Promise<Readonly<Record<string, number>>> };
   /** Restarts an announcement whose delivery chain went quiet (app/services/campaigns/restart-stalled.ts). Returns counts for the log. */
   readonly campaignWatchdog: { run(now: number): Promise<Readonly<Record<string, number>>> };
+  /**
+   * The seat-overage policy's part of the cron (app/services/members/sweep-seat-overage.ts): finishes notices and trims whose
+   * deadline passed, and finds shops that went over their limit with no plan change. Does nothing, and queries nothing,
+   * under `never_remove`. Returns counts for the log.
+   */
+  readonly memberSeatOverage: { run(now: number): Promise<Readonly<Record<string, number>>> };
 }

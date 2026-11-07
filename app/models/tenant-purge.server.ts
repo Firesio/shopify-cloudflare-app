@@ -8,6 +8,7 @@ import {
   pendingUploads,
   shopGrantedScopes,
   shopMembers,
+  memberSeatEpisodes,
   shopScopeChanges,
   shopSubscriptionItems,
   shopSubscriptions,
@@ -28,6 +29,7 @@ import {
   shopPlanGrants,
   staffAuditLogs,
 } from "~/db/schema";
+import { SEAT_SCAN_CHECKPOINT } from "~/domain/member-seat-overage";
 import type { RedactionTombstone } from "~/ports/redacted-shops";
 import { getDb } from "~/request-context.server";
 
@@ -38,6 +40,7 @@ const PURGED_SHOP_TABLES = [
   "entitlement_operations",
   "entitlement_usage",
   "mcp_audit_logs",
+  "member_seat_episodes",
   "notification_logs",
   "pending_uploads",
   "shop_granted_scopes",
@@ -87,6 +90,8 @@ export class TenantPurgeRepo {
       db.delete(shopGrantedScopes).where(eq(shopGrantedScopes.shop, shop)),
       // The shop's staff who use the app: names and emails of the merchant's people.
       db.delete(shopMembers).where(eq(shopMembers.shop, shop)),
+      // The shop's seat-overage episodes: dates and counts only, no name or address, but they name the shop.
+      db.delete(memberSeatEpisodes).where(eq(memberSeatEpisodes.shop, shop)),
       db.delete(shopPlanGrants).where(eq(shopPlanGrants.shop, shop)),
       db.delete(shopScopeChanges).where(eq(shopScopeChanges.shop, shop)),
       db.delete(shopifyEvents).where(eq(shopifyEvents.shop, shop)),
@@ -107,6 +112,9 @@ export class TenantPurgeRepo {
       // Per-shop sync bookkeeping is keyed by name (`{job}:{shop}`), not by a shop column, so the coverage check above
       // cannot see it; it is listed here so a redaction leaves no trace of the domain behind.
       db.delete(shopifySyncCheckpoints).where(inArray(shopifySyncCheckpoints.name, [`partner_history:${shop}`, `uninstall_probe:${shop}`])),
+      // The seat-overage scan keeps the last shop it reached as its cursor (one global row): if that is this shop, the
+      // domain would outlive the redaction, so the cursor goes and the scan starts over.
+      db.delete(shopifySyncCheckpoints).where(and(eq(shopifySyncCheckpoints.name, SEAT_SCAN_CHECKPOINT), eq(shopifySyncCheckpoints.cursor, shop))),
       db.delete(shops).where(eq(shops.shop, shop)),
     ]);
     // The tombstone insert is bookkeeping, not erased data, so it is not counted.

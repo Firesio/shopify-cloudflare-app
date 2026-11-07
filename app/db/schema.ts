@@ -30,4 +30,5 @@ export * from "./schema/redacted-shops";
 export * from "./schema/staff-audit";
 export * from "./schema/staff-mfa";
 export * from "./schema/members";
+export * from "./schema/member-seat-episodes";
 export * from "./schema/campaigns";

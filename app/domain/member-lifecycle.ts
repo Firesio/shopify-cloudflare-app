@@ -3,7 +3,9 @@
  *
  *   invited   someone asked for this person by email; no Shopify user is linked yet. Taken up, it becomes `active`, or
  *             `pending` when the plan has no free seat for another active member
- *   pending   a Shopify user opened the app and is waiting for a person to let them in
+ *   pending   a Shopify user opened the app and is waiting for a person to let them in. When `trimmed_at` is set the
+ *             person is not waiting for approval: a seat-overage trim took their seat away, and they are let back in the
+ *             same way (a person with `members:manage` approves them while the plan has a free seat)
  *   active    may use the app, as their role allows
  *   removed   was taken out on purpose. They do not come back by opening the app again, whatever the app's policy for
  *             strangers is; someone has to restore them.
@@ -16,7 +18,8 @@ export type MemberStatus = (typeof MEMBER_STATUSES)[number];
 export const MEMBER_TRANSITIONS: Readonly<Record<MemberStatus, readonly MemberStatus[]>> = {
   invited: ["active", "pending", "removed"],
   pending: ["active", "removed"],
-  active: ["removed"],
+  // A trim (`member-seat-overage`): the plan has no seat for them, so they are `pending` again, marked `trimmed_at`.
+  active: ["pending", "removed"],
   removed: ["active"],
 };
 

@@ -36,6 +36,18 @@ const shopChangePayload = {
   adminUrl: z.string(),
 };
 
+const seatNoticePerson = z.object({ name: z.string().nullable(), email: z.string().nullable() });
+
+const membersSeatsPayload = {
+  ...basePayload,
+  shopName: z.string(),
+  limit: z.number(),
+  people: z.array(seatNoticePerson),
+  morePeople: z.number(),
+  teamUrl: z.string(),
+  planUrl: z.string(),
+};
+
 /**
  * One schema per event. Keyed by `NotificationEvent`, so a new event without a
  * schema stops compiling; `z.ZodType<PayloadByEvent[E]>` makes a schema that
@@ -86,6 +98,13 @@ const PAYLOAD_SCHEMAS: { [E in NotificationEvent]: z.ZodType<PayloadByEvent[E]> 
     ctaUrl: z.string().optional(),
     unsubscribeUrl: z.string(),
   }),
+  members_seat_trim_notice: z.object({
+    ...membersSeatsPayload,
+    used: z.number(),
+    deadlineAt: z.number(),
+    timeZone: z.string(),
+  }),
+  members_seats_trimmed: z.object(membersSeatsPayload),
 };
 
 /** Keyed by the union, so the guard below cannot miss an event. */
@@ -98,6 +117,8 @@ const EVENT_KEYS: Record<NotificationEvent, true> = {
   webhook_dead_letter: true,
   push_test: true,
   campaign_message: true,
+  members_seat_trim_notice: true,
+  members_seats_trimmed: true,
 };
 
 /** Narrow a stored/queued string to a known event without a cast. */

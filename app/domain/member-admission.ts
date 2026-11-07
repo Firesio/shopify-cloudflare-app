@@ -14,7 +14,8 @@ import type { MemberStatus } from "./member-lifecycle";
  *        - the first person to open the app on a store becomes its ADMIN (every permission, but not an owner), so the
  *          store always has someone who can run the team. A collaborator (an agency, not store staff) is never that
  *          person: they follow the app's policy like any stranger;
- *        - a member someone REMOVED stays out, however open the app's policy is, until someone restores them.
+ *        - a member someone REMOVED stays out, however open the app's policy is, until someone restores them;
+ *        - a member a seat-overage trim took the seat from is told the plan is why (`seat_limit`), not that they wait for approval.
  *   2. THE APP'S POLICY for everyone else (`onUnknownUser`), one function per value in UNKNOWN_USER_POLICIES.
  *
  * Adding a policy: a value in UNKNOWN_USER_POLICIES and an entry in UNKNOWN_USER. The compiler names the one forgotten.
@@ -36,7 +37,7 @@ export interface AdmissionConfig {
 /** What is known right now about the person opening the app. */
 export interface AdmissionFacts {
   /** This Shopify user's membership in this shop, if there is one. */
-  readonly member: { readonly status: MemberStatus; readonly role: MemberRole } | undefined;
+  readonly member: { readonly status: MemberStatus; readonly role: MemberRole; readonly trimmed: boolean } | undefined;
   /** An open invitation addressed to this person's VERIFIED email, if there is one. */
   readonly invite: { readonly role: MemberRole } | undefined;
   /** Shopify says this user owns the store. */
@@ -55,12 +56,12 @@ export interface AdmissionFacts {
 export const FIRST_USER_ROLE: MemberRole = "admin";
 
 /** Why someone was kept out. They are shown a message for each, so it is a closed union. */
-export type DenyReason = "pending" | "removed" | "not_invited";
+export type DenyReason = "pending" | "removed" | "not_invited" | "seat_limit";
 
 /** Everything that can keep someone out of a page: not being let in at all, or being let in without that permission. */
 export type AccessRefusal = DenyReason | "forbidden";
 
-const ACCESS_REFUSALS: readonly AccessRefusal[] = ["pending", "removed", "not_invited", "forbidden"];
+const ACCESS_REFUSALS: readonly AccessRefusal[] = ["pending", "removed", "not_invited", "seat_limit", "forbidden"];
 
 /** A real guard for the error boundary: the value arrives in a response body, so it is not trusted to be one of ours. */
 export function isAccessRefusal(value: unknown): value is AccessRefusal {
@@ -107,6 +108,8 @@ export function decideAdmission(facts: AdmissionFacts, config: AdmissionConfig):
     if (facts.isAccountOwner && (member.status !== "active" || member.role !== "owner")) return { action: "restore_owner" };
     if (member.status === "active") return { action: "allow" };
     if (member.status === "removed") return { action: "deny", reason: "removed" };
+    // Waiting because a seat-overage trim took their seat, not because nobody has let them in yet: the plan is why.
+    if (member.status === "pending" && member.trimmed) return { action: "deny", reason: "seat_limit" };
     // `pending`, or an `invited` row that somehow carries a user (it cannot, but a row outlives the code that wrote it).
     return { action: "deny", reason: "pending" };
   }

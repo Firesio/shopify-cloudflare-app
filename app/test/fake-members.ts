@@ -26,6 +26,7 @@ export class FakeMemberStore implements MemberStore {
       createdAt: 1,
       updatedAt: 1,
       lastSeenAt: null,
+      trimmedAt: null,
       ...member,
     };
     this.rows.push(full);
@@ -132,6 +133,7 @@ export class FakeMemberStore implements MemberStore {
     return this.replace(id, {
       role: "owner",
       status: "active",
+      trimmedAt: null,
       email: profile.email ?? current?.email ?? null,
       name: profile.name ?? current?.name ?? null,
       accountOwner: profile.accountOwner,
@@ -153,6 +155,16 @@ export class FakeMemberStore implements MemberStore {
     return this.rows.filter((row) => row.shop === shop && row.status === "active" && roles.includes(row.role)).slice(0, limit);
   }
 
+  async listActive(shop: string) {
+    return this.rows.filter((row) => row.shop === shop && row.status === "active");
+  }
+
+  async listShopsWithSeveralActive(afterShop: string | null, limit: number) {
+    const counts = new Map<string, number>();
+    for (const row of this.rows) if (row.status === "active") counts.set(row.shop, (counts.get(row.shop) ?? 0) + 1);
+    return [...counts].filter(([shop, n]) => n > 1 && (afterShop === null || shop > afterShop)).map(([shop]) => shop).sort().slice(0, limit);
+  }
+
   async countByStatus(shop: string) {
     const counts: Record<MemberStatus, number> = { invited: 0, pending: 0, active: 0, removed: 0 };
     for (const row of this.rows) if (row.shop === shop) counts[row.status] += 1;
@@ -163,7 +175,7 @@ export class FakeMemberStore implements MemberStore {
     this.write("activate");
     const target = this.rows.find((row) => row.shop === shop && row.id === id);
     if (target === undefined || !input.from.includes(target.status) || !this.hasSeat(shop, input.cap)) return undefined;
-    return this.replace(id, { status: "active", role: input.role, updatedAt: input.now });
+    return this.replace(id, { status: "active", role: input.role, trimmedAt: null, updatedAt: input.now });
   }
 
   /** The member is the shop's last active owner: changing them would leave it with none. */
@@ -190,7 +202,14 @@ export class FakeMemberStore implements MemberStore {
     this.write("remove");
     const target = this.rows.find((row) => row.shop === shop && row.id === id);
     if (target === undefined || target.status === "removed" || this.isLastOwner(target) || this.isLastManager(target)) return undefined;
-    return this.replace(id, { status: "removed", updatedAt: now });
+    return this.replace(id, { status: "removed", trimmedAt: null, updatedAt: now });
+  }
+
+  async trim(shop: string, id: string, limit: number, now: number) {
+    this.write("trim");
+    const target = this.rows.find((row) => row.shop === shop && row.id === id);
+    if (target === undefined || target.status !== "active" || target.role === "owner" || target.accountOwner || this.isLastManager(target) || this.activeCount(shop) <= limit) return undefined;
+    return this.replace(id, { status: "pending", trimmedAt: now, updatedAt: now });
   }
 
   async recordSeen(shop: string, id: string, profile: MemberProfile, now: number) {

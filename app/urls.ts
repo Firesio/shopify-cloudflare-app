@@ -23,6 +23,10 @@ export const paths = {
 
   /** Embedded Shopify admin. */
   app: () => "/app",
+  /** The Team page of the embedded admin (`routes/app/members.tsx`). */
+  members: () => "/app/members",
+  /** The plan page of the embedded admin (`routes/app/billing.tsx`). */
+  billing: () => "/app/billing",
 
   /**
    * The link at the foot of an announcement. The token names the address and carries our signature, so it is a

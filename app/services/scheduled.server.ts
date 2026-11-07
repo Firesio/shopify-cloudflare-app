@@ -27,6 +27,10 @@ export async function runScheduledSweeps(
   // An announcement is sent by a chain of queue steps; one that went quiet (a lost message, a deploy mid-step) is
   // restarted here. Cheap (one indexed query), so it runs on every tick.
   await sweep("campaign_watchdog", async () => ({ ...(await dependencies.campaignWatchdog.run(now)) }));
+  // A shop over its plan's seats is told, and trimmed once the notice period has run out, only for an app that chose
+  // `notify_then_trim`. Under the default `never_remove` this returns at once with no query. On every tick, the hourly one
+  // included, so a deadline is met within about an hour of passing.
+  await sweep("member_seat_overage", async () => ({ ...(await dependencies.memberSeatOverage.run(now)) }));
 }
 
 async function runDailyMaintenance(now: number, dependencies: ScheduledDependencies): Promise<void> {

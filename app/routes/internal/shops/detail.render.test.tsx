@@ -185,9 +185,9 @@ describe("the internal shop detail page", () => {
       history: [],
       events: [],
       team: [
-        { id: "a", linked: true, name: "Olu", email: "olu@firesio.app", role: "owner", status: "active", accountOwner: true, lastSeenAt: Date.UTC(2026, 10, 1, 9, 30) },
-        { id: "w", linked: true, name: "Wes", email: "wes@firesio.app", role: "viewer", status: "pending", accountOwner: false, lastSeenAt: null },
-        { id: "i", linked: false, name: null, email: "invited@firesio.app", role: "admin", status: "invited", accountOwner: false, lastSeenAt: null },
+        { id: "a", linked: true, name: "Olu", email: "olu@firesio.app", role: "owner", status: "active", accountOwner: true, lastSeenAt: Date.UTC(2026, 10, 1, 9, 30), trimmed: false },
+        { id: "w", linked: true, name: "Wes", email: "wes@firesio.app", role: "viewer", status: "pending", accountOwner: false, lastSeenAt: null, trimmed: false },
+        { id: "i", linked: false, name: null, email: "invited@firesio.app", role: "admin", status: "invited", accountOwner: false, lastSeenAt: null, trimmed: false },
       ],
       seats: { kind: "limit", maximum: 5, used: 1, left: 4, over: 0 },
     });

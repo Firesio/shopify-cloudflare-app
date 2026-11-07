@@ -11,9 +11,29 @@ const member = (overrides: Partial<TeamMember> & Pick<TeamMember, "id">): TeamMe
   status: "active",
   accountOwner: false,
   lastSeenAt: null,
+  trimmed: false,
   ...overrides,
 });
 const owner = { id: "me", role: "owner" };
+
+describe("a person whose seat was taken by a trim", () => {
+  it("is a row with no seat, let back in the way a waiting person is, and a waiting person is not", () => {
+    const rows = teamRows(owner, [member({ id: "t", status: "pending", trimmed: true }), member({ id: "w", status: "pending" })]);
+    expect(rows.find((row) => row.id === "t")).toMatchObject({ noSeat: true, status: "pending", can: { approve: true, remove: true } });
+    expect(rows.find((row) => row.id === "w")).toMatchObject({ noSeat: false });
+  });
+
+  it("is never marked on a row that is not pending", () => {
+    const rows = teamRows(owner, MEMBER_STATUSES.filter((status) => status !== "pending").map((status) => member({ id: status, status, trimmed: true })));
+    expect(rows.map((row) => row.noSeat)).toEqual([false, false, false]);
+  });
+
+  it("is read from the stored trim time", () => {
+    const stored = { ...memberRecord({ id: "x" }), status: "pending" as const, shopifyUserId: "1" };
+    expect(toTeamMember({ ...stored, trimmedAt: 5 }).trimmed).toBe(true);
+    expect(toTeamMember(stored).trimmed).toBe(false);
+  });
+});
 
 describe("teamRows order", () => {
   it("puts waiting people first, then the team, then invitations, then the removed", () => {
@@ -48,6 +68,12 @@ describe("teamRows order", () => {
   });
 });
 
+/** A stored member as the repository returns it: what `toTeamMember` is given. */
+const memberRecord = (overrides: Partial<TeamMember> & Pick<TeamMember, "id">) => {
+  const { linked: _linked, trimmed: _trimmed, ...rest } = member(overrides);
+  return { ...rest, trimmedAt: null };
+};
+
 describe("teamRows content", () => {
   it("marks the person looking, and an invitation nobody took up", () => {
     const rows = teamRows(owner, [member({ id: "me", name: "Me" }), member({ id: "inv", status: "invited", linked: false, email: "i@firesio.app" })]);
@@ -56,7 +82,7 @@ describe("teamRows content", () => {
   });
 
   it("carries only what the page shows: no Shopify user id", () => {
-    const [row] = teamRows(owner, [toTeamMember({ ...member({ id: "x" }), shopifyUserId: "4242" })]);
+    const [row] = teamRows(owner, [toTeamMember({ ...memberRecord({ id: "x" }), shopifyUserId: "4242" })]);
     expect(JSON.stringify(row)).not.toContain("4242");
     expect(row).not.toHaveProperty("shopifyUserId");
   });
@@ -181,10 +207,9 @@ describe("orderTeam and toTeamMember", () => {
   });
 
   it("projects a member to what the views read and nothing more", () => {
-    const { linked: _linked, ...rest } = member({ id: "x", name: "Ada" });
-    const stored = { ...rest, shopifyUserId: "4242", secret: "not for the page" };
+    const stored = { ...memberRecord({ id: "x", name: "Ada" }), shopifyUserId: "4242", secret: "not for the page" };
     const projected = toTeamMember(stored);
-    expect(Object.keys(projected).sort()).toEqual(["accountOwner", "email", "id", "lastSeenAt", "linked", "name", "role", "status"]);
+    expect(Object.keys(projected).sort()).toEqual(["accountOwner", "email", "id", "lastSeenAt", "linked", "name", "role", "status", "trimmed"]);
     expect(projected.linked).toBe(true);
     expect(JSON.stringify(projected)).not.toContain("not for the page");
     expect(JSON.stringify(projected)).not.toContain("4242");

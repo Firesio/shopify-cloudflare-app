@@ -133,6 +133,39 @@ export interface CampaignMessagePayload extends BasePayload {
   unsubscribeUrl: string;
 }
 
+/** Someone named in a seat notice. What is known of them: a name, an address, either or neither. */
+export interface SeatNoticePerson {
+  readonly name: string | null;
+  readonly email: string | null;
+}
+
+/** What both seat notices say about the shop's team. */
+interface MembersSeatsPayload extends BasePayload {
+  /** The shop's own name, or its domain when Shopify has not told us one. */
+  shopName: string;
+  /** How many active members the plan allows. */
+  limit: number;
+  /** The people the notice is about, capped by the caller (renderers do not trim). */
+  people: readonly SeatNoticePerson[];
+  /** How many more people there are than `people` lists, so the sentence can say so. */
+  morePeople: number;
+  /** The Team page, where people are removed (or let back in). Built by the caller: templates never make links. */
+  teamUrl: string;
+  /** The plan page. Built by the caller. */
+  planUrl: string;
+}
+
+export interface MembersSeatTrimNoticePayload extends MembersSeatsPayload {
+  /** How many active members there are now. */
+  used: number;
+  /** When the people in `people` lose their seat if nothing changes: epoch ms, shown in `timeZone` in the reader's language. */
+  deadlineAt: number;
+  /** The shop's IANA time zone (UTC when Shopify has not told us one). */
+  timeZone: string;
+}
+
+export type MembersSeatsTrimmedPayload = MembersSeatsPayload;
+
 /** A test message carries no data: its copy is fixed. */
 export type PushTestPayload = BasePayload;
 
@@ -151,4 +184,6 @@ export interface PayloadByEvent extends Record<NotificationEvent, BasePayload> {
   webhook_dead_letter: WebhookDeadLetterPayload;
   push_test: PushTestPayload;
   campaign_message: CampaignMessagePayload;
+  members_seat_trim_notice: MembersSeatTrimNoticePayload;
+  members_seats_trimmed: MembersSeatsTrimmedPayload;
 }

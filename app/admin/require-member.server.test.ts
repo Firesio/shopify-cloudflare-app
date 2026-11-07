@@ -11,7 +11,7 @@ const inRequest = <T>(fn: () => Promise<T>) => runWithRequestContext(env, fn);
 const SHOP = "alpha.myshopify.com";
 const member = (role: Member["role"]): Member => ({
   id: "m1", shop: SHOP, shopifyUserId: "42", email: null, name: null, role, status: "active",
-  accountOwner: false, collaborator: false, invitedBy: null, createdAt: 1, updatedAt: 1, lastSeenAt: 1,
+  accountOwner: false, collaborator: false, invitedBy: null, createdAt: 1, updatedAt: 1, lastSeenAt: 1, trimmedAt: null,
 });
 
 interface Harness {

@@ -12,6 +12,7 @@ const row = (overrides: Partial<TeamRow> & Pick<TeamRow, "id">): TeamRow => ({
   accountOwner: false,
   isInvitation: false,
   lastSeenAt: null,
+  noSeat: false,
   can: { changeRole: true, remove: true, approve: false, restore: false },
   ...overrides,
 });
@@ -27,6 +28,7 @@ const base = {
   policy: "auto_join" as const,
   autoJoinRole: "member" as const,
   canChangePlan: true,
+  trimsOverage: false,
 };
 
 const render = (data: unknown, locale: "en" | "es" = "en") => renderRoute({ path: "/app/members", Component: Members, loaderData: data, locale, stage: "settled" });

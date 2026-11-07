@@ -18,7 +18,7 @@ const config = (onUnknownUser: UnknownUserPolicy, autoJoinRole: AdmissionConfig[
 
 describe("rules that never change", () => {
   it.each(UNKNOWN_USER_POLICIES)("lets a known active member in under %s", (policy) => {
-    const facts = { ...stranger, member: { status: "active", role: "viewer" } } as const;
+    const facts = { ...stranger, member: { status: "active", role: "viewer", trimmed: false } } as const;
     expect(decideAdmission(facts, config(policy))).toEqual({ action: "allow" });
   });
 
@@ -93,32 +93,52 @@ describe("rules that never change", () => {
   });
 
   it.each(UNKNOWN_USER_POLICIES)("keeps out someone who was removed, however open %s is", (policy) => {
-    const facts = { ...stranger, member: { status: "removed", role: "member" } } as const;
+    const facts = { ...stranger, member: { status: "removed", role: "member", trimmed: false } } as const;
     expect(decideAdmission(facts, config(policy))).toEqual({ action: "deny", reason: "removed" });
   });
 
   it("keeps out a removed member even when an invitation is waiting for their email", () => {
-    const facts = { ...stranger, member: { status: "removed", role: "member" }, invite: { role: "admin" } } as const;
+    const facts = { ...stranger, member: { status: "removed", role: "member", trimmed: false }, invite: { role: "admin" } } as const;
     expect(decideAdmission(facts, config("auto_join"))).toEqual({ action: "deny", reason: "removed" });
   });
 
   it("keeps a pending member waiting", () => {
-    const facts = { ...stranger, member: { status: "pending", role: "viewer" } } as const;
+    const facts = { ...stranger, member: { status: "pending", role: "viewer", trimmed: false } } as const;
     expect(decideAdmission(facts, config("auto_join"))).toEqual({ action: "deny", reason: "pending" });
   });
 
+  it.each(UNKNOWN_USER_POLICIES)("tells a member whose seat was taken by a trim that the plan is why, not that they wait for approval, under %s", (policy) => {
+    const facts = { ...stranger, member: { status: "pending", role: "member", trimmed: true } } as const;
+    expect(decideAdmission(facts, config(policy))).toEqual({ action: "deny", reason: "seat_limit" });
+  });
+
+  it("keeps a trimmed member out even when an invitation is waiting for their email: the row decides, not a second route in", () => {
+    const facts = { ...stranger, member: { status: "pending", role: "member", trimmed: true }, invite: { role: "admin" } } as const;
+    expect(decideAdmission(facts, config("auto_join"))).toEqual({ action: "deny", reason: "seat_limit" });
+  });
+
+  it("never reads a trim mark on an active or removed row as a seat problem", () => {
+    expect(decideAdmission({ ...stranger, member: { status: "active", role: "member", trimmed: true } }, config("auto_join"))).toEqual({ action: "allow" });
+    expect(decideAdmission({ ...stranger, member: { status: "removed", role: "member", trimmed: true } }, config("auto_join"))).toEqual({ action: "deny", reason: "removed" });
+  });
+
+  it("still restores the account owner whose seat was somehow trimmed", () => {
+    const facts = { ...stranger, isAccountOwner: true, member: { status: "pending", role: "owner", trimmed: true } } as const;
+    expect(decideAdmission(facts, config("invite_only"))).toEqual({ action: "restore_owner" });
+  });
+
   it.each(MEMBER_STATUSES.filter((status) => status !== "active"))("never locks the account owner out of their own store, even when their row is %s", (status) => {
-    const facts = { ...stranger, isAccountOwner: true, member: { status, role: "viewer" } } as const;
+    const facts = { ...stranger, isAccountOwner: true, member: { status, role: "viewer", trimmed: false } } as const;
     expect(decideAdmission(facts, config("invite_only"))).toEqual({ action: "restore_owner" });
   });
 
   it("restores an active account owner whose role was lowered", () => {
-    const facts = { ...stranger, isAccountOwner: true, member: { status: "active", role: "member" } } as const;
+    const facts = { ...stranger, isAccountOwner: true, member: { status: "active", role: "member", trimmed: false } } as const;
     expect(decideAdmission(facts, config("invite_only"))).toEqual({ action: "restore_owner" });
   });
 
   it("leaves an active owner who is the account owner alone", () => {
-    const facts = { ...stranger, isAccountOwner: true, member: { status: "active", role: "owner" } } as const;
+    const facts = { ...stranger, isAccountOwner: true, member: { status: "active", role: "owner", trimmed: false } } as const;
     expect(decideAdmission(facts, config("invite_only"))).toEqual({ action: "allow" });
   });
 });

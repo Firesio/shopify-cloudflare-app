@@ -15,10 +15,11 @@ describe("the lifecycle", () => {
     ["pending", "active", true],
     ["pending", "removed", true],
     ["active", "removed", true],
-    ["active", "pending", false],
+    ["active", "pending", true],
     ["active", "invited", false],
     ["removed", "active", true],
     ["removed", "pending", false],
+    ["pending", "invited", false],
   ] as const)("%s to %s is %s", (from, to, allowed) => {
     expect(canTransition(from, to)).toBe(allowed);
   });

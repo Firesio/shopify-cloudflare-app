@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, isNull, ne, notExists, sql, type SQL } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, isNull, ne, notExists, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { shopMembers, shops, type ShopMemberRow } from "~/db/schema";
 import { isMemberRole, rolesHolding, type MemberRole } from "~/domain/member-access";
@@ -32,10 +32,14 @@ function toMember(row: ShopMemberRow): Member {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     lastSeenAt: row.lastSeenAt,
+    trimmedAt: row.trimmedAt,
   };
 }
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+
+/** The shops a seat-overage scan may reach: installed or installed again, never one that uninstalled or was deactivated. */
+const OPERATIONAL_STATUSES = ["INSTALLED", "REACTIVATED"] as const;
 
 /** A shop's team is read whole, up to this many rows. */
 const TEAM_LIMIT = 500;
@@ -120,6 +124,31 @@ export class MemberRepo implements MemberStore {
     return rows.map(toMember);
   }
 
+  async listActive(shop: string): Promise<readonly Member[]> {
+    const rows = await getDb()
+      .select()
+      .from(shopMembers)
+      .where(and(eq(shopMembers.shop, shop), eq(shopMembers.status, "active")))
+      .orderBy(shopMembers.createdAt, shopMembers.id)
+      .limit(TEAM_LIMIT);
+    return rows.map(toMember);
+  }
+
+  async listShopsWithSeveralActive(afterShop: string | null, limit: number): Promise<readonly string[]> {
+    // Across shops on purpose (the cron's scan), bounded and in a stable order so a cursor can resume. A shop with one
+    // active member cannot be over any limit a trim could act on.
+    const rows = await getDb()
+      .select({ shop: shopMembers.shop })
+      .from(shopMembers)
+      .innerJoin(shops, eq(shops.shop, shopMembers.shop))
+      .where(and(eq(shopMembers.status, "active"), inArray(shops.relationshipStatus, [...OPERATIONAL_STATUSES]), afterShop === null ? undefined : gt(shopMembers.shop, afterShop)))
+      .groupBy(shopMembers.shop)
+      .having(gt(sql`count(*)`, 1))
+      .orderBy(shopMembers.shop)
+      .limit(limit);
+    return rows.map((row) => row.shop);
+  }
+
   async countByStatus(shop: string): Promise<Readonly<Record<MemberStatus, number>>> {
     const rows = await getDb()
       .select({ status: shopMembers.status, n: sql<number>`count(*)` })
@@ -188,6 +217,7 @@ export class MemberRepo implements MemberStore {
               createdAt: sql<number>`${member.now}`.as("created_at"),
               updatedAt: sql<number>`${member.now}`.as("updated_at"),
               lastSeenAt: sql<number | null>`${member.now}`.as("last_seen_at"),
+              trimmedAt: sql<number | null>`null`.as("trimmed_at"),
             })
             .from(shops)
             .where(and(eq(shops.shop, shop), nobodyOpened)),
@@ -223,6 +253,7 @@ export class MemberRepo implements MemberStore {
             createdAt: sql<number>`${member.now}`.as("created_at"),
             updatedAt: sql<number>`${member.now}`.as("updated_at"),
             lastSeenAt: sql<number | null>`${member.now}`.as("last_seen_at"),
+            trimmedAt: sql<number | null>`null`.as("trimmed_at"),
           })
           .from(shops)
           .where(eq(shops.shop, shop)),
@@ -282,6 +313,7 @@ export class MemberRepo implements MemberStore {
       .set({
         role: "owner",
         status: "active",
+        trimmedAt: null,
         ...(profile.email === null ? {} : { email: normalizeEmail(profile.email) }),
         ...(profile.name === null ? {} : { name: profile.name }),
         accountOwner: profile.accountOwner,
@@ -297,7 +329,7 @@ export class MemberRepo implements MemberStore {
   async activate(shop: string, id: string, input: { from: readonly MemberStatus[]; role: MemberRole; cap: SeatCap; now: number }): Promise<Member | undefined> {
     const [row] = await getDb()
       .update(shopMembers)
-      .set({ status: "active", role: input.role, updatedAt: input.now })
+      .set({ status: "active", role: input.role, trimmedAt: null, updatedAt: input.now })
       .where(and(eq(shopMembers.shop, shop), eq(shopMembers.id, id), inArray(shopMembers.status, [...input.from]), hasSeat(shop, input.cap)))
       .returning();
     return row === undefined ? undefined : toMember(row);
@@ -321,10 +353,31 @@ export class MemberRepo implements MemberStore {
     return row === undefined ? undefined : toMember(row);
   }
 
+  async trim(shop: string, id: string, limit: number, now: number): Promise<Member | undefined> {
+    const [row] = await getDb()
+      .update(shopMembers)
+      .set({ status: "pending", trimmedAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(shopMembers.shop, shop),
+          eq(shopMembers.id, id),
+          eq(shopMembers.status, "active"),
+          // Never an owner, and never the person Shopify says owns the store: they come back as an owner on their next visit.
+          ne(shopMembers.role, "owner"),
+          eq(shopMembers.accountOwner, false),
+          notLastManager(shop),
+          // The count that justified this trim and the write are ONE statement: a second review cannot take a second seat.
+          sql`${activeMembers(shop)} > ${limit}`,
+        ),
+      )
+      .returning();
+    return row === undefined ? undefined : toMember(row);
+  }
+
   async remove(shop: string, id: string, now: number): Promise<Member | undefined> {
     const [row] = await getDb()
       .update(shopMembers)
-      .set({ status: "removed", updatedAt: now })
+      .set({ status: "removed", trimmedAt: null, updatedAt: now })
       .where(and(eq(shopMembers.shop, shop), eq(shopMembers.id, id), ne(shopMembers.status, "removed"), notLastOwner(shop), notLastManager(shop)))
       .returning();
     return row === undefined ? undefined : toMember(row);

@@ -3,10 +3,11 @@ import type { SeatSummary } from "~/domain/member-team";
 
 /**
  * How many of the plan's seats are in use. Shown only when the plan limits the team: an app that does not limit it has
- * nothing to say. A team past the limit (after a downgrade) is told so plainly, because nobody was removed and the reason
- * a new person cannot join is otherwise invisible.
+ * nothing to say. A team past the limit (after a downgrade) is told so plainly, because the reason a new person cannot
+ * join is otherwise invisible: by default nobody is removed, and an app that trims (`seatOverage.policy`) says that
+ * people with the fewest privileges lose their seat when the notice period ends.
  */
-export function SeatsSection({ seats, canChangePlan }: { readonly seats: SeatSummary; readonly canChangePlan: boolean }) {
+export function SeatsSection({ seats, canChangePlan, trimsOverage }: { readonly seats: SeatSummary; readonly canChangePlan: boolean; readonly trimsOverage: boolean }) {
   const { t } = useTranslation("admin");
   if (seats.kind === "unlimited") return null;
   const atLimit = seats.left === 0;
@@ -23,7 +24,7 @@ export function SeatsSection({ seats, canChangePlan }: { readonly seats: SeatSum
           <s-progress value={Math.min(seats.used, seats.maximum)} max={seats.maximum} tone={atLimit ? "critical" : "auto"} accessibilityLabel={t("members.seats.used", { used: seats.used, max: seats.maximum })}></s-progress>
         )}
         {atLimit && (
-          <s-banner tone="warning">{seats.over > 0 ? t("members.seats.over", { used: seats.used, max: seats.maximum }) : t("members.seats.full")}</s-banner>
+          <s-banner tone="warning">{seats.over > 0 ? t(trimsOverage ? "members.seats.overTrim" : "members.seats.over", { used: seats.used, max: seats.maximum }) : t("members.seats.full")}</s-banner>
         )}
         {atLimit && canChangePlan && <s-link href="/app/billing">{t("members.seats.changePlan")}</s-link>}
       </s-stack>

@@ -9,6 +9,7 @@ import type { RenderedEmail } from "./render";
 import { adminPasswordResetEmail } from "./templates/admin-password-reset";
 import { shopInstalledEmail, shopUninstalledEmail } from "./templates/shop-change";
 import { campaignMessageEmail } from "./templates/campaign-message";
+import { membersSeatTrimNoticeEmail, membersSeatsTrimmedEmail } from "./templates/members-seats";
 import { webhookDeadLetterEmail } from "./templates/webhook-dead-letter";
 import { supportMerchantActivityEmail } from "./templates/support-merchant-activity";
 import { supportStaffReplyEmail } from "./templates/support-staff-reply";
@@ -54,6 +55,9 @@ const EMAILS = {
   push_test: { unit: "email.layout", language: STAFF },
   // The team writes announcements in the app's default language, so the lines around the words are in it too.
   campaign_message: { unit: "email.campaign", language: STAFF },
+  // The people who run the shop's team read these, in the language they work in.
+  members_seat_trim_notice: { unit: "email.members-seats", language: MERCHANT },
+  members_seats_trimmed: { unit: "email.members-seats", language: MERCHANT },
 } as const satisfies { [E in NotificationEvent]: { readonly unit: TextUnit; readonly language: LanguageSource } };
 
 type UnitOf<E extends NotificationEvent> = (typeof EMAILS)[E]["unit"];
@@ -75,6 +79,8 @@ const BUILDERS: { [E in NotificationEvent]: EmailBuilder<E> | null } = {
   webhook_dead_letter: webhookDeadLetterEmail,
   push_test: null,
   campaign_message: campaignMessageEmail,
+  members_seat_trim_notice: membersSeatTrimNoticeEmail,
+  members_seats_trimmed: membersSeatsTrimmedEmail,
 };
 
 /**

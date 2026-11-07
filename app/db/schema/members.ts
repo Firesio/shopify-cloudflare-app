@@ -37,6 +37,11 @@ export const shopMembers = sqliteTable(
     updatedAt: integer("updated_at").notNull(),
     /** Throttled (see the service), so a page view is not a write. */
     lastSeenAt: integer("last_seen_at"),
+    /**
+     * When a seat-overage trim took this person's seat (`member-seat-overage`). A `pending` row with it set means "the plan
+     * has no seat for them"; without it, "waiting to be let in". Cleared when they become active again or are removed.
+     */
+    trimmedAt: integer("trimmed_at"),
   },
   (table) => [
     uniqueIndex("shop_members_user_idx").on(table.shop, table.shopifyUserId),

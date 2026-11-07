@@ -65,7 +65,7 @@ async function admit(identity: MemberIdentity, deps: MemberDependencies): Promis
 
   const decision = decideAdmission(
     {
-      member: existing && { status: existing.status, role: existing.role },
+      member: existing && { status: existing.status, role: existing.role, trimmed: existing.trimmedAt !== null },
       invite: invite && { role: invite.role },
       isAccountOwner: identity.accountOwner,
       isCollaborator: identity.collaborator,

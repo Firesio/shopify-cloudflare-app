@@ -13,7 +13,7 @@ import { McpAuditLogRepo, McpOAuthRepo, McpTokenRepo } from "~/models/mcp.server
 import type { McpAuditLogPort, McpOAuthPort, McpTokenPort } from "~/ports/mcp";
 import { PlanGrantsRepo } from "~/models/plan-grants.server";
 import type { PlanGrantsPort } from "~/ports/plan-grants";
-import { invalidateEntitlements } from "~/wiring/entitlement-cache.server";
+import { afterPlanChange } from "~/wiring/member-seat-overage.server";
 import { appRuntime } from "~/wiring/runtime.server";
 
 /** Adapter factories are the only production boundary to repository classes. */
@@ -31,7 +31,7 @@ export function shops(): ShopsPort { return new ShopRepo(); }
 export function shopMetrics(): ShopMetricsRepo { return new ShopMetricsRepo(); }
 export function support(): SupportPort { return new SupportRepo(appRuntime().ids); }
 export function supportInbound(): SupportInboundRepo { return new SupportInboundRepo(appRuntime().ids); }
-export function shopSubscriptions(): ShopSubscriptionsPort { return new ShopSubscriptionRepo({ invalidate: invalidateEntitlements }); }
+export function shopSubscriptions(): ShopSubscriptionsPort { return new ShopSubscriptionRepo({ invalidate: (shop) => afterPlanChange(shop) }); }
 export function shopifyEvents(): ShopifyEventsPort { return new ShopifyEventRepo(); }
 export function shopSyncCheckpoints(): ShopSyncCheckpointsPort { return new ShopSyncCheckpointRepo(); }
 export function webhookScopeObservations(): WebhookScopeObservationsPort { return new WebhookScopeObservationRepo(); }

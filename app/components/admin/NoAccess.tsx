@@ -12,6 +12,7 @@ const MESSAGES = {
   pending: { heading: "noAccess.pending.heading", body: "noAccess.pending.body" },
   removed: { heading: "noAccess.removed.heading", body: "noAccess.removed.body" },
   not_invited: { heading: "noAccess.not_invited.heading", body: "noAccess.not_invited.body" },
+  seat_limit: { heading: "noAccess.seat_limit.heading", body: "noAccess.seat_limit.body" },
   forbidden: { heading: "noAccess.forbidden.heading", body: "noAccess.forbidden.body" },
 } as const satisfies Record<AccessRefusal, { readonly heading: string; readonly body: string }>;
 

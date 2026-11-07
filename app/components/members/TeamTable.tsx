@@ -110,7 +110,7 @@ export function TeamTable({ rows, roles, pendingId, onAct }: TeamTableProps) {
                 <s-badge>{t(ROLE_TEXT[row.role].label)}</s-badge>
               </s-table-cell>
               <s-table-cell>
-                <s-badge tone={STATUS_TONE[row.status]}>{t(STATUS_TEXT[row.status])}</s-badge>
+                {row.noSeat ? <s-badge tone="critical">{t("members.status.noSeat")}</s-badge> : <s-badge tone={STATUS_TONE[row.status]}>{t(STATUS_TEXT[row.status])}</s-badge>}
               </s-table-cell>
               <s-table-cell>
                 {row.lastSeenAt === null ? <s-text color="subdued">{t("members.table.never")}</s-text> : formatDateTime(language, row.lastSeenAt, timeZone)}

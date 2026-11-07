@@ -274,7 +274,11 @@
       "heading": "No tienes permiso para esto",
       "body": "Tu rol no incluye esta página. Pide a un propietario de esta tienda que cambie tu rol."
     },
-    "contact": "Pregunta a {{who}}."
+    "contact": "Pregunta a {{who}}.",
+    "seat_limit": {
+      "heading": "Tu plan no tiene una plaza libre para ti",
+      "body": "El plan de {{appName}} de esta tienda tiene un número limitado de plazas, y la tuya se cedió cuando el equipo lo superó. Cuando haya una plaza libre, un propietario o administrador de esta tienda puede volver a dejarte entrar."
+    }
   },
   "members": {
     "heading": "Equipo",
@@ -317,7 +321,8 @@
       "left": "Libres: {{left}}",
       "full": "Todas las plazas están en uso. Quita a alguien o cambia de plan para que entren más personas.",
       "over": "El límite de plazas de tu plan es {{max}} y hay {{used}} en uso. No se quita a nadie, pero nadie nuevo puede unirse hasta que estés dentro del límite.",
-      "changePlan": "Cambiar de plan"
+      "changePlan": "Cambiar de plan",
+      "overTrim": "El límite de plazas de tu plan es {{max}} y hay {{used}} en uso. Nadie nuevo puede unirse. Si el equipo sigue por encima del límite cuando termine el plazo del aviso, las personas con menos privilegios pierden su plaza. Los propietarios nunca."
     },
     "waiting": {
       "heading": "Personas esperando a que las dejes entrar: {{count}}",
@@ -340,7 +345,8 @@
       "invited": "Invitado",
       "pending": "En espera",
       "active": "Activo",
-      "removed": "Eliminado"
+      "removed": "Eliminado",
+      "noSeat": "Sin plaza"
     },
     "actions": {
       "menu": "Acciones para {{name}}",

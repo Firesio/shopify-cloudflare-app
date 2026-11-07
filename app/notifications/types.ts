@@ -31,7 +31,11 @@ export type NotificationEvent =
   /** A staff member asked for a test message on one of their devices. */
   | "push_test"
   /** An announcement the team wrote to many merchants at once (`domain/campaign.ts`). */
-  | "campaign_message";
+  | "campaign_message"
+  /** A shop has more active members than its plan's seats: tell the people who can fix it, before anyone loses a seat (`domain/member-seat-overage.ts`). */
+  | "members_seat_trim_notice"
+  /** The notice period ended and these people lost their seats: tell the same people how to let them back in. */
+  | "members_seats_trimmed";
 
 // ─── Messages ────────────────────────────────────────────────────────────────
 

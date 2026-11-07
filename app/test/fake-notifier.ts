@@ -1,4 +1,5 @@
-import type { Notifier, NotifyRequest } from "~/ports/notifier";
+import type { NotificationEvent } from "~/notifications/types";
+import type { HandoffNotifier, Notifier, NotifyRequest } from "~/ports/notifier";
 
 /**
  * A `Notifier` that sends nothing and remembers everything.
@@ -43,4 +44,34 @@ export function fakeNotifier(): FakeNotifier {
       return undefined;
     },
   };
+}
+
+/**
+ * A `HandoffNotifier` that remembers every request and can refuse them, like a queue that is down. `failing` is read at
+ * each call, so a test can bring the queue back between two reviews.
+ */
+export interface FakeHandoffNotifier extends HandoffNotifier {
+  readonly requests: NotifyRequest[];
+  failing: boolean;
+  /** The requests for one event, typed as that event's: its payload is the one that event carries. */
+  forEvent<E extends NotificationEvent>(event: E): NotifyRequest<E>[];
+}
+
+/** A real check of the event, so a request found by event name carries that event's payload type. */
+function isRequestFor<E extends NotificationEvent>(request: NotifyRequest, event: E): request is NotifyRequest<E> {
+  return request.event === event;
+}
+
+export function fakeHandoffNotifier(): FakeHandoffNotifier {
+  const notifier: FakeHandoffNotifier = {
+    requests: [],
+    failing: false,
+    forEvent: (event) => notifier.requests.filter((request) => isRequestFor(request, event)),
+    async handOff(input) {
+      if (notifier.failing) return { queued: false };
+      notifier.requests.push(input);
+      return { queued: true };
+    },
+  };
+  return notifier;
 }

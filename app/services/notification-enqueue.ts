@@ -1,6 +1,6 @@
 import type { NotificationLogsPort } from "~/ports/notification-logs";
 import type { NotificationQueue } from "~/ports/notification-queue";
-import type { Notifier, NotifyRequest } from "~/ports/notifier";
+import type { HandoffNotifier, Notifier, NotifyRequest } from "~/ports/notifier";
 import { isChannelKey, type NotificationEvent } from "~/notifications/types";
 
 export interface QueuedNotifierDependencies {
@@ -14,7 +14,8 @@ export interface QueuedNotifierDependencies {
 
 /**
  * The `Notifier` every use case receives: it ENQUEUES, and the queue consumer
- * sends.
+ * sends. The same object is also a `HandoffNotifier`, for the one caller that must
+ * know whether the message was queued.
  *
  * Never throws. A notification is decoration on the request that triggered it —
  * the record that request wrote has already succeeded — so a queue that refuses
@@ -22,17 +23,23 @@ export interface QueuedNotifierDependencies {
  * failure is logged as a structured event and written as a `failed` row, which
  * is what the internal notification history shows.
  */
-export function createQueuedNotifier(dependencies: QueuedNotifierDependencies): Notifier {
+export function createQueuedNotifier(dependencies: QueuedNotifierDependencies): Notifier & HandoffNotifier {
+  async function handOff<E extends NotificationEvent>(input: NotifyRequest<E>): Promise<{ readonly queued: boolean }> {
+    // A stable key minted HERE, once, so a queue redelivery after a send that
+    // succeeded finds that send's row and stops. A caller's own key wins.
+    const dedupeKey = input.dedupeKey ?? `${input.event}:${dependencies.newId()}`;
+    try {
+      await dependencies.queue.enqueue({ ...input, dedupeKey });
+      return { queued: true };
+    } catch (cause) {
+      await recordEnqueueFailure(input, dedupeKey, cause, dependencies);
+      return { queued: false };
+    }
+  }
   return {
+    handOff,
     async send(input) {
-      // A stable key minted HERE, once, so a queue redelivery after a send that
-      // succeeded finds that send's row and stops. A caller's own key wins.
-      const dedupeKey = input.dedupeKey ?? `${input.event}:${dependencies.newId()}`;
-      try {
-        await dependencies.queue.enqueue({ ...input, dedupeKey });
-      } catch (cause) {
-        await recordEnqueueFailure(input, dedupeKey, cause, dependencies);
-      }
+      await handOff(input);
     },
   };
 }

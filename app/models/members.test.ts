@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
 import { drizzle } from "drizzle-orm/d1";
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { shopMembers, shops } from "~/db/schema";
 import type { MemberRole } from "~/domain/member-access";
@@ -644,5 +645,246 @@ describe("listWithRoles", () => {
       };
     });
     expect(outcome).toEqual({ managers: ["o", "a"], bounded: ["o"], none: [] });
+  });
+});
+
+/** A member row seeded directly, so a test can set exactly the fields a trim reads. */
+async function seedMember(shop: string, id: string, role: MemberRole, overrides: Partial<typeof shopMembers.$inferInsert> = {}) {
+  await db.insert(shopMembers).values({ id, shop, shopifyUserId: `u-${shop}-${id}`, role, status: "active", createdAt: 1, updatedAt: 1, ...overrides });
+}
+
+const statusOf = async (id: string) => (await db.select().from(shopMembers).where(eq(shopMembers.id, id)).get())?.status;
+
+describe("trim: taking a seat away", () => {
+  it("makes an active member pending and marks when, only while the shop is over the limit", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      await seedMember(A, "o", "owner");
+      await seedMember(A, "m1", "member");
+      await seedMember(A, "m2", "member");
+      const repo = new MemberRepo();
+      return { trimmed: await repo.trim(A, "m1", 2, 500), row: await db.select().from(shopMembers).where(eq(shopMembers.id, "m1")).get() };
+    });
+    expect(outcome.trimmed).toMatchObject({ id: "m1", status: "pending", trimmedAt: 500, updatedAt: 500 });
+    expect(outcome.row).toMatchObject({ status: "pending", trimmedAt: 500 });
+  });
+
+  it("refuses once the shop is back at its limit: the count that justifies the trim is part of the same statement", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      await seedMember(A, "o", "owner");
+      await seedMember(A, "m1", "member");
+      await seedMember(A, "m2", "member");
+      const repo = new MemberRepo();
+      return { atLimit: await repo.trim(A, "m1", 3, 5), overLimit: await repo.trim(A, "m1", 2, 6), status: await statusOf("m1") };
+    });
+    expect(outcome.atLimit).toBeUndefined();
+    expect(outcome.overLimit).toMatchObject({ id: "m1" });
+  });
+
+  it("lets two reviews that both want the last seat take exactly one: the shop ends AT its limit, never under it", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      await seedMember(A, "o", "owner");
+      for (const id of ["m1", "m2", "m3", "m4"]) await seedMember(A, id, "member");
+      const repo = new MemberRepo();
+      // Five active, limit four: one seat must go. Every reviewer chose a different victim.
+      const results = await Promise.all(["m1", "m2", "m3", "m4"].map((id) => repo.trim(A, id, 4, 9)));
+      return { landed: results.filter((member) => member !== undefined).length, active: (await repo.countByStatus(A)).active };
+    });
+    expect(outcome).toEqual({ landed: 1, active: 4 });
+  });
+
+  it("takes the same person once when two reviews both chose them", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      await seedMember(A, "o", "owner");
+      await seedMember(A, "m1", "member");
+      await seedMember(A, "m2", "member");
+      const repo = new MemberRepo();
+      const results = await Promise.all([repo.trim(A, "m1", 1, 9), repo.trim(A, "m1", 1, 9)]);
+      return { landed: results.filter((member) => member !== undefined).length, m1: await statusOf("m1"), m2: await statusOf("m2") };
+    });
+    expect(outcome).toEqual({ landed: 1, m1: "pending", m2: "active" });
+  });
+
+  it("never takes an owner, nor the person Shopify says owns the store, whatever role they hold", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      await seedMember(A, "o1", "owner");
+      await seedMember(A, "o2", "owner");
+      await seedMember(A, "store", "admin", { accountOwner: true });
+      await seedMember(A, "ada", "admin");
+      const repo = new MemberRepo();
+      return { owner: await repo.trim(A, "o2", 1, 3), store: await repo.trim(A, "store", 1, 3), admin: await repo.trim(A, "ada", 1, 3) };
+    });
+    expect(outcome.owner).toBeUndefined();
+    expect(outcome.store).toBeUndefined();
+    expect(outcome.admin).toMatchObject({ id: "ada", status: "pending" });
+  });
+
+  it("never takes the shop's last active team manager, and takes an admin while another manager remains", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      await seedMember(A, "only", "admin");
+      await seedMember(A, "viewer", "viewer");
+      const repo = new MemberRepo();
+      const last = await repo.trim(A, "only", 0, 3);
+      await seedMember(A, "second", "admin");
+      const second = await repo.trim(A, "only", 1, 4);
+      return { last, second, third: await repo.trim(A, "second", 1, 5) };
+    });
+    expect(outcome.last).toBeUndefined();
+    expect(outcome.second).toMatchObject({ id: "only", status: "pending" });
+    // "second" is now the last manager.
+    expect(outcome.third).toBeUndefined();
+  });
+
+  it("two admins trimmed at once never leave the shop with nobody who can manage the team", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      await seedMember(A, "a1", "admin");
+      await seedMember(A, "a2", "admin");
+      const repo = new MemberRepo();
+      const results = await Promise.all([repo.trim(A, "a1", 0, 3), repo.trim(A, "a2", 0, 3)]);
+      return { landed: results.filter((member) => member !== undefined).length, managers: (await repo.countByStatus(A)).active };
+    });
+    expect(outcome).toEqual({ landed: 1, managers: 1 });
+  });
+
+  it("only takes an ACTIVE member: pending, invited and removed ones are left as they are", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      await seedMember(A, "o", "owner");
+      await seedMember(A, "p", "member", { status: "pending" });
+      await seedMember(A, "r", "member", { status: "removed" });
+      const repo = new MemberRepo();
+      return { pending: await repo.trim(A, "p", 0, 3), removed: await repo.trim(A, "r", 0, 3), unknown: await repo.trim(A, "nobody", 0, 3) };
+    });
+    expect(outcome).toEqual({ pending: undefined, removed: undefined, unknown: undefined });
+  });
+
+  it("cannot reach a member of another shop, and counts only its own shop's seats", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      await seedMember(A, "o", "owner");
+      await seedMember(A, "m", "member");
+      for (const id of ["b1", "b2", "b3", "b4"]) await seedMember(B, id, "member");
+      const repo = new MemberRepo();
+      // Shop B's four members do not make shop A (two active) over a limit of two.
+      return { within: await repo.trim(A, "m", 2, 3), foreign: await repo.trim(A, "b1", 0, 3), bStatus: await statusOf("b1") };
+    });
+    expect(outcome).toEqual({ within: undefined, foreign: undefined, bStatus: "active" });
+  });
+
+  it("frees the seat at once: the trimmed person no longer counts as active", async () => {
+    const counts = await inRequest(async () => {
+      await seedShops();
+      await seedMember(A, "o", "owner");
+      await seedMember(A, "m", "member");
+      const repo = new MemberRepo();
+      await repo.trim(A, "m", 1, 3);
+      return repo.countByStatus(A);
+    });
+    expect(counts).toMatchObject({ active: 1, pending: 1 });
+  });
+});
+
+describe("a trimmed member's way back", () => {
+  async function trimmedShop() {
+    await seedShops();
+    await seedMember(A, "o", "owner");
+    await seedMember(A, "m", "member");
+    const repo = new MemberRepo();
+    await repo.trim(A, "m", 1, 3);
+    return repo;
+  }
+
+  it("is activate, which still needs a free seat, and which clears the trim mark", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await trimmedShop();
+      const noSeat = await repo.activate(A, "m", { from: ["pending"], role: "member", cap: 1, now: 9 });
+      const withSeat = await repo.activate(A, "m", { from: ["pending"], role: "member", cap: 2, now: 10 });
+      return { noSeat, withSeat };
+    });
+    expect(outcome.noSeat).toBeUndefined();
+    expect(outcome.withSeat).toMatchObject({ id: "m", status: "active", trimmedAt: null });
+  });
+
+  it("clears the mark when the person is removed, so a restore later is not read as a seat problem", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await trimmedShop();
+      const removed = await repo.remove(A, "m", 12);
+      return { removed, found: await repo.findById(A, "m") };
+    });
+    expect(outcome.removed).toMatchObject({ status: "removed", trimmedAt: null });
+    expect(outcome.found?.trimmedAt).toBeNull();
+  });
+
+  it("is restoreOwner for the account owner, past any seat limit, and clears the mark too", async () => {
+    const restored = await inRequest(async () => {
+      await seedShops();
+      await seedMember(A, "o", "admin");
+      await seedMember(A, "store", "admin", { status: "pending", trimmedAt: 4, accountOwner: true });
+      return new MemberRepo().restoreOwner(A, "store", profile({ accountOwner: true }), 20);
+    });
+    expect(restored).toMatchObject({ role: "owner", status: "active", trimmedAt: null });
+  });
+
+  it("reads a pending row with a trim time as trimmed, and a waiting one as not", async () => {
+    const found = await inRequest(async () => {
+      await seedShops();
+      await seedMember(A, "t", "member", { status: "pending", trimmedAt: 7 });
+      await seedMember(A, "w", "member", { status: "pending" });
+      const repo = new MemberRepo();
+      return { t: (await repo.findById(A, "t"))?.trimmedAt, w: (await repo.findById(A, "w"))?.trimmedAt };
+    });
+    expect(found).toEqual({ t: 7, w: null });
+  });
+});
+
+describe("listActive and listShopsWithSeveralActive", () => {
+  it("listActive lists a shop's active members, oldest first, and no one else's", async () => {
+    const ids = await inRequest(async () => {
+      await seedShops();
+      await seedMember(A, "late", "member", { createdAt: 5 });
+      await seedMember(A, "early", "owner", { createdAt: 1 });
+      await seedMember(A, "waiting", "member", { status: "pending" });
+      await seedMember(A, "gone", "member", { status: "removed" });
+      await seedMember(B, "other", "owner");
+      return (await new MemberRepo().listActive(A)).map((member) => member.id);
+    });
+    expect(ids).toEqual(["early", "late"]);
+  });
+
+  it("finds installed shops with more than one active member, in order, after a cursor, bounded", async () => {
+    const outcome = await inRequest(async () => {
+      const shopNames = ["a.myshopify.com", "b.myshopify.com", "c.myshopify.com", "d.myshopify.com", "e.myshopify.com", "f.myshopify.com"];
+      await db.insert(shops).values(shopNames.map((shop, index) => ({ shop, installedAt: 1, relationshipStatus: (index === 4 ? "UNINSTALLED" : index === 5 ? "REACTIVATED" : "INSTALLED") as "INSTALLED" })));
+      for (const shop of shopNames) {
+        await seedMember(shop, `${shop}-one`, "owner");
+        // c has only one active member (the second is pending): it cannot be over any limit a trim acts on.
+        await seedMember(shop, `${shop}-two`, "member", shop === "c.myshopify.com" ? { status: "pending" } : {});
+      }
+      const repo = new MemberRepo();
+      return {
+        all: await repo.listShopsWithSeveralActive(null, 10),
+        afterB: await repo.listShopsWithSeveralActive("b.myshopify.com", 10),
+        bounded: await repo.listShopsWithSeveralActive(null, 2),
+      };
+    });
+    // e is uninstalled (not operational) and c has one active member; f is REACTIVATED, which is operational.
+    expect(outcome.all).toEqual(["a.myshopify.com", "b.myshopify.com", "d.myshopify.com", "f.myshopify.com"]);
+    expect(outcome.afterB).toEqual(["d.myshopify.com", "f.myshopify.com"]);
+    expect(outcome.bounded).toEqual(["a.myshopify.com", "b.myshopify.com"]);
+  });
+
+  it("finds nothing for a shop we hold no row for", async () => {
+    const found = await inRequest(async () => {
+      await seedMember("ghost.myshopify.com", "ghost-one", "owner");
+      await seedMember("ghost.myshopify.com", "ghost-two", "member");
+      return new MemberRepo().listShopsWithSeveralActive(null, 10);
+    });
+    expect(found).toEqual([]);
   });
 });

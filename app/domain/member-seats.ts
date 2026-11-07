@@ -44,3 +44,34 @@ export function seatCapOf(limit: SeatLimit): number | null {
 export function seatsLeft(limit: SeatLimit, taken: number): number | null {
   return limit.kind === "unlimited" ? null : Math.max(0, limit.maximum - taken);
 }
+
+/**
+ * What the plan says, read for ONE purpose: deciding whether people who already hold a seat must lose it.
+ *
+ * `seatLimitFrom` is deliberately permissive in one direction (a refusal means "no NEW seats", limit 0, which only ever
+ * keeps someone waiting). Trimming is the opposite: acting on a limit of 0 that was really a refusal would remove
+ * everybody. So this reader is strict. It answers a number ONLY for an allowed capacity with a numeric maximum, and every
+ * other answer is a reason NOT to trim:
+ *
+ *   limit       an allowed capacity with a whole-number maximum of 1 or more
+ *   unlimited   an allowed capacity with no maximum: nothing to enforce (an open episode is cancelled)
+ *   unknown     everything else: a refusal of any kind, an unknown feature, a key defined as another kind, a maximum that
+ *               is not a whole number or is below 1 (a team always holds at least its owner, so a plan of 0 seats is a
+ *               misdefined catalogue, not a limit). Nothing is trimmed on it.
+ */
+export type OverageLimit =
+  | { readonly kind: "limit"; readonly maximum: number }
+  | { readonly kind: "unlimited" }
+  | { readonly kind: "unknown" };
+
+export function overageLimitFrom(check: SeatCheck): OverageLimit {
+  if (!check.allowed || check.kind !== "capacity") return { kind: "unknown" };
+  if (check.maximum === undefined) return { kind: "unlimited" };
+  return Number.isSafeInteger(check.maximum) && check.maximum >= 1 ? { kind: "limit", maximum: check.maximum } : { kind: "unknown" };
+}
+
+/** The strict limit as a plain number, or null for "do not trim". Never 0, whatever the answer was. */
+export function trimmableLimitFrom(check: SeatCheck): number | null {
+  const limit = overageLimitFrom(check);
+  return limit.kind === "limit" ? limit.maximum : null;
+}

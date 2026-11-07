@@ -113,6 +113,7 @@ describe("uninstall reconciliation (real D1 + KV, fake Shopify)", () => {
       entitlementReconcile: { run: async () => ({ examined: 0 }) },
       uninstallProbe: { run: async () => { throw new Error("probe exploded"); } },
       campaignWatchdog: { run: async () => ({ restarted: 0 }) },
+      memberSeatOverage: { run: async () => ({ policy_off: 1 }) },
     });
     expect(calls).toEqual(["tokens"]);
     expect(error).toHaveBeenCalledWith(expect.stringContaining('"sweep":"uninstall_reconciliation"'));

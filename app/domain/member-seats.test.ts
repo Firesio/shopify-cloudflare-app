@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { seatCapOf, seatLimitFrom, seatsLeft, type SeatLimit } from "./member-seats";
+import { overageLimitFrom, seatCapOf, seatLimitFrom, seatsLeft, trimmableLimitFrom, type SeatCheck, type SeatLimit } from "./member-seats";
 
 describe("seatLimitFrom", () => {
   it("is the plan's maximum for a capacity with one", () => {
@@ -41,5 +41,39 @@ describe("seatCapOf and seatsLeft", () => {
     expect(seatsLeft(limit(5), 5)).toBe(0);
     expect(seatsLeft(limit(2), 7)).toBe(0);
     expect(seatsLeft({ kind: "unlimited" }, 7)).toBeNull();
+  });
+});
+
+describe("trimmableLimitFrom and overageLimitFrom: the strict reading used to take seats AWAY", () => {
+  it("is the plan's maximum only for an allowed capacity with a whole-number maximum", () => {
+    expect(trimmableLimitFrom({ allowed: true, kind: "capacity", maximum: 3 })).toBe(3);
+    expect(trimmableLimitFrom({ allowed: true, kind: "capacity", maximum: 1 })).toBe(1);
+    expect(overageLimitFrom({ allowed: true, kind: "capacity", maximum: 3 })).toEqual({ kind: "limit", maximum: 3 });
+  });
+
+  it("is never a number for a refusal, whatever the reason: a refusal is NOT a limit of zero, which would remove everyone", () => {
+    const reasons = ["unknown_feature", "disabled", "inactive_subscription", "unknown_plan", "invalid_grant", "subscription_unavailable", "invalid_request", "anything-else", ""];
+    for (const reason of reasons) {
+      const refusal: SeatCheck = { allowed: false, reason };
+      expect(trimmableLimitFrom(refusal), reason).toBeNull();
+      expect(overageLimitFrom(refusal), reason).toEqual({ kind: "unknown" });
+      // The permissive reader that decides who may JOIN does turn a refusal into zero: that is exactly why it must not be used here.
+      if (reason !== "unknown_feature") expect(seatLimitFrom(refusal)).toEqual({ kind: "limit", maximum: 0 });
+    }
+  });
+
+  it("is unlimited, and not a number, for a capacity with no maximum: there is nothing to enforce", () => {
+    expect(trimmableLimitFrom({ allowed: true, kind: "capacity" })).toBeNull();
+    expect(overageLimitFrom({ allowed: true, kind: "capacity" })).toEqual({ kind: "unlimited" });
+  });
+
+  it.each(["capability", "quota"] as const)("does not trust a key defined as a %s", (kind) => {
+    expect(trimmableLimitFrom({ allowed: true, kind })).toBeNull();
+    expect(overageLimitFrom({ allowed: true, kind })).toEqual({ kind: "unknown" });
+  });
+
+  it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 2])("reads a maximum of %s as unreadable, never as a limit: a team always holds its owner", (maximum) => {
+    expect(trimmableLimitFrom({ allowed: true, kind: "capacity", maximum })).toBeNull();
+    expect(overageLimitFrom({ allowed: true, kind: "capacity", maximum })).toEqual({ kind: "unknown" });
   });
 });

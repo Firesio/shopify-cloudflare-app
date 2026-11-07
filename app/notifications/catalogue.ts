@@ -106,6 +106,22 @@ export const EVENTS: Record<NotificationEvent, EventSpec> = {
     description: "An announcement the team wrote to merchants, such as a coming update.",
   },
 
+  members_seat_trim_notice: {
+    audience: "merchant",
+    // The seat-overage review decides, and it must reach the people who can act on it: an owner cannot opt out of being told
+    // that members will lose their seats. The legal channel opt-out still applies underneath.
+    gate: "caller_gated",
+    channels: ["email"],
+    description: "The shop has more active members than its plan allows, and people will lose their seats unless that is fixed in time.",
+  },
+
+  members_seats_trimmed: {
+    audience: "merchant",
+    gate: "caller_gated",
+    channels: ["email"],
+    description: "The notice period ended and some members lost their seats because the plan has no seat for them.",
+  },
+
   push_test: {
     audience: "staff",
     // Essential: the person pressed "send a test" and is waiting for it. Only

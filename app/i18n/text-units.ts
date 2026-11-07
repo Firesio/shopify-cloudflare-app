@@ -36,6 +36,30 @@ export const TEXT_UNITS = {
     { namespace: "email", key: "campaign.footer" },
     { namespace: "email", key: "campaign.unsubscribe" },
   ],
+  // The two notices a shop's owners and admins get about seat overage (`domain/member-seat-overage`): in the language of the
+  // person it is sent to, like every mail the merchant reads.
+  "email.members-seats": [
+    ...EMAIL_LAYOUT,
+    { namespace: "email", key: "members.unnamed" },
+    { namespace: "email", key: "members.seatNotice.subject" },
+    { namespace: "email", key: "members.seatNotice.greeting" },
+    { namespace: "email", key: "members.seatNotice.intro" },
+    { namespace: "email", key: "members.seatNotice.who" },
+    { namespace: "email", key: "members.seatNotice.more" },
+    { namespace: "email", key: "members.seatNotice.action" },
+    { namespace: "email", key: "members.seatNotice.cta" },
+    { namespace: "email", key: "members.seatNotice.plan" },
+    { namespace: "email", key: "members.seatNotice.footer" },
+    { namespace: "email", key: "members.seatsTrimmed.subject" },
+    { namespace: "email", key: "members.seatsTrimmed.greeting" },
+    { namespace: "email", key: "members.seatsTrimmed.intro" },
+    { namespace: "email", key: "members.seatsTrimmed.who" },
+    { namespace: "email", key: "members.seatsTrimmed.more" },
+    { namespace: "email", key: "members.seatsTrimmed.restore" },
+    { namespace: "email", key: "members.seatsTrimmed.cta" },
+    { namespace: "email", key: "members.seatsTrimmed.plan" },
+    { namespace: "email", key: "members.seatsTrimmed.footer" },
+  ],
   // The loader-built page titles and descriptions of the public pages (the page body itself is rendered by react-i18next).
   "public.landing": [
     { namespace: "public", key: "landing.heading" },

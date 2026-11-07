@@ -45,6 +45,25 @@ export interface Notifier {
 }
 
 /**
+ * Like `Notifier`, but says whether the message was actually handed to the queue.
+ *
+ * `Notifier.send` is fire-and-forget by design: a queue that refuses a message is logged and recorded as a failed row,
+ * and the caller never learns. That is right for decoration, and wrong for a step that must not go ahead unless the person
+ * was told: the seat-overage review records WHEN the notice was handed over, and only then starts a deadline after which
+ * people lose their seats. `queued: false` means nothing was handed over (and the failure was logged and recorded).
+ * `queued: true` means the message is durable on the queue, not that the email arrived.
+ *
+ * Never throws.
+ */
+export interface NotifyHandoff {
+  readonly queued: boolean;
+}
+
+export interface HandoffNotifier {
+  handOff<E extends NotificationEvent>(input: NotifyRequest<E>): Promise<NotifyHandoff>;
+}
+
+/**
  * Sends in the caller's own request instead of through the queue, and answers how many messages the channels
  * accepted. For the one case where a person is waiting on the result — a "send me a test" button — and a queued
  * message could not tell them whether it arrived. Everything else uses `Notifier`.

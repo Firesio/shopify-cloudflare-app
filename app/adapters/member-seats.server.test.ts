@@ -57,6 +57,45 @@ describe("the seat limit", () => {
   });
 });
 
+describe("the limit for taking a seat away", () => {
+  const overage = (grants: Parameters<typeof catalogue>[0], snapshot: SubscriptionSnapshot, forget?: (shop: string) => void) => {
+    const service = createEntitlements({ subscriptions: { current: async () => snapshot }, catalogue: catalogue(grants) });
+    return createMemberSeats({ check: (shop, key) => service.check(shop, key) }, forget ? { forget } : {});
+  };
+
+  it("is the plan's maximum for a plan with a limit, and unlimited for one without", async () => {
+    const grants = { free: { kind: "limit", maximum: 3 }, pro: { kind: "unlimited" } } as const;
+    expect(await overage(grants, active("free")).overageLimit("a.myshopify.com")).toEqual({ kind: "limit", maximum: 3 });
+    expect(await overage(grants, active("pro")).overageLimit("a.myshopify.com")).toEqual({ kind: "unlimited" });
+  });
+
+  it("is UNKNOWN, never a limit of zero, when the plan refuses: a plan that grants none, an inactive subscription, an unknown plan, an app that defines no seats", async () => {
+    const grants = { free: { kind: "disabled" }, pro: { kind: "limit", maximum: 2 } } as const;
+    const frozen: SubscriptionSnapshot = { status: "FROZEN", planHandle: "pro", revision: 1 };
+    const unobserved: SubscriptionSnapshot = { status: "UNKNOWN", planHandle: null, revision: 0 };
+    const unlisted: SubscriptionSnapshot = { status: "ACTIVE", planHandle: "enterprise", revision: 1 };
+    expect(await overage(grants, active("free")).overageLimit("a.myshopify.com")).toEqual({ kind: "unknown" });
+    expect(await overage(grants, frozen).overageLimit("a.myshopify.com")).toEqual({ kind: "unknown" });
+    expect(await overage(grants, unobserved).overageLimit("a.myshopify.com")).toEqual({ kind: "unknown" });
+    expect(await overage(grants, unlisted).overageLimit("a.myshopify.com")).toEqual({ kind: "unknown" });
+    expect(await overage(null, active()).overageLimit("a.myshopify.com")).toEqual({ kind: "unknown" });
+    // The permissive reader, which decides who may join, reads the same refusals as "no new seats".
+    expect(await overage(grants, active("free")).limit("a.myshopify.com")).toEqual({ kind: "limit", maximum: 0 });
+  });
+
+  it("drops what the request remembered about the shop's plan first, so it never trusts a read taken earlier", async () => {
+    const order: string[] = [];
+    const seats = createMemberSeats(
+      { check: async () => { order.push("check"); return { allowed: true, kind: "capacity", maximum: 2 }; } },
+      { forget: (shop) => order.push(`forget:${shop}`) },
+    );
+    await seats.overageLimit("a.myshopify.com");
+    await seats.limit("a.myshopify.com");
+    // `limit`, which lets people in, may use the memo; only the seat-taking read forgets.
+    expect(order).toEqual(["forget:a.myshopify.com", "check", "check"]);
+  });
+});
+
 describe("the template's own catalogue", () => {
   it("defines members.max as a capacity every plan grants, and limits no plan by default", () => {
     expect(ENTITLEMENT_CATALOGUE.features[MEMBER_SEATS_KEY]).toEqual({ kind: "capacity" });

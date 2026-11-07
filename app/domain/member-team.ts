@@ -20,6 +20,8 @@ export interface TeamMember {
   readonly status: MemberStatus;
   readonly accountOwner: boolean;
   readonly lastSeenAt: number | null;
+  /** A seat-overage trim took this person's seat: `pending` here means "no seat", not "waiting for approval". */
+  readonly trimmed: boolean;
 }
 
 export interface TeamRow {
@@ -34,6 +36,8 @@ export interface TeamRow {
   /** An invitation nobody has taken up: there is no person behind it yet. */
   readonly isInvitation: boolean;
   readonly lastSeenAt: number | null;
+  /** Lost a seat to a seat-overage trim: shown as "no seat", and let back in the same way as someone waiting. */
+  readonly noSeat: boolean;
   /** What the person looking may offer for this row, and which roles they could give. */
   readonly can: {
     readonly changeRole: boolean;
@@ -51,7 +55,7 @@ function sortKey(member: Pick<TeamMember, "id" | "name" | "email">): string {
 }
 
 /** A stored member as the views read it: the Shopify user id becomes "is there one", and nothing that is not shown comes along. */
-export function toTeamMember(member: Omit<TeamMember, "linked"> & { readonly shopifyUserId: string | null }): TeamMember {
+export function toTeamMember(member: Omit<TeamMember, "linked" | "trimmed"> & { readonly shopifyUserId: string | null; readonly trimmedAt: number | null }): TeamMember {
   return {
     id: member.id,
     linked: member.shopifyUserId !== null,
@@ -61,6 +65,7 @@ export function toTeamMember(member: Omit<TeamMember, "linked"> & { readonly sho
     status: member.status,
     accountOwner: member.accountOwner,
     lastSeenAt: member.lastSeenAt,
+    trimmed: member.trimmedAt !== null,
   };
 }
 
@@ -90,6 +95,7 @@ export function teamRows(actor: { readonly id: string; readonly role: string }, 
         accountOwner: member.accountOwner,
         isInvitation: member.status === "invited" && !member.linked,
         lastSeenAt: member.lastSeenAt,
+        noSeat: member.status === "pending" && member.trimmed,
         can: {
           changeRole: touchable && member.status !== "removed",
           remove: touchable && canTransition(member.status, "removed"),

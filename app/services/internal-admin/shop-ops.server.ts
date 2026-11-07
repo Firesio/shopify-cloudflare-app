@@ -5,7 +5,7 @@ import {
   supportService,
   webhookScopeObservations,
   planGrants,
-  invalidateEntitlements,
+  afterPlanChange,
   appRuntime,
 } from "~/wiring.server";
 import type { Clock, Runtime } from "~/ports/runtime";
@@ -205,7 +205,7 @@ export async function grantShopPromoPlan(
     createdAt: now,
   });
 
-  await invalidateEntitlements(shopDomain);
+  await afterPlanChange(shopDomain);
 
   return grant;
 }
@@ -219,7 +219,7 @@ export async function revokeShopPromoPlan(
 ) {
   const success = await planGrants().revokeGrant(shopDomain, grantId, revokedBy, clock.now());
   if (success) {
-    await invalidateEntitlements(shopDomain);
+    await afterPlanChange(shopDomain);
   }
   return success;
 }

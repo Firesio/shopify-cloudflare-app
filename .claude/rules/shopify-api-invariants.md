@@ -202,6 +202,26 @@ Local timings are SQLite, not D1: only row counts transfer.
 
 **Our design decision (2026-11-07), not a Shopify rule:** nobody becomes an owner by being first. The first person to open the app on a store (no membership with a Shopify user id in ANY status) is an `admin` (every permission; only an owner may make or touch an owner), unless they are the Shopify account owner (`owner`) or a collaborator (the app's stranger policy). The condition is "someone has opened the app", read from `shop_members` rows with a Shopify user, so it does not repeat when the first admin is removed. Details and tests: `.claude/rules/members.md`.
 
+## Seat overage: notify, then trim (2026-11-07)
+
+**No Shopify behaviour was looked up for this feature**: nothing in it calls Shopify, and no row here is a Shopify fact. The first
+table is OUR decision; the second is what was read in this repo's own code or observed in its own tests on 2026-11-07, labelled as
+such.
+
+| Our design decision (not a Shopify rule) | Consequence |
+|---|---|
+| Taking a seat away is opt-in (`MEMBERS.seatOverage`, default `never_remove`), reads the plan's limit STRICTLY and fresh, and only after a notice was handed to the queue and its deadline passed. A refusal is never read as a limit of 0 | `.claude/rules/members.md`, "Seats". `app/domain/member-seat-overage.ts`, `member-seats.ts` |
+| An owner and Shopify's `account_owner` are never trimmed, and neither is the last member who can manage the team | `account_owner` is as authoritative as the existing rule says (see "Who is using the app: members"); **UNVERIFIED** that Shopify's real response carries it for every owner |
+
+| Observation (this repo's code and tests) | Label | Consequence |
+|---|---|---|
+| `EntitlementService.check` reads the D1 projection through a per-request memo and never the KV cache; the template's default `subscriptionSnapshot` sets no `verifiedAt`, so it is never stale and never triggers a Partner refresh | code read | The review forgets the shop's memo (`forgetRequestMemo(subscriptionMemoKey(shop))`) before reading, and a plan change the app has not stored yet is invisible to it |
+| `Notifier.send` swallows a refused enqueue (it logs and writes a failed row) | code read | A step that must know the message was queued uses `HandoffNotifier.handOff` |
+| The notification pipeline dedupes by `(dedupeKey, recipient)` | code read | One key per episode, one email per person, however often the review runs |
+| D1 refuses a statement with more than 100 bound variables (`too many SQL variables`) | observed in a test seed, local D1 | Seed and write in small batches (`app/services/members/review-seat-overage.test.ts`) |
+| A SQLite partial unique index (`... WHERE resolved_at IS NULL`) applies as a generated migration on local D1 and enforces one open episode per shop | observed (`member-seat-episodes.test.ts`); **not run on a remote D1** | |
+| The notice email was queued through the fake handoff and rendered in English and Spanish | observed | **UNVERIFIED:** a real send through Email Sending, and that the recipient's mail client shows the deadline's time zone as intended |
+
 ## Development store detection (2026-10-29)
 
 | Finding | Verified how | Design consequence |

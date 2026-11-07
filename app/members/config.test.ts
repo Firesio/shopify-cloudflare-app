@@ -9,12 +9,16 @@ describe("the shipped configuration", () => {
   });
 
   it("is the default the template documents: strangers join as members, online tokens on", () => {
-    expect(MEMBERS).toEqual({ onUnknownUser: "auto_join", autoJoinRole: "member", onlineTokens: true });
+    expect(MEMBERS).toEqual({ onUnknownUser: "auto_join", autoJoinRole: "member", onlineTokens: true, seatOverage: { policy: "never_remove" } });
+  });
+
+  it("removes nobody by default: a plan change never costs anyone a seat until the app opts in", () => {
+    expect(MEMBERS.seatOverage).toEqual({ policy: "never_remove" });
   });
 });
 
 describe("memberConfigProblems", () => {
-  const base: MembersConfig = { onUnknownUser: "auto_join", autoJoinRole: "member", onlineTokens: true };
+  const base: MembersConfig = { onUnknownUser: "auto_join", autoJoinRole: "member", onlineTokens: true, seatOverage: { policy: "never_remove" } };
 
   it("refuses invite_only without online tokens: no email, nobody can be matched to an invitation", () => {
     expect(memberConfigProblems({ ...base, onUnknownUser: "invite_only", onlineTokens: false })).toHaveLength(1);
@@ -36,5 +40,24 @@ describe("memberConfigProblems", () => {
     expect(problems[0]).toContain(`"${autoJoinRole}"`);
     expect(problems[0]).toContain("members:manage");
     expect(problems[0]).toContain("billing:manage");
+  });
+});
+
+describe("seatOverage", () => {
+  const base: MembersConfig = { onUnknownUser: "auto_join", autoJoinRole: "member", onlineTokens: true, seatOverage: { policy: "never_remove" } };
+  const trimming = (noticeHours: number): MembersConfig => ({ ...base, seatOverage: { policy: "notify_then_trim", noticeHours } });
+
+  it.each([1, 24, 72, 168])("accepts a notice period of %s hours", (noticeHours) => {
+    expect(memberConfigProblems(trimming(noticeHours))).toEqual([]);
+  });
+
+  it.each([0, -1, 169, 1000, 1.5, 0.5, Number.NaN, Number.POSITIVE_INFINITY])("reports a notice period of %s hours", (noticeHours) => {
+    const problems = memberConfigProblems(trimming(noticeHours));
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("seatOverage.noticeHours");
+  });
+
+  it("asks nothing of noticeHours when nobody is removed", () => {
+    expect(memberConfigProblems({ ...base, seatOverage: { policy: "never_remove" } })).toEqual([]);
   });
 });

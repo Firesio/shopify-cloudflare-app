@@ -9,6 +9,7 @@
  *   entitlement-held-sweep     the cron sweep that settles held usage a crash left behind
  *   admin                      staff session, users, auth limiters, reset tokens
  *   members                    the shop's members: who may use the app, and what they may do
+ *   member-seat-overage        what happens when a plan has fewer seats than the team: the review, the cron sweep, the plan-change hook
  *   shop-identity              shop identity and time zone
  *   billing                    subscriptions, entitlements, Partner refresh
  *   ai-support                 AI and support use cases
@@ -59,6 +60,7 @@ export {
   staffMfa,
 } from "~/wiring/admin.server";
 export { memberDependencies, memberSeats, memberStore } from "~/wiring/members.server";
+export { afterPlanChange } from "~/wiring/member-seat-overage.server";
 export { campaignConsumerDependencies, campaignDependencies, campaignUnsubscribes } from "~/wiring/campaigns.server";
 export { persistDevStoreStatus, persistShopIdentity, shopTimeZone } from "~/wiring/shop-identity.server";
 export {
