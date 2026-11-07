@@ -19,7 +19,7 @@ interface PermissionsSectionProps {
 }
 
 /**
- * One permission that cannot be changed, as a plain row: an icon for whether it is allowed, its name and what it allows at full
+ * One permission that cannot be changed, as a plain row: an icon for whether it is allowed (a filled check circle, or an empty circle), its name and what it allows at full
  * strength (a disabled checkbox would fade the very words the merchant is reading), and the reason it is locked when there is one.
  * A screen reader is told in words whether it is allowed.
  */
@@ -27,7 +27,7 @@ function StaticPermission({ permission, allowed, hint }: { readonly permission: 
   const { t } = useTranslation("admin");
   return (
     <s-stack direction="inline" gap="small-200" alignItems="start" data-permission={permission} data-allowed={String(allowed)}>
-      <s-icon type={allowed ? "check" : "minus"} color={allowed ? "base" : "subdued"} />
+      <s-icon type={allowed ? "check-circle-filled" : "circle"} color={allowed ? "base" : "subdued"} />
       <s-stack gap="none">
         <s-text>
           {t(PERMISSION_TEXT[permission].label)}

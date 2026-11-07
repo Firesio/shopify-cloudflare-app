@@ -181,6 +181,14 @@ describe("the permissions on one member's page", () => {
     expect(html.match(/data-allowed="false"/g)).toHaveLength(2);
   });
 
+  it("marks what is allowed with a filled check circle and what is not with an empty circle, so the two read apart at a glance", async () => {
+    const html = await render(member({ id: "mia", permissions: ["app:view", "app:manage"] }));
+    expect(html.match(/<s-icon[^>]*type="check-circle-filled"/g)).toHaveLength(2);
+    expect(html.match(/<s-icon[^>]*type="circle"/g)).toHaveLength(2);
+    expect(html).not.toContain('type="check"');
+    expect(html).not.toContain('type="minus"');
+  });
+
   it("says in words, for a screen reader, whether each permission is allowed", async () => {
     const html = await render(member({ id: "mia", permissions: ["app:view"] }));
     expect(html.match(/>Allowed</g)).toHaveLength(1);
