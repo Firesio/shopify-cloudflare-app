@@ -287,11 +287,11 @@
     "roles": {
       "owner": {
         "label": "Propietario",
-        "description": "Todo, incluido el plan. Toda tienda tiene siempre al menos un propietario."
+        "description": "Todo, incluido el plan. El único rol que puede nombrar, cambiar o quitar a un propietario."
       },
       "admin": {
         "label": "Administrador",
-        "description": "Gestiona la app día a día y el equipo. No puede cambiar el plan."
+        "description": "Todo lo que puede hacer un propietario, incluidos el plan y el equipo, salvo nombrar, cambiar o quitar a un propietario."
       },
       "member": {
         "label": "Miembro",
@@ -365,10 +365,11 @@
       "restored": "Miembro restaurado."
     },
     "errors": {
-      "forbidden": "No puedes hacer eso. Solo un propietario o administrador puede gestionar el equipo, y solo para roles iguales o inferiores al suyo.",
+      "forbidden": "No puedes hacer eso. Solo un propietario o administrador puede gestionar el equipo, y solo un propietario puede nombrar, cambiar o quitar a un propietario.",
       "notFound": "Esa persona ya no está en el equipo.",
       "notYourself": "No puedes cambiar ni quitar tu propia pertenencia aquí. Pídeselo a otro propietario.",
-      "lastOwner": "Toda tienda necesita al menos un propietario. Nombra primero a otro propietario.",
+      "lastOwner": "Es el único propietario de la tienda. Nombra primero a otro propietario.",
+      "lastManager": "Tiene que quedar alguien que pueda gestionar el equipo. Nombra primero a otro propietario o administrador.",
       "noSeat": "Tu plan no tiene una plaza libre para otra persona. Quita a alguien o cambia de plan.",
       "invalidState": "Esa persona cambió mientras tanto. Recarga la página e inténtalo de nuevo.",
       "emailInvalid": "Introduce un correo electrónico válido.",

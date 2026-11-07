@@ -29,8 +29,12 @@ describe("the registries", () => {
     for (const role of MEMBER_ROLES) expect(can(role, "app:view")).toBe(true);
   });
 
-  it("keeps the plan with the owner alone", () => {
-    for (const role of MEMBER_ROLES) expect(can(role, "billing:manage")).toBe(role === "owner");
+  it("gives the admin every permission the owner has", () => {
+    expect([...permissionsOf("admin")].sort()).toEqual([...MEMBER_PERMISSIONS].sort());
+  });
+
+  it("keeps the plan with the owner and the admin", () => {
+    for (const role of MEMBER_ROLES) expect(can(role, "billing:manage")).toBe(role === "owner" || role === "admin");
   });
 
   it("lets only the roles that run the team manage it", () => {
@@ -57,6 +61,13 @@ describe("assigning roles", () => {
     expect(assignableRoles("owner")).toEqual(MEMBER_ROLES);
   });
 
+  it("lets only an owner make an owner, even though an admin holds every permission an owner does", () => {
+    expect(canAssignRole("owner", "owner")).toBe(true);
+    for (const actor of MEMBER_ROLES.filter((role) => role !== "owner")) expect(canAssignRole(actor, "owner")).toBe(false);
+    expect(canAssignRole("unknown", "owner")).toBe(false);
+    expect(canAssignRole("Owner", "owner")).toBe(false);
+  });
+
   it("never lets a role hand out a permission it does not hold", () => {
     expect(canAssignRole("admin", "owner")).toBe(false);
     expect(canAssignRole("admin", "admin")).toBe(true);
@@ -65,10 +76,11 @@ describe("assigning roles", () => {
     expect(canAssignRole("viewer", "member")).toBe(false);
   });
 
-  it("holds for every pair: you can assign a role only if you hold all of its permissions", () => {
+  it("holds for every pair: you can assign a role only if you hold all of its permissions, and an owner only if you are one", () => {
     for (const actor of MEMBER_ROLES) {
       for (const target of MEMBER_ROLES) {
-        expect(canAssignRole(actor, target)).toBe(ROLE_SPECS[target].permissions.every((permission) => can(actor, permission)));
+        const holdsAll = ROLE_SPECS[target].permissions.every((permission) => can(actor, permission));
+        expect(canAssignRole(actor, target)).toBe(target === "owner" ? actor === "owner" : holdsAll);
       }
     }
   });
@@ -77,7 +89,7 @@ describe("assigning roles", () => {
 describe("rolesHolding", () => {
   it("lists the roles with a permission, in declaration order", () => {
     expect(rolesHolding("members:manage")).toEqual(["owner", "admin"]);
-    expect(rolesHolding("billing:manage")).toEqual(["owner"]);
+    expect(rolesHolding("billing:manage")).toEqual(["owner", "admin"]);
     expect(rolesHolding("app:view")).toEqual(MEMBER_ROLES);
   });
 

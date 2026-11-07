@@ -43,8 +43,9 @@ function profileOf(identity: MemberIdentity): MemberProfile {
  * reason they were kept out. Safe to run twice at once for the same person: every write either wins or reports that
  * another request got there first, and the loser reads again. Never throws for a person who is simply not allowed.
  *
- * Seats: owners are never kept waiting. Anyone else who would become active does so only while the plan has a free seat,
- * checked in the same statement that writes; otherwise they are recorded as `pending`, where an owner can see them.
+ * Seats: owners and the first person on the store are never kept waiting. Anyone else who would become active does so
+ * only while the plan has a free seat, checked in the same statement that writes; otherwise they are recorded as
+ * `pending`, where a member who manages the team can see them.
  */
 export async function resolveMember(identity: MemberIdentity, deps: MemberDependencies): Promise<MemberAccess> {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
@@ -59,14 +60,16 @@ async function admit(identity: MemberIdentity, deps: MemberDependencies): Promis
   const existing = await members.findByUserId(identity.shop, identity.shopifyUserId);
   // An invitation is only ever matched for someone with no membership yet, and only by an address Shopify verified.
   const invite = existing === undefined && identity.email !== null ? await members.findInviteByEmail(identity.shop, identity.email) : undefined;
-  const shopHasOwner = existing !== undefined || (await members.hasActiveOwner(identity.shop));
+  // A person with a row has, by definition, opened the app: the question is only asked about someone new.
+  const appWasOpened = existing !== undefined || (await members.hasOpenedApp(identity.shop));
 
   const decision = decideAdmission(
     {
       member: existing && { status: existing.status, role: existing.role },
       invite: invite && { role: invite.role },
       isAccountOwner: identity.accountOwner,
-      shopHasOwner,
+      isCollaborator: identity.collaborator,
+      appWasOpened,
     },
     deps.config,
   );
@@ -120,8 +123,9 @@ async function capFor(shop: string, deps: MemberDependencies): Promise<SeatCap> 
 }
 
 /**
- * Owners are never kept waiting for a seat: the first user is added only while the shop has no owner, and the store's own
- * Shopify account owner is added whatever the plan says. Anyone else is added within the plan's seats, or `pending`.
+ * Owners are never kept waiting for a seat: the store's own Shopify account owner is added whatever the plan says, and so
+ * is the first user (an admin), only while nobody has opened the app: the plan may not even be readable on a first visit.
+ * Anyone else is added within the plan's seats, or `pending`.
  */
 async function createMember(
   shop: string,
@@ -129,7 +133,7 @@ async function createMember(
   person: Omit<NewMember, "role" | "status">,
   deps: MemberDependencies,
 ): Promise<Member | undefined> {
-  if (decision.reason === "first_user") return deps.members.createOwnerIfNone(shop, person);
+  if (decision.reason === "first_user") return deps.members.createFirstMemberIfNone(shop, { ...person, role: decision.role });
   const cap = decision.role === "owner" ? null : await capFor(shop, deps);
   const outcome = await deps.members.create(shop, { ...person, role: decision.role, status: decision.status }, cap);
   return outcome.kind === "created" ? outcome.member : undefined;

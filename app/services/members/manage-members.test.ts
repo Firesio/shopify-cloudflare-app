@@ -236,3 +236,148 @@ describe("restoreMember", () => {
     }
   });
 });
+
+describe("an admin and an owner are different roles", () => {
+  const ownerRow = (members: FakeMemberStore, status: "active" | "pending" | "removed") =>
+    members.add({ id: `owner-${status}`, shop: SHOP, role: "owner", status, shopifyUserId: `o-${status}` });
+
+  it.each(["active", "pending", "removed"] as const)("never lets an admin change, remove, approve or restore an owner who is %s", async (status) => {
+    const { deps, members } = setup();
+    ownerRow(members, status);
+    const targetId = `owner-${status}`;
+    const before = JSON.stringify(members.rows);
+    expect(await changeRole({ actor: admin, targetId, role: "member" }, deps)).toEqual({ ok: false, reason: "forbidden" });
+    expect(await changeRole({ actor: admin, targetId, role: "admin" }, deps)).toEqual({ ok: false, reason: "forbidden" });
+    expect(await removeMember({ actor: admin, targetId }, deps)).toEqual({ ok: false, reason: "forbidden" });
+    expect(await approveMember({ actor: admin, targetId, role: "viewer" }, deps)).toEqual({ ok: false, reason: "forbidden" });
+    expect(await restoreMember({ actor: admin, targetId, role: "viewer" }, deps)).toEqual({ ok: false, reason: "forbidden" });
+    expect(JSON.stringify(members.rows)).toBe(before);
+    expect(members.writes).toEqual([]);
+  });
+
+  it("never lets an admin make anyone an owner, whoever the target is", async () => {
+    const { deps, members } = setup();
+    for (const targetId of ["mem", "admin2"]) {
+      members.add({ id: "admin2", shop: SHOP, role: "admin", status: "active", shopifyUserId: "20" });
+      expect(await changeRole({ actor: admin, targetId, role: "owner" }, deps)).toEqual({ ok: false, reason: "forbidden" });
+    }
+    expect(await approveMember({ actor: admin, targetId: "wait", role: "owner" }, deps)).toEqual({ ok: false, reason: "forbidden" });
+    expect(await restoreMember({ actor: admin, targetId: "gone", role: "owner" }, deps)).toEqual({ ok: false, reason: "forbidden" });
+    expect(roleOf(members, "mem")).toBe("member");
+  });
+
+  it("lets an admin manage other admins and members: change a role, remove, approve, restore", async () => {
+    const { deps, members } = setup();
+    members.add({ id: "admin2", shop: SHOP, role: "admin", status: "active", shopifyUserId: "20" });
+    expect(await changeRole({ actor: admin, targetId: "admin2", role: "member" }, deps)).toMatchObject({ ok: true, value: { role: "member" } });
+    expect(await changeRole({ actor: admin, targetId: "mem", role: "admin" }, deps)).toMatchObject({ ok: true, value: { role: "admin" } });
+    expect(await approveMember({ actor: admin, targetId: "wait", role: "admin" }, deps)).toMatchObject({ ok: true, value: { role: "admin" } });
+    expect(await restoreMember({ actor: admin, targetId: "gone", role: "admin" }, deps)).toMatchObject({ ok: true, value: { role: "admin" } });
+    expect(await removeMember({ actor: admin, targetId: "admin2" }, deps)).toMatchObject({ ok: true });
+  });
+
+  it("still stops an admin acting on themselves", async () => {
+    const { deps } = setup();
+    expect(await changeRole({ actor: admin, targetId: "admin", role: "member" }, deps)).toEqual({ ok: false, reason: "notYourself" });
+    expect(await removeMember({ actor: admin, targetId: "admin" }, deps)).toEqual({ ok: false, reason: "notYourself" });
+  });
+
+  it.each(["active", "pending", "removed"] as const)("lets an owner do all of it to an owner who is %s", async (status) => {
+    const { deps, members } = setup();
+    ownerRow(members, status);
+    const targetId = `owner-${status}`;
+    if (status === "active") {
+      expect(await changeRole({ actor: owner, targetId, role: "admin" }, deps)).toMatchObject({ ok: true });
+      expect(await changeRole({ actor: owner, targetId, role: "owner" }, deps)).toMatchObject({ ok: true, value: { role: "owner" } });
+      expect(await removeMember({ actor: owner, targetId }, deps)).toMatchObject({ ok: true });
+    } else if (status === "pending") {
+      expect(await approveMember({ actor: owner, targetId, role: "owner" }, deps)).toMatchObject({ ok: true, value: { role: "owner", status: "active" } });
+    } else {
+      expect(await restoreMember({ actor: owner, targetId, role: "owner" }, deps)).toMatchObject({ ok: true, value: { role: "owner", status: "active" } });
+    }
+  });
+
+  it("lets an owner make an owner", async () => {
+    const { deps } = setup();
+    expect(await changeRole({ actor: owner, targetId: "mem", role: "owner" }, deps)).toMatchObject({ ok: true, value: { role: "owner" } });
+  });
+});
+
+describe("a shop always keeps someone who can manage the team", () => {
+  /** Two admins and no owner: a valid shop. */
+  function admins() {
+    const members = new FakeMemberStore();
+    members.add({ id: "a1", shop: SHOP, role: "admin", status: "active", shopifyUserId: "1" });
+    members.add({ id: "a2", shop: SHOP, role: "admin", status: "active", shopifyUserId: "2" });
+    members.add({ id: "m", shop: SHOP, role: "member", status: "active", shopifyUserId: "3" });
+    const logs: MemberLogEntry[] = [];
+    const deps: ManageDependencies = { members, seats: fakeSeats(), runtime: { clock: fakeClock() }, log: (entry) => void logs.push(entry) };
+    return { members, deps, logs };
+  }
+  const a1: Actor = { id: "a1", shop: SHOP, role: "admin" };
+  const a2: Actor = { id: "a2", shop: SHOP, role: "admin" };
+
+  it("is valid for a shop to have no owner at all: admins run it, remove each other's members and one another", async () => {
+    const { deps, members } = admins();
+    expect(await removeMember({ actor: a1, targetId: "m" }, deps)).toMatchObject({ ok: true });
+    expect(await removeMember({ actor: a1, targetId: "a2" }, deps)).toMatchObject({ ok: true });
+    expect(statusOf(members, "a2")).toBe("removed");
+  });
+
+  it("refuses two admins who remove each other at once: exactly one lands and the other is told why", async () => {
+    const { deps, members } = admins();
+    const results = await Promise.all([removeMember({ actor: a1, targetId: "a2" }, deps), removeMember({ actor: a2, targetId: "a1" }, deps)]);
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(results.find((result) => !result.ok)).toEqual({ ok: false, reason: "lastManager" });
+    expect(members.rows.filter((row) => row.role === "admin" && row.status === "active")).toHaveLength(1);
+  });
+
+  it("refuses two admins who demote each other at once", async () => {
+    const { deps, members } = admins();
+    const results = await Promise.all([changeRole({ actor: a1, targetId: "a2", role: "viewer" }, deps), changeRole({ actor: a2, targetId: "a1", role: "viewer" }, deps)]);
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(results.find((result) => !result.ok)).toEqual({ ok: false, reason: "lastManager" });
+    expect(members.rows.filter((row) => row.role === "admin" && row.status === "active")).toHaveLength(1);
+  });
+
+  it("refuses to remove or demote the only admin of a shop with no owner, when the actor was removed in the meantime", async () => {
+    const { deps, members } = admins();
+    members.beforeWrite = (kind) => {
+      if (kind === "remove" || kind === "setRole") members.rows.splice(members.rows.findIndex((row) => row.id === "a1"), 1, { ...members.rows.find((row) => row.id === "a1")!, status: "removed" });
+      members.beforeWrite = undefined;
+    };
+    expect(await removeMember({ actor: a1, targetId: "a2" }, deps)).toEqual({ ok: false, reason: "lastManager" });
+    expect(statusOf(members, "a2")).toBe("active");
+  });
+
+  it("lets an admin be removed while an owner remains", async () => {
+    const { deps, members } = setup();
+    expect(await removeMember({ actor: owner, targetId: "admin" }, deps)).toMatchObject({ ok: true });
+    expect(statusOf(members, "admin")).toBe("removed");
+  });
+
+  it("lets the last admin become an owner, and an owner become an admin while another owner stays", async () => {
+    const { deps, members } = admins();
+    await removeMember({ actor: a1, targetId: "a2" }, deps);
+    const solo: Actor = { id: "boss", shop: SHOP, role: "owner" };
+    expect(await changeRole({ actor: solo, targetId: "a1", role: "owner" }, deps)).toMatchObject({ ok: true, value: { role: "owner" } });
+    expect(roleOf(members, "a1")).toBe("owner");
+  });
+
+  it("does not count a pending or removed admin as someone who can still manage the team", async () => {
+    const { deps, members } = admins();
+    members.add({ id: "p", shop: SHOP, role: "admin", status: "pending", shopifyUserId: "4" });
+    members.add({ id: "r", shop: SHOP, role: "admin", status: "removed", shopifyUserId: "5" });
+    await removeMember({ actor: a1, targetId: "a2" }, deps);
+    expect(await removeMember({ actor: { id: "x", shop: SHOP, role: "admin" }, targetId: "a1" }, deps)).toEqual({ ok: false, reason: "lastManager" });
+  });
+
+  it("keeps the last owner rule: with a lone owner and an admin, the owner stays an owner", async () => {
+    const { deps, members } = setup();
+    members.add({ id: "second", shop: SHOP, role: "admin", status: "active", shopifyUserId: "8" });
+    const actor: Actor = { id: "second", shop: SHOP, role: "owner" };
+    expect(await changeRole({ actor, targetId: "owner", role: "admin" }, deps)).toEqual({ ok: false, reason: "lastOwner" });
+    expect(await changeRole({ actor, targetId: "owner", role: "member" }, deps)).toEqual({ ok: false, reason: "lastOwner" });
+    expect(await removeMember({ actor, targetId: "owner" }, deps)).toEqual({ ok: false, reason: "lastOwner" });
+  });
+});

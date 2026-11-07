@@ -29,4 +29,12 @@ describe("memberConfigProblems", () => {
     const accepted = MEMBER_ROLES.filter((autoJoinRole) => memberConfigProblems({ ...base, autoJoinRole }).length === 0);
     expect(accepted).toEqual(["member", "viewer"]);
   });
+
+  it.each(["admin", "owner"] as const)("reports autoJoinRole %s: it carries the team and the plan", (autoJoinRole) => {
+    const problems = memberConfigProblems({ ...base, autoJoinRole });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain(`"${autoJoinRole}"`);
+    expect(problems[0]).toContain("members:manage");
+    expect(problems[0]).toContain("billing:manage");
+  });
 });

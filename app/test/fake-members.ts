@@ -1,10 +1,10 @@
-import type { MemberRole } from "~/domain/member-access";
+import { rolesHolding, type MemberRole } from "~/domain/member-access";
 import type { MemberStatus } from "~/domain/member-lifecycle";
 import type { CreateOutcome, Member, MemberProfile, MemberStore, NewMember, SeatCap } from "~/ports/members";
 
 /**
- * An in-memory `MemberStore` that keeps the real store's promises: one membership per (shop, Shopify user), an owner
- * added only while there is none, an invitation taken up once. Use cases are tested against it with no D1.
+ * An in-memory `MemberStore` that keeps the real store's promises: one membership per (shop, Shopify user), a first
+ * member added only while nobody has opened the app, an invitation taken up once. Use cases are tested against it with no D1.
  *
  * `beforeWrite` runs just before a write lands, so a test can play "another request got there first" by adding the
  * competing row at exactly that moment.
@@ -58,14 +58,14 @@ export class FakeMemberStore implements MemberStore {
     return this.rows.find((row) => row.shop === shop && row.status !== "removed" && row.email === email.trim().toLowerCase());
   }
 
-  async hasActiveOwner(shop: string) {
-    return this.rows.some((row) => row.shop === shop && row.role === "owner" && row.status === "active");
+  async hasOpenedApp(shop: string) {
+    return this.rows.some((row) => row.shop === shop && row.shopifyUserId !== null);
   }
 
-  async createOwnerIfNone(shop: string, member: Omit<NewMember, "role" | "status">) {
-    this.write("createOwnerIfNone");
-    if (await this.hasActiveOwner(shop)) return undefined;
-    return this.insert(shop, { ...member, role: "owner", status: "active" });
+  async createFirstMemberIfNone(shop: string, member: Omit<NewMember, "status">) {
+    this.write("createFirstMemberIfNone");
+    if (await this.hasOpenedApp(shop)) return undefined;
+    return this.insert(shop, { ...member, status: "active" });
   }
 
   async create(shop: string, member: NewMember, cap: SeatCap): Promise<CreateOutcome> {
@@ -171,17 +171,25 @@ export class FakeMemberStore implements MemberStore {
     return target.role === "owner" && target.status === "active" && this.rows.filter((row) => row.shop === target.shop && row.role === "owner" && row.status === "active").length <= 1;
   }
 
+  /** The member is the shop's last active team manager: changing them out of a managing role would leave it with none. */
+  private isLastManager(target: Member): boolean {
+    const managers = rolesHolding("members:manage");
+    return managers.includes(target.role) && target.status === "active" && this.rows.filter((row) => row.shop === target.shop && managers.includes(row.role) && row.status === "active").length <= 1;
+  }
+
   async setRole(shop: string, id: string, role: MemberRole, now: number) {
     this.write("setRole");
     const target = this.rows.find((row) => row.shop === shop && row.id === id);
-    if (target === undefined || (role !== "owner" && this.isLastOwner(target))) return undefined;
+    if (target === undefined) return undefined;
+    if (role !== "owner" && this.isLastOwner(target)) return undefined;
+    if (!rolesHolding("members:manage").includes(role) && this.isLastManager(target)) return undefined;
     return this.replace(id, { role, updatedAt: now });
   }
 
   async remove(shop: string, id: string, now: number) {
     this.write("remove");
     const target = this.rows.find((row) => row.shop === shop && row.id === id);
-    if (target === undefined || target.status === "removed" || this.isLastOwner(target)) return undefined;
+    if (target === undefined || target.status === "removed" || this.isLastOwner(target) || this.isLastManager(target)) return undefined;
     return this.replace(id, { status: "removed", updatedAt: now });
   }
 

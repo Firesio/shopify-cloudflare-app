@@ -9,8 +9,11 @@ import type { MemberStatus } from "./member-lifecycle";
  *
  *   1. RULES THAT NEVER CHANGE, whatever an app chooses:
  *        - a known active member is let in;
- *        - the store's Shopify account owner always gets in as owner (nobody is locked out of their own store);
- *        - the first person to open the app on a store becomes its owner, so the installer is the first member;
+ *        - the store's Shopify account owner always gets in as owner (nobody is locked out of their own store). Nobody
+ *          else becomes an owner by being first: only an existing owner makes another;
+ *        - the first person to open the app on a store becomes its ADMIN (every permission, but not an owner), so the
+ *          store always has someone who can run the team. A collaborator (an agency, not store staff) is never that
+ *          person: they follow the app's policy like any stranger;
  *        - a member someone REMOVED stays out, however open the app's policy is, until someone restores them.
  *   2. THE APP'S POLICY for everyone else (`onUnknownUser`), one function per value in UNKNOWN_USER_POLICIES.
  *
@@ -26,7 +29,7 @@ export function isUnknownUserPolicy(value: string): value is UnknownUserPolicy {
 /** The app's choices; the shipped values live in `app/members/config.ts`. */
 export interface AdmissionConfig {
   readonly onUnknownUser: UnknownUserPolicy;
-  /** The role someone gets when the policy lets them join by themselves. Never `owner`: see `memberConfigProblems`. */
+  /** The role someone gets when the policy lets them join by themselves. Never `owner` or `admin`: see `memberConfigProblems`. */
   readonly autoJoinRole: MemberRole;
 }
 
@@ -38,9 +41,18 @@ export interface AdmissionFacts {
   readonly invite: { readonly role: MemberRole } | undefined;
   /** Shopify says this user owns the store. */
   readonly isAccountOwner: boolean;
-  /** The shop already has an active owner. */
-  readonly shopHasOwner: boolean;
+  /** Shopify says this user is a collaborator (an agency), not store staff. */
+  readonly isCollaborator: boolean;
+  /**
+   * Someone has already opened the app on this shop: a membership with a Shopify user exists, in ANY status (active,
+   * pending and removed all count; an invitation nobody took up does not). It never goes back to false, so the first
+   * user cannot be repeated once the first one is removed.
+   */
+  readonly appWasOpened: boolean;
 }
+
+/** The role the first person on a store gets: everything, but not an owner. */
+export const FIRST_USER_ROLE: MemberRole = "admin";
 
 /** Why someone was kept out. They are shown a message for each, so it is a closed union. */
 export type DenyReason = "pending" | "removed" | "not_invited";
@@ -60,7 +72,7 @@ export type CreateReason = "first_user" | "account_owner" | "auto_join" | "appro
 export type Admission =
   /** Already an active member. */
   | { readonly action: "allow" }
-  /** A known member becomes an active owner again (the Shopify account owner, who cannot be locked out). */
+  /** A known member becomes an active owner (the Shopify account owner, who cannot be locked out). */
   | { readonly action: "restore_owner" }
   /** A new membership for this Shopify user. */
   | { readonly action: "create"; readonly role: MemberRole; readonly status: "active" | "pending"; readonly reason: CreateReason }
@@ -100,7 +112,8 @@ export function decideAdmission(facts: AdmissionFacts, config: AdmissionConfig):
   }
 
   if (facts.isAccountOwner) return { action: "create", role: "owner", status: "active", reason: "account_owner" };
-  if (!facts.shopHasOwner) return { action: "create", role: "owner", status: "active", reason: "first_user" };
+  // The first person is an admin, unless Shopify says they are an agency's collaborator: then the app's policy decides.
+  if (!facts.appWasOpened && !facts.isCollaborator) return { action: "create", role: FIRST_USER_ROLE, status: "active", reason: "first_user" };
 
   return UNKNOWN_USER[config.onUnknownUser](facts, config);
 }

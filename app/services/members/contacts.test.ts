@@ -18,6 +18,17 @@ describe("contactsToAsk", () => {
     ]);
   });
 
+  it("names the admins when the shop has no owner at all", async () => {
+    const members = new FakeMemberStore();
+    members.add({ id: "a", shop: SHOP, role: "admin", status: "active", name: "Zed", email: "z@firesio.app" });
+    members.add({ id: "b", shop: SHOP, role: "admin", status: "active", name: "Amy", email: "a@firesio.app" });
+    members.add({ id: "m", shop: SHOP, role: "member", status: "active", name: "Mia", email: "m@firesio.app" });
+    expect(await contactsToAsk(SHOP, { members })).toEqual([
+      { name: "Amy", email: "a@firesio.app" },
+      { name: "Zed", email: "z@firesio.app" },
+    ]);
+  });
+
   it("never names another shop's people", async () => {
     const members = new FakeMemberStore();
     members.add({ id: "o", shop: "beta.myshopify.com", role: "owner", status: "active", name: "Other", email: "o@firesio.app" });

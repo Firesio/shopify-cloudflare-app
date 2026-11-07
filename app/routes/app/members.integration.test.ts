@@ -53,7 +53,7 @@ async function open(d: MemberDependencies, userId: string, overrides: Parameters
 }
 
 describe("the team page, end to end", () => {
-  it("shows the installer as the owner, then everyone who opens the app as a member", async () => {
+  it("shows the first person as the admin, then everyone who opens the app as a member", async () => {
     const page = await inRequest(async () => {
       await seed();
       const d = deps();
@@ -63,13 +63,14 @@ describe("the team page, end to end", () => {
       return loadTeam(owner!, d);
     });
     expect(page.rows.map((row) => [row.name, row.role, row.status])).toEqual([
-      ["Olu", "owner", "active"],
+      ["Olu", "admin", "active"],
       ["Lee", "member", "active"],
       ["Mia", "member", "active"],
     ]);
     expect(page.seats).toEqual({ kind: "unlimited" });
     expect(page.waiting).toBe(0);
-    expect(page.roles).toEqual(["owner", "admin", "member", "viewer"]);
+    // The first person is an admin, who may hand out every role but owner.
+    expect(page.roles).toEqual(["admin", "member", "viewer"]);
   });
 
   it("carries nothing of another shop's team, and no Shopify user id", async () => {
@@ -135,7 +136,7 @@ describe("the team page, end to end", () => {
     expect(outcome.invited).toEqual({ success: "invited" });
     expect(outcome.duplicate).toEqual({ error: "alreadyMember" });
     expect(outcome.joined).toMatchObject({ ok: true, member: { role: "admin", status: "active" } });
-    expect(outcome.page.rows.map((row) => [row.name, row.role, row.isInvitation])).toEqual([["Olu", "owner", false], ["Newt", "admin", false]]);
+    expect(outcome.page.rows.map((row) => [row.name, row.role, row.isInvitation])).toEqual([["Newt", "admin", false], ["Olu", "admin", false]]);
   });
 
   it("cancels an invitation nobody took up, and says it was cancelled", async () => {
@@ -154,7 +155,7 @@ describe("the team page, end to end", () => {
     const outcome = await inRequest(async () => {
       await seed();
       const d = deps();
-      const owner = (await open(d, "1", { name: "Olu" }))!;
+      const owner = (await open(d, "1", { name: "Olu", accountOwner: true }))!;
       const mia = (await open(d, "2", { name: "Mia" }))!;
       const changed = await runIntent(form({ intent: "changeRole", id: mia.id, role: "admin" }), { actor: owner, deps: d });
       const removed = await runIntent(form({ intent: "remove", id: mia.id }), { actor: owner, deps: d });
@@ -171,6 +172,52 @@ describe("the team page, end to end", () => {
     expect(outcome.viaViewer).toEqual({ error: "forbidden" });
     expect(outcome.lone).toEqual({ error: "lastOwner" });
     expect(outcome.mia).toMatchObject({ status: "active", role: "viewer" });
+  });
+
+  it("lets an admin run the team but not touch the owner", async () => {
+    const outcome = await inRequest(async () => {
+      await seed();
+      const d = deps();
+      const owner = (await open(d, "1", { name: "Olu", accountOwner: true }))!;
+      const mia = (await open(d, "2", { name: "Mia" }))!;
+      const lee = (await open(d, "3", { name: "Lee" }))!;
+      await runIntent(form({ intent: "changeRole", id: mia.id, role: "admin" }), { actor: owner, deps: d });
+      const admin = { ...mia, role: "admin" as const };
+      return {
+        demoteOwner: await runIntent(form({ intent: "changeRole", id: owner.id, role: "member" }), { actor: admin, deps: d }),
+        removeOwner: await runIntent(form({ intent: "remove", id: owner.id }), { actor: admin, deps: d }),
+        makeOwner: await runIntent(form({ intent: "changeRole", id: lee.id, role: "owner" }), { actor: admin, deps: d }),
+        manage: await runIntent(form({ intent: "changeRole", id: lee.id, role: "admin" }), { actor: admin, deps: d }),
+        owner: (await loadTeam(owner, d)).rows.find((row) => row.id === owner.id)?.role,
+      };
+    });
+    expect(outcome).toEqual({
+      demoteOwner: { error: "forbidden" },
+      removeOwner: { error: "forbidden" },
+      makeOwner: { error: "forbidden" },
+      manage: { success: "roleChanged" },
+      owner: "owner",
+    });
+  });
+
+  it("keeps someone who can manage the team in a shop with no owner, even when two admins remove each other at once", async () => {
+    const outcome = await inRequest(async () => {
+      await seed();
+      const d = deps();
+      const olu = (await open(d, "1", { name: "Olu" }))!;
+      const mia = (await open(d, "2", { name: "Mia" }))!;
+      const lee = (await open(d, "3", { name: "Lee" }))!;
+      await runIntent(form({ intent: "changeRole", id: mia.id, role: "admin" }), { actor: olu, deps: d });
+      await runIntent(form({ intent: "changeRole", id: lee.id, role: "admin" }), { actor: olu, deps: d });
+      const removedFirst = await runIntent(form({ intent: "remove", id: olu.id }), { actor: { ...mia, role: "admin" }, deps: d });
+      const both = await Promise.all([
+        runIntent(form({ intent: "remove", id: mia.id }), { actor: { ...lee, role: "admin" }, deps: d }),
+        runIntent(form({ intent: "remove", id: lee.id }), { actor: { ...mia, role: "admin" }, deps: d }),
+      ]);
+      const active = (await loadTeam(olu, d)).rows.filter((row) => row.status === "active");
+      return { removedFirst, landed: both.filter((result) => "success" in result).length, refused: both.find((result) => "error" in result), active: active.map((row) => row.role) };
+    });
+    expect(outcome).toEqual({ removedFirst: { success: "removed" }, landed: 1, refused: { error: "lastManager" }, active: ["admin"] });
   });
 
   it("answers a bad form with an error, never a crash", async () => {

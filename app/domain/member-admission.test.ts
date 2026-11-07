@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MEMBER_ROLES } from "./member-access";
 import {
+  FIRST_USER_ROLE,
   UNKNOWN_USER,
   UNKNOWN_USER_POLICIES,
   decideAdmission,
@@ -11,7 +12,8 @@ import {
 } from "./member-admission";
 import { MEMBER_STATUSES } from "./member-lifecycle";
 
-const stranger: AdmissionFacts = { member: undefined, invite: undefined, isAccountOwner: false, shopHasOwner: true };
+const stranger: AdmissionFacts = { member: undefined, invite: undefined, isAccountOwner: false, isCollaborator: false, appWasOpened: true };
+const firstVisitor: AdmissionFacts = { ...stranger, appWasOpened: false };
 const config = (onUnknownUser: UnknownUserPolicy, autoJoinRole: AdmissionConfig["autoJoinRole"] = "member"): AdmissionConfig => ({ onUnknownUser, autoJoinRole });
 
 describe("rules that never change", () => {
@@ -20,12 +22,60 @@ describe("rules that never change", () => {
     expect(decideAdmission(facts, config(policy))).toEqual({ action: "allow" });
   });
 
-  it.each(UNKNOWN_USER_POLICIES)("makes the first person on a store its owner under %s", (policy) => {
-    expect(decideAdmission({ ...stranger, shopHasOwner: false }, config(policy))).toEqual({
+  it("gives the first person on a store the admin role: everything, but not an owner", () => {
+    expect(FIRST_USER_ROLE).toBe("admin");
+  });
+
+  it.each(UNKNOWN_USER_POLICIES)("makes the first person on a store an active admin under %s", (policy) => {
+    expect(decideAdmission(firstVisitor, config(policy))).toEqual({
+      action: "create",
+      role: "admin",
+      status: "active",
+      reason: "first_user",
+    });
+  });
+
+  it.each(UNKNOWN_USER_POLICIES)("ignores the policy's default role for the first person under %s", (policy) => {
+    expect(decideAdmission(firstVisitor, config(policy, "viewer"))).toMatchObject({ role: "admin" });
+  });
+
+  it.each(UNKNOWN_USER_POLICIES)("never makes someone an owner for being first under %s", (policy) => {
+    for (const appWasOpened of [true, false]) {
+      const decision = decideAdmission({ ...stranger, appWasOpened }, config(policy));
+      if (decision.action === "create") expect(decision.role).not.toBe("owner");
+    }
+  });
+
+  it.each(UNKNOWN_USER_POLICIES)("does not repeat the first-user rule once someone has opened the app, under %s", (policy) => {
+    expect(decideAdmission(stranger, config(policy))).not.toMatchObject({ reason: "first_user" });
+  });
+
+  it("sends the first collaborator through the app's policy, not to admin", () => {
+    const collaborator = { ...firstVisitor, isCollaborator: true };
+    expect(decideAdmission(collaborator, config("auto_join", "viewer"))).toEqual({ action: "create", role: "viewer", status: "active", reason: "auto_join" });
+    expect(decideAdmission(collaborator, config("invite_only"))).toEqual({ action: "deny", reason: "not_invited" });
+    expect(decideAdmission(collaborator, config("approval"))).toEqual({ action: "create", role: "viewer", status: "pending", reason: "approval" });
+  });
+
+  it("lets an invited first collaborator take up the invitation", () => {
+    expect(decideAdmission({ ...firstVisitor, isCollaborator: true, invite: { role: "member" } }, config("invite_only"))).toEqual({ action: "accept_invite", role: "member" });
+  });
+
+  it("never makes a collaborator an owner or admin, opened or not, under any policy", () => {
+    for (const policy of UNKNOWN_USER_POLICIES) {
+      for (const appWasOpened of [true, false]) {
+        const decision = decideAdmission({ ...stranger, isCollaborator: true, appWasOpened }, config(policy, "member"));
+        if (decision.action === "create") expect(["owner", "admin"]).not.toContain(decision.role);
+      }
+    }
+  });
+
+  it("lets Shopify's own signal win when the account owner is also flagged a collaborator", () => {
+    expect(decideAdmission({ ...firstVisitor, isAccountOwner: true, isCollaborator: true }, config("invite_only"))).toEqual({
       action: "create",
       role: "owner",
       status: "active",
-      reason: "first_user",
+      reason: "account_owner",
     });
   });
 
@@ -39,7 +89,7 @@ describe("rules that never change", () => {
   });
 
   it("calls the account owner who opens first the account owner, not the first user", () => {
-    expect(decideAdmission({ ...stranger, isAccountOwner: true, shopHasOwner: false }, config("invite_only"))).toMatchObject({ reason: "account_owner" });
+    expect(decideAdmission({ ...firstVisitor, isAccountOwner: true }, config("invite_only"))).toMatchObject({ reason: "account_owner" });
   });
 
   it.each(UNKNOWN_USER_POLICIES)("keeps out someone who was removed, however open %s is", (policy) => {

@@ -11,15 +11,17 @@ import type { MemberLogEntry } from "./resolve-member";
  * What a member with `members:manage` can do to the team: change a role, remove someone (or cancel an invitation), let a
  * waiting person in, bring a removed one back. Each is one use case over the same guards, so no route can forget one.
  *
- *   forbidden      the actor lacks `members:manage`, or would be handing out or touching a role above their own
+ *   forbidden      the actor lacks `members:manage`, or would be handing out or touching a role they may not (an owner
+ *                  is made and touched only by an owner: `canAssignRole`)
  *   notFound       no such member in this shop
  *   notYourself    nobody changes or removes their own membership here: a mistake would lock them out, and an owner who
  *                  wants out asks another owner
- *   lastOwner      it would leave the shop without an active owner
+ *   lastOwner      it would take the shop's last active owner out of that role
+ *   lastManager    it would leave the shop with nobody who can manage the team (`members:manage`)
  *   noSeat         the plan has no free seat for another active member
  *   invalidState   the member is not in a state this applies to, or someone else changed them first
  */
-export type ManageFailure = "forbidden" | "notFound" | "notYourself" | "lastOwner" | "noSeat" | "invalidState";
+export type ManageFailure = "forbidden" | "notFound" | "notYourself" | "lastOwner" | "lastManager" | "noSeat" | "invalidState";
 
 export interface ManageDependencies {
   readonly members: MemberStore;
@@ -37,7 +39,7 @@ async function target(actor: Actor, targetId: string, deps: ManageDependencies):
   const member = await deps.members.findById(actor.shop, targetId);
   if (!member) return err("notFound");
   if (member.id === actor.id) return err("notYourself");
-  // Nobody touches a member whose role they could not hand out themselves.
+  // Nobody touches a member whose role they could not hand out themselves; for an owner that means only an owner.
   if (!canAssignRole(actor.role, member.role)) return err("forbidden");
   return ok(member);
 }
@@ -47,7 +49,11 @@ async function whyRefused(actor: Actor, before: Member, expected: "role" | "remo
   const now = await deps.members.findById(actor.shop, before.id);
   if (!now) return "notFound";
   if (expected === "removal" && now.status === "removed") return "invalidState";
-  return now.role === "owner" && now.status === "active" ? "lastOwner" : "invalidState";
+  if (now.status !== "active") return "invalidState";
+  // An owner who is refused is the last owner (while there are two, there are two managers too). Otherwise only the
+  // last-manager guard can have fired, and it names a role that holds `members:manage`.
+  if (now.role === "owner") return "lastOwner";
+  return can(now.role, "members:manage") ? "lastManager" : "invalidState";
 }
 
 export async function changeRole(input: { actor: Actor; targetId: string; role: MemberRole }, deps: ManageDependencies): Promise<Result<Member, ManageFailure>> {
@@ -64,7 +70,7 @@ export async function changeRole(input: { actor: Actor; targetId: string; role: 
   return ok(changed);
 }
 
-/** Removes a member, or cancels an invitation that nobody has taken up. The last active owner cannot be removed. */
+/** Removes a member, or cancels an invitation that nobody has taken up. The last active owner and the last active manager stay. */
 export async function removeMember(input: { actor: Actor; targetId: string }, deps: ManageDependencies): Promise<Result<Member, ManageFailure>> {
   const found = await target(input.actor, input.targetId, deps);
   if (!found.ok) return found;

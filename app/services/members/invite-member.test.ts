@@ -31,6 +31,14 @@ describe("inviteMember", () => {
     expect(members.rows).toEqual([]);
   });
 
+  it("lets an admin invite everything but an owner", async () => {
+    const members = new FakeMemberStore();
+    for (const role of MEMBER_ROLES.filter((role) => role !== "owner")) {
+      expect((await inviteMember({ actor: actor("admin"), email: `${role}@firesio.app`, role }, { members, runtime: runtime() })).ok).toBe(true);
+    }
+    expect(await inviteMember({ actor: actor("admin"), email: "boss@firesio.app", role: "owner" }, { members, runtime: runtime() })).toEqual({ ok: false, reason: "forbidden" });
+  });
+
   it.each(["member", "viewer"] as const)("refuses an inviter whose role cannot manage members (%s)", async (role) => {
     const members = new FakeMemberStore();
     const result = await inviteMember({ actor: actor(role), email: "x@firesio.app", role: "viewer" }, { members, runtime: runtime() });

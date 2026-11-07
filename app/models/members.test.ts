@@ -2,6 +2,7 @@ import { env } from "cloudflare:test";
 import { drizzle } from "drizzle-orm/d1";
 import { describe, expect, it } from "vitest";
 import { shopMembers, shops } from "~/db/schema";
+import type { MemberRole } from "~/domain/member-access";
 import type { MemberProfile } from "~/ports/members";
 import { runWithRequestContext } from "~/request-context.server";
 import { setupTestDatabase } from "~/test/db";
@@ -21,43 +22,74 @@ async function seedShops() {
   await db.insert(shops).values([{ shop: A, installedAt: 1 }, { shop: B, installedAt: 1 }]);
 }
 
-describe("createOwnerIfNone", () => {
-  it("makes the first person the owner, active, and records their profile", async () => {
+describe("createFirstMemberIfNone", () => {
+  const first = (repo: MemberRepo, shop: string, id: string, userId: string, overrides: Partial<MemberProfile> = {}, role: MemberRole = "admin", now = 1) =>
+    repo.createFirstMemberIfNone(shop, { ...person(id, userId, overrides), role, now });
+
+  it("makes the first person an active member with the role given, and records their profile", async () => {
     const created = await inRequest(async () => {
       await seedShops();
-      return new MemberRepo().createOwnerIfNone(A, { ...person("m1", "42", { email: "Ada@Firesio.app", name: "Ada", accountOwner: true }), now: 100 });
+      return first(new MemberRepo(), A, "m1", "42", { email: "Ada@Firesio.app", name: "Ada", accountOwner: true }, "admin", 100);
     });
-    expect(created).toMatchObject({ id: "m1", shop: A, shopifyUserId: "42", email: "ada@firesio.app", name: "Ada", role: "owner", status: "active", accountOwner: true, lastSeenAt: 100 });
+    expect(created).toMatchObject({ id: "m1", shop: A, shopifyUserId: "42", email: "ada@firesio.app", name: "Ada", role: "admin", status: "active", accountOwner: true, lastSeenAt: 100 });
   });
 
-  it("adds only one owner when two first requests race", async () => {
+  it("adds only one first member when two first requests race", async () => {
     const outcome = await inRequest(async () => {
       await seedShops();
       const repo = new MemberRepo();
-      const [first, second] = await Promise.all([
-        repo.createOwnerIfNone(A, { ...person("m1", "1"), now: 1 }),
-        repo.createOwnerIfNone(A, { ...person("m2", "2"), now: 1 }),
-      ]);
-      return { winners: [first, second].filter((member) => member !== undefined).length, rows: await db.select().from(shopMembers) };
+      const [one, two] = await Promise.all([first(repo, A, "m1", "1"), first(repo, A, "m2", "2")]);
+      return { winners: [one, two].filter((member) => member !== undefined).length, rows: await db.select().from(shopMembers) };
     });
     expect(outcome.winners).toBe(1);
     expect(outcome.rows).toHaveLength(1);
   });
 
-  it("adds nothing once the shop has an active owner", async () => {
+  it("adds nothing once someone has opened the app", async () => {
     const outcome = await inRequest(async () => {
       await seedShops();
       const repo = new MemberRepo();
-      await repo.createOwnerIfNone(A, { ...person("m1", "1"), now: 1 });
-      return { second: await repo.createOwnerIfNone(A, { ...person("m2", "2"), now: 2 }), has: await repo.hasActiveOwner(A) };
+      await first(repo, A, "m1", "1");
+      return { second: await first(repo, A, "m2", "2"), opened: await repo.hasOpenedApp(A) };
     });
     expect(outcome.second).toBeUndefined();
-    expect(outcome.has).toBe(true);
+    expect(outcome.opened).toBe(true);
+  });
+
+  it.each(["pending", "removed", "active"] as const)("counts a %s member with a Shopify user as someone who opened the app", async (status) => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      await db.insert(shopMembers).values({ id: "seen", shop: A, shopifyUserId: "1", role: "viewer", status, createdAt: 1, updatedAt: 1 });
+      const repo = new MemberRepo();
+      return { created: await first(repo, A, "m2", "2"), opened: await repo.hasOpenedApp(A) };
+    });
+    expect(outcome.created).toBeUndefined();
+    expect(outcome.opened).toBe(true);
+  });
+
+  it("does not count an invitation nobody took up as someone who opened the app", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      const repo = new MemberRepo();
+      await repo.createInvite(A, { id: "i1", email: "i@firesio.app", role: "admin", invitedBy: "nobody", now: 1 });
+      const before = await repo.hasOpenedApp(A);
+      return { before, created: await first(repo, A, "m1", "1") };
+    });
+    expect(outcome.before).toBe(false);
+    expect(outcome.created).toMatchObject({ id: "m1", status: "active" });
+  });
+
+  it("ignores the seat limit: it never asks for one", async () => {
+    const created = await inRequest(async () => {
+      await seedShops();
+      return first(new MemberRepo(), A, "m1", "1");
+    });
+    expect(created?.status).toBe("active");
   });
 
   it("writes nothing for a shop we hold no row for", async () => {
     const outcome = await inRequest(async () => {
-      const created = await new MemberRepo().createOwnerIfNone("unknown.myshopify.com", { ...person("m1", "1"), now: 1 });
+      const created = await first(new MemberRepo(), "unknown.myshopify.com", "m1", "1");
       return { created, rows: await db.select().from(shopMembers) };
     });
     expect(outcome.created).toBeUndefined();
@@ -69,21 +101,21 @@ describe("createOwnerIfNone", () => {
       await seedShops();
       const repo = new MemberRepo();
       await repo.create(A, { ...person("m1", "1"), role: "viewer", status: "pending", now: 1 }, null);
-      return repo.createOwnerIfNone(A, { ...person("m2", "1"), now: 2 });
+      return first(repo, A, "m2", "1", {}, "admin", 2);
     });
     expect(second).toBeUndefined();
   });
 
-  it("counts an owner who was removed or is still pending as no owner", async () => {
+  it("asks per shop: someone in another shop is not someone who opened this one", async () => {
     const outcome = await inRequest(async () => {
       await seedShops();
-      await db.insert(shopMembers).values([
-        { id: "gone", shop: A, shopifyUserId: "1", role: "owner", status: "removed", createdAt: 1, updatedAt: 1 },
-        { id: "wait", shop: A, shopifyUserId: "2", role: "owner", status: "pending", createdAt: 1, updatedAt: 1 },
-      ]);
-      return new MemberRepo().hasActiveOwner(A);
+      const repo = new MemberRepo();
+      await first(repo, B, "b1", "1");
+      return { openedA: await repo.hasOpenedApp(A), openedB: await repo.hasOpenedApp(B), createdInA: await first(repo, A, "a1", "1") };
     });
-    expect(outcome).toBe(false);
+    expect(outcome.openedA).toBe(false);
+    expect(outcome.openedB).toBe(true);
+    expect(outcome.createdInA).toMatchObject({ id: "a1", shop: A });
   });
 });
 
@@ -124,19 +156,19 @@ describe("create and find", () => {
     expect(outcome.inNone).toBeUndefined();
   });
 
-  it("cannot be asked about a member of another shop by their email, invitation or owner status", async () => {
+  it("cannot be asked about a member of another shop by their email, invitation or whether the app was opened", async () => {
     const outcome = await inRequest(async () => {
       await seedShops();
       const repo = new MemberRepo();
-      await repo.createOwnerIfNone(A, { ...person("a1", "1", { email: "boss@firesio.app" }), now: 1 });
+      await repo.createFirstMemberIfNone(A, { ...person("a1", "1", { email: "boss@firesio.app" }), role: "owner", now: 1 });
       await repo.createInvite(A, { id: "i1", email: "new@firesio.app", role: "member", invitedBy: "a1", now: 1 });
       return {
         invite: await repo.findInviteByEmail(B, "new@firesio.app"),
         open: await repo.findOpenByEmail(B, "boss@firesio.app"),
-        owner: await repo.hasActiveOwner(B),
+        opened: await repo.hasOpenedApp(B),
       };
     });
-    expect(outcome).toEqual({ invite: undefined, open: undefined, owner: false });
+    expect(outcome).toEqual({ invite: undefined, open: undefined, opened: false });
   });
 });
 
@@ -265,7 +297,7 @@ describe("seats", () => {
   async function shopWith(active: number) {
     await seedShops();
     const repo = new MemberRepo();
-    await repo.createOwnerIfNone(A, { ...person("owner", "o"), now: 1 });
+    await repo.createFirstMemberIfNone(A, { ...person("owner", "o"), role: "owner", now: 1 });
     for (let index = 1; index < active; index += 1) await repo.create(A, { ...person(`m${index}`, `u${index}`), role: "member", status: "active", now: 1 }, null);
     return repo;
   }
@@ -317,7 +349,7 @@ describe("seats", () => {
   it("counts seats per shop: another shop's members take none of this shop's", async () => {
     const status = await inRequest(async () => {
       const repo = await shopWith(1);
-      await repo.createOwnerIfNone(B, { ...person("ob", "ob"), now: 1 });
+      await repo.createFirstMemberIfNone(B, { ...person("ob", "ob"), role: "owner", now: 1 });
       for (let index = 0; index < 5; index += 1) await repo.create(B, { ...person(`b${index}`, `bu${index}`), role: "member", status: "active", now: 1 }, null);
       return created(await repo.create(A, { ...person("a2", "u9"), role: "member", status: "active", now: 2 }, 2))?.status;
     });
@@ -352,7 +384,7 @@ describe("activate", () => {
   async function team() {
     await seedShops();
     const repo = new MemberRepo();
-    await repo.createOwnerIfNone(A, { ...person("owner", "o"), now: 1 });
+    await repo.createFirstMemberIfNone(A, { ...person("owner", "o"), role: "owner", now: 1 });
     await repo.create(A, { ...person("wait", "w"), role: "viewer", status: "pending", now: 1 }, null);
     await db.insert(shopMembers).values({ id: "gone", shop: A, shopifyUserId: "g", role: "member", status: "removed", createdAt: 1, updatedAt: 1 });
     return repo;
@@ -397,7 +429,7 @@ describe("setRole and remove", () => {
   async function owners(count: number) {
     await seedShops();
     const repo = new MemberRepo();
-    await repo.createOwnerIfNone(A, { ...person("o1", "1"), now: 1 });
+    await repo.createFirstMemberIfNone(A, { ...person("o1", "1"), role: "owner", now: 1 });
     for (let index = 2; index <= count; index += 1) await repo.create(A, { ...person(`o${index}`, `${index}`), role: "owner", status: "active", now: 1 }, null);
     await repo.create(A, { ...person("m", "9"), role: "member", status: "active", now: 1 }, null);
     return repo;
@@ -471,15 +503,112 @@ describe("setRole and remove", () => {
   });
 });
 
+describe("the last active team manager", () => {
+  /** `roles` are the active members of A, in order; a member is "m0", "m1" ... with user ids "0", "1" ... */
+  async function team(roles: readonly MemberRole[]) {
+    await seedShops();
+    const repo = new MemberRepo();
+    for (const [index, role] of roles.entries()) await repo.create(A, { ...person(`m${index}`, `${index}`), role, status: "active", now: 1 }, null);
+    return repo;
+  }
+
+  it("refuses to remove the only active admin of a shop with no owner, and removes one of two", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["admin", "member"]);
+      const refused = await repo.remove(A, "m0", 5);
+      await repo.create(A, { ...person("m9", "9"), role: "admin", status: "active", now: 2 }, null);
+      return { refused, allowed: (await repo.remove(A, "m0", 6))?.status };
+    });
+    expect(outcome).toEqual({ refused: undefined, allowed: "removed" });
+  });
+
+  it("refuses to demote the only active admin, and allows it while an owner remains", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["admin"]);
+      const refused = await repo.setRole(A, "m0", "member", 5);
+      await repo.create(A, { ...person("o", "o"), role: "owner", status: "active", now: 2 }, null);
+      return { refused, stillAdmin: (await repo.findById(A, "m0"))?.role, allowed: (await repo.setRole(A, "m0", "member", 6))?.role };
+    });
+    expect(outcome).toEqual({ refused: undefined, stillAdmin: "admin", allowed: "member" });
+  });
+
+  it("lets the last manager change to another role that also manages the team", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["admin"]);
+      return (await repo.setRole(A, "m0", "owner", 5))?.role;
+    });
+    expect(outcome).toBe("owner");
+  });
+
+  it("lets an owner who is not the last manager be demoted to admin only while it keeps another owner, and always keeps a manager", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["owner", "owner"]);
+      const first = await repo.setRole(A, "m0", "admin", 5);
+      const second = await repo.setRole(A, "m1", "admin", 6);
+      return { first: first?.role, second };
+    });
+    expect(outcome).toEqual({ first: "admin", second: undefined });
+  });
+
+  it("counts only active managers: a pending or removed admin does not keep the last active one from being protected", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["admin"]);
+      await db.insert(shopMembers).values([
+        { id: "gone", shop: A, shopifyUserId: "g", role: "admin", status: "removed", createdAt: 1, updatedAt: 1 },
+        { id: "wait", shop: A, shopifyUserId: "w", role: "admin", status: "pending", createdAt: 1, updatedAt: 1 },
+      ]);
+      return repo.remove(A, "m0", 5);
+    });
+    expect(outcome).toBeUndefined();
+  });
+
+  it("lets exactly one of two admins win when they remove each other at once", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["admin", "admin"]);
+      const results = await Promise.all([repo.remove(A, "m0", 5), repo.remove(A, "m1", 5)]);
+      return { landed: results.filter((result) => result !== undefined).length, active: (await repo.countByStatus(A)).active };
+    });
+    expect(outcome).toEqual({ landed: 1, active: 1 });
+  });
+
+  it("lets exactly one of two admins win when they demote each other at once", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["admin", "admin"]);
+      const results = await Promise.all([repo.setRole(A, "m0", "viewer", 5), repo.setRole(A, "m1", "viewer", 5)]);
+      return results.filter((result) => result !== undefined).length;
+    });
+    expect(outcome).toBe(1);
+  });
+
+  it("does not let an admin and an owner removing each other at once leave nobody", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["admin", "owner"]);
+      const results = await Promise.all([repo.remove(A, "m0", 5), repo.remove(A, "m1", 5)]);
+      return results.filter((result) => result !== undefined).length;
+    });
+    expect(outcome).toBe(1);
+  });
+
+  it("protects a manager only inside their own shop", async () => {
+    const outcome = await inRequest(async () => {
+      const repo = await team(["admin"]);
+      await repo.create(B, { ...person("b0", "0"), role: "admin", status: "active", now: 1 }, null);
+      return { b: (await repo.remove(B, "b0", 5)) === undefined, a: (await repo.findById(A, "m0"))?.status };
+    });
+    // B has one admin only, so B's is refused; A's admin is untouched by it.
+    expect(outcome).toEqual({ b: true, a: "active" });
+  });
+});
+
 describe("list and countByStatus", () => {
   it("list a shop's team and no one else's, oldest first", async () => {
     const outcome = await inRequest(async () => {
       await seedShops();
       const repo = new MemberRepo();
-      await repo.createOwnerIfNone(A, { ...person("a1", "1"), now: 1 });
+      await repo.createFirstMemberIfNone(A, { ...person("a1", "1"), role: "owner", now: 1 });
       await repo.create(A, { ...person("a2", "2"), role: "member", status: "active", now: 2 }, null);
       await repo.createInvite(A, { id: "ai", email: "i@firesio.app", role: "viewer", invitedBy: "a1", now: 3 });
-      await repo.createOwnerIfNone(B, { ...person("b1", "1"), now: 1 });
+      await repo.createFirstMemberIfNone(B, { ...person("b1", "1"), role: "owner", now: 1 });
       return { team: (await repo.list(A)).map((member) => member.id), other: (await repo.list(B)).map((member) => member.id), counts: await repo.countByStatus(A) };
     });
     expect(outcome.team).toEqual(["a1", "a2", "ai"]);
@@ -491,7 +620,7 @@ describe("list and countByStatus", () => {
     const outcome = await inRequest(async () => {
       await seedShops();
       const repo = new MemberRepo();
-      await repo.createOwnerIfNone(A, { ...person("a1", "1"), now: 1 });
+      await repo.createFirstMemberIfNone(A, { ...person("a1", "1"), role: "owner", now: 1 });
       return { own: (await repo.findById(A, "a1"))?.id, foreign: await repo.findById(B, "a1") };
     });
     expect(outcome).toEqual({ own: "a1", foreign: undefined });
@@ -503,11 +632,11 @@ describe("listWithRoles", () => {
     const outcome = await inRequest(async () => {
       await seedShops();
       const repo = new MemberRepo();
-      await repo.createOwnerIfNone(A, { ...person("o", "1"), now: 1 });
+      await repo.createFirstMemberIfNone(A, { ...person("o", "1"), role: "owner", now: 1 });
       await repo.create(A, { ...person("a", "2"), role: "admin", status: "active", now: 2 }, null);
       await repo.create(A, { ...person("m", "3"), role: "member", status: "active", now: 3 }, null);
       await repo.create(A, { ...person("p", "4"), role: "admin", status: "pending", now: 4 }, null);
-      await repo.createOwnerIfNone(B, { ...person("ob", "1"), now: 1 });
+      await repo.createFirstMemberIfNone(B, { ...person("ob", "1"), role: "owner", now: 1 });
       return {
         managers: (await repo.listWithRoles(A, ["owner", "admin"], 10)).map((member) => member.id),
         bounded: (await repo.listWithRoles(A, ["owner", "admin"], 1)).map((member) => member.id),

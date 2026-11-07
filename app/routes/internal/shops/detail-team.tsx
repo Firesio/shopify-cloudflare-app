@@ -17,7 +17,7 @@ function seatLine(seats: SeatSummary): string {
 
 /**
  * Who from this shop can use the app, read-only, for answering a merchant who says "my colleague cannot get in". Staff do
- * not change a shop's team from here: the merchant's owners do, on the shop's own Team page.
+ * not change a shop's team from here: the merchant's owners and admins do, on the shop's own Team page.
  */
 export function TeamCard({ team, seats }: { readonly team: readonly TeamMember[]; readonly seats: SeatSummary }) {
   const rows = orderTeam(team);

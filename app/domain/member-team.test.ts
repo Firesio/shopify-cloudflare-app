@@ -83,6 +83,14 @@ describe("what a row offers", () => {
     expect(teamRows(admin, [member({ id: "m", role: "member" })])[0]!.can).toMatchObject({ changeRole: true, remove: true });
   });
 
+  it("offers an admin everything on another admin and nothing on a removed or pending owner, which only an owner may restore or approve", () => {
+    const admin = { id: "me", role: "admin" };
+    expect(teamRows(admin, [member({ id: "a", role: "admin" })])[0]!.can).toMatchObject({ changeRole: true, remove: true });
+    expect(teamRows(admin, [member({ id: "o", role: "owner", status: "removed" })])[0]!.can).toEqual({ changeRole: false, remove: false, approve: false, restore: false });
+    expect(teamRows(admin, [member({ id: "o", role: "owner", status: "pending" })])[0]!.can).toEqual({ changeRole: false, remove: false, approve: false, restore: false });
+    expect(teamRows({ id: "me", role: "owner" }, [member({ id: "o", role: "owner", status: "removed" })])[0]!.can.restore).toBe(true);
+  });
+
   it("offers a member and a viewer nothing at all, whoever the row is", () => {
     for (const role of ["member", "viewer"]) {
       for (const target of MEMBER_ROLES) {
@@ -139,6 +147,18 @@ describe("contactsOf", () => {
     expect(contacts).toEqual([
       { name: "Bea", email: "b@firesio.app" },
       { name: "Amy", email: null },
+      { name: "Zed", email: "z@firesio.app" },
+    ]);
+  });
+
+  it("shows the admins when the shop has no owner at all", () => {
+    expect(
+      contactsOf([
+        { name: "Zed", email: "z@firesio.app", role: "admin" },
+        { name: "Amy", email: "a@firesio.app", role: "admin" },
+      ]),
+    ).toEqual([
+      { name: "Amy", email: "a@firesio.app" },
       { name: "Zed", email: "z@firesio.app" },
     ]);
   });

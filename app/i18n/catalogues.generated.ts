@@ -170,6 +170,7 @@ export type AdminKey =
   | "members.errors.emailInvalid"
   | "members.errors.forbidden"
   | "members.errors.invalidState"
+  | "members.errors.lastManager"
   | "members.errors.lastOwner"
   | "members.errors.noSeat"
   | "members.errors.notFound"

@@ -15,6 +15,7 @@ export const ERROR_TEXT = {
   notFound: "members.errors.notFound",
   notYourself: "members.errors.notYourself",
   lastOwner: "members.errors.lastOwner",
+  lastManager: "members.errors.lastManager",
   noSeat: "members.errors.noSeat",
   invalidState: "members.errors.invalidState",
   emailInvalid: "members.errors.emailInvalid",

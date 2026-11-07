@@ -19,32 +19,94 @@ function setup(config: AdmissionConfig = { onUnknownUser: "auto_join", autoJoinR
   return { members, clock, logs, seats, deps: { members, seats, config, runtime, log: (entry: MemberLogEntry) => void logs.push(entry) } };
 }
 
+const POLICIES = ["auto_join", "invite_only", "approval"] as const;
+
 describe("the first person on a store", () => {
-  it("becomes its owner, whichever policy the app chose", async () => {
-    for (const onUnknownUser of ["auto_join", "invite_only", "approval"] as const) {
-      const { deps, members } = setup({ onUnknownUser, autoJoinRole: "member" });
-      const access = await resolveMember(identity(), deps);
-      expect(access).toMatchObject({ ok: true, member: { role: "owner", status: "active", shopifyUserId: "1" } });
-      expect(members.rows).toHaveLength(1);
-    }
+  it.each(POLICIES)("becomes its admin, never its owner, under %s", async (onUnknownUser) => {
+    const { deps, members } = setup({ onUnknownUser, autoJoinRole: "viewer" });
+    const access = await resolveMember(identity(), deps);
+    expect(access).toMatchObject({ ok: true, member: { role: "admin", status: "active", shopifyUserId: "1" } });
+    expect(members.rows).toHaveLength(1);
+    expect(members.rows.filter((row) => row.role === "owner")).toEqual([]);
   });
 
   it("is logged without any personal detail", async () => {
     const { deps, logs } = setup();
     await resolveMember(identity({ email: "ada@firesio.app", name: "Ada" }), deps);
-    expect(logs).toEqual([{ event: "member.created", shop: SHOP, role: "owner", status: "active", reason: "first_user" }]);
+    expect(logs).toEqual([{ event: "member.created", shop: SHOP, role: "admin", status: "active", reason: "first_user" }]);
   });
 
-  it("is one owner when two first requests arrive together", async () => {
+  it.each(POLICIES)("is admitted whatever the plan's seats say, even none at all, under %s", async (onUnknownUser) => {
+    const { deps, seats } = setup({ onUnknownUser, autoJoinRole: "member" }, noSeats);
+    expect(await resolveMember(identity(), deps)).toMatchObject({ ok: true, member: { role: "admin", status: "active" } });
+    expect(seats.asked).toBe(0);
+  });
+
+  it("is one admin when two first requests arrive together, and the loser follows the policy", async () => {
     const { deps, members } = setup();
     members.beforeWrite = (kind) => {
-      // The other request lands its owner between this one's check and its write.
-      if (kind === "createOwnerIfNone" && members.rows.length === 0) members.add({ id: "rival", shop: SHOP, role: "owner", status: "active", shopifyUserId: "2" });
+      // The other request lands its admin between this one's check and its write.
+      if (kind === "createFirstMemberIfNone" && members.rows.length === 0) members.add({ id: "rival", shop: SHOP, role: "admin", status: "active", shopifyUserId: "2" });
     };
     const access = await resolveMember(identity({ shopifyUserId: "1" }), deps);
-    // This request lost; it asks again, finds an owner, and is treated as a stranger under auto_join.
+    // This request lost; it asks again, finds the app opened, and is treated as a stranger under auto_join.
     expect(access).toMatchObject({ ok: true, member: { role: "member", shopifyUserId: "1" } });
-    expect(members.rows.filter((row) => row.role === "owner")).toHaveLength(1);
+    expect(members.rows.filter((row) => row.role === "admin")).toHaveLength(1);
+  });
+
+  it("is the account owner's owner row, not the first-user rule, when Shopify says they own the store", async () => {
+    for (const onUnknownUser of POLICIES) {
+      const { deps, logs, members } = setup({ onUnknownUser, autoJoinRole: "member" }, noSeats);
+      expect(await resolveMember(identity({ accountOwner: true }), deps)).toMatchObject({ ok: true, member: { role: "owner", status: "active", accountOwner: true } });
+      expect(logs).toEqual([{ event: "member.created", shop: SHOP, role: "owner", status: "active", reason: "account_owner" }]);
+      expect(members.rows).toHaveLength(1);
+    }
+  });
+
+  it("is not the admin when they are a collaborator: the first collaborator follows the policy", async () => {
+    const auto = setup({ onUnknownUser: "auto_join", autoJoinRole: "viewer" });
+    expect(await resolveMember(identity({ collaborator: true }), auto.deps)).toMatchObject({ ok: true, member: { role: "viewer", status: "active", collaborator: true } });
+    expect(auto.logs).toEqual([{ event: "member.created", shop: SHOP, role: "viewer", status: "active", reason: "auto_join" }]);
+
+    const invite = setup({ onUnknownUser: "invite_only", autoJoinRole: "viewer" });
+    expect(await resolveMember(identity({ collaborator: true }), invite.deps)).toEqual({ ok: false, reason: "not_invited" });
+    expect(invite.members.rows).toEqual([]);
+
+    const approval = setup({ onUnknownUser: "approval", autoJoinRole: "viewer" });
+    expect(await resolveMember(identity({ collaborator: true }), approval.deps)).toEqual({ ok: false, reason: "pending" });
+    expect(approval.members.rows[0]).toMatchObject({ role: "viewer", status: "pending", collaborator: true });
+  });
+
+  it.each(["auto_join", "approval"] as const)("is not followed by a second first user once a collaborator has opened the app under %s", async (onUnknownUser) => {
+    const { deps, members } = setup({ onUnknownUser, autoJoinRole: "member" });
+    await resolveMember(identity({ shopifyUserId: "1", collaborator: true }), deps);
+    await resolveMember(identity({ shopifyUserId: "2" }), deps);
+    expect(members.rows.filter((row) => row.role === "admin")).toEqual([]);
+    expect(members.rows.find((row) => row.shopifyUserId === "2")).toMatchObject(onUnknownUser === "auto_join" ? { role: "member", status: "active" } : { role: "viewer", status: "pending" });
+  });
+
+  it("is still the admin under invite_only after a collaborator was turned away: nothing was recorded, and otherwise nobody could ever invite", async () => {
+    const { deps, members } = setup({ onUnknownUser: "invite_only", autoJoinRole: "member" });
+    expect(await resolveMember(identity({ shopifyUserId: "1", collaborator: true }), deps)).toEqual({ ok: false, reason: "not_invited" });
+    expect(await resolveMember(identity({ shopifyUserId: "2" }), deps)).toMatchObject({ ok: true, member: { role: "admin", status: "active" } });
+    expect(members.rows).toHaveLength(1);
+  });
+
+  it("is never repeated once the first admin was removed: a new stranger follows the policy and the removed admin is kept out", async () => {
+    for (const onUnknownUser of POLICIES) {
+      const { deps, members } = setup({ onUnknownUser, autoJoinRole: "member" });
+      await resolveMember(identity({ shopifyUserId: "1" }), deps);
+      const index = members.rows.findIndex((row) => row.shopifyUserId === "1");
+      const first = members.rows[index];
+      if (first === undefined) throw new Error("the first admin was not created");
+      // An owner removed them (the real store would refuse removing the last manager, so the row is set directly).
+      members.rows[index] = { ...first, status: "removed" };
+
+      const stranger = await resolveMember(identity({ shopifyUserId: "2" }), deps);
+      expect(stranger).toEqual(onUnknownUser === "auto_join" ? expect.objectContaining({ ok: true, member: expect.objectContaining({ role: "member" }) }) : { ok: false, reason: onUnknownUser === "approval" ? "pending" : "not_invited" });
+      expect(members.rows.filter((row) => row.role === "admin" && row.status === "active")).toEqual([]);
+      expect(await resolveMember(identity({ shopifyUserId: "1" }), deps)).toEqual({ ok: false, reason: "removed" });
+    }
   });
 });
 
@@ -104,6 +166,21 @@ describe("a known member", () => {
 });
 
 describe("the store's own owner", () => {
+  it("is made an owner when an admin already runs the store, and the admin is left as they were", async () => {
+    const { deps, members } = setup({ onUnknownUser: "invite_only", autoJoinRole: "member" });
+    members.add({ id: "admin", shop: SHOP, role: "admin", status: "active", shopifyUserId: "9", lastSeenAt: deps.runtime.clock.now() });
+    const before = { ...members.rows[0] };
+    expect(await resolveMember(identity({ shopifyUserId: "2", accountOwner: true }), deps)).toMatchObject({ ok: true, member: { role: "owner", status: "active", accountOwner: true } });
+    expect(members.rows.find((row) => row.id === "admin")).toEqual(before);
+  });
+
+  it("becomes an owner again when their row is an active admin (ownership moved to them, or they were admitted earlier)", async () => {
+    const { deps, members, logs } = setup({ onUnknownUser: "invite_only", autoJoinRole: "member" });
+    members.add({ id: "x", shop: SHOP, role: "admin", status: "active", shopifyUserId: "1", lastSeenAt: deps.runtime.clock.now() });
+    expect(await resolveMember(identity({ accountOwner: true }), deps)).toMatchObject({ ok: true, member: { id: "x", role: "owner", status: "active" } });
+    expect(logs).toEqual([{ event: "member.owner_restored", shop: SHOP }]);
+  });
+
   it("is let in as owner even when the shop already has one and the policy is invite_only", async () => {
     const { deps, members } = setup({ onUnknownUser: "invite_only", autoJoinRole: "member" });
     members.add({ id: "first", shop: SHOP, role: "owner", status: "active", shopifyUserId: "9" });
@@ -252,10 +329,33 @@ describe("seats", () => {
 
   it("never keeps an owner waiting: the first user and the store's own owner are admitted with no seat at all", async () => {
     const first = setup({ onUnknownUser: "auto_join", autoJoinRole: "member" }, noSeats);
-    expect(await resolveMember(identity(), first.deps)).toMatchObject({ ok: true, member: { role: "owner", status: "active" } });
+    expect(await resolveMember(identity(), first.deps)).toMatchObject({ ok: true, member: { role: "admin", status: "active" } });
 
     const owner = owned({ onUnknownUser: "invite_only", autoJoinRole: "member" }, noSeats);
     expect(await resolveMember(identity({ shopifyUserId: "2", accountOwner: true }), owner.deps)).toMatchObject({ ok: true, member: { role: "owner", status: "active" } });
+  });
+
+  it("counts an owner who arrives with the team at the limit, changes nobody, and keeps the next stranger waiting", async () => {
+    const { deps, members } = setup({ onUnknownUser: "auto_join", autoJoinRole: "member" }, seatsFor(2));
+    members.add({ id: "a", shop: SHOP, role: "admin", status: "active", shopifyUserId: "7", lastSeenAt: deps.runtime.clock.now() });
+    members.add({ id: "b", shop: SHOP, role: "member", status: "active", shopifyUserId: "8", lastSeenAt: deps.runtime.clock.now() });
+    const before = members.rows.map((row) => ({ ...row }));
+
+    expect(await resolveMember(identity({ shopifyUserId: "2", accountOwner: true }), deps)).toMatchObject({ ok: true, member: { role: "owner", status: "active" } });
+    expect(members.rows.filter((row) => row.status === "active")).toHaveLength(3);
+    expect(members.rows.slice(0, 2)).toEqual(before);
+
+    expect(await resolveMember(identity({ shopifyUserId: "3" }), deps)).toEqual({ ok: false, reason: "pending" });
+    expect(members.rows.filter((row) => row.status === "active")).toHaveLength(3);
+  });
+
+  it("restores a removed account owner past a team that is over the limit", async () => {
+    const { deps, members } = setup({ onUnknownUser: "invite_only", autoJoinRole: "member" }, seatsFor(1));
+    members.add({ id: "a", shop: SHOP, role: "admin", status: "active", shopifyUserId: "7", lastSeenAt: deps.runtime.clock.now() });
+    members.add({ id: "b", shop: SHOP, role: "member", status: "active", shopifyUserId: "8", lastSeenAt: deps.runtime.clock.now() });
+    members.add({ id: "gone", shop: SHOP, role: "viewer", status: "removed", shopifyUserId: "2" });
+    expect(await resolveMember(identity({ shopifyUserId: "2", accountOwner: true }), deps)).toMatchObject({ ok: true, member: { id: "gone", role: "owner", status: "active" } });
+    expect(members.rows.filter((row) => row.status === "active")).toHaveLength(3);
   });
 
   it("is asked about the plan only when someone is about to become an active member", async () => {
@@ -336,13 +436,13 @@ describe("the store's own owner with a different user id than the existing owner
 });
 
 describe("a shop with no members at all", () => {
-  it("makes the first person its owner and the second, who is not the account owner, a member", async () => {
+  it("makes the first person its admin and the second, who is not the account owner, a member", async () => {
     const { deps, members } = setup({ onUnknownUser: "auto_join", autoJoinRole: "member" });
     expect(members.rows).toHaveLength(0);
 
-    expect(await resolveMember(identity({ shopifyUserId: "1" }), deps)).toMatchObject({ ok: true, member: { shopifyUserId: "1", role: "owner" } });
+    expect(await resolveMember(identity({ shopifyUserId: "1" }), deps)).toMatchObject({ ok: true, member: { shopifyUserId: "1", role: "admin" } });
     expect(await resolveMember(identity({ shopifyUserId: "2" }), deps)).toMatchObject({ ok: true, member: { shopifyUserId: "2", role: "member" } });
-    expect(members.rows.filter((row) => row.role === "owner")).toHaveLength(1);
+    expect(members.rows.filter((row) => row.role === "owner")).toEqual([]);
   });
 });
 

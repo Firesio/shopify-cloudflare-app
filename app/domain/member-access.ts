@@ -37,12 +37,13 @@ export interface RoleSpec {
 /**
  * Keyed by the union, so a role cannot exist without a permission list.
  *
- * `owner` is EVERYTHING by construction, so a permission added later reaches the one role that can always recover the
- * store's access. The narrower roles list what they hold, so a new permission reaches them only on purpose.
+ * `owner` and `admin` are EVERYTHING by construction, so a permission added later reaches both. They differ in one
+ * thing no permission expresses: only an owner can make or touch an owner (`canAssignRole`). The narrower roles list
+ * what they hold, so a new permission reaches them only on purpose.
  */
 export const ROLE_SPECS: Readonly<Record<MemberRole, RoleSpec>> = {
   owner: { permissions: MEMBER_PERMISSIONS },
-  admin: { permissions: ["app:view", "app:manage", "members:manage"] },
+  admin: { permissions: MEMBER_PERMISSIONS },
   member: { permissions: ["app:view", "app:manage"] },
   viewer: { permissions: ["app:view"] },
 };
@@ -62,10 +63,16 @@ export function can(role: string, permission: MemberPermission): boolean {
 }
 
 /**
- * May someone in `actorRole` hand out `role`? Only when they hold every permission it carries. Nobody can grant what
- * they lack, so a role that gains a permission later never becomes a way around the check.
+ * May someone in `actorRole` hand out `role`, or touch a member who holds it? Two rules, both here so no caller can
+ * forget one:
+ *
+ *   - `owner` is held by Shopify's account owner or by someone an owner chose: only an owner may make, change, remove,
+ *     approve or restore one. An admin holds every permission an owner does, so permissions alone cannot say this.
+ *   - any other role only when the actor holds every permission it carries. Nobody can grant what they lack, so a role
+ *     that gains a permission later never becomes a way around the check.
  */
 export function canAssignRole(actorRole: string, role: MemberRole): boolean {
+  if (role === "owner" && actorRole !== "owner") return false;
   const held = permissionsOf(actorRole);
   return ROLE_SPECS[role].permissions.every((permission) => held.includes(permission));
 }

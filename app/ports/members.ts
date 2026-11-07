@@ -56,7 +56,11 @@ export interface MemberStore {
   findInviteByEmail(shop: string, email: string): Promise<Member | undefined>;
   /** Any membership for this email that is not removed, an open invitation included. */
   findOpenByEmail(shop: string, email: string): Promise<Member | undefined>;
-  hasActiveOwner(shop: string): Promise<boolean>;
+  /**
+   * Has anyone opened the app on this shop: is there a membership with a Shopify user, in ANY status? An invitation nobody
+   * has taken up has no user and does not count.
+   */
+  hasOpenedApp(shop: string): Promise<boolean>;
   /** The shop's team: people first (owners, then by name), invitations last. */
   list(shop: string): Promise<readonly Member[]>;
   /** Active members whose role is one of `roles` (the people to ask for access), oldest first, at most `limit`. */
@@ -64,10 +68,11 @@ export interface MemberStore {
   /** How many members are in each status. */
   countByStatus(shop: string): Promise<Readonly<Record<MemberStatus, number>>>;
   /**
-   * Adds an OWNER only if the shop has no active owner, in one statement, so two first requests cannot both become the
-   * first owner. Undefined when the shop already has one (or has no `shops` row). Owners never wait for a seat.
+   * Adds the shop's FIRST member, `active` with `member.role`, only if nobody has opened the app yet (no membership with
+   * a Shopify user in any status), in one statement, so two first requests cannot both be first. Undefined when someone
+   * has (or the shop has no `shops` row, or this user already has a row). The first member never waits for a seat.
    */
-  createOwnerIfNone(shop: string, member: Omit<NewMember, "role" | "status">): Promise<Member | undefined>;
+  createFirstMemberIfNone(shop: string, member: Omit<NewMember, "status">): Promise<Member | undefined>;
   /** Adds a member, `pending` instead of `active` when `cap` is already reached. Owners are added with `cap` null. */
   create(shop: string, member: NewMember, cap: SeatCap): Promise<CreateOutcome>;
   createInvite(shop: string, invite: { id: string; email: string; role: MemberRole; invitedBy: string; now: number }): Promise<Member>;
@@ -83,9 +88,12 @@ export interface MemberStore {
    * the caller reads the member again to say which.
    */
   activate(shop: string, id: string, input: { from: readonly MemberStatus[]; role: MemberRole; cap: SeatCap; now: number }): Promise<Member | undefined>;
-  /** Changes a role. Refused (undefined) when it would leave the shop without an active owner. */
+  /**
+   * Changes a role. Refused (undefined) when it would take the last active owner's role, or the last active member who
+   * may manage the team (`members:manage`) out of a role that holds it.
+   */
   setRole(shop: string, id: string, role: MemberRole, now: number): Promise<Member | undefined>;
-  /** Marks a member removed. Refused (undefined) when it would leave the shop without an active owner. */
+  /** Marks a member removed. Refused (undefined) for the last active owner, and for the last active member who may manage the team. */
   remove(shop: string, id: string, now: number): Promise<Member | undefined>;
   /** Keeps what Shopify says about the person, and when they were last seen. */
   recordSeen(shop: string, id: string, profile: MemberProfile, now: number): Promise<void>;

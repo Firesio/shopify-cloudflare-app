@@ -287,11 +287,11 @@
     "roles": {
       "owner": {
         "label": "Owner",
-        "description": "Everything, including the plan. Every store always has at least one owner."
+        "description": "Everything, including the plan. The only role that can make, change or remove an owner."
       },
       "admin": {
         "label": "Admin",
-        "description": "Runs the app day to day and manages the team. Cannot change the plan."
+        "description": "Everything an owner can do, including the plan and the team, except make, change or remove an owner."
       },
       "member": {
         "label": "Member",
@@ -365,10 +365,11 @@
       "restored": "Member restored."
     },
     "errors": {
-      "forbidden": "You cannot do that. Only an owner or admin can manage the team, and only for roles at or below their own.",
+      "forbidden": "You cannot do that. Only an owner or admin can manage the team, and only an owner can make, change or remove an owner.",
       "notFound": "That person is no longer on the team.",
       "notYourself": "You cannot change or remove your own membership here. Ask another owner.",
-      "lastOwner": "Every store needs at least one owner. Make someone else an owner first.",
+      "lastOwner": "This is the store's only owner. Make someone else an owner first.",
+      "lastManager": "Someone who can manage the team has to stay. Make someone else an owner or admin first.",
       "noSeat": "Your plan has no free seat for another person. Remove someone or change your plan.",
       "invalidState": "That person changed in the meantime. Reload the page and try again.",
       "emailInvalid": "Enter a valid email address.",

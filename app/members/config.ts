@@ -19,7 +19,7 @@ export const MEMBERS: MembersConfig = {
   //   auto_join    becomes one, with `autoJoinRole`, and is in at once
   //   invite_only  is kept out unless a member invited their email
   //   approval     is recorded and waits until a member lets them in
-  // The installer is always the first member, an owner, whichever you choose.
+  // The first person on a store is its admin and the Shopify account owner is always an owner, whichever you choose.
   onUnknownUser: "auto_join",
   autoJoinRole: "member",
   onlineTokens: true,
