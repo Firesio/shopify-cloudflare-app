@@ -32,7 +32,7 @@ function aiActionCopy(instruction: string): { label: string; hint: string } {
   }
   return {
     label: "Improve reply",
-    hint: "Rewrites what is in the reply below, or suggests one if it is empty",
+    hint: "Rewrites what is in the reply below, or writes a generic holding reply if it is empty",
   };
 }
 
@@ -59,7 +59,7 @@ function ToneSelect({ tone, onChange }: { readonly tone: ReplyTone; readonly onC
  * Typing notes into the field that gets emailed and hoping to remember to
  * overwrite them is how a note reaches a merchant.
  *
- * Empty, it falls back to the reply box: polish what is there, or suggest one
+ * Empty, it falls back to the reply box: polish what is there, or write a generic holding reply
  * from the thread. The button says which.
  */
 function AiBox({ ticketId, draft, busy }: AiBoxProps) {

@@ -53,6 +53,43 @@ describe("generating from an instruction", () => {
   it("still carries the thread for context", () => {
     expect(user(messages)).toContain("Payment fails at the last step.");
   });
+
+  it("puts the note AFTER the thread, so the merchant's last message is not what gets answered", () => {
+    const text = user(messages);
+    expect(text.indexOf("ships Friday")).toBeGreaterThan(text.indexOf("Payment fails at the last step."));
+  });
+
+  it("translates a note written in another language into the merchant's language", () => {
+    const viet = buildReplyPrompt({
+      thread,
+      currentText: "",
+      instruction: "Trả lời họ là mình vừa upgrade shopify api, sẽ deploy vài ngày tới",
+      tone: "friendly",
+    });
+    expect(user(viet)).toContain("Trả lời họ là mình vừa upgrade shopify api");
+    expect(system(viet).toLowerCase()).toMatch(/language the merchant writes in/);
+  });
+
+  it("translates a note written in English too, when the merchant writes another language", () => {
+    const spanishThread = {
+      ...thread,
+      messages: [{ author: "merchant" as const, authorName: "Tienda", body: "El pago falla en el último paso." }],
+    };
+    const messages = buildReplyPrompt({
+      thread: spanishThread,
+      currentText: "",
+      instruction: "tell them the fix ships Friday",
+      tone: "professional",
+    });
+    // The rule names no language: it is "the merchant's", whatever the note is in.
+    expect(system(messages).toLowerCase()).toMatch(/any language, english included/);
+    expect(system(messages).toLowerCase()).toMatch(/translating it whenever the two differ/);
+    expect(user(messages)).toContain("El pago falla");
+  });
+
+  it("forbids asking the merchant anything the note did not say", () => {
+    expect(user(messages).toLowerCase()).toMatch(/do not ask the merchant for information/);
+  });
 });
 
 describe("polishing what a staff member wrote", () => {
@@ -86,11 +123,17 @@ describe("polishing what a staff member wrote", () => {
   });
 });
 
-describe("suggesting a reply when nothing is written yet", () => {
+describe("a generic holding reply when nothing is written yet", () => {
   const messages = buildReplyPrompt({ thread, currentText: "", instruction: "", tone: "professional" });
 
-  it("asks for a fitting next reply", () => {
-    expect(user(messages).toLowerCase()).toMatch(/suggest|write/);
+  it("asks only for a generic acknowledgement that the team will look into it", () => {
+    expect(user(messages).toLowerCase()).toMatch(/generic holding reply/);
+    expect(user(messages).toLowerCase()).toMatch(/team will look into it/);
+  });
+
+  it("forbids questions, requests and promised outcomes", () => {
+    expect(user(messages).toLowerCase()).toMatch(/do not ask questions/);
+    expect(user(messages).toLowerCase()).toMatch(/do not promise a date, a fix/);
   });
 
   it("does not claim the staff member wrote something", () => {

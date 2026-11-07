@@ -10,7 +10,7 @@ export interface ReplyTaskInput {
   /**
    * What the staff member typed into the AI box — their shorthand for what to
    * say. Present means GENERATE from it; empty falls back to polishing the
-   * reply box, or suggesting one from the thread.
+   * reply box, or a generic holding reply.
    */
   readonly instruction: string;
   readonly tone: ReplyTone;
@@ -20,7 +20,7 @@ export interface ReplyTaskInput {
  * Write the next reply, in a chosen tone.
  *
  * Three jobs behind one task, picked from what the staff member gave us: turn a
- * note into a message, polish what they already wrote, or suggest one from the
+ * note into a message, polish what they already wrote, or write a generic holding reply from the
  * thread. One task rather than three because the prompt, the purpose and the
  * ledger name are the same — only the instruction line differs.
  */
