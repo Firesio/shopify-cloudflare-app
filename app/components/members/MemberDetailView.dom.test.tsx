@@ -202,6 +202,49 @@ describe("the role and the permissions of one member", () => {
   });
 });
 
+describe("the permissions shown while the role is being chosen", () => {
+  /** Which permissions the page shows as allowed, read from its rows. */
+  const allowed = (page: Awaited<ReturnType<typeof mount>>) =>
+    [...page.view.container.querySelectorAll("[data-permission]")].filter((row) => row.getAttribute("data-allowed") === "true").map((row) => row.getAttribute("data-permission"));
+
+  it("follow the role chosen at once, when the app does not let merchants choose permissions one by one", async () => {
+    const page = await mount(memberDetailFixture({ id: "mia" }));
+    expect(allowed(page)).toEqual(["app:view", "app:manage"]);
+    page.chooseRole("admin");
+    expect(allowed(page)).toEqual(["app:view", "app:manage", "billing:manage", "members:manage"]);
+    page.chooseRole("viewer");
+    expect(allowed(page)).toEqual(["app:view"]);
+  });
+
+  it("go back to what is saved when the choice is discarded", async () => {
+    const page = await mount(memberDetailFixture({ id: "mia" }));
+    page.chooseRole("viewer");
+    act(() => page.press("Discard"));
+    expect(allowed(page)).toEqual(["app:view", "app:manage"]);
+  });
+
+  it("still save the role alone: there is nothing else to send", async () => {
+    const page = await mount(memberDetailFixture({ id: "mia" }));
+    page.chooseRole("admin");
+    expect(page.fields()).toEqual({ intent: ["changeRole"], id: ["mia"], role: ["admin"] });
+    expect(show).toHaveBeenCalledWith("member-access-save-bar");
+  });
+
+  it("follow the role chosen when merchants can tick permissions too: the plain rows (the way in, what only comes with a role) change as well", async () => {
+    const page = await mount(memberDetailFixture({ id: "mia", customize: editable }));
+    page.chooseRole("admin");
+    expect(allowed(page)).toEqual(["app:view", "members:manage"]);
+    page.chooseRole("viewer");
+    expect(allowed(page)).toEqual(["app:view"]);
+  });
+
+  it("do not move for a member nobody here may change: the page has no role to choose", async () => {
+    const page = await mount(memberDetailFixture({ id: "mia", can: { changeRole: false, remove: false, approve: false, restore: false } }));
+    expect(page.q("s-select")).toBeNull();
+    expect(allowed(page)).toEqual(["app:view", "app:manage"]);
+  });
+});
+
 describe("a member who has permissions of their own", () => {
   const custom = () => memberDetailFixture({ id: "mia", custom: true, role: "member", permissions: ["app:view", "app:manage", "billing:manage"], customize: editable });
 

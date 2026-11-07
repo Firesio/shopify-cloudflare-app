@@ -5,7 +5,7 @@ import { PERMISSION_TEXT } from "./permission-text";
 interface PermissionsSectionProps {
   /** Whose permissions these are, for the sentence above them. */
   readonly name: string;
-  /** What is ticked: the draft being edited, or what the member holds when it cannot be edited. */
+  /** What is ticked: the draft, which is what the member holds until something is chosen and then follows the role and the boxes at once. */
   readonly ticked: readonly MemberPermission[];
   /** The looker may give this member a set of their own: some permissions below are boxes. */
   readonly canEdit: boolean;

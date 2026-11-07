@@ -65,7 +65,7 @@ export function MemberDetailView({ member, roles, policy, result: actionData }: 
         <AccessSection member={member} roles={roles} role={access.draft.role} custom={!access.isPreset} onChoose={access.choose} onUsePreset={access.usePreset} pending={pending} onAct={act} />
         <PermissionsSection
           name={nameOf(member)}
-          ticked={member.customize.allowed ? access.draft.permissions : member.permissions}
+          ticked={access.draft.permissions}
           canEdit={member.customize.allowed}
           editable={access.rules.editable}
           grantable={member.customize.grantable}
