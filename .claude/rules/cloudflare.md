@@ -107,6 +107,11 @@ Two calls that recur and deserve a recorded answer rather than a reflex:
 migrations → deploy**, in that order. Migrations land *before* the worker, so
 code never runs ahead of its schema.
 
+`npm run verify` does not build: run `CLOUDFLARE_ENV=production npx react-router build` before pushing `main`. React Router strips only
+`loader`, `action`, `middleware` and `headers` from the client build, so a route file must not export a helper that uses a `*.server`
+import (the build fails with "Server-only module referenced by client"): put it in a `*.server.ts` next to the route.
+`app/route-module-exports.test.ts` fails on that shape.
+
 **Build and deploy are one command on purpose. Never split them.**
 `@cloudflare/vite-plugin` resolves the environment at **build** time and bakes it
 into `build/server/wrangler.json`. `CLOUDFLARE_ENV=production` during the build

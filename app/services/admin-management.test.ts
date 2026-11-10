@@ -3,6 +3,7 @@ import { env } from "cloudflare:test";
 import { runWithRequestContext } from "~/request-context.server";
 import { setupTestDatabase } from "~/test/db";
 import { AdminUserRepo } from "~/models/admin-users.server";
+import { McpTokenRepo } from "~/models/mcp.server";
 import {
   createAdmin,
   removeAdmin,
@@ -22,7 +23,7 @@ setupTestDatabase();
 const inRequest = <T>(fn: () => Promise<T>) => runWithRequestContext(env, fn);
 
 const GOOD_PASSWORD = "a-long-enough-password";
-const adminDeps = { users: new AdminUserRepo(), runtime };
+const adminDeps = { users: new AdminUserRepo(), tokens: new McpTokenRepo(), runtime };
 
 /** Create an owner directly, bypassing the use case, as a fixture. */
 async function seedOwner(email = "owner@example.com") {

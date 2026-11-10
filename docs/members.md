@@ -114,6 +114,10 @@ Verified against shopify.dev (2026-11; `account_owner` and `collaborator` defini
 `associated_user` (`id`, `email` + `email_verified`, names, `account_owner`, `collaborator`) and expire after 24 hours or
 on logout.
 
+Session storage keeps that profile: `KVSessionStorage` writes the session with `toPropertyArray(true)` and reads it with `fromPropertyArray(raw, true)`
+(the library drops `account_owner`, email, names and `collaborator` otherwise, so only the request that minted a session would know who the person
+is). The shop-index entry's metadata stays free of personal data. See `docs/shopify-api-invariants.md`, "Who is using the app: members".
+
 **Unverified — check before relying on it:**
 - that `sub` and `associated_user.id` are the same value (the guard logs `member.user_id_mismatch` if they ever differ);
 - that the first person to open the app on a store is someone who should run its team ("first user is admin" is OUR

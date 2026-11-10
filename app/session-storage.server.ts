@@ -31,7 +31,8 @@ function fitsAsMetadata(payload: string): boolean {
  * `SessionStorage` interface directly against a KV namespace.
  *
  * Key layout:
- *   session:{id}          -> the session property array as JSON
+ *   session:{id}          -> the session property array as JSON, with the online
+ *                            user's profile (account_owner, email, names, collaborator)
  *   shopidx:{shop}:{id}   -> "" with the property array in KV metadata. It
  *                            lists a shop's sessions; findSessionsByShop then
  *                            loads each by id, plus the offline session by its
@@ -64,13 +65,17 @@ export class KVSessionStorage implements SessionStorage {
    * costs nothing.
    */
   async storeSession(session: Session): Promise<boolean> {
+    // The PAYLOAD keeps the staff person an online session belongs to (id, names, email, whether they own the store,
+    // whether they are a collaborator): `toPropertyArray()` and `fromPropertyArray()` drop all of it unless told to keep
+    // it, so every request after the one that minted the session would see an anonymous user. The index entry's
+    // metadata stays free of personal data (the default, trimmed array).
+    const payload = JSON.stringify(session.toPropertyArray(true));
     const props = session.toPropertyArray();
-    const payload = JSON.stringify(props);
     const ttl = session.isOnline
       ? ttlSeconds(session.expires, Date.now())
       : undefined;
     const expiry = ttl ? { expirationTtl: ttl } : {};
-    const metadata = fitsAsMetadata(payload) ? props : undefined;
+    const metadata = fitsAsMetadata(JSON.stringify(props)) ? props : undefined;
 
     await this.kv.put(this.sessionKey(session.id), payload, expiry);
     await this.kv.put(this.shopIndexKey(session.shop, session.id), "", {
@@ -83,7 +88,7 @@ export class KVSessionStorage implements SessionStorage {
   async loadSession(id: string): Promise<Session | undefined> {
     const raw = await this.kv.get(this.sessionKey(id));
     if (!raw) return undefined;
-    return Session.fromPropertyArray(JSON.parse(raw));
+    return Session.fromPropertyArray(JSON.parse(raw), true);
   }
 
   async deleteSession(id: string): Promise<boolean> {

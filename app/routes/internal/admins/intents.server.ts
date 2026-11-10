@@ -8,7 +8,7 @@ import {
   setAdminStatus,
 } from "~/services/admin-management.server";
 import type { SuccessKey } from "./success-message";
-import { adminUsers, appRuntime, staffAudit, staffMfa } from "~/wiring.server";
+import { adminUsers, appRuntime, mcpTokens, staffAudit, staffMfa } from "~/wiring.server";
 
 /**
  * The admin screen's intent dispatch, beside its route.
@@ -40,14 +40,14 @@ export const INTENTS = {
       actorId,
       targetId: String(form.get("id") ?? ""),
       status: "disabled",
-    }, { users: adminUsers(), runtime: appRuntime() });
+    }, { users: adminUsers(), tokens: mcpTokens(), runtime: appRuntime() });
   },
   async enable(form: FormData, actorId: string) {
     return setAdminStatus({
       actorId,
       targetId: String(form.get("id") ?? ""),
       status: "active",
-    }, { users: adminUsers(), runtime: appRuntime() });
+    }, { users: adminUsers(), tokens: mcpTokens(), runtime: appRuntime() });
   },
   async makeOwner(form: FormData, actorId: string) {
     return setAdminRole({
@@ -64,7 +64,7 @@ export const INTENTS = {
     }, { users: adminUsers(), runtime: appRuntime() });
   },
   async remove(form: FormData, actorId: string) {
-    return removeAdmin({ actorId, targetId: String(form.get("id") ?? "") }, { users: adminUsers() });
+    return removeAdmin({ actorId, targetId: String(form.get("id") ?? "") }, { users: adminUsers(), tokens: mcpTokens(), runtime: appRuntime() });
   },
   async resetMfa(form: FormData, actorId: string) {
     return resetAdminMfa(

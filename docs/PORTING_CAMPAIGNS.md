@@ -79,7 +79,7 @@ entry in `app/routes/internal/layout-nav.ts` and its test, the two test helpers 
 `app/mcp/tools/campaigns.ts`, `campaign-results.ts`, registration in `tools/index.ts`, the "Campaigns" block in
 `app/mcp/catalog.ts`, the two scopes in `app/domain/mcp/scopes.ts` (+ tests), and
 `app/services/internal-admin/campaign-mcp-ops.server.ts`. **Two things must carry over exactly:**
-`mcp:campaigns:send` is implied by neither `write` nor `read`, and `start_campaign` requires `expectedRecipients`. Also keep
+`mcp:campaigns:send` is implied by neither `write` nor `read` and is in `NEVER_FOR_DYNAMIC_CLIENTS` (a dynamic OAuth client can never be granted it), and `start_campaign` requires `expectedRecipients`. Also keep
 the actor fix: the template's `ctx.actorEmail` is the token's label, not an address, so `McpActorContext.adminUserId` is
 passed from the route and `resolveCampaignActor` looks up the owning staff account. Check what the app's token verifier puts
 in `actorEmail` before assuming it is an address.

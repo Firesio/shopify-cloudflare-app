@@ -2,6 +2,7 @@ import { hashPassword, verifyPassword } from "~/lib/password";
 import { validatePasswordStrength } from "~/lib/password-policy";
 import { normalizeEmail, type AdminUserPort } from "~/ports/admin-users";
 import type { AdminRole, SafeAdminUser } from "~/ports/admin-users";
+import type { McpTokenPort } from "~/ports/mcp";
 import type { Runtime } from "~/ports/runtime";
 import { recordStaffEvent, type StaffAuditDependencies } from "~/services/staff-audit";
 import { resetMfa, type StaffMfaDependencies } from "~/services/staff-mfa";
@@ -95,17 +96,26 @@ export async function createAdmin(input: {
 }
 
 /**
- * Disable an account.
+ * Disable or re-enable an account.
  *
  * Two guards: you cannot disable yourself (that is an instant self-lockout), and
  * you cannot disable the last active owner (that locks out *everyone*, with no
  * way back except a manual database write).
+ *
+ * Disabling also ends the person's API access: every personal access token and OAuth grant issued to them is revoked,
+ * for good. Re-enabling restores their console sign-in only; they mint new tokens. (The bearer-token check refuses a
+ * disabled owner's token anyway, so a missed revoke cannot leave a door open; revoking is what keeps it shut after
+ * re-enabling.)
  */
 export async function setAdminStatus(input: {
   actorId: string;
   targetId: string;
   status: "active" | "disabled";
-}, deps: { users: Pick<AdminUserPort, "findById" | "countOtherActiveOwners" | "setStatus">; runtime: Pick<Runtime, "clock"> }): Promise<Result<SafeAdminUser>> {
+}, deps: {
+  users: Pick<AdminUserPort, "findById" | "countOtherActiveOwners" | "setStatus">;
+  tokens: Pick<McpTokenPort, "revokeAllForAdmin">;
+  runtime: Pick<Runtime, "clock">;
+}): Promise<Result<SafeAdminUser>> {
   if (input.actorId === input.targetId) return fail("notYourself");
 
   const repo = deps.users;
@@ -117,7 +127,9 @@ export async function setAdminStatus(input: {
     if (others === 0) return fail("lastOwner");
   }
 
-  await repo.setStatus(target.id, input.status, deps.runtime.clock.now());
+  const now = deps.runtime.clock.now();
+  await repo.setStatus(target.id, input.status, now);
+  if (input.status === "disabled") await deps.tokens.revokeAllForAdmin(target.id, now);
   return ok({ ...target, status: input.status });
 }
 
@@ -142,11 +154,18 @@ export async function setAdminRole(input: {
   return ok({ ...target, role: input.role });
 }
 
-/** Delete an account outright. Same two guards as disabling. */
+/**
+ * Delete an account outright. Same two guards as disabling. Its API grants are revoked first (the foreign keys also
+ * delete them with the row; revoking does not rely on that).
+ */
 export async function removeAdmin(input: {
   actorId: string;
   targetId: string;
-}, deps: { users: Pick<AdminUserPort, "findById" | "countOtherActiveOwners" | "remove"> }): Promise<Result<SafeAdminUser>> {
+}, deps: {
+  users: Pick<AdminUserPort, "findById" | "countOtherActiveOwners" | "remove">;
+  tokens: Pick<McpTokenPort, "revokeAllForAdmin">;
+  runtime: Pick<Runtime, "clock">;
+}): Promise<Result<SafeAdminUser>> {
   if (input.actorId === input.targetId) return fail("notYourself");
 
   const repo = deps.users;
@@ -158,6 +177,7 @@ export async function removeAdmin(input: {
     if (others === 0) return fail("lastOwner");
   }
 
+  await deps.tokens.revokeAllForAdmin(target.id, deps.runtime.clock.now());
   await repo.remove(target.id);
   return ok(target);
 }

@@ -9,6 +9,7 @@ import { loader as shopsLoader } from "./shops/index";
 import { action as ticketsAction } from "./tickets/index";
 import { action as replyAction } from "./tickets/reply";
 import { action as uploadAction } from "./support/upload";
+import { API_CORS_HEADERS, handleOptions } from "./helpers.server";
 import { createPersonalAccessToken } from "~/services/mcp/tokens.server";
 import { AdminUserRepo } from "~/models/admin-users.server";
 import { hashPassword } from "~/lib/password";
@@ -245,6 +246,46 @@ describe("Reusable REST API (/api/v1/*) Integration", () => {
       expect(updatedThread?.messages.length).toBe(2);
       expect(updatedThread?.attachments.length).toBe(2);
       expect(updatedThread?.attachments.some((a) => a.filename === "fix.txt")).toBe(true);
+    });
+  });
+  describe("binary upload filenames (X-Support-Filename)", () => {
+    async function uploadedName(header: string): Promise<{ status: number; filename: unknown }> {
+      return inRequest(async () => {
+        const { rawToken } = await createStaffAndToken(["mcp:read", "mcp:tickets:write"]);
+        const body = "png-bytes";
+        const response = await uploadAction(asActionArgs(new Request("http://localhost/api/v1/support/upload", {
+          method: "POST",
+          body,
+          headers: {
+            Authorization: `Bearer ${rawToken}`,
+            "Content-Type": "image/png",
+            "Content-Length": String(body.length),
+            "X-Shop": `shop-stream-${Date.now()}.myshopify.com`,
+            "X-Support-Filename": header,
+          },
+        })));
+        const json: unknown = await response.json();
+        const filename = typeof json === "object" && json !== null && "filename" in json ? json.filename : undefined;
+        return { status: response.status, filename };
+      });
+    }
+
+    it("decodes the percent-encoded name a client sends", async () => {
+      expect(await uploadedName(encodeURIComponent("captura de pantalla ñ.png"))).toEqual({ status: 201, filename: "captura de pantalla ñ.png" });
+    });
+
+    it("keeps a name with a malformed escape instead of failing with a 500", async () => {
+      expect(await uploadedName("100%.png")).toEqual({ status: 201, filename: "100.png" });
+    });
+  });
+
+  describe("CORS preflight", () => {
+    it("allows PATCH, which the staff message edit endpoint uses", () => {
+      const response = handleOptions(new Request("http://localhost/api/v1/tickets/message", { method: "OPTIONS" }));
+      expect(response?.status).toBe(204);
+      const methods = (response?.headers.get("Access-Control-Allow-Methods") ?? "").split(",").map((method) => method.trim());
+      expect(methods).toContain("PATCH");
+      expect(API_CORS_HEADERS["Access-Control-Allow-Methods"]).toContain("PATCH");
     });
   });
 });

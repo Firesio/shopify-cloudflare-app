@@ -7,7 +7,7 @@ import {
   withApiAudit,
 } from "../helpers.server";
 import { uploadSupportAttachment } from "~/services/internal-admin/ops.server";
-import { safeFilename, validateUpload, attachmentKey } from "~/support/attachment";
+import { safeFilename, validateUpload, attachmentKey, decodeFilenameHeader } from "~/support/attachment";
 import { getEnv } from "~/request-context.server";
 import { support } from "~/wiring.server";
 import { readJsonObject } from "~/lib/json-body";
@@ -60,7 +60,8 @@ async function uploadFromStream(request: Request, contentTypeHeader: string): Pr
   const shop = request.headers.get("X-Shop")?.trim() ?? "";
   const ticketId = request.headers.get("X-Support-Ticket")?.trim() ?? "new";
   const rawFilename = request.headers.get("X-Support-Filename");
-  const filename = rawFilename ? decodeURIComponent(rawFilename) : "file";
+  // A malformed escape (`100%.png`) is kept as sent, never a 500; `safeFilename` makes either safe.
+  const filename = rawFilename ? decodeFilenameHeader(rawFilename) : "file";
   const declared = Number(request.headers.get("Content-Length") ?? "0");
 
   if (!shop) {

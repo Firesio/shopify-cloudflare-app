@@ -66,6 +66,14 @@ export class McpTokenRepo implements McpTokenPort {
     return result.length > 0;
   }
 
+  async revokeAllForAdmin(adminUserId: string, now: number): Promise<void> {
+    const db = getDb();
+    await db.batch([
+      db.update(mcpTokens).set({ revokedAt: now }).where(and(eq(mcpTokens.adminUserId, adminUserId), isNull(mcpTokens.revokedAt))),
+      db.update(mcpAuthorizationCodes).set({ usedAt: now }).where(and(eq(mcpAuthorizationCodes.adminUserId, adminUserId), isNull(mcpAuthorizationCodes.usedAt))),
+    ]);
+  }
+
   async recordUsage(id: string, now: number): Promise<void> {
     await getDb()
       .update(mcpTokens)

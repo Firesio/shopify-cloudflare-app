@@ -2,6 +2,7 @@ import { reactRouter } from "@react-router/dev/vite";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
+import { createChildCompilerGuard } from "./scripts/vite-child-compiler.mjs";
 
 // `shopify app dev` passes the live tunnel URL as SHOPIFY_APP_URL (older CLIs:
 // HOST). Compute it into a local — do NOT mutate process.env, since the
@@ -41,12 +42,19 @@ function shopifyDevVars(): Record<string, string> {
 
 // @react-router/dev re-evaluates this file to build a "child compiler" (a second
 // Vite server, used only for CSS). It would start a second workerd, a second
-// remote AI session and a second dependency optimizer on the same cache.
-const configLoadsKey = Symbol.for("vite-config-loads");
-const previousLoads = Reflect.get(globalThis, configLoadsKey);
-const configLoads = typeof previousLoads === "number" ? previousLoads + 1 : 1;
-Reflect.set(globalThis, configLoadsKey, configLoads);
-const isChildCompiler = configLoads > 1;
+// remote AI session and a second dependency optimizer on the same cache, so the
+// Cloudflare plugin is left out of that evaluation.
+//
+// The guard used to count evaluations (every one after the first was "the child").
+// Vite also evaluates this file again inside the same process whenever it restarts
+// its dev server (an edit to `.dev.vars`, `wrangler.jsonc` or this file), so after a
+// restart the Cloudflare plugin was missing and every request failed with "getEnv()
+// called outside of a request context". The child compiler is told apart by WHO
+// starts the evaluation: React Router loads the config from inside its own
+// `configResolved` hook, which `markChildCompilerLoads` runs in a context this file
+// can ask about. See scripts/vite-child-compiler.mjs.
+const childCompilerGuard = createChildCompilerGuard();
+const isChildCompiler = childCompilerGuard.isChildCompiler();
 
 export default defineConfig(({ command }) => ({
   // Vite 8 resolves tsconfig `paths` (the `~/*` alias) natively.
@@ -115,7 +123,7 @@ export default defineConfig(({ command }) => ({
     // app/styles/internal/internal.tailwind.css, loaded by the /internal routes.
     // The public SCSS and the Polaris admin are untouched.
     tailwindcss(),
-    reactRouter(),
+    ...reactRouter().map(childCompilerGuard.markChildCompilerLoads),
   ],
   build: {
     assetsInlineLimit: 0,

@@ -5,7 +5,7 @@ import {
   sha256,
 } from "~/domain/mcp/tokens";
 import { parseScopes } from "~/domain/mcp/scopes";
-import { appRuntime, mcpTokens } from "~/wiring.server";
+import { adminUsers, appRuntime, mcpTokens } from "~/wiring.server";
 import type { McpToken } from "~/db/schema/mcp";
 import type { Clock, Runtime } from "~/ports/runtime";
 
@@ -51,7 +51,21 @@ export async function createPersonalAccessToken({
 }
 
 /**
- * Verify a bearer token from the Authorization header.
+ * Whether the staff account a grant was issued to can still act. A missing owner (deleted, or a token that never had one)
+ * and a disabled one both answer false: access is fail-closed. This is the authentication-time half of "disabling a
+ * person ends their API access"; `revokeAllForAdmin` is the other half, run when the account is disabled or removed.
+ * Revoking is permanent (re-enabling the person does not bring a token back, they mint a new one); this check is what
+ * still refuses the token if a revoke step was ever missed.
+ */
+export async function ownerCanAct(adminUserId: string | null | undefined): Promise<boolean> {
+  if (!adminUserId) return false;
+  const owner = await adminUsers().findById(adminUserId);
+  return owner !== undefined && owner.status === "active";
+}
+
+/**
+ * Verify a bearer token from the Authorization header: not revoked, not expired, and its owning staff account is still
+ * active (checked on every request, so a disabled account loses access at once). Serves the MCP endpoint and the REST API.
  *
  * Updates lastUsedAt asynchronously on success.
  */
@@ -73,6 +87,7 @@ export async function verifyBearerToken(
 
   if (isTokenRevoked(token.revokedAt)) return null;
   if (isTokenExpired(token.expiresAt, now)) return null;
+  if (!(await ownerCanAct(token.adminUserId))) return null;
 
   // Track usage asynchronously without blocking the response
   tokenRepo.recordUsage(token.id, now).catch(() => {});

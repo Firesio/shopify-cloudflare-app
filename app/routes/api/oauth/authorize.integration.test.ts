@@ -54,14 +54,15 @@ describe("OAuth consent: choosing scopes", () => {
         allowedScopes: ["mcp:read", "mcp:tickets:write", "mcp:shops:read"],
         createdAt: Date.now(),
       });
-      const query = new URLSearchParams({ client_id: client.clientId, redirect_uri: CALLBACK, response_type: "code", scope: "mcp:read mcp:campaigns:send mcp:admin", code_challenge: "c" });
+      const query = new URLSearchParams({ client_id: client.clientId, redirect_uri: CALLBACK, response_type: "code", scope: "mcp:read mcp:campaigns:write mcp:campaigns:send mcp:admin", code_challenge: "c" });
       const opened = await loader(args(new Request(`https://example.test/api/oauth/authorize?${query}`, { headers: { Cookie: staff.cookie } })));
-      expect(opened).toMatchObject({ ok: true, scopes: ["mcp:read", "mcp:campaigns:send"] });
+      // Asking for the send or admin scope changes nothing: neither is ever on offer to a dynamic client.
+      expect(opened).toMatchObject({ ok: true, scopes: ["mcp:read", "mcp:campaigns:write"] });
       expect(opened.ok ? opened.choices : []).toContain("mcp:campaigns:write");
     });
   });
 
-  it("offers a dynamically registered client every scope but admin, grants only the ticked ones, and refuses none ticked", async () => {
+  it("offers a dynamically registered client every scope but admin and send, grants only the ticked ones, and refuses none ticked", async () => {
     await inRequest(async () => {
       const staff = await signIn();
       const client = await registerDynamicClient({ clientName: "Claude Code", redirectUris: [CALLBACK] });
@@ -70,12 +71,13 @@ describe("OAuth consent: choosing scopes", () => {
       expect(opened).toMatchObject({ ok: true, scopes: ["mcp:read"] });
       const choices = opened.ok ? opened.choices : [];
       expect(choices).toContain("mcp:campaigns:write");
-      expect(choices).toContain("mcp:campaigns:send");
+      expect(choices).not.toContain("mcp:campaigns:send");
       expect(choices).not.toContain("mcp:admin");
 
       const ticked = new URLSearchParams({ client_id: client.clientId, redirect_uri: CALLBACK, intent: "authorize", code_challenge: "c" });
       ticked.append("scope", "mcp:read");
       ticked.append("scope", "mcp:campaigns:write");
+      ticked.append("scope", "mcp:campaigns:send");
       ticked.append("scope", "mcp:admin");
       const granted = await action(post(staff.cookie, ticked));
       const code = new URL(defined((granted as Response).headers.get("Location"))).searchParams.get("code");

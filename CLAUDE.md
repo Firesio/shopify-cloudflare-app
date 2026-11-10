@@ -14,6 +14,7 @@ If you are about to work in an area below and its rule has not loaded yet, **rea
 ## Commands
 
 - `npm run verify` — typecheck + lint + full suite. Run before claiming done and before any push to `main`.
+- `npm run verify` does not build: run `CLOUDFLARE_ENV=production npx react-router build` before pushing `main` (a push to `main` may deploy). A route file whose non-route export reaches a `*.server` import passes typecheck but fails that build; `app/route-module-exports.test.ts` guards the shape.
 - `npx vitest related --run <files>` — tests for changed files (`related` is a subcommand). `npm run test:quick` for the inner loop.
 - `npm run cf:deploy` — verify → production build → D1 migrations → deploy. Never split build and deploy.
 - `npm run check:placeholders` — expected to fail on a fresh template; must pass before a production deploy.

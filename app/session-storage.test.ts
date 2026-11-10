@@ -42,6 +42,49 @@ describe("KVSessionStorage", () => {
     expect(loaded?.accessToken).toBe("token");
   });
 
+  it("keeps the staff person of an online session: the profile the member guard reads on every later request", async () => {
+    const storage = new KVSessionStorage(env.SESSION);
+    const shop = "online-profile.myshopify.com";
+    const session = new Session({
+      id: `${shop}_42`,
+      shop,
+      state: "state",
+      isOnline: true,
+      accessToken: "online-token",
+      scope: "write_products",
+      expires: new Date(Date.now() + 3_600_000),
+      onlineAccessInfo: {
+        expires_in: 3600,
+        associated_user_scope: "write_products",
+        associated_user: { id: 42, first_name: "Ada", last_name: "Lovelace", email: "ada@example.com", email_verified: true, account_owner: true, locale: "en", collaborator: false },
+      },
+    });
+
+    await storage.storeSession(session);
+    const loaded = await storage.loadSession(session.id);
+
+    expect(loaded?.onlineAccessInfo?.associated_user).toMatchObject({ id: 42, first_name: "Ada", last_name: "Lovelace", email: "ada@example.com", email_verified: true, account_owner: true, collaborator: false });
+    expect((await storage.findSessionsByShop(shop)).find((found) => found.id === session.id)?.onlineAccessInfo?.associated_user.account_owner).toBe(true);
+  });
+
+  it("keeps the staff person's name and address out of the shop index entry's metadata", async () => {
+    const storage = new KVSessionStorage(env.SESSION);
+    const shop = "online-metadata.myshopify.com";
+    await storage.storeSession(new Session({
+      id: `${shop}_7`,
+      shop,
+      state: "s",
+      isOnline: true,
+      accessToken: "t",
+      scope: "x",
+      onlineAccessInfo: { expires_in: 60, associated_user_scope: "x", associated_user: { id: 7, first_name: "Grace", last_name: "Hopper", email: "grace@example.com", email_verified: true, account_owner: false, locale: "en", collaborator: false } },
+    }));
+    const listed = await env.SESSION.list({ prefix: `shopidx:${shop}:` });
+    expect(listed.keys).toHaveLength(1);
+    expect(JSON.stringify(listed.keys)).not.toContain("grace@example.com");
+    expect(JSON.stringify(listed.keys)).not.toContain("Hopper");
+  });
+
   it("finds sessions by shop", async () => {
     const storage = new KVSessionStorage(env.SESSION);
     const session = offlineSession("by-shop.myshopify.com");

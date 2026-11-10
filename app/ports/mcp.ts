@@ -15,6 +15,11 @@ export interface McpTokenPort {
   listTokens(): Promise<McpToken[]>;
   listTokensForAdmin(adminUserId: string): Promise<McpToken[]>;
   revokeToken(id: string, now: number): Promise<boolean>;
+  /**
+   * Cut off everything one staff account holds: every personal access token and every OAuth access/refresh token issued to it,
+   * and any authorization code it granted but nobody has redeemed. Other accounts' grants are untouched.
+   */
+  revokeAllForAdmin(adminUserId: string, now: number): Promise<void>;
   recordUsage(id: string, now: number): Promise<void>;
 }
 

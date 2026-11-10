@@ -10,6 +10,7 @@ import {
 import { allowedScopesOf, DYNAMIC_CLIENT_SCOPES, parseScopes, type McpScope } from "~/domain/mcp/scopes";
 import { verifyCodeChallenge } from "~/domain/mcp/pkce";
 import { appRuntime, mcpOAuth, mcpTokens } from "~/wiring.server";
+import { ownerCanAct } from "./tokens.server";
 import type { McpAuthorizationCode, McpClient, McpToken } from "~/db/schema/mcp";
 import type { Clock, Runtime } from "~/ports/runtime";
 
@@ -186,6 +187,7 @@ async function exchangeAuthorizationCode(input: ExchangeInput, runtime: Runtime)
     method: authCode.codeChallengeMethod,
   });
   if (!validPkce) return invalidGrant("PKCE verification failed");
+  if (!(await ownerCanAct(authCode.adminUserId))) return invalidGrant("The account that granted this code can no longer act");
 
   await oauthRepo.markAuthCodeUsed(authCode.id, now);
 
@@ -224,6 +226,7 @@ async function exchangeRefreshToken(input: ExchangeInput, runtime: Runtime): Pro
   if (isTokenRevoked(refreshRow.revokedAt) || isTokenExpired(refreshRow.expiresAt, now)) {
     return invalidGrant("Refresh token revoked or expired");
   }
+  if (!(await ownerCanAct(refreshRow.adminUserId))) return invalidGrant("The account this grant belongs to can no longer act");
 
   const rawAccess = await createAccessToken(runtime, {
     clientId: refreshRow.clientId,

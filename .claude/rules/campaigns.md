@@ -79,7 +79,7 @@ write (draft) → choose who → preview the exact number → [send me a test] �
 | A new audience filter (a plan, a country, "has used feature X") | key + field in `domain/campaign-audience.ts`, its words there, its query in `AUDIENCE_CONDITIONS` in the model, the stored/edited schema in `app/schemas/campaign.ts` | the compiler names each one missed |
 | The recipient is not the shop's owner address (e.g. every member) | `shopAddress` in the audience model and the `start` insert-select | one query; recipients stay one row per (campaign, address-owner) |
 | Pace and thresholds | constants in `domain/campaign-delivery.ts` | one value; `campaign-delivery.test.ts` pins them |
-| Who may send from the console / over MCP | MCP scope `mcp:campaigns:send` (see below); the console is for signed-in staff | one scope check |
+| Who may send from the console / over MCP | MCP scope `mcp:campaigns:send` (see below); the console is for signed-in staff. A dynamically registered OAuth client can never be granted it (`NEVER_FOR_DYNAMIC_CLIENTS`), only a staff-made token | one scope check |
 | The wording around the team's words (footer, unsubscribe line) | `campaign.*` in the `email` catalogue (en, es) | translation keys |
 
 ## Queue and deploy

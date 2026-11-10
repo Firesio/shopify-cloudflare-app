@@ -20,11 +20,21 @@ export const MCP_SCOPES = [
 export type McpScope = (typeof MCP_SCOPES)[number];
 
 /**
- * What a dynamically registered client MAY be granted: every scope except `mcp:admin` (which only covers the others). Read at
- * consent time, not from the row stored at registration, so clients registered before a scope existed are not stuck without it.
- * A ceiling, not a grant: the person still ticks each scope on the consent page.
+ * Scopes a dynamically registered client can never be granted, however a person ticks the consent page:
+ *  - `mcp:admin`, which only covers the others;
+ *  - `mcp:campaigns:send`, which emails every merchant in an audience and cannot be undone. Anyone who can reach the
+ *    registration endpoint can register a client with a convincing name, so the one irreversible, outward power is not
+ *    left to a click on a consent page: it goes only on a personal access token (or a manually registered client) that a
+ *    signed-in staff member creates in the console and ticks on purpose.
  */
-export const DYNAMIC_CLIENT_SCOPES: readonly McpScope[] = MCP_SCOPES.filter((scope) => scope !== "mcp:admin");
+const NEVER_FOR_DYNAMIC_CLIENTS: readonly McpScope[] = ["mcp:admin", "mcp:campaigns:send"];
+
+/**
+ * What a dynamically registered client MAY be granted: every scope except the ones above. Read at consent time, not from the
+ * row stored at registration, so clients registered before a scope existed are not stuck without it. A ceiling, not a grant:
+ * the person still ticks each scope on the consent page.
+ */
+export const DYNAMIC_CLIENT_SCOPES: readonly McpScope[] = MCP_SCOPES.filter((scope) => !NEVER_FOR_DYNAMIC_CLIENTS.includes(scope));
 
 /** Every scope this client may be granted, in the console's order. A dynamic client gets today's ceiling, whatever its row says. */
 export function allowedScopesOf(client: { allowedScopes: readonly string[]; registrationType: string }): McpScope[] {

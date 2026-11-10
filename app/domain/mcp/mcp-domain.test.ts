@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  allowedScopesOf,
+  DYNAMIC_CLIENT_SCOPES,
   hasRequiredScope,
   isMcpScope,
   MCP_SCOPES,
@@ -63,6 +65,18 @@ describe("MCP Scopes Domain", () => {
     for (const scope of MCP_SCOPES) expect(SCOPE_DESCRIPTIONS[scope].label).not.toBe("");
     expect(SCOPE_DESCRIPTIONS["mcp:campaigns:send"].description).toMatch(/emails the whole audience of merchants/);
     expect(SCOPE_DESCRIPTIONS["mcp:campaigns:write"].description).toMatch(/Never emails merchants/);
+  });
+
+  it("never lets a dynamic client hold mcp:admin or mcp:campaigns:send, whatever its stored row says", () => {
+    expect(DYNAMIC_CLIENT_SCOPES).toEqual(MCP_SCOPES.filter((scope) => scope !== "mcp:admin" && scope !== "mcp:campaigns:send"));
+    expect(allowedScopesOf({ registrationType: "dynamic", allowedScopes: ["mcp:read"] })).toEqual([...DYNAMIC_CLIENT_SCOPES]);
+    expect(allowedScopesOf({ registrationType: "dynamic", allowedScopes: ["mcp:admin", "mcp:campaigns:send"] })).toEqual([...DYNAMIC_CLIENT_SCOPES]);
+  });
+
+  it("holds a manual client to its stored scopes, in the console's order, ignoring unknown ones", () => {
+    expect(allowedScopesOf({ registrationType: "manual", allowedScopes: ["mcp:shops:write", "mcp:read", "mcp:nope"] })).toEqual(["mcp:read", "mcp:shops:write"]);
+    expect(allowedScopesOf({ registrationType: "manual", allowedScopes: ["mcp:campaigns:send"] })).toEqual(["mcp:campaigns:send"]);
+    expect(allowedScopesOf({ registrationType: "manual", allowedScopes: [] })).toEqual([]);
   });
 });
 
