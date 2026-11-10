@@ -51,6 +51,19 @@ listed CDN URLs.
 | `public/illustrations/analytics.svg`     | https://undraw.co/search/analytics          | https://cdn.undraw.co/illustration/analytics-setup_ptrz.svg   | [unDraw license](https://undraw.co/license) |
 | `public/illustrations/support-empty.svg` | https://undraw.co/search/customer%20support | https://cdn.undraw.co/illustration/faq_pgxi.svg               | [unDraw license](https://undraw.co/license) |
 
+## Plan cards (billing page)
+
+Used by `app/components/billing/PlanCard.tsx`, chosen by plan **handle** (`ILLUSTRATIONS`, exhaustive over `PlanHandle`),
+with translated alt text under `billing.plans.imageAlt.<handle>` in the `admin` catalogue.
+
+| File | Plan handle | Source | License |
+| --- | --- | --- | --- |
+| `public/plan-cards/lv1.svg` | `free` | **Unknown.** Added in commit `c97e4fc` without a source. The SVG's layer ids (`freepik--background-complete--inject-*`) point to Freepik-style artwork, but no download URL, author or licence is recorded anywhere in the repo. | **Not recorded.** The owner must confirm the licence and attribution requirements before launch, or replace the file. |
+| `public/plan-cards/lv2.svg` | `pro` | Unknown, as above | Not recorded, as above |
+
+`lv3.svg` and `lv4.svg` were added in the same commit "for future plans", were never referenced, and were deleted. When a
+third plan exists, add its file here with a recorded source and licence, then add its handle to `ILLUSTRATIONS`.
+
 ## App mark (placeholder)
 
 The staff console's sidebar and sign-in use the Remix mark as a **placeholder**

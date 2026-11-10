@@ -33,6 +33,8 @@ Scopes, webhook topics, protected-data requirements, billing, rate limits and AP
 
 **The loop is not optional**: `scripts/search_docs.mjs "<query>"` → write against what it returned → `scripts/validate.mjs --code '...'` → on failure search the error, fix, re-validate (at most 3 retries). Never return unvalidated code. `OPT_OUT_INSTRUMENTATION=true` only stops telemetry; never remove it or skip validation because of it. If a lookup contradicts this repo's docs or your memory, the lookup wins: say so out loud.
 
+**If `validate.mjs` cannot run** (the skill's own install lacks `typescript` or the component-types data), run a copy of the skill's `scripts/` folder from a scratch directory that has its own `node_modules` (`typescript`, `@shopify/polaris-types`): it resolves modules from the folder above `scripts/`, so symlinks into the repo do not work. Observed 2026-11: it checks against Polaris v1, so a Polaris 2 element such as `s-empty-state` fails it; check those against `custom-elements.json` and `docs/polaris/` instead.
+
 **Record what you verify** in `docs/shopify-api-invariants.md` (see the `shopify-findings` skill): what you observed and when, and the design consequence. Label anything unverified as unverified.
 
 ## Admin UI is Polaris, and every element is looked up

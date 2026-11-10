@@ -1,6 +1,7 @@
 ---
 paths:
   - "app/styles/public/**"
+  - "app/styles/admin/**"
   - "app/routes/public/**"
   - "**/*.scss"
 ---
@@ -12,12 +13,19 @@ paths:
 | Surface | Styled with | Loaded by |
 |---|---|---|
 | **Public** — landing, pricing, legal, support, errors | **SCSS** in `app/styles/public/` | `app/routes/public/_layout.tsx` `links()` |
-| **Embedded Shopify admin** (`/app/**`) | **Polaris web components** + App Bridge | `AppProvider` |
+| **Embedded Shopify admin** (`/app/**`) | **Polaris web components** + App Bridge, plus ONE skeleton stylesheet (below) | `AppProvider`; the stylesheet by `app/routes/app/_layout.tsx` `links()` |
 | **Internal staff console** (`/internal/**`) | **Tailwind v4 + shadcn/ui (neutral)** | `app/routes/internal/_layout.tsx` and `login.tsx` `links()` |
 
 `@rules/shopify-and-ui.md` bans hand-rolled CSS in the *merchant admin*, and that
 still holds: never style the embedded app yourself. This file governs the other
 two, which are not embedded and have no Polaris.
+
+**The one exception (OWNER DECISION, 2026-11-10):** `app/styles/admin/skeleton.css`, under 40 lines, animates the
+`[data-skeleton]` marker that `app/components/admin/Skeleton.tsx` puts on pending values, because the owner wants an animated
+skeleton and Polaris has none. It targets that attribute only (never an `s-*` tag), uses no colour of its own (a mask changes
+the alpha of what Polaris painted, so light and dark both follow), is static under `prefers-reduced-motion`, and is loaded by the
+`/app` layout's `links()` and nowhere else. `app/routes/surface-assets.test.ts` holds that. Anything else in the admin is still
+Polaris, with no CSS. See `polaris-app-home.md`, "Loading".
 
 Why three and not one: the merchant admin must look like Shopify, the public
 pages must be fast and brandable with no framework, and the staff console wants a

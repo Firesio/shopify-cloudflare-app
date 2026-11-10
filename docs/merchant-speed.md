@@ -48,7 +48,7 @@ Client-side navigations skip 1, 2 and the layout loader (`shouldRevalidate` on t
    bundle renames it, which is why `thrownResponseHtml` exists. Read an error by `status`/`code`/`instanceof`.
 7. **A loader's cost is the number of sequential D1 waits.** D1 runs one query at a time per database, so
    `Promise.all` saves network time, not database time. Combine reads with `db.batch`, never query in a loop, and put
-   anything a page does not need to paint behind `settle()` (it streams after the frame, with a spinner).
+   anything a page does not need to paint behind `settle()` (it streams after the frame; the pending region is a same-shape skeleton, see `.claude/rules/polaris-app-home.md`, "Loading").
 8. **Nothing scans a shop's whole history on a page view.** A query behind a list, a count or a dashboard must be
    bounded by an index that matches its `WHERE` and `ORDER BY` (tenant first), or read a counter or a short-lived cache.
    "50 000 rows for one shop" is the test case. Check with `EXPLAIN QUERY PLAN`; a `SCAN` or `USE TEMP B-TREE` over

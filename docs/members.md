@@ -10,9 +10,9 @@ Reference for `.claude/rules/members.md` and `.claude/rules/members-seats.md`. N
 | A membership's lifecycle (`invited / pending / active / removed`) | `app/domain/member-lifecycle.ts` | 1 |
 | Who gets in: the fixed rules, then the app's policy for strangers | `app/domain/member-admission.ts` | 1 |
 | **The app's choices** (policy, default role, online tokens) | `app/members/config.ts` | config |
-| The seat limit: reading it from the plan, the cap a write is given, and the STRICT reading used to take a seat away | `app/domain/member-seats.ts`, `app/adapters/member-seats.server.ts` | 1, 4 |
+| The seat limit: reading it from the plan, the cap a write is given, the STRICT reading used to take a seat away, and the DISPLAY reading (`seatReadingFrom`) | `app/domain/member-seats.ts`, `app/adapters/member-seats.server.ts` | 1, 4 |
 | What happens when the team is over the plan's seats (policy, episode, who goes first, who is told) | `app/domain/member-seat-overage.ts` | 1 |
-| The team as the page shows it: order, what a row offers, contacts to ask | `app/domain/member-team.ts` | 1 |
+| The team as the page shows it: order, what a row offers, contacts to ask, the seat summary and the seat answer for letting someone in, the two notices and the cap's hidden count | `app/domain/member-team.ts` | 1 |
 | Gather facts, carry the decision out, race-safe | `app/services/members/resolve-member.ts` | 3 |
 | Invite, change a role, remove, let in, restore | `app/services/members/invite-member.ts`, `manage-members.ts` | 3 |
 | Review one shop's seats (open an episode, notify, cancel, trim) and the cron's sweep | `app/services/members/review-seat-overage.ts`, `sweep-seat-overage.ts` | 3 |
@@ -57,6 +57,13 @@ Tests: `O` = `app/services/members/review-seat-overage.test.ts` (real local D1, 
 | Two requests for the same new person | One row: `create` conflicts, the loser reads again | R, S |
 | Two requests for the last seat | Exactly one is active, the other waits | S, "never gives the last seat..." |
 | An invitation for another shop, or taken twice | Never matched; taken once | R, S |
+| Cancelling an invitation | The row is deleted (shop-scoped, one statement); no seat, nothing to restore, the address can be invited again; another shop's invitation id is `notFound` | S, M, I |
+| A row with no Shopify user (old cancelled invitation, or anything else) offered for approve/restore, or activated | Never: `canOf` offers neither, `activate` refuses it in its own statement, `remove` will not park it; it is also out of the list and counts and its page is a 404 | T, S, M, I |
+| An invitation taken up while its owner was cancelling it | `invalidState`; the person stays | M |
+| Plan cannot be read | The page says so ("unknown"); no "N of 0 / over the limit"; letting in is disabled with the reason; admission still gives no new seat | `member-seats.test.ts`, T, I |
+| No seat free for a waiting or removed person | The let-in/restore button is disabled with the reason; the server's `noSeat` agrees | T, I |
+| People waiting vs. people who lost a seat | Counted apart (from the stored counts, not the capped list); a different banner for each | S, T, I |
+| More than 500 people | The list is read up to 500 and says how many it left out | I |
 | A form with a forged role, id or intent | An error result, never a crash or another shop's row | I |
 | `never_remove` (the default): shop over its limit, an episode past its deadline | Nothing is read, sent or changed | `O` (`review-seat-overage.test.ts`), `W` (`member-seat-overage.test.ts`), `X` (`sweep-seat-overage.test.ts`), `C` |
 | A refused, unknown-feature, unlimited, wrong-kind or unreadable entitlement answer | Never a number, never 0: nothing is trimmed, no episode is opened | `member-seats.test.ts`, `member-seats.server.test.ts`, `O` |
@@ -84,7 +91,7 @@ Tests: `O` = `app/services/members/review-seat-overage.test.ts` (real local D1, 
   invited until a member exists, so the first admitted person has to be that admin.
 - **A team without an owner is valid and common** (every first-user shop starts without one). Only Shopify's account owner
   opening the app, or an existing owner, creates one.
-- **Team changes are logged, not stored**: `member.role_changed | removed | approved | restored | permissions_changed` (the last names the permissions added and taken away) carry the acting member's id
+- **Team changes are logged, not stored**: `member.role_changed | removed | invitation_cancelled | approved | restored | permissions_changed` (the last names the permissions added and taken away) carry the acting member's id
   and the shop's hash. An app that needs an audit table adds it beside `shop_members`.
 - **Seat trimming (`notify_then_trim`) is only as good as its inputs.** The plan's limit comes from the entitlement projection
   in D1 (the template's default snapshot sets no `verifiedAt`, so it never goes stale and `check` never calls Partner), so a

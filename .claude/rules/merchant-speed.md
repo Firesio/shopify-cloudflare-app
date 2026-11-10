@@ -36,7 +36,7 @@ entitlement wiring or a list query.
 
 ## Always
 
-- Put what a page can paint without behind `settle()` / `<Deferred>` with a spinner (Polaris has no skeleton).
+- Put what a page can paint without behind `settle()` / `<Deferred>` with a same-shape skeleton (`app/components/admin/Skeleton.tsx`; `.claude/rules/polaris-app-home.md`, "Loading").
 - Combine independent D1 reads with `db.batch`; D1 is single-threaded, so `Promise.all` saves only network time.
 - Keep a streamed region under the 5 s `streamTimeout`; a large shop must not turn it into a failure banner.
 - State the numbers when claiming a speed-up: queries per page before/after, rows read, bundle size.

@@ -6,7 +6,7 @@ What an agent must always follow is in `CLAUDE.md`; per-area rules are in `.clau
 ## Starting and running an app
 
 - [New app setup](SETUP.md): the canonical copy-and-start workflow.
-- [Adoption checklist](ADOPTING_THE_TEMPLATE.md): product, compliance and release decisions.
+- [Adoption checklist](ADOPTING_THE_TEMPLATE.md): product, compliance and release decisions, and what an agent must do (placeholders, docs) when turning the template into a real app.
 - [Legal content template](LEGAL_TEMPLATE.md): required policy inputs.
 - [Operations runbook](OPERATIONS.md): deploy, roll back, D1 backup and recovery, secrets, webhook DLQ replay.
 - [Upgrading](UPGRADING.md): per-change checklists for an app already in production, newest first.

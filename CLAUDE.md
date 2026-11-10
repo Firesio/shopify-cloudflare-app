@@ -27,6 +27,7 @@ If you are about to work in an area below and its rule has not loaded yet, **rea
 | D1 queries, migrations | `data` | |
 | Money, prices, currencies | `money` | |
 | User-visible strings, dates, locale | `i18n` | `docs/i18n.md` |
+| Plan / subscription state shown to the merchant | `billing` | `docs/entitlements.md` |
 | Embedded admin pages (Polaris) | `shopify-and-ui`, `polaris-app-home`, `polaris-dashboard` | `docs/polaris-admin-guide.md` (anatomy, toast example, checklist), `docs/polaris/` (search with `rg`; `manifest.json` maps sources) |
 | Admin speed (loaders, `afterAuth`, list queries) | `merchant-speed` | `docs/merchant-speed.md` |
 | Public pages / SCSS | `styling` | |
@@ -55,6 +56,7 @@ Each is a short checklist of the files to touch and the tests to write; it point
 | New AI feature | `add-ai-task` |
 | New MCP tool | `add-mcp-tool` |
 | Gate a feature by plan, change plans or prices | `add-entitlement` |
+| Review or audit an admin page or area | `audit-admin-page` |
 | Look up verified Shopify / Cloudflare behaviour | `shopify-findings` |
 
 Adding a language, a member permission/role or a support source has no skill: the recipe sits in its rule (`i18n`, `members`, `support-inbox`) and loads when you open those files. Deploying: `docs/OPERATIONS.md`.
@@ -71,12 +73,15 @@ Making something _look_ done/passing without it being genuinely correct. Overrid
 
 If a real fix is blocked, stop and say what blocks it.
 
-## Template placeholders are not real data
+## This repo is a TEMPLATE, not a product
 
-`TODO:` and reserved example values (`@example.com`, `example.org`) in `app/identity.ts`, `app/legal/content.ts`, locale files,
-`app/billing/plans.ts`, `wrangler.jsonc`, `shopify.app*.toml` are **template data, never a decision someone made**.
-Replace them when you touch that surface; never copy one into new code, tests or docs as if true; never leave a `TODO:` in shipped work.
-Unknown real value (legal address, app name, price) → **ask**; never invent one, never relax `check:placeholders`.
+Many apps are derived from it. Work here is for the template: reusable structure, mechanisms, extension points, rules and tests. It is never about one app's copy, prices, legal text, support SLA, brand or art.
+
+- **Placeholders are intentional and stay**: `TODO:` values, reserved example domains (`@example.com`, `example.org`), the sample plans (`app/billing/plans.ts`), `SampleDashboard`, the `SetupGuide` steps, the plan-card art. Do **not** ask the owner for real values, do not list them as "to supply", do not report them as defects, do not invent real-looking ones. A derived app replaces them (`docs/ADOPTING_THE_TEMPLATE.md`); `npm run check:placeholders` is the gate that stops it shipping them and is **expected to fail in this repo**.
+- Never copy a placeholder into new code, tests or docs as if it were true. New sample content gets the same marking and gate coverage.
+- **When auditing or reviewing, sort every finding**: a *template defect* (structure, correctness, accessibility, a rule broken) is fixed here; a *per-app decision* (copy, prices, legal, SLA, brand, licences) is left alone; an *intentional seam* (a documented extension point with no caller here: `defineAiTask`, MCP tools, `useAccess`, the entitlement catalogue) is kept.
+- **In a derived app this reverses**: placeholders must be replaced (ask the owner for unknown values) and these instructions and the docs rewritten for the app. Steps: `docs/ADOPTING_THE_TEMPLATE.md`, "If you are an agent working in a DERIVED app".
+- Before deleting an export, search for the module path as well as the symbol name, and check the docs and rules: something that exists for derived apps is not dead just because this repo has no caller.
 
 ## Shared template: nothing app-specific in shared code
 

@@ -64,7 +64,7 @@ Whether a merchant may give a member a set is the app's choice, `MEMBERS.customP
 |---|---|---|
 | The member's page | the role and what it allows, read-only list of permissions | the same, and every permission is a checkbox; saving gives the member a set |
 | The column | never written | written whole, in the registry's order |
-| Choosing a role | applies the preset | applies the preset and DROPS the set (asked first, in a dialog) |
+| Choosing a role | applies the preset | applies the preset to the DRAFT (the boxes follow it at once); saving it drops the set. There is no dialog: Discard and the save bar are the way back |
 
 Rules, in `member-permissions.ts` and held by every layer (the service, the single UPDATE, the page):
 
@@ -98,6 +98,37 @@ with its preset; ticking a box keeps the role as what the member is based on. Sa
 (one write). Discard puts the draft back. "Use {role} permissions" returns to the preset. A permission that cannot be changed (the way
 in, what only comes with a role, what the looker lacks) is a PLAIN ROW, not a disabled checkbox: a disabled control fades the words
 the merchant is reading. Once the ticks stop being a preset, what only comes with a role is let go (a set never holds it).
+
+## Invitations are not people
+
+`inviteMember` only **saves a row** (`invited`, no Shopify user, the address and a role). **Nothing is emailed**: the person joins the first
+time they open the app with that address verified by Shopify (`resolveMember` matches it), so the words say "saved" and "ask them to open
+the app", never "sent" (no notification event exists for it; adding one is a separate decision).
+
+- **Cancelling an invitation DELETES the row** (`MemberRepo.cancelInvite`: `status = invited AND shopify_user_id IS NULL`, shop-scoped, one
+  statement). There is no person behind it, it holds no seat and nothing refers to it, so a "removed" copy would only be a row that can never
+  be restored. The address can be invited again.
+- **A row with no Shopify user is never activated by hand.** `activate` carries `shopify_user_id IS NOT NULL` in the same statement as the
+  status and the seat guards, `remove` refuses it too (it is cancelled, not parked), and `canOf` offers no restore/approve for an unlinked row.
+- Old data may hold a *removed* row that never had a user (a cancelled invitation from before). It is left out of the list and the counts
+  (`notCancelledInvitation` in the model), the person's page answers 404 for it, and `activate` refuses it. Nothing deletes it; a one-off
+  clean-up is a separate, deliberate operation.
+
+## What the pages say about seats
+
+The page-only reading `seatReadingFrom` is NOT `seatLimitFrom`: admission still treats a refusal as limit 0 (nobody new gets in), but the
+words never print "3 of 0, over the limit" for a plan that could not be read. It is `limit | unlimited | unknown` (`unknown` for an
+inactive/unknown/unreadable plan; `disabled` is a real limit of 0). `MemberSeats.reading` is the port for it.
+
+- The team page shows `unknown` as "Seats in use: N" plus "we cannot read your plan's seat limit". Two banners tell **waiting** (needs an answer)
+  apart from **no seat** (`trimmed_at`: the plan has no room); both are counted from `countByStatus` (`StatusCounts.noSeat`), not from the
+  capped list. When the list was read up to its cap (500) a notice says how many people it left out (`hiddenCount`).
+- One person's page loads the seat answer **only** for someone who could be let in (`pending`/`removed` with a Shopify user): `activationSeat`
+  gives `open`, `full` or `unreadable`, and the let-in/restore button is disabled with the reason beside it (and a link to the plan for someone
+  who holds `billing:manage`). The server answers `noSeat` for the same cases, so a button never promises what would be refused.
+- The invite form says, when no seat is free or the plan cannot be read, that the person is saved but **waits** to be let in.
+- The person's page for someone who cannot use the app (invited, waiting, no seat, removed) says why in the Access section and **does not
+  show permissions** (those belong to active members). Letting in/restoring is ONE role select and ONE button.
 
 ## Rules that never change, whatever an app configures
 

@@ -3,6 +3,19 @@
 > Start with [SETUP.md](SETUP.md). This document is the detailed release and
 > compliance checklist for teams that need the full audit trail.
 
+## If you are an agent working in a DERIVED app
+
+`CLAUDE.md` in the template says placeholders stay and nobody asks for real values. **That is reversed the moment the repository is an app**: the work is to make it real. You are in a derived app when the owner says so or `app/identity.ts` is being filled in. Do this as part of the adoption, not later:
+
+1. **Replace every placeholder** (run `npm run check:placeholders`; it must pass before a production deploy). Surfaces: `app/identity.ts` (name, brand, contacts, legal address and effective date), `app/legal/content.ts`, `app/billing/plans.ts` (plan names, prices, annual price) and the `plans.*` / `tagline` copy in every language's `common.json`, `wrangler.jsonc` (real resource ids, `SHOPIFY_APP_URL`, app handle), `shopify.app*.toml` (client id, URLs, scopes, webhooks), the sample dashboard and setup guide (`SampleDashboard`, `SetupGuide`: build the real ones or delete them), the plan-card art and its source and licence in `docs/illustrations.md`, and the support copy (reply expectations: only state a response time the business really commits to).
+2. **Unknown real value (legal address, app name, price, SLA, licence): ask the owner.** Never invent one, never weaken `check:placeholders`.
+3. **Fix the docs and the agent instructions in the same change.** The derived app is not a template any more:
+   - In `CLAUDE.md`, replace the section "This repo is a TEMPLATE, not a product" with a short "This app" section (what it does, who it is for, what is deliberately out of scope) and delete the "placeholders are intentional" rules; `check:placeholders` is now an ordinary release gate. Keep the "Shared template" section only if the app still follows the template's per-app domain rules.
+   - Rewrite `docs/README.md` for the app: drop template-only documents that no longer apply (`SETUP.md`, this checklist once complete, `PORTING_CAMPAIGNS.md` if campaigns are not used), keep `UPGRADING.md` if the app still pulls template updates.
+   - Remove the rules, skills and docs of subsystems the app does not use (campaigns, MCP, web push, members seats, AI), together with their code, so no agent is steered by instructions for code that is gone.
+   - Record the app's own verified Shopify findings in `docs/shopify-api-invariants.md` and its own decisions in the rule that owns the area.
+4. Run `npm run verify` after each area and say what was changed and what was verified.
+
 ## Refactor plan (short version)
 
 1. **Identity:** edit `app/identity.ts` once; keep public pages, legal pages,

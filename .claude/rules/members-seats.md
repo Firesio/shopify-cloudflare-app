@@ -30,7 +30,8 @@ the last seat and there is no second counter to drift.
 - **A refused or unreadable entitlement** (inactive subscription, a key defined as the wrong kind) gives NO new seats, while
   members already active keep their access. That reading (`seatLimitFrom`) turns a refusal into a limit of 0, which only ever
   keeps someone WAITING. It must never be used to take a seat away: see the strict reading below.
-- Pending, invited and removed members take no seat. Removing someone frees theirs at once.
+- Pending, invited and removed members take no seat. Removing someone frees theirs at once. A row with no Shopify user (an invitation) can never be made active, so it can never hold one.
+- What the pages SAY about the limit uses `seatReadingFrom` (an unreadable plan is `unknown`, not 0); admission keeps using `seatLimitFrom`. See `.claude/rules/members.md`, "What the pages say about seats".
 
 ### What happens when the team is over the limit: `MEMBERS.seatOverage`
 

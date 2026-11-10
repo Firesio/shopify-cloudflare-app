@@ -15,6 +15,6 @@ Rules (they load when you open `app/routes/app/**`): `polaris-app-home`, `polari
 6. **Structure**: `<form data-save-bar>` wraps `s-page`; sections are direct children; back link in `breadcrumb-actions`; resource selection through the Resource Picker; spacing only from `s-section`/`s-stack`/`s-grid`.
 7. **Every create/update**: a toast on the result (`shopify.toast.show`) and `loading` on the submitting button only.
 8. **Translations**: every string through `t()` in `app/i18n/locales/<lang>/admin.json` for **every** language; dates and money through `app/i18n/format.ts`. Run `npm run i18n:sync`.
-9. **Speed**: nothing in the loader the first paint does not need (`settle()` / `<Deferred>`), bounded queries (`.claude/rules/merchant-speed.md`).
+9. **Speed and loading**: the loader awaits only auth; anything else goes behind `settle()` / `<Deferred>`. The frame, headings, labels, buttons and static cards render at once; only data-dependent values are skeletons with the SAME footprint (`app/components/admin/Skeleton.tsx`, `PendingSection`; give the loaded component a `loading` state and render the same markup, see `.claude/rules/polaris-app-home.md` "Loading"). Bounded queries (`.claude/rules/merchant-speed.md`).
 10. **Validate** the markup with the `shopify-plugin:shopify-polaris-app-home` skill's `validate.mjs` before calling it done.
 11. **Tests**: loader, action and intent handlers on the server side. Polaris cannot be unit-tested: verify the rendering by hand and **say so**.

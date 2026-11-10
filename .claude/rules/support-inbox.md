@@ -4,6 +4,9 @@ paths:
   - "app/services/support*"
   - "app/models/support*"
   - "app/ports/support*"
+  - "app/routes/app/support/**"
+  - "app/components/support/**"
+  - "app/routes/resources/support-*"
   - "app/adapters/inbound-mail*"
   - "app/adapters/bot-check*"
   - "workers/inbound-email*"
@@ -72,3 +75,12 @@ Read from the Cloudflare Email Service docs ([headers](https://developers.cloudf
 ## Deeper reference
 
 Trying the mail path locally with no deploy, and what is still unverified (subaddressing, threading in Gmail/Outlook, the relay parser): `docs/support-inbox.md`.
+
+## The merchant's side (in the admin, `/app/support`)
+
+- **A message or ticket and its attachments are written as ONE unit**, and a resend must not duplicate it: the upload ids are validated before any write, the attachments are claimed against the id of the message just stored (never "the last message"), and the form carries a submission key so a retry returns the existing record. Cross-shop ids are refused.
+- **A reply to a closed ticket reopens it**, so the composer is always shown and says so.
+- **Uploads** stream to R2 one file at a time (never through the form's own multipart body). The allowlist and limits are constants shared by the picker and the server; submit is disabled while a file is uploading; every failure names its file and reason. File names keep Unicode letters and are sent with `filename*` (RFC 8187); control and bidi characters are stripped.
+- Attachment links are signed and expire in an hour: a failed image or video asks the loader for fresh links once, instead of reloading the page and losing the draft.
+- Events Polaris does not bubble (`dismiss`, `droprejected`, `error`) are listened for with `useElementEvent` (`app/admin/use-element-event.ts`).
+
