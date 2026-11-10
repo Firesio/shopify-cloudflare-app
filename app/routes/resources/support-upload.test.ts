@@ -198,4 +198,65 @@ describe("support upload staging", () => {
       report.mockRestore();
     }
   });
+
+  describe("the stored filename", () => {
+    /** One staff session and ticket per test; each call uploads a small PNG under `X-Support-Filename: header`. */
+    async function uploader(): Promise<(header: string) => Promise<string>> {
+      const cookie = await staffCookie();
+      const id = await ticketId();
+      return (header) => upload(cookie, id, header);
+    }
+
+    /** Returns the filename the server kept. */
+    async function upload(cookie: string, id: string, header: string): Promise<string> {
+      const body = "png-bytes";
+      const request = new Request("https://example.test/support/upload", {
+        method: "POST",
+        body,
+        headers: {
+          Cookie: cookie,
+          "Content-Type": "image/png",
+          "Content-Length": String(body.length),
+          "X-Support-Filename": header,
+          "X-Support-Ticket": id,
+        },
+      });
+      const result = await action(actionArgs(request));
+      if (typeof result !== "object" || result === null || !("data" in result)) throw new Error("expected a data response");
+      const filename: unknown = typeof result.data === "object" && result.data !== null && "filename" in result.data ? result.data.filename : undefined;
+      if (typeof filename !== "string") throw new Error(`upload refused: ${JSON.stringify(result.data)}`);
+      return filename;
+    }
+
+    it("decodes the browser's percent-encoding, so spaces and accents are not mangled into digits", async () => {
+      await inRequest(async () => {
+        const storedNameFor = await uploader();
+        expect(await storedNameFor(encodeURIComponent("captura de pantalla ñ.png"))).toBe("captura de pantalla ñ.png");
+      });
+    });
+
+    it("keeps CJK and Cyrillic names", async () => {
+      await inRequest(async () => {
+        const storedNameFor = await uploader();
+        expect(await storedNameFor(encodeURIComponent("注文一覧.png"))).toBe("注文一覧.png");
+        expect(await storedNameFor(encodeURIComponent("Скриншот ошибки.png"))).toBe("Скриншот ошибки.png");
+      });
+    });
+
+    it("strips an encoded path, control characters and a bidi override", async () => {
+      await inRequest(async () => {
+        const storedNameFor = await uploader();
+        expect(await storedNameFor("..%2F..%2Fetc%2Fpasswd.png")).toBe("passwd.png");
+        expect(await storedNameFor(encodeURIComponent("a\u0000b\r\nc.png"))).toBe("abc.png");
+        expect(await storedNameFor(encodeURIComponent("evil\u202Egnp.exe"))).toBe("evilgnp.exe");
+      });
+    });
+
+    it("survives a malformed escape instead of failing the upload", async () => {
+      await inRequest(async () => {
+        const storedNameFor = await uploader();
+        expect(await storedNameFor("100%.png")).toBe("100.png");
+      });
+    });
+  });
 });

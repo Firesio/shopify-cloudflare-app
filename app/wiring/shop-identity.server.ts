@@ -43,6 +43,14 @@ const planResponse = z.object({
 const shopRowKey = (shop: string) => `shop-row:${shop}`;
 const storedShop = (repository: ShopRepo, shop: string) => requestMemo(shopRowKey(shop), () => repository.get(shop));
 
+/**
+ * The shop's stored name, for a greeting. Goes through the same per-request read as the layout's identity and zone
+ * lookups, so a page and its layout cost one `shops` read between them.
+ */
+export async function shopDisplayName(shop: string): Promise<string | null> {
+  return (await storedShop(new ShopRepo(), shop))?.name ?? null;
+}
+
 const timeZoneResponse = z.object({ data: z.object({ shop: z.object({ ianaTimezone: z.string() }) }) });
 
 /** The zone every date for this shop renders in; see `resolveShopTimeZone`. */

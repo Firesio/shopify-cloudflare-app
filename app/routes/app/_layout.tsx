@@ -1,22 +1,29 @@
-import type { HeadersFunction, LoaderFunctionArgs, ShouldRevalidateFunction } from "react-router";
-import { Outlet, isRouteErrorResponse, useLoaderData, useRouteError, useRouteLoaderData } from "react-router";
+import type { HeadersFunction, LinksFunction, LoaderFunctionArgs, ShouldRevalidateFunction } from "react-router";
+import { Outlet, useLoaderData, useLocation, useRouteError, useRouteLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import { useTranslation } from "react-i18next";
 
-import { AccessProvider, makeAccess } from "~/admin/access";
+import { AccessProvider } from "~/admin/access";
+import { layoutErrorView } from "~/admin/route-error";
 import { accessRefusalOf, guardMember } from "~/admin/require-member.server";
+import { boundAdmin, loadShellDecoration } from "~/admin/shell-data.server";
+import { useNavigationLoading } from "~/admin/use-navigation-loading";
+import { AppNav } from "~/components/admin/AppNav";
 import { EmbeddedProvider } from "~/components/admin/EmbeddedProvider";
+import { MemberMissing } from "~/components/admin/MemberMissing";
 import { NoAccess } from "~/components/admin/NoAccess";
 import { grantsOf } from "~/domain/member-access";
-import { isAccessRefusal } from "~/domain/member-admission";
-import { UTC } from "~/i18n/time-zone";
-import { contactsToAsk } from "~/services/members.server";
-import { memberDependencies } from "~/wiring.server";
-import { useNavigationLoading } from "~/admin/use-navigation-loading";
-import { getEnv } from "~/request-context.server";
-import { persistShopIdentity, shopTimeZone } from "~/wiring.server";
 import { TimeZoneProvider } from "~/i18n/useTimeZone";
-import { thrownResponseHtml } from "~/lib/thrown-response";
+import { UTC } from "~/i18n/time-zone";
+import { shopLog } from "~/observability/shop-log";
+import { getEnv } from "~/request-context.server";
+import { contactsToAsk } from "~/services/members.server";
+import skeletonStyles from "~/styles/admin/skeleton.css?url";
+import { memberDependencies, persistShopIdentity, shopTimeZone } from "~/wiring.server";
+
+// The one stylesheet the embedded admin carries (OWNER DECISION, .claude/rules/styling.md): it only animates the
+// `data-skeleton` marker that `components/admin/Skeleton.tsx` sets. Loaded HERE, by this layout's links(), so it never
+// reaches the public pages or the staff console, and never from root.tsx.
+export const links: LinksFunction = () => [{ rel: "stylesheet", href: skeletonStyles }];
 
 /**
  * Namespaces for the embedded admin. `public` is deliberately absent — the
@@ -32,11 +39,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Shopify proves who is asking; the guard says whether that person may be here at all. Everything below it is for a
     // member only, so a person who is kept out costs no write and no Admin API call.
     const { admin, session, member } = await guardMember(request, "app:view");
-    // Independent of each other: the identity write-through and the stored zone.
-    const [, timeZone] = await Promise.all([
-      persistShopIdentity(admin, session.shop),
-      shopTimeZone(admin, session.shop),
-    ]);
+    // Independent of each other, and both only DECORATE the shell: bounded, and a failure costs the zone (UTC), never the
+    // page. Authentication above is what stays awaited without a fallback.
+    const { timeZone } = await loadShellDecoration(session.shop, {
+      persistIdentity: (signal) => persistShopIdentity(boundAdmin(admin, signal), session.shop),
+      timeZone: (signal) => shopTimeZone(boundAdmin(admin, signal), session.shop),
+      log: shopLog,
+    });
 
     // The LANGUAGE needs no handling here: Shopify puts its `locale` parameter on the request that LOADS the embedded
     // app, and the root loader reads it once, for the document (`root.tsx` never revalidates, so a later in-app
@@ -51,8 +60,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // for the page that explains it. Anything else the guard threw (the library's bounce, a 401) propagates untouched.
     const refusal = accessRefusalOf(thrown);
     if (refusal === undefined) throw thrown;
-    // Who to ask is read here, once, for this screen only: no ordinary page pays for it.
-    const contacts = await contactsToAsk(refusal.shop, memberDependencies());
+    // Who to ask: the refusal already carries them when it came from the guard; read here only for a refusal that did
+    // not. Once, for this screen only: no ordinary page pays for it.
+    const contacts = refusal.contacts ?? (await contactsToAsk(refusal.shop, memberDependencies()));
     return { apiKey, timeZone: UTC, access: { granted: false as const, reason: refusal.reason, contacts } };
   }
 };
@@ -75,7 +85,6 @@ export const shouldRevalidate: ShouldRevalidateFunction = ({ formMethod, default
 
 export default function App() {
   const { apiKey, timeZone, access } = useLoaderData<typeof loader>();
-  const { t } = useTranslation("admin");
   useNavigationLoading();
 
   if (!access.granted) {
@@ -86,16 +95,9 @@ export default function App() {
     );
   }
 
-  const allowed = makeAccess(access.permissions);
   return (
     <EmbeddedProvider apiKey={apiKey}>
-      <s-app-nav>
-        <s-link href="/app" rel="home">{t("nav.home")}</s-link>
-        {/* A link the person cannot open is not offered. The page checks the permission itself. */}
-        {allowed.can("billing:manage") ? <s-link href="/app/billing">{t("nav.billing")}</s-link> : null}
-        {allowed.can("members:manage") ? <s-link href="/app/members">{t("nav.members")}</s-link> : null}
-        <s-link href="/app/support">{t("nav.support")}</s-link>
-      </s-app-nav>
+      <AppNav permissions={access.permissions} />
       <TimeZoneProvider value={timeZone}>
         <AccessProvider permissions={access.permissions}>
           <Outlet />
@@ -116,18 +118,34 @@ const LAYOUT_ROUTE_ID = "routes/app/_layout";
 
 export function ErrorBoundary() {
   const error = useRouteError();
+  const { pathname } = useLocation();
   const layout = useRouteLoaderData<typeof loader>(LAYOUT_ROUTE_ID);
-  const html = thrownResponseHtml(error);
-  if (html !== null) return <div dangerouslySetInnerHTML={{ __html: html }} />;
-  const reason = isRouteErrorResponse(error) && error.status === 403 && typeof error.data === "object" && error.data !== null && "reason" in error.data ? error.data.reason : undefined;
-  if (isAccessRefusal(reason)) {
-    return (
-      <EmbeddedProvider apiKey={layout?.apiKey ?? ""}>
-        <NoAccess reason={reason} />
-      </EmbeddedProvider>
-    );
+  const view = layoutErrorView(error, pathname);
+  // What the person can still use: the menu, when the layout's own loader let them in (a refusal from a CHILD page; the
+  // layout's loader keeps its own page for a person who is not let in at all).
+  const permissions = layout?.access.granted ? layout.access.permissions : undefined;
+  const apiKey = layout?.apiKey ?? "";
+
+  switch (view.kind) {
+    case "bounce":
+      return <div dangerouslySetInnerHTML={{ __html: view.html }} />;
+    case "refusal":
+      return (
+        <EmbeddedProvider apiKey={apiKey}>
+          {permissions ? <AppNav permissions={permissions} /> : null}
+          <NoAccess reason={view.reason} contacts={view.contacts} homeHref={permissions ? "/app" : undefined} />
+        </EmbeddedProvider>
+      );
+    case "member_missing":
+      return (
+        <EmbeddedProvider apiKey={apiKey}>
+          {permissions ? <AppNav permissions={permissions} /> : null}
+          <MemberMissing />
+        </EmbeddedProvider>
+      );
+    case "rethrow":
+      throw error;
   }
-  throw error;
 }
 
 export const headers: HeadersFunction = (headersArgs) => {

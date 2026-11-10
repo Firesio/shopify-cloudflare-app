@@ -92,7 +92,8 @@ describe("opening a ticket", () => {
   it("adopts uploaded attachments through injected repository", async () => {
     const calls: string[] = [];
     const repo = {
-      attachMany: async () => { calls.push("attachMany"); }, open: async () => ({ id: "t", messageId: "m" }),
+      attachMany: async () => { calls.push("attachMany"); }, open: async () => ({ id: "t", messageId: "m", created: true }),
+      claimUploads: async () => [], listRecentForShop: async () => [],
       openAsStaff: async () => ({ id: "t", messageId: "m" }), reply: async () => undefined,
       replyAsStaff: async () => undefined, find: async () => undefined, findForStaff: async () => undefined,
       listForShop: async () => [], listOpenForStaff: async () => [], closeAsStaff: async () => false,
@@ -107,7 +108,9 @@ describe("opening a ticket", () => {
     const calls: string[] = [];
     const repo = {
       attachMany: async () => {},
-      open: async () => { calls.push("open"); return { id: "ticket", messageId: "message" }; },
+      open: async () => { calls.push("open"); return { id: "ticket", messageId: "message", created: true }; },
+      claimUploads: async () => [],
+      listRecentForShop: async () => [],
       openAsStaff: async () => ({ id: "ticket", messageId: "message" }),
       reply: async () => undefined,
       replyAsStaff: async () => undefined,
@@ -122,7 +125,7 @@ describe("opening a ticket", () => {
     };
     const service = new SupportService({ repo, staff: { recipientsFor: async () => ({ emails: [], devices: [] }) }, clock: { now: () => 1 }, notifier: { send: async () => {} }, appUrl: "https://app.test", mailDomain: null, withinRateLimit: async () => true, signAttachment: async () => "token", log: () => {} });
     const result = await service.openTicket({ shop: "shop.myshopify.com", shopName: "Shop", merchantEmail: null, ccEmails: [], category: "bug", subject: "Subject", body: "Body" });
-    expect(result).toEqual({ ok: true, value: { id: "ticket", messageId: "message" } });
+    expect(result).toEqual({ ok: true, value: { id: "ticket", messageId: "message", created: true } });
     expect(calls).toEqual(["open"]);
   });
 
@@ -848,5 +851,119 @@ describe("who is told about a ticket, per their own settings", () => {
 
     expect(thread?.messages).toHaveLength(1);
     expect(logged).toEqual([{ event: "support.notify_staff_failed", reason: "Error" }]);
+  });
+});
+
+describe("messages that carry files, and messages sent twice", () => {
+  const stage = (shop: string, id: string, expiresAt = Date.now() + 60_000) =>
+    new SupportRepo(testIds).stageUpload({
+      id, shop, ticketId: null, r2Key: `support/${shop}/${id}`, filename: `${id}.txt`,
+      contentType: "text/plain", sizeBytes: 1, createdAt: 1, expiresAt,
+    });
+
+  it("opens a ticket with its files, and tells staff once", async () => {
+    const shop = newShop();
+    const { thread, rows } = await inRequest(async () => {
+      await staffMember();
+      await stage(shop, "up_ok");
+      const service = supportService();
+      const created = await openTicket(service, shop, { uploadIds: ["up_ok"] });
+      return { thread: await service.find(shop, created.id), rows: await recentRows() };
+    });
+
+    expect(thread?.attachments.map((file) => file.id)).toEqual(["up_ok"]);
+    expect(thread?.attachments[0]?.messageId).toBe(thread?.messages[0]?.id);
+    expect(rows).toHaveLength(1);
+  });
+
+  it("refuses a ticket whose upload is unknown, another shop's or expired, and writes nothing", async () => {
+    const shop = newShop();
+    const other = newShop();
+    const outcome = await inRequest(async () => {
+      await stage(shop, "up_ok");
+      await stage(other, "up_theirs");
+      await stage(shop, "up_stale", 5);
+      const service = supportService();
+      const results = [];
+      for (const uploadIds of [["up_ok", "ghost"], ["up_ok", "up_theirs"], ["up_ok", "up_stale"]]) {
+        results.push(await service.openTicket({ shop, shopName: "Alpha Store", merchantEmail: null, ccEmails: [], category: "bug", subject: "S", body: "B", uploadIds }));
+      }
+      return { results, tickets: await service.listForShop(shop), kept: (await new SupportRepo(testIds).claimUploads(shop, ["up_ok"], Date.now())).length };
+    });
+
+    expect(outcome.results).toEqual(Array(3).fill({ ok: false, reason: "invalid_upload" }));
+    expect(outcome.tickets).toEqual([]);
+    // Nothing was consumed: the merchant can fix the list and send again.
+    expect(outcome.kept).toBe(1);
+  });
+
+  it("files one ticket and sends one staff alert for a form submitted twice", async () => {
+    const shop = newShop();
+    const key = crypto.randomUUID();
+    const { first, second, tickets, rows } = await inRequest(async () => {
+      await staffMember();
+      const service = supportService();
+      const first = await openTicket(service, shop, { submissionKey: key });
+      const second = await service.openTicket({ shop, shopName: "Alpha Store", merchantEmail: null, ccEmails: [], category: "bug", subject: "Again", body: "Again", submissionKey: key });
+      return { first, second, tickets: await service.listForShop(shop), rows: await recentRows() };
+    });
+
+    expect(second).toEqual({ ok: true, value: { id: first.id, messageId: first.messageId, created: false } });
+    expect(tickets).toHaveLength(1);
+    expect(tickets[0]?.subject).not.toBe("Again");
+    expect(rows).toHaveLength(1);
+  });
+
+  it("replies with a file onto the reply's own message, even after staff wrote last", async () => {
+    const shop = newShop();
+    const thread = await inRequest(async () => {
+      await stage(shop, "up_reply");
+      const service = supportService();
+      const created = await openTicket(service, shop);
+      const replied = await service.replyAsMerchant({ shop, shopName: "Alpha Store", ticketId: created.id, body: "see file", uploadIds: ["up_reply"] });
+      expect(replied.ok).toBe(true);
+      await service.replyAsStaff({ ticketId: created.id, staffName: "Sam", body: "thanks" });
+      return service.find(shop, created.id);
+    });
+
+    const mine = thread?.messages.find((message) => message.body === "see file");
+    expect(thread?.messages.at(-1)?.author).toBe("staff");
+    expect(thread?.attachments.map((file) => file.messageId)).toEqual([mine?.id]);
+  });
+
+  it("refuses a reply with a bad upload before anything is written or sent", async () => {
+    const shop = newShop();
+    const { replied, thread, rows } = await inRequest(async () => {
+      await staffMember();
+      const service = supportService();
+      const created = await openTicket(service, shop);
+      const replied = await service.replyAsMerchant({ shop, shopName: "Alpha Store", ticketId: created.id, body: "x", uploadIds: ["ghost"] });
+      return { replied, thread: await service.find(shop, created.id), rows: await recentRows() };
+    });
+
+    expect(replied).toEqual({ ok: false, reason: "invalid_upload" });
+    expect(thread?.messages).toHaveLength(1);
+    // Only the alert for opening the ticket: the refused reply told nobody.
+    expect(rows).toHaveLength(1);
+  });
+
+  it("stores a reply sent twice once, and alerts staff once", async () => {
+    const shop = newShop();
+    const key = crypto.randomUUID();
+    const { first, second, thread, rows } = await inRequest(async () => {
+      await staffMember();
+      const service = supportService();
+      const created = await openTicket(service, shop);
+      const send = () => service.replyAsMerchant({ shop, shopName: "Alpha Store", ticketId: created.id, body: "once", submissionKey: key });
+      const first = await send();
+      const second = await send();
+      return { first, second, thread: await service.find(shop, created.id), rows: await recentRows() };
+    });
+
+    expect(first).toEqual({ ok: true, value: { messageId: key, created: true } });
+    expect(second).toEqual({ ok: true, value: { messageId: key, created: false } });
+    expect(thread?.messages).toHaveLength(2);
+    // One alert for opening the ticket and one for the reply, not two for the reply.
+    expect(rows).toHaveLength(2);
   });
 });

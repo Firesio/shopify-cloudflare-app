@@ -21,7 +21,8 @@ interface PermissionsSectionProps {
 /**
  * One permission that cannot be changed, as a plain row: an icon for whether it is allowed (a filled check circle, or an empty circle), its name and what it allows at full
  * strength (a disabled checkbox would fade the very words the merchant is reading), and the reason it is locked when there is one.
- * A screen reader is told in words whether it is allowed.
+ * A screen reader is told in words whether it is allowed: the word is its OWN text element, read after the name as a separate
+ * item, so it never runs into the label ("Use the appAllowed").
  */
 function StaticPermission({ permission, allowed, hint }: { readonly permission: MemberPermission; readonly allowed: boolean; readonly hint: string }) {
   const { t } = useTranslation("admin");
@@ -29,10 +30,8 @@ function StaticPermission({ permission, allowed, hint }: { readonly permission: 
     <s-stack direction="inline" gap="small-200" alignItems="start" data-permission={permission} data-allowed={String(allowed)}>
       <s-icon type={allowed ? "check-circle-filled" : "circle"} color={allowed ? "base" : "subdued"} />
       <s-stack gap="none">
-        <s-text>
-          {t(PERMISSION_TEXT[permission].label)}
-          <s-text accessibilityVisibility="exclusive">{allowed ? t("members.detail.allowed") : t("members.detail.notAllowed")}</s-text>
-        </s-text>
+        <s-text>{t(PERMISSION_TEXT[permission].label)}</s-text>
+        <s-text accessibilityVisibility="exclusive">{allowed ? t("members.detail.allowed") : t("members.detail.notAllowed")}</s-text>
         <s-text color="subdued">{`${t(PERMISSION_TEXT[permission].description)} ${hint}`.trim()}</s-text>
       </s-stack>
     </s-stack>
@@ -54,21 +53,24 @@ export function PermissionsSection({ name, ticked, canEdit, editable, grantable,
     <s-section heading={t("members.detail.permissionsHeading")}>
       <s-stack gap="base">
         <s-paragraph color="subdued">{t(canEdit ? "members.detail.permissionsEditable" : "members.detail.permissionsReadOnly", { name })}</s-paragraph>
-        <s-stack gap="base">
-          {MEMBER_PERMISSIONS.map((permission) =>
-            editable.includes(permission) ? (
-              <s-checkbox
-                key={permission}
-                label={t(PERMISSION_TEXT[permission].label)}
-                details={t(PERMISSION_TEXT[permission].description)}
-                checked={ticked.includes(permission)}
-                onChange={(event) => onTick(permission, event.currentTarget.checked)}
-              ></s-checkbox>
-            ) : (
-              <StaticPermission key={permission} permission={permission} allowed={ticked.includes(permission)} hint={hintOf(permission)} />
-            ),
-          )}
-        </s-stack>
+        {/* The group's name for a screen reader; the stack inside keeps the spacing, so this element only labels. */}
+        <div role="group" aria-label={t("members.detail.permissionsGroup", { name })}>
+          <s-stack gap="base">
+            {MEMBER_PERMISSIONS.map((permission) =>
+              editable.includes(permission) ? (
+                <s-checkbox
+                  key={permission}
+                  label={t(PERMISSION_TEXT[permission].label)}
+                  details={t(PERMISSION_TEXT[permission].description)}
+                  checked={ticked.includes(permission)}
+                  onChange={(event) => onTick(permission, event.currentTarget.checked)}
+                ></s-checkbox>
+              ) : (
+                <StaticPermission key={permission} permission={permission} allowed={ticked.includes(permission)} hint={hintOf(permission)} />
+              ),
+            )}
+          </s-stack>
+        </div>
         {canEdit && <s-paragraph color="subdued">{t("members.detail.customHint")}</s-paragraph>}
       </s-stack>
     </s-section>

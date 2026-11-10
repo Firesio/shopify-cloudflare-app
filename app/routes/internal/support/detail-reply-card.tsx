@@ -8,7 +8,7 @@ import { Spinner } from "~/internal/components/ui/spinner";
 import { Textarea } from "~/internal/components/ui/textarea";
 import { Sparkles } from "lucide-react";
 import { BODY_MAX } from "~/schemas/support";
-import { InternalAttachmentPicker } from "~/components/support/InternalAttachmentPicker";
+import { InternalAttachmentPicker } from "~/internal/components/InternalAttachmentPicker";
 import { usePendingUploads } from "~/routes/app/support/use-pending-uploads";
 import { useReplyDraft } from "~/internal/use-reply-draft";
 import { DEFAULT_TONE, REPLY_TONES, TONE_LABEL, toReplyTone, type ReplyTone } from "~/ai/tones";

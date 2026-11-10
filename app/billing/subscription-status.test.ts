@@ -1,149 +1,134 @@
 import { describe, it, expect } from "vitest";
-import { resolveBillingStatus, resolveProjectionBillingStatus, type AppSubscriptionLike } from "./subscription-status";
+import {
+  dateOnlyInstant,
+  grantsPaidAccess,
+  resolveProjectionBillingStatus,
+  type PartnerSubscriptionProjection,
+  type SubscriptionPhase,
+} from "./subscription-status";
+import type { SubscriptionStatus } from "~/domain/subscription-lifecycle";
 
 const NOW = Date.parse("2026-01-15T00:00:00.000Z");
 
-function recurringSub(overrides: Partial<AppSubscriptionLike> = {}): AppSubscriptionLike {
+function projection(over: Partial<PartnerSubscriptionProjection> = {}): PartnerSubscriptionProjection {
   return {
-    name: "TODO:PRO",
     status: "ACTIVE",
-    test: false,
-    trialDays: 0,
-    createdAt: "2026-01-01T00:00:00.000Z",
-    currentPeriodEnd: "2026-02-01T00:00:00.000Z",
-    lineItems: [
-      {
-        plan: {
-          pricingDetails: {
-            interval: "EVERY_30_DAYS",
-            price: { amount: 19, currencyCode: "USD" },
-          },
-        },
-      },
-    ],
-    ...overrides,
+    planHandle: "pro",
+    billingInterval: "EVERY_30_DAYS",
+    priceAmount: 1900,
+    priceCurrency: "USD",
+    trialEndsAt: null,
+    currentPeriodEndsAt: Date.parse("2026-02-01T00:00:00.000Z"),
+    cancelEffectiveOn: null,
+    ...over,
   };
 }
 
-describe("resolveBillingStatus", () => {
-  it("reports free when there is no active payment", () => {
-    const status = resolveBillingStatus({ hasActivePayment: false, appSubscriptions: [] }, NOW);
-    expect(status).toEqual({ kind: "free" });
-  });
-
-  it("reports free when hasActivePayment is true but there is no subscription row (a one-time purchase)", () => {
-    const status = resolveBillingStatus({ hasActivePayment: true, appSubscriptions: [] }, NOW);
-    expect(status).toEqual({ kind: "free" });
-  });
-
-  it("reports an active recurring subscription with its next charge date and price", () => {
-    const status = resolveBillingStatus(
-      { hasActivePayment: true, appSubscriptions: [recurringSub()] },
-      NOW,
-    );
-    expect(status).toMatchObject({
-      kind: "subscribed",
-      name: "TODO:PRO",
-      status: "ACTIVE",
-      test: false,
-      price: { amount: 1900, currency: "USD" },
-      interval: "every_30_days",
-      trialEndsAt: null,
-      periodEnd: Date.parse("2026-02-01T00:00:00.000Z"),
-    });
-  });
-
-  it("reports the trial end date while a trial is still running", () => {
-    const status = resolveBillingStatus(
-      {
-        hasActivePayment: true,
-        appSubscriptions: [
-          recurringSub({ trialDays: 14, createdAt: "2026-01-10T00:00:00.000Z" }),
-        ],
-      },
-      NOW, // 5 days into a 14-day trial that started 2026-01-10
-    );
-    expect(status).toMatchObject({
-      kind: "subscribed",
-      trialEndsAt: Date.parse("2026-01-24T00:00:00.000Z"),
-    });
-  });
-
-  it("does not report a trial that has already ended", () => {
-    const status = resolveBillingStatus(
-      {
-        hasActivePayment: true,
-        appSubscriptions: [
-          recurringSub({ trialDays: 3, createdAt: "2026-01-01T00:00:00.000Z" }),
-        ],
-      },
-      NOW, // trial ended 2026-01-04, long before NOW
-    );
-    expect(status).toMatchObject({ trialEndsAt: null });
-  });
-
-  it("flags a Shopify test charge", () => {
-    const status = resolveBillingStatus(
-      { hasActivePayment: true, appSubscriptions: [recurringSub({ test: true })] },
-      NOW,
-    );
-    expect(status).toMatchObject({ test: true });
-  });
-
-  it.each(["PENDING", "DECLINED", "FROZEN", "EXPIRED", "CANCELLED", "ACCEPTED"] as const)(
-    "carries a %s subscription's status through as-is",
-    (subStatus) => {
-      const status = resolveBillingStatus(
-        { hasActivePayment: true, appSubscriptions: [recurringSub({ status: subStatus })] },
-        NOW,
-      );
-      expect(status).toMatchObject({ kind: "subscribed", status: subStatus });
-    },
-  );
-
-  it("reports no price or interval for a usage-based plan", () => {
-    const status = resolveBillingStatus(
-      {
-        hasActivePayment: true,
-        appSubscriptions: [
-          recurringSub({
-            lineItems: [
-              {
-                plan: {
-                  pricingDetails: {
-                    balanceUsed: { amount: 5, currencyCode: "USD" },
-                  },
-                },
-              },
-            ],
-          }),
-        ],
-      },
-      NOW,
-    );
-    expect(status).toMatchObject({ price: null, interval: null });
-  });
-});
-
 describe("resolveProjectionBillingStatus", () => {
-  it("uses the Partner-backed projection without the legacy Billing API", () => {
-    expect(resolveProjectionBillingStatus({
-      status: "ACTIVE",
-      planHandle: "pro",
-      billingInterval: "EVERY_30_DAYS",
-      priceAmount: 1900,
-      priceCurrency: "USD",
-      trialEndsAt: null,
-      currentPeriodEndsAt: 1_800_000_000_000,
-    }, "Pro", 1_700_000_000_000)).toMatchObject({
+  it("uses the Partner-backed projection", () => {
+    expect(resolveProjectionBillingStatus(projection(), "Pro", NOW)).toEqual({
       kind: "subscribed",
+      phase: "active",
       name: "Pro",
       price: { amount: 1900, currency: "USD" },
       interval: "every_30_days",
-      periodEnd: 1_800_000_000_000,
+      trialEndsAt: null,
+      currentPeriodEndsAt: Date.parse("2026-02-01T00:00:00.000Z"),
+      cancelsOn: null,
     });
   });
-  it("treats NONE as the free plan", () => {
-    expect(resolveProjectionBillingStatus({ status: "NONE", planHandle: null, billingInterval: null, priceAmount: null, priceCurrency: null, trialEndsAt: null, currentPeriodEndsAt: null }, "Free", 1_700_000_000_000)).toEqual({ kind: "free" });
+
+  it("treats no projection and NONE as the free plan", () => {
+    expect(resolveProjectionBillingStatus(undefined, null, NOW)).toEqual({ kind: "free" });
+    expect(resolveProjectionBillingStatus(projection({ status: "NONE", planHandle: null }), null, NOW)).toEqual({ kind: "free" });
+  });
+
+  it.each<[Exclude<SubscriptionStatus, "NONE">, SubscriptionPhase]>([
+    ["ACTIVE", "active"],
+    ["CANCELLATION_SCHEDULED", "cancelling"],
+    ["FROZEN", "frozen"],
+    ["PENDING", "pending"],
+    ["CANCELED", "cancelled"],
+    ["UNKNOWN", "inactive"],
+  ])("maps Partner %s to the %s phase, never to an 'Active' one it is not", (status, phase) => {
+    expect(resolveProjectionBillingStatus(projection({ status }), "Pro", NOW)).toMatchObject({ kind: "subscribed", phase });
+  });
+
+  it("keeps an unknown plan handle nameless instead of borrowing another plan's name", () => {
+    expect(resolveProjectionBillingStatus(projection({ planHandle: "retired" }), null, NOW)).toMatchObject({ name: null });
+  });
+
+  it("never invents a billing date: an unknown period end stays unknown (not 'now')", () => {
+    const status = resolveProjectionBillingStatus(projection({ currentPeriodEndsAt: null }), "Pro", NOW);
+    expect(status).toMatchObject({ currentPeriodEndsAt: null });
+  });
+
+  it("reports a trial only while it is still running", () => {
+    expect(resolveProjectionBillingStatus(projection({ trialEndsAt: NOW + 1 }), "Pro", NOW)).toMatchObject({ trialEndsAt: NOW + 1 });
+    expect(resolveProjectionBillingStatus(projection({ trialEndsAt: NOW }), "Pro", NOW)).toMatchObject({ trialEndsAt: null });
+    expect(resolveProjectionBillingStatus(projection({ trialEndsAt: NOW - 1 }), "Pro", NOW)).toMatchObject({ trialEndsAt: null });
+  });
+
+  it("does not call a frozen or pending subscription a trial", () => {
+    for (const status of ["FROZEN", "PENDING", "CANCELED", "CANCELLATION_SCHEDULED"] as const) {
+      expect(resolveProjectionBillingStatus(projection({ status, trialEndsAt: NOW + 1000 }), "Pro", NOW)).toMatchObject({ trialEndsAt: null });
+    }
+  });
+
+  it("carries the scheduled cancellation DATE only for a cancelling subscription", () => {
+    const scheduled = resolveProjectionBillingStatus(projection({ status: "CANCELLATION_SCHEDULED", cancelEffectiveOn: "2026-02-10" }), "Pro", NOW);
+    expect(scheduled).toMatchObject({ phase: "cancelling", cancelsOn: "2026-02-10" });
+    expect(resolveProjectionBillingStatus(projection({ status: "ACTIVE", cancelEffectiveOn: "2026-02-10" }), "Pro", NOW)).toMatchObject({ cancelsOn: null });
+  });
+
+  it("drops a cancellation date that is not a real calendar date", () => {
+    for (const cancelEffectiveOn of ["2026-02-30", "soon", "2026-2-1", ""]) {
+      expect(resolveProjectionBillingStatus(projection({ status: "CANCELLATION_SCHEDULED", cancelEffectiveOn }), "Pro", NOW)).toMatchObject({ cancelsOn: null });
+    }
+  });
+
+  it("keeps the price in the subscription's own currency", () => {
+    expect(resolveProjectionBillingStatus(projection({ priceAmount: 1750, priceCurrency: "EUR" }), "Pro", NOW)).toMatchObject({ price: { amount: 1750, currency: "EUR" } });
+    expect(resolveProjectionBillingStatus(projection({ priceAmount: 1900, priceCurrency: "JPY" }), "Pro", NOW)).toMatchObject({ price: { amount: 1900, currency: "JPY" } });
+  });
+
+  it("has no price when the amount or a real currency is missing", () => {
+    expect(resolveProjectionBillingStatus(projection({ priceAmount: null }), "Pro", NOW)).toMatchObject({ price: null });
+    expect(resolveProjectionBillingStatus(projection({ priceCurrency: null }), "Pro", NOW)).toMatchObject({ price: null });
+    expect(resolveProjectionBillingStatus(projection({ priceCurrency: "ZZZ" }), "Pro", NOW)).toMatchObject({ price: null });
+    expect(resolveProjectionBillingStatus(projection({ priceAmount: 19.5 }), "Pro", NOW)).toMatchObject({ price: null });
+  });
+
+  it("reads the billing interval, and leaves an unreported one null", () => {
+    expect(resolveProjectionBillingStatus(projection({ billingInterval: "ANNUAL" }), "Pro", NOW)).toMatchObject({ interval: "annual" });
+    expect(resolveProjectionBillingStatus(projection({ billingInterval: "EVERY_30_DAYS" }), "Pro", NOW)).toMatchObject({ interval: "every_30_days" });
+    expect(resolveProjectionBillingStatus(projection({ billingInterval: "WEEKLY" }), "Pro", NOW)).toMatchObject({ interval: null });
+    expect(resolveProjectionBillingStatus(projection({ billingInterval: null }), "Pro", NOW)).toMatchObject({ interval: null });
+  });
+});
+
+describe("grantsPaidAccess", () => {
+  it.each<[SubscriptionPhase, boolean]>([
+    ["active", true],
+    ["cancelling", true],
+    ["frozen", false],
+    ["pending", false],
+    ["cancelled", false],
+    ["inactive", false],
+  ])("%s -> %s", (phase, expected) => {
+    expect(grantsPaidAccess(phase)).toBe(expected);
+  });
+});
+
+describe("dateOnlyInstant", () => {
+  it("is midnight UTC of the named calendar day", () => {
+    expect(dateOnlyInstant("2026-02-10")).toBe(Date.parse("2026-02-10T00:00:00.000Z"));
+    expect(dateOnlyInstant("2028-02-29")).toBe(Date.parse("2028-02-29T00:00:00.000Z"));
+  });
+
+  it("refuses anything that is not a real date", () => {
+    for (const value of [null, "", "2026-13-01", "2026-02-30", "2027-02-29", "2026-02-10T00:00:00Z", "10/02/2026"]) {
+      expect(dateOnlyInstant(value)).toBeNull();
+    }
   });
 });

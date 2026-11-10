@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { overageLimitFrom, seatCapOf, seatLimitFrom, seatsLeft, trimmableLimitFrom, type SeatCheck, type SeatLimit } from "./member-seats";
+import { overageLimitFrom, seatCapOf, seatLimitFrom, seatReadingFrom, seatsLeft, trimmableLimitFrom, type SeatCheck, type SeatLimit } from "./member-seats";
 
 describe("seatLimitFrom", () => {
   it("is the plan's maximum for a capacity with one", () => {
@@ -75,5 +75,34 @@ describe("trimmableLimitFrom and overageLimitFrom: the strict reading used to ta
   it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 2])("reads a maximum of %s as unreadable, never as a limit: a team always holds its owner", (maximum) => {
     expect(trimmableLimitFrom({ allowed: true, kind: "capacity", maximum })).toBeNull();
     expect(overageLimitFrom({ allowed: true, kind: "capacity", maximum })).toEqual({ kind: "unknown" });
+  });
+});
+
+describe("seatReadingFrom (what the page may say)", () => {
+  it("is the maximum of a capacity, including a real 0, and unlimited without one", () => {
+    expect(seatReadingFrom({ allowed: true, kind: "capacity", maximum: 3 })).toEqual({ kind: "limit", maximum: 3 });
+    expect(seatReadingFrom({ allowed: true, kind: "capacity", maximum: 0 })).toEqual({ kind: "limit", maximum: 0 });
+    expect(seatReadingFrom({ allowed: true, kind: "capacity" })).toEqual({ kind: "unlimited" });
+  });
+
+  it("is unlimited when the app never defined seats, and a limit of 0 on a plan that grants none", () => {
+    expect(seatReadingFrom({ allowed: false, reason: "unknown_feature" })).toEqual({ kind: "unlimited" });
+    expect(seatReadingFrom({ allowed: false, reason: "disabled" })).toEqual({ kind: "limit", maximum: 0 });
+  });
+
+  it.each(["inactive_subscription", "unknown_plan", "invalid_grant", "subscription_unavailable", "anything-else"])("is unknown, not a limit of 0, when the plan refuses for %s", (reason) => {
+    expect(seatReadingFrom({ allowed: false, reason })).toEqual({ kind: "unknown" });
+  });
+
+  it.each(["capability", "quota"] as const)("is unknown for a key defined as a %s", (kind) => {
+    expect(seatReadingFrom({ allowed: true, kind })).toEqual({ kind: "unknown" });
+  });
+
+  it.each([-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])("is unknown for a maximum that is not a whole number of seats (%s)", (maximum) => {
+    expect(seatReadingFrom({ allowed: true, kind: "capacity", maximum })).toEqual({ kind: "unknown" });
+  });
+
+  it("does not change what admission reads: a refusal is still no new seat", () => {
+    expect(seatLimitFrom({ allowed: false, reason: "inactive_subscription" })).toEqual({ kind: "limit", maximum: 0 });
   });
 });

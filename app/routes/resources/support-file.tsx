@@ -4,6 +4,7 @@ import { getEnv } from "~/request-context.server";
 import { requireAttachmentTokenSecret } from "~/wiring.server";
 import { getAdminUser } from "~/services/admin-auth.server";
 import { adminSessionUsers } from "~/wiring.server";
+import { contentDisposition, dispositionFor } from "~/support/content-disposition";
 import { verifyAttachmentToken } from "~/support/file-token";
 
 /**
@@ -52,10 +53,11 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
     headers: {
       "Content-Type": attachment.contentType,
       "Content-Length": String(attachment.sizeBytes),
-      // Images and video render in the thread; documents are explicit downloads.
-      // The filename was sanitised on the way in
-      // (app/support/attachment.ts) precisely because it lands in this header.
-      "Content-Disposition": `${attachment.contentType.startsWith("image/") || attachment.contentType.startsWith("video/") ? "inline" : "attachment"}; filename="${attachment.filename}"`,
+      // Images and video render in the thread; documents are explicit downloads. The name was made safe on the way in
+      // (app/support/attachment.ts) and is encoded here per RFC 6266/8187, so a non-Latin name survives the download.
+      "Content-Disposition": contentDisposition(dispositionFor(attachment.contentType), attachment.filename),
+      // Stored bytes are never to be sniffed into another type.
+      "X-Content-Type-Options": "nosniff",
       // Private and short: the URL is bearer authorisation, so it must not sit
       // in a shared cache, and it must not outlive the token that carries it.
       "Cache-Control": "private, max-age=3600",

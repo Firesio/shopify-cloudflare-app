@@ -614,7 +614,7 @@ describe("list and countByStatus", () => {
     });
     expect(outcome.team).toEqual(["a1", "a2", "ai"]);
     expect(outcome.other).toEqual(["b1"]);
-    expect(outcome.counts).toEqual({ invited: 1, pending: 0, active: 2, removed: 0 });
+    expect(outcome.counts).toEqual({ invited: 1, pending: 0, active: 2, removed: 0, noSeat: 0 });
   });
 
   it("find a member by id only inside their shop", async () => {
@@ -1078,5 +1078,128 @@ describe("a member's own set of permissions", () => {
       return { damaged: (await repo.findById(A, "d1"))?.permissions, unknownName: (await repo.findById(A, "d2"))?.permissions };
     });
     expect(found).toEqual({ damaged: [], unknownName: ["app:view"] });
+  });
+});
+
+describe("an invitation is not a person", () => {
+  const invite = (repo: MemberRepo, shop: string, id: string) => repo.createInvite(shop, { id, email: `${id}@firesio.app`, role: "viewer", invitedBy: "boss", now: 3 });
+  const row = (shop: string, id: string, overrides: Partial<typeof shopMembers.$inferInsert> = {}): typeof shopMembers.$inferInsert => ({ id, shop, role: "viewer", status: "removed", createdAt: 1, updatedAt: 1, ...overrides });
+
+  it("cancels an open invitation by deleting it, and nothing else of the team changes", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      const repo = new MemberRepo();
+      await repo.createFirstMemberIfNone(A, { ...person("o", "1"), role: "owner", now: 1 });
+      await invite(repo, A, "inv");
+      const cancelled = await repo.cancelInvite(A, "inv");
+      return { cancelled: cancelled?.id, rows: (await db.select().from(shopMembers)).map((member) => member.id), again: await repo.cancelInvite(A, "inv") };
+    });
+    expect(outcome).toEqual({ cancelled: "inv", rows: ["o"], again: undefined });
+  });
+
+  it("cancels only inside the shop named: another shop's invitation id is untouched", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      const repo = new MemberRepo();
+      await invite(repo, A, "inv");
+      const foreign = await repo.cancelInvite(B, "inv");
+      return { foreign, kept: (await repo.findById(A, "inv"))?.status };
+    });
+    expect(outcome).toEqual({ foreign: undefined, kept: "invited" });
+  });
+
+  it("never deletes a person: a linked member, in any status, is refused", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      await db.insert(shopMembers).values((["invited", "pending", "active", "removed"] as const).map((status) => row(A, `p-${status}`, { status, shopifyUserId: `u-${status}` })));
+      const repo = new MemberRepo();
+      const results = await Promise.all((["invited", "pending", "active", "removed"] as const).map((status) => repo.cancelInvite(A, `p-${status}`)));
+      return { results, left: (await db.select().from(shopMembers)).length };
+    });
+    expect(outcome).toEqual({ results: [undefined, undefined, undefined, undefined], left: 4 });
+  });
+
+  it("will not mark an invitation removed: it is cancelled, never parked where it could be restored", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      const repo = new MemberRepo();
+      await invite(repo, A, "inv");
+      return { removed: await repo.remove(A, "inv", 5), status: (await repo.findById(A, "inv"))?.status };
+    });
+    expect(outcome).toEqual({ removed: undefined, status: "invited" });
+  });
+
+  it("will not activate a row with no Shopify user, with a seat free, from any status, and holds no seat for it", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      // Rows no longer arise this way (cancelling deletes), but old data can hold them and the store must still refuse.
+      await db.insert(shopMembers).values([row(A, "old"), row(A, "inv", { status: "invited" }), row(A, "wait", { status: "pending" })]);
+      const repo = new MemberRepo();
+      const results = [
+        await repo.activate(A, "old", { from: ["removed"], role: "member", cap: null, now: 5 }),
+        await repo.activate(A, "inv", { from: ["invited"], role: "member", cap: 10, now: 5 }),
+        await repo.activate(A, "wait", { from: ["pending"], role: "member", cap: 10, now: 5 }),
+      ];
+      return { results, active: (await repo.countByStatus(A)).active };
+    });
+    expect(outcome).toEqual({ results: [undefined, undefined, undefined], active: 0 });
+  });
+
+  it("leaves a cancelled invitation of the old kind out of the list and the counts, in its own shop only", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      await db.insert(shopMembers).values([row(A, "old"), row(A, "gone", { shopifyUserId: "7" }), row(B, "other-old")]);
+      const repo = new MemberRepo();
+      return { listA: (await repo.list(A)).map((member) => member.id), listB: (await repo.list(B)).map((member) => member.id), countsA: await repo.countByStatus(A) };
+    });
+    expect(outcome.listA).toEqual(["gone"]);
+    expect(outcome.listB).toEqual([]);
+    expect(outcome.countsA).toEqual({ invited: 0, pending: 0, active: 0, removed: 1, noSeat: 0 });
+  });
+});
+
+describe("countByStatus tells waiting from no seat", () => {
+  it("counts the pending people who lost a seat apart from those waiting, per shop", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      await db.insert(shopMembers).values([
+        { id: "w1", shop: A, shopifyUserId: "1", role: "viewer", status: "pending", createdAt: 1, updatedAt: 1 },
+        { id: "w2", shop: A, shopifyUserId: "2", role: "viewer", status: "pending", createdAt: 1, updatedAt: 1 },
+        { id: "t1", shop: A, shopifyUserId: "3", role: "viewer", status: "pending", trimmedAt: 9, createdAt: 1, updatedAt: 1 },
+        { id: "act", shop: A, shopifyUserId: "4", role: "viewer", status: "active", createdAt: 1, updatedAt: 1 },
+        { id: "bt", shop: B, shopifyUserId: "5", role: "viewer", status: "pending", trimmedAt: 9, createdAt: 1, updatedAt: 1 },
+      ]);
+      const repo = new MemberRepo();
+      return { a: await repo.countByStatus(A), b: await repo.countByStatus(B) };
+    });
+    expect(outcome.a).toEqual({ invited: 0, pending: 3, active: 1, removed: 0, noSeat: 1 });
+    expect(outcome.b).toMatchObject({ pending: 1, noSeat: 1 });
+  });
+});
+
+describe("findWithInviter", () => {
+  it("reads a member and the name and address of whoever invited them in one query, in the same shop", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      const repo = new MemberRepo();
+      await repo.createFirstMemberIfNone(A, { ...person("boss", "1", { name: "Bo", email: "bo@firesio.app" }), role: "owner", now: 1 });
+      await repo.createInvite(A, { id: "inv", email: "i@firesio.app", role: "viewer", invitedBy: "boss", now: 2 });
+      return { found: await repo.findWithInviter(A, "inv"), boss: await repo.findWithInviter(A, "boss") };
+    });
+    expect(outcome.found?.member.id).toBe("inv");
+    expect(outcome.found?.inviter).toEqual({ name: "Bo", email: "bo@firesio.app" });
+    expect(outcome.boss?.inviter).toBeUndefined();
+  });
+
+  it("finds no one in another shop, and never names an inviter from another shop even when the id matches", async () => {
+    const outcome = await inRequest(async () => {
+      await seedShops();
+      const repo = new MemberRepo();
+      await repo.createFirstMemberIfNone(B, { ...person("boss", "1", { name: "Other shop", email: "x@firesio.app" }), role: "owner", now: 1 });
+      await repo.createInvite(A, { id: "inv", email: "i@firesio.app", role: "viewer", invitedBy: "boss", now: 2 });
+      return { foreign: await repo.findWithInviter(B, "inv"), inviter: (await repo.findWithInviter(A, "inv"))?.inviter };
+    });
+    expect(outcome.foreign).toBeUndefined();
+    expect(outcome.inviter).toBeUndefined();
   });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { TFunction } from "i18next";
+import { SkeletonText } from "~/components/admin/Skeleton";
 import { addCcEmail, removeCcEmail, type CcFailure } from "~/support/cc-list";
 import { supportErrorKey } from "~/support/error-keys";
 
@@ -84,12 +85,14 @@ function useCcDialog(emails: readonly string[], onChange: (next: string[]) => vo
 }
 
 type CcListProps = {
-  emails: readonly string[];
+  emails: readonly string[] | "loading";
   labels: CcLabels;
   onRemove: (email: string) => void;
 };
 
 function CcList({ emails, labels, onRemove }: CcListProps) {
+  // One row's worth: how many people are copied is not known yet, and "No one else is copied" would be a wrong answer.
+  if (emails === "loading") return <SkeletonText chars={24} />;
   if (emails.length === 0) return <s-text color="subdued">{labels.empty}</s-text>;
   return (
     <s-stack direction="block" gap="small-400">
@@ -155,14 +158,19 @@ type CcEmailsProps = {
   id: string;
   /** Form field name. The addresses are submitted comma-separated. */
   name: string;
-  emails: readonly string[];
+  /** The people copied, or `"loading"` while they are on their way: the heading, help and Add button are real at once. */
+  emails: readonly string[] | "loading";
   onChange: (next: string[]) => void;
   labels: CcLabels;
+  /** Why the server refused the list, already translated. Shown under the list. */
+  error?: string;
 };
 
-export function CcEmails({ id, name, emails, onChange, labels }: CcEmailsProps) {
+export function CcEmails({ id, name, emails, onChange, labels, error }: CcEmailsProps) {
   const dialogId = `${id}-dialog`;
-  const { dialog, field, failure, setFailure, submitAddress } = useCcDialog(emails, onChange);
+  const loading = emails === "loading";
+  const current = emails === "loading" ? [] : emails;
+  const { dialog, field, failure, setFailure, submitAddress } = useCcDialog(current, onChange);
 
   return (
     <s-stack direction="block" gap="small-200">
@@ -176,9 +184,11 @@ export function CcEmails({ id, name, emails, onChange, labels }: CcEmailsProps) 
         labels={labels}
         onRemove={(email) => {
           setFailure(null);
-          onChange(removeCcEmail(emails, email));
+          onChange(removeCcEmail(current, email));
         }}
       />
+
+      {error && <s-banner tone="critical" heading={error}></s-banner>}
 
       <s-stack direction="inline">
         <s-button
@@ -186,6 +196,7 @@ export function CcEmails({ id, name, emails, onChange, labels }: CcEmailsProps) 
           variant="secondary"
           icon="plus"
           commandFor={dialogId}
+          disabled={loading}
           onClick={() => setFailure(null)}
         >
           {labels.add}
@@ -193,7 +204,7 @@ export function CcEmails({ id, name, emails, onChange, labels }: CcEmailsProps) 
       </s-stack>
 
       {/* What the action actually reads. The visible list IS the value. */}
-      <input type="hidden" name={name} value={emails.join(",")} />
+      {!loading && <input type="hidden" name={name} value={current.join(",")} />}
 
       <CcDialog
         dialogId={dialogId}

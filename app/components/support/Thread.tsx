@@ -1,14 +1,14 @@
-import type { ReactElement } from "react";
+import { useRef, type ReactElement, type ReactNode } from "react";
+import { SkeletonLines, SkeletonText } from "~/components/admin/Skeleton";
+import { bodyLines } from "~/support/message-body";
+import { fileExtensionLabel } from "~/support/attachment";
+import { useElementEvent } from "~/admin/use-element-event";
 
 /**
- * The conversation itself: one bubble per message, merchant on one side and
- * support on the other.
+ * The conversation itself: one box per message, the merchant's own on a tinted background so "you" and "us"
+ * read apart. Assembled from Polaris boxes, stacks, text, images and links; nothing here is hand-styled.
  *
- * Hand-styled rather than assembled from Polaris boxes, for the same reason the
- * billing plan cards are: Polaris web components expose no font-size control
- * and no way to align a subtree to one edge, and a support thread that does not
- * visually separate "you" from "us" is materially harder to read than one that
- * does. Colours are declared in both schemes rather than hardcoded once.
+ * The one raw element is `<video>`: Polaris has no video component, so it is left unstyled with native controls.
  */
 export interface ThreadMessage {
   id: string;
@@ -26,88 +26,44 @@ export interface ThreadMessage {
   }[];
 }
 
-export const THREAD_CSS = `
-.sup-thread { display: flex; flex-direction: column; gap: 1rem;
-  --sup-mine: #eef3ff;
-  --sup-mine-border: #cddcff;
-  --sup-theirs: #f5f5f5;
-  --sup-theirs-border: #e3e3e3;
-  --sup-meta: #616161;
-}
-@media (prefers-color-scheme: dark) {
-  .sup-thread {
-    --sup-mine: rgba(120,160,255,0.13);
-    --sup-mine-border: rgba(120,160,255,0.32);
-    --sup-theirs: rgba(255,255,255,0.06);
-    --sup-theirs-border: rgba(255,255,255,0.14);
-    --sup-meta: #a5a5a5;
-  }
-}
-.sup-msg { display: flex; }
-.sup-msg--mine { justify-content: flex-end; }
-.sup-msg__bubble {
-  max-inline-size: min(82%, 34rem);
-  padding: 0.75rem 0.875rem;
-  border-radius: 14px;
-  border: 1px solid var(--sup-theirs-border);
-  background: var(--sup-theirs);
-}
-.sup-msg--mine .sup-msg__bubble {
-  border-color: var(--sup-mine-border);
-  background: var(--sup-mine);
-}
-.sup-msg__head {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  margin-block-end: 0.25rem;
-  font-size: 0.75rem;
-  color: var(--sup-meta);
-}
-.sup-msg__who { font-weight: 650; }
-/* pre-wrap, so a merchant's line breaks and pasted log output survive. */
-.sup-msg__body { font-size: 0.875rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
-.sup-msg__files { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-block-start: 0.5rem; }
-.sup-msg__file { display: block; border-radius: 10px; overflow: hidden; max-inline-size: 12rem; }
-.sup-msg__file img, .sup-msg__file video { display: block; inline-size: 100%; block-size: auto; }
-.sup-msg__download { display: flex; align-items: center; gap: 0.625rem; padding: 0.625rem 0.75rem; border: 1px solid var(--sup-theirs-border); border-radius: 10px; text-decoration: none; color: inherit; min-inline-size: 13rem; }
-.sup-msg--mine .sup-msg__download { border-color: var(--sup-mine-border); }
-.sup-msg__download-icon { font-size: 0.7rem; font-weight: 750; letter-spacing: 0.04em; color: var(--sup-meta); }
-.sup-msg__download-copy { min-inline-size: 0; display: flex; flex-direction: column; gap: 0.125rem; }
-.sup-msg__download-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sup-msg__download-meta { font-size: 0.75rem; color: var(--sup-meta); }
-`;
-
 type ThreadAttachment = ThreadMessage["attachments"][number];
 
 type AttachmentRenderProps = {
   file: ThreadAttachment;
   formatFileSize: (sizeBytes: number) => string;
-  downloadLabel: string;
+  /** Called when a file fails to load: its signed link may have expired. */
+  onMediaError?: () => void;
 };
 
 /** Playable in place: making someone download a screen recording to see it defeats the point of attaching one. */
-function VideoAttachment({ file }: AttachmentRenderProps) {
-  return <video className="sup-msg__file" src={file.url} controls preload="metadata" />;
+function VideoAttachment({ file, onMediaError }: AttachmentRenderProps) {
+  return <video src={file.url} controls preload="metadata" width={320} onError={onMediaError} aria-label={file.filename} />;
 }
 
-function ImageAttachment({ file }: AttachmentRenderProps) {
+function ImageAttachment({ file, onMediaError }: AttachmentRenderProps) {
+  const image = useRef<HTMLElementTagNameMap["s-image"]>(null);
+  // `error` is listened for on the element: see `useElementEvent`.
+  useElementEvent(image, "error", () => onMediaError?.());
   return (
-    <a className="sup-msg__file" href={file.url} target="_blank" rel="noreferrer">
-      <img src={file.url} alt={file.filename} loading="lazy" />
-    </a>
+    <s-box maxInlineSize="320px">
+      <s-clickable href={file.url} target="_blank" accessibilityLabel={file.filename} border="base" borderRadius="base">
+        <s-image ref={image} src={file.url} alt={file.filename} loading="lazy" inlineSize="fill" aspectRatio="4/3" objectFit="contain"></s-image>
+      </s-clickable>
+    </s-box>
   );
 }
 
-function FileAttachment({ file, formatFileSize, downloadLabel }: AttachmentRenderProps) {
+function FileAttachment({ file, formatFileSize }: AttachmentRenderProps) {
   return (
-    <a className="sup-msg__download" href={file.url} download={file.filename}>
-      <span className="sup-msg__download-icon">{fileExtensionLabel(file.filename)}</span>
-      <span className="sup-msg__download-copy">
-        <span className="sup-msg__download-name">{file.filename}</span>
-        <span className="sup-msg__download-meta">{formatFileSize(file.sizeBytes)} · {downloadLabel}</span>
-      </span>
-    </a>
+    <s-stack direction="inline" gap="small" alignItems="center">
+      <s-badge>{fileExtensionLabel(file.filename)}</s-badge>
+      <s-stack direction="block" gap="small-500">
+        <s-link href={file.url} download={file.filename}>
+          {file.filename}
+        </s-link>
+        <s-text color="subdued">{formatFileSize(file.sizeBytes)}</s-text>
+      </s-stack>
+    </s-stack>
   );
 }
 
@@ -119,72 +75,88 @@ const ATTACHMENT_RENDERERS: Record<ThreadAttachment["kind"], (props: AttachmentR
 };
 
 type ThreadProps = {
-  messages: readonly ThreadMessage[];
+  /** The messages, or `"loading"` while the conversation is on its way: the same boxes, with skeletons in place of the words. */
+  messages: readonly ThreadMessage[] | "loading";
   /** What to call the merchant's own messages — "You", translated. */
   youLabel: string;
   formatWhen: (at: number) => string;
   formatFileSize: (sizeBytes: number) => string;
-  downloadLabel: string;
+  onMediaError?: () => void;
 };
 
 function MessageAttachments({
   attachments,
-  formatFileSize,
-  downloadLabel,
-}: Pick<ThreadProps, "formatFileSize" | "downloadLabel"> & { attachments: readonly ThreadAttachment[] }) {
+  ...rest
+}: Omit<AttachmentRenderProps, "file"> & { attachments: readonly ThreadAttachment[] }) {
   return (
-    <div className="sup-msg__files">
+    <s-stack direction="block" gap="small">
       {attachments.map((file) => {
         const Render = ATTACHMENT_RENDERERS[file.kind];
-        return (
-          <Render key={file.id} file={file} formatFileSize={formatFileSize} downloadLabel={downloadLabel} />
-        );
+        return <Render key={file.id} file={file} {...rest} />;
       })}
-    </div>
+    </s-stack>
   );
 }
 
-function MessageBubble({
+/** What a loading conversation shows: who spoke and how long it ran are guesses, since the real ones are not known yet. */
+const LOADING_MESSAGES = [
+  { key: "a", mine: true, lines: 2 },
+  { key: "b", mine: false, lines: 3 },
+  { key: "c", mine: true, lines: 1 },
+] as const;
+
+/** The one box every message sits in, loaded or loading, so the two cannot drift. */
+function MessageFrame({ mine, who, when, children }: { mine: boolean; who: ReactNode; when: ReactNode; children: ReactNode }) {
+  return (
+    <s-box background={mine ? "subdued" : "base"} border="base" borderRadius="base" padding="base">
+      <s-stack direction="block" gap="small">
+        <s-stack direction="inline" gap="small-300" alignItems="baseline">
+          {who}
+          {when}
+        </s-stack>
+        {children}
+      </s-stack>
+    </s-box>
+  );
+}
+
+function MessageBox({
   message,
   youLabel,
   formatWhen,
-  formatFileSize,
-  downloadLabel,
+  ...rest
 }: Omit<ThreadProps, "messages"> & { message: ThreadMessage }) {
   const mine = message.author === "merchant";
   return (
-    <div className={mine ? "sup-msg sup-msg--mine" : "sup-msg"}>
-      <div className="sup-msg__bubble">
-        <div className="sup-msg__head">
-          <span className="sup-msg__who">{mine ? youLabel : message.authorName}</span>
-          <span>{formatWhen(message.createdAt)}</span>
-        </div>
+    <MessageFrame
+      mine={mine}
+      who={<s-text type="strong">{mine ? youLabel : message.authorName}</s-text>}
+      when={<s-text color="subdued">{formatWhen(message.createdAt)}</s-text>}
+    >
+      {bodyLines(message.body).map((line, index) => (
+        <s-paragraph key={index}>{line}</s-paragraph>
+      ))}
 
-        {message.body && <div className="sup-msg__body">{message.body}</div>}
-
-        {message.attachments.length > 0 && (
-          <MessageAttachments
-            attachments={message.attachments}
-            formatFileSize={formatFileSize}
-            downloadLabel={downloadLabel}
-          />
-        )}
-      </div>
-    </div>
+      {message.attachments.length > 0 && <MessageAttachments attachments={message.attachments} {...rest} />}
+    </MessageFrame>
   );
 }
 
 export function Thread({ messages, ...rest }: ThreadProps) {
   return (
-    <div className="sup-thread">
-      {messages.map((message) => (
-        <MessageBubble key={message.id} message={message} {...rest} />
-      ))}
-    </div>
+    <s-stack direction="block" gap="base">
+      {messages === "loading"
+        ? LOADING_MESSAGES.map((placeholder) => (
+            <MessageFrame
+              key={placeholder.key}
+              mine={placeholder.mine}
+              who={<SkeletonText chars={placeholder.mine ? 3 : 8} type="strong" />}
+              when={<SkeletonText chars={18} />}
+            >
+              <SkeletonLines lines={placeholder.lines} />
+            </MessageFrame>
+          ))
+        : messages.map((message) => <MessageBox key={message.id} message={message} {...rest} />)}
+    </s-stack>
   );
-}
-
-function fileExtensionLabel(filename: string): string {
-  const extension = filename.split(".").pop()?.slice(0, 4).toUpperCase();
-  return extension || "FILE";
 }

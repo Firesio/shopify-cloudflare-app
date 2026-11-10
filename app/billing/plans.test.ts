@@ -4,7 +4,6 @@ import {
   FEATURED_PLAN_HANDLE,
   PLANS,
   planForShopifyHandle,
-  priceFor,
 } from "./plans";
 
 describe("PLANS", () => {
@@ -64,16 +63,6 @@ describe("cheapestPaidPlanHandle", () => {
     // Nothing is for sale, so there is nothing to upsell — but the UI still
     // needs a key rather than undefined.
     expect(cheapestPaidPlanHandle([plan("free", 0), plan("also-free", 0)])).toBe("free");
-  });
-});
-
-describe("priceFor", () => {
-  it("reads the monthly column for a monthly interval", () => {
-    expect(priceFor(PLANS.pro, "monthly")).toEqual(PLANS.pro.priceMonthly);
-  });
-
-  it("reads the annual column for an annual interval", () => {
-    expect(priceFor(PLANS.pro, "annual")).toEqual(PLANS.pro.priceAnnual);
   });
 });
 

@@ -1,6 +1,5 @@
-import { useState } from "react";
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { data, useActionData, useLoaderData, useNavigation, useSubmit } from "react-router";
+import { useActionData, useLoaderData, useNavigation, useSubmit } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { useTranslation } from "react-i18next";
 
@@ -11,9 +10,11 @@ import { INVITE_MODAL_ID, InviteModal } from "~/components/members/InviteModal";
 import { SeatsSection } from "~/components/members/SeatsSection";
 import { TeamTable } from "~/components/members/TeamTable";
 import { can } from "~/domain/member-access";
+import { seatsOpenIn } from "~/domain/member-team";
 import { MEMBERS } from "~/members/config";
 import { memberDependencies } from "~/wiring.server";
-import { MEMBER_INTENTS, loadTeam, readIntent, runIntent } from "./members.server";
+import { runMemberAction } from "./action.server";
+import { loadTeam } from "./members.server";
 
 export const handle = { i18n: ["common", "admin"] };
 
@@ -34,17 +35,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   };
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const form = await request.formData();
-  const intent = readIntent(form);
-  // The permission first, before anything is read from the form or written: an unknown intent still needs the base one.
-  const { member } = await guardMember(request, intent === undefined ? "members:manage" : MEMBER_INTENTS[intent].needs);
-  const result = await runIntent(form, { actor: member, deps: memberDependencies() });
-  return data(result, { status: "error" in result ? 400 : 200 });
-};
+export const action = ({ request }: ActionFunctionArgs) => runMemberAction(request);
 
 export default function Members() {
-  const { rows, seats, waiting, roles, autoJoinRole, canChangePlan, trimsOverage } = useLoaderData<typeof loader>();
+  const { rows, seats, waiting, noSeat, hidden, roles, autoJoinRole, canChangePlan, trimsOverage } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const submit = useSubmit();
@@ -52,15 +46,8 @@ export default function Members() {
 
   const error = actionData && "error" in actionData ? actionData.error : undefined;
   const success = actionData && "success" in actionData ? actionData.success : undefined;
-  // A fresh invite form once an invitation was sent (see InviteModal). State is adjusted while rendering, the pattern React
-  // documents for state that follows a prop, so no effect writes it.
-  const [seen, setSeen] = useState(actionData);
-  const [inviteKey, setInviteKey] = useState(0);
-  if (actionData !== seen) {
-    setSeen(actionData);
-    if (success === "invited") setInviteKey(inviteKey + 1);
-  }
   // Every create/update gets a toast, and the control that sent it shows progress (@rules/polaris-app-home.md §5a).
+  // This page sends one intent only, the invitation, so its refusals are shown by the form itself (see InviteModal).
   useActionToast(actionData, error ? { error: t(ERROR_TEXT[error]) } : success ? { success: t(SUCCESS_TEXT[success]) } : undefined);
 
   const sending = navigation.formData;
@@ -74,12 +61,6 @@ export default function Members() {
         {t("members.invite.action")}
       </s-button>
 
-      {error && (
-        <s-section>
-          <s-banner tone="critical">{t(ERROR_TEXT[error])}</s-banner>
-        </s-section>
-      )}
-
       {waiting > 0 && (
         <s-section>
           <s-banner tone="warning" heading={t("members.waiting.heading", { count: waiting })}>
@@ -88,14 +69,28 @@ export default function Members() {
         </s-section>
       )}
 
+      {noSeat > 0 && (
+        <s-section>
+          <s-banner tone="warning" heading={t("members.noSeat.heading", { count: noSeat })}>
+            {t("members.noSeat.body")}
+          </s-banner>
+        </s-section>
+      )}
+
       <SeatsSection seats={seats} canChangePlan={canChangePlan} trimsOverage={trimsOverage} />
       <TeamTable rows={rows} />
+      {hidden > 0 && (
+        <s-section>
+          <s-banner tone="info">{t("members.table.truncated", { shown: rows.length, hidden })}</s-banner>
+        </s-section>
+      )}
 
       <InviteModal
-        key={inviteKey}
         roles={roles}
         defaultRole={autoJoinRole}
         busy={navigation.state !== "idle" && pendingIntent === "invite"}
+        result={actionData}
+        seat={seatsOpenIn(seats)}
         onInvite={({ email, role }) => send({ intent: "invite", email, role })}
       />
     </s-page>

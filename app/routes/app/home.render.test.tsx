@@ -14,8 +14,18 @@ describe("streaming the home greeting", () => {
     const html = await home(never, "pending");
 
     expect(html).toContain("<s-page");
-    expect(html).toContain(DOMAIN);
+    expect(html).toContain('heading="Home"');
+    expect(html).toContain(`Hello, ${DOMAIN}`);
+    expect(html).not.toContain("Good morning");
     expect(html).not.toContain("<s-spinner");
+  });
+
+  it("keeps every direct child of the page a section, the help line included", async () => {
+    const html = await home(never, "pending");
+    const page = html.slice(html.indexOf("<s-page"), html.indexOf("</s-page>"));
+    expect(page).toContain("Need help?");
+    // The help line is inside a section, never loose in the page.
+    expect(page.slice(page.lastIndexOf("<s-section"), page.indexOf("Need help?"))).not.toContain("</s-section>");
   });
 
   it("swaps in the shop name once it arrives", async () => {

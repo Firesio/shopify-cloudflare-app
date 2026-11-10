@@ -119,6 +119,91 @@ describe("a page the person may not open", () => {
     expect(out).not.toContain("PAGE CONTENT");
     expect(out).not.toContain("ROOT BOUNDARY");
   });
+
+  it("keeps the app's menu and offers the way back to Home, so the person is not left at a dead end", async () => {
+    const out = await html(routes, "/app/billing");
+    expect(out).toContain("s-app-nav");
+    expect(out).toContain('href="/app/support"');
+    expect(out).toContain('href="/app"');
+    expect(out).toContain("Go to Home");
+    expect(out).not.toContain('href="/app/billing"');
+  });
+
+  it("names the people to ask when the refusal carries them", async () => {
+    const withContacts: RouteObject[] = [
+      {
+        id: "root",
+        path: "/",
+        children: [
+          {
+            id: "routes/app/_layout",
+            path: "app",
+            Component: App,
+            ErrorBoundary,
+            loader: () => granted("viewer"),
+            children: [
+              {
+                path: "billing",
+                loader: () => {
+                  throw data({ reason: "forbidden", shop: "a.myshopify.com", contacts: [{ name: "Ada", email: "ada@firesio.app" }] }, { status: 403 });
+                },
+                Component: () => <p>PAGE CONTENT</p>,
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    expect(await html(withContacts, "/app/billing")).toContain("Ask Ada (ada@firesio.app).");
+  });
+});
+
+describe("a person's page whose person is gone", () => {
+  const routes: RouteObject[] = [
+    {
+      id: "root",
+      path: "/",
+      ErrorBoundary: () => <p>ROOT BOUNDARY</p>,
+      children: [
+        {
+          id: "routes/app/_layout",
+          path: "app",
+          Component: App,
+          ErrorBoundary,
+          loader: () => granted("owner"),
+          children: [
+            {
+              path: "members/:memberId",
+              loader: () => {
+                throw data(null, { status: 404 });
+              },
+              Component: () => <p>PAGE CONTENT</p>,
+            },
+            {
+              path: "support/:id",
+              loader: () => {
+                throw data(null, { status: 404 });
+              },
+              Component: () => <p>PAGE CONTENT</p>,
+            },
+          ],
+        },
+      ],
+    },
+  ];
+
+  it("says the person is no longer on the team, with the menu and a link back to the team", async () => {
+    const out = await html(routes, "/app/members/abc");
+    expect(out).toContain("That person is no longer on the team.");
+    expect(out).toContain('slot="breadcrumb-actions" href="/app/members"');
+    expect(out).toContain("Back to team");
+    expect(out).toContain("s-app-nav");
+    expect(out).not.toContain("ROOT BOUNDARY");
+  });
+
+  it("leaves a 404 anywhere else to the root boundary", async () => {
+    await expect(html(routes, "/app/support/9")).rejects.toMatchObject({ status: 404 });
+  });
 });
 
 describe("thrown responses", () => {

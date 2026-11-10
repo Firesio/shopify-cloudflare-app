@@ -148,13 +148,38 @@ describe("removeMember", () => {
   it.each([
     ["an active member", "mem"],
     ["a member waiting for approval", "wait"],
-    ["an invitation nobody took up", "inv"],
   ])("removes %s and logs it", async (_name, id) => {
     const { deps, members, logs } = setup();
     expect(await removeMember({ actor: owner, targetId: id }, deps)).toMatchObject({ ok: true, value: { status: "removed" } });
     expect(statusOf(members, id)).toBe("removed");
     expect(logs).toHaveLength(1);
     expect(logs[0]).toMatchObject({ event: "member.removed", shop: SHOP, by: "owner" });
+  });
+
+  it("cancels an invitation nobody took up by deleting it, and logs it as a cancellation", async () => {
+    const { deps, members, logs } = setup();
+    expect(await removeMember({ actor: owner, targetId: "inv" }, deps)).toMatchObject({ ok: true, value: { id: "inv", status: "invited", shopifyUserId: null } });
+    expect(members.rows.some((row) => row.id === "inv")).toBe(false);
+    expect(logs).toEqual([{ event: "member.invitation_cancelled", shop: SHOP, role: "viewer", by: "owner" }]);
+    // Nothing is left to restore or let in, and a second cancel says the person is gone.
+    expect(await removeMember({ actor: owner, targetId: "inv" }, deps)).toEqual({ ok: false, reason: "notFound" });
+    expect(await restoreMember({ actor: owner, targetId: "inv", role: "viewer" }, deps)).toEqual({ ok: false, reason: "notFound" });
+  });
+
+  it("cancels an invitation only in the shop of the person acting", async () => {
+    const { deps, members } = setup();
+    members.add({ id: "other-inv", shop: "beta.myshopify.com", role: "viewer", status: "invited", email: "x@firesio.app" });
+    expect(await removeMember({ actor: owner, targetId: "other-inv" }, deps)).toEqual({ ok: false, reason: "notFound" });
+    expect(members.rows.some((row) => row.id === "other-inv")).toBe(true);
+  });
+
+  it("an invitation taken up while the owner was deciding is not deleted: it is a person now", async () => {
+    const { deps, members } = setup();
+    members.beforeWrite = (kind) => {
+      if (kind === "cancelInvite") members.rows.splice(members.rows.findIndex((row) => row.id === "inv"), 1, { ...members.rows.find((row) => row.id === "inv")!, status: "active", shopifyUserId: "9" });
+    };
+    expect(await removeMember({ actor: owner, targetId: "inv" }, deps)).toEqual({ ok: false, reason: "invalidState" });
+    expect(statusOf(members, "inv")).toBe("active");
   });
 
   it("refuses to remove someone already removed", async () => {
@@ -230,6 +255,20 @@ describe("approveMember", () => {
       return original(shop, id, input);
     };
     expect(await approveMember({ actor: owner, targetId: "wait", role: "viewer" }, deps)).toEqual({ ok: false, reason: "invalidState" });
+  });
+});
+
+describe("a row with no Shopify user is never let in", () => {
+  it("is refused by approve and restore from any status, with a seat free and none taken", async () => {
+    const { deps, members } = setup(seatsFor(50));
+    members.add({ id: "old-cancelled", shop: SHOP, role: "viewer", status: "removed", email: "o@firesio.app" });
+    members.add({ id: "orphan-pending", shop: SHOP, role: "viewer", status: "pending", email: "p@firesio.app" });
+    const before = (await members.countByStatus(SHOP)).active;
+    expect(await restoreMember({ actor: owner, targetId: "old-cancelled", role: "viewer" }, deps)).toEqual({ ok: false, reason: "invalidState" });
+    expect(await approveMember({ actor: owner, targetId: "orphan-pending", role: "viewer" }, deps)).toEqual({ ok: false, reason: "invalidState" });
+    expect(await approveMember({ actor: owner, targetId: "inv", role: "viewer" }, deps)).toEqual({ ok: false, reason: "invalidState" });
+    expect((await members.countByStatus(SHOP)).active).toBe(before);
+    expect(members.writes).not.toContain("activate");
   });
 });
 

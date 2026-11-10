@@ -10,6 +10,7 @@ type Ticket = {
   status: "open" | "answered" | "closed";
   lastMessageAt: number;
   unread: boolean;
+  recent: boolean;
 };
 
 const ticket = (over: Partial<Ticket> = {}): Ticket => ({
@@ -19,6 +20,7 @@ const ticket = (over: Partial<Ticket> = {}): Ticket => ({
   status: "open",
   lastMessageAt: Date.parse("2026-08-25T00:00:00.000Z"),
   unread: false,
+  recent: false,
   ...over,
 });
 
@@ -29,11 +31,11 @@ const ticket = (over: Partial<Ticket> = {}): Ticket => ({
  * branch the page takes, which strings it chose, and that no English leaked past
  * `t()`. Layout is verified by hand (@rules/testing.md).
  */
-async function render(tickets: Ticket[], locale: "en" | "es" = "en") {
+async function render(tickets: Ticket[], locale: "en" | "es" = "en", truncated = false) {
   return renderRoute({
     path: "/app/support",
     Component: SupportIndex,
-    loaderData: { tickets: Promise.resolve(ok(tickets)) },
+    loaderData: { tickets: Promise.resolve(ok({ rows: tickets, truncated })) },
     stage: "settled",
     locale,
   });
@@ -47,13 +49,22 @@ describe("the merchant's ticket list", () => {
     expect(html).not.toContain("<s-table");
   });
 
-  it("gives the empty state an illustration and a way forward", async () => {
-    // An empty state that only apologises leaves the merchant nowhere to go.
+  it("builds the empty state from Polaris s-empty-state with an illustration and says what to do", async () => {
     const html = await render([]);
 
-    expect(html).toContain("/illustrations/support-empty.svg");
-    expect(html).toContain("New ticket");
-    expect(html).toContain("/app/support/new");
+    expect(html).toContain("<s-empty-state");
+    expect(html).toMatch(/<s-box slot="graphic"[^>]*><s-image src="\/illustrations\/support-empty.svg"/);
+    expect(html).toContain("Use New ticket to report a problem or ask a question.");
+  });
+
+  it("does not repeat the page's New ticket action inside the empty state", async () => {
+    const html = await render([]);
+    const emptyState = /<s-empty-state[\s\S]*<\/s-empty-state>/.exec(html)?.[0] ?? "";
+
+    expect(emptyState).not.toContain("<s-button");
+    expect(emptyState).not.toContain("/app/support/new");
+    // The one action is the page's own, in the header.
+    expect(html.match(/href="\/app\/support\/new"/g)).toHaveLength(1);
   });
 
   it("shows the table, not the empty state, once a ticket exists", async () => {
@@ -102,27 +113,70 @@ describe("the merchant's ticket list", () => {
 
     expect(html).not.toContain("No tickets yet");
     expect(html).not.toContain("New ticket");
+    expect(html).toContain("Usa Nuevo ticket");
+  });
+
+  it("shows the time of day for recent activity and only the date for old activity", async () => {
+    const at = Date.parse("2026-08-25T15:30:00.000Z");
+    const recent = await render([ticket({ lastMessageAt: at, recent: true })]);
+    const old = await render([ticket({ lastMessageAt: at, recent: false })]);
+
+    expect(recent).toMatch(/Aug 25, 2026,? 3:30\s?PM/);
+    expect(old).toContain("Aug 25, 2026");
+    expect(old).not.toMatch(/3:30/);
+  });
+
+  it("says the list is cut when more tickets exist than it shows", async () => {
+    expect(await render([ticket()], "en", true)).toContain("Showing your 50 most recent tickets.");
+    expect(await render([ticket()], "en", false)).not.toContain("most recent tickets");
   });
 });
 
+const count = (html: string, pattern: string | RegExp) =>
+  (html.match(typeof pattern === "string" ? new RegExp(`<${pattern}[\\s>]`, "g") : pattern) ?? []).length;
+
 describe("streaming the ticket list", () => {
   const never = new Promise<never>(() => undefined);
+  const pending = (locale: "en" | "es" = "en") =>
+    renderRoute({ path: "/app/support", Component: SupportIndex, loaderData: { tickets: never }, stage: "pending", locale });
 
-  it("renders the heading and the New ticket action at once, with a labelled spinner for the list", async () => {
-    const html = await renderRoute({ path: "/app/support", Component: SupportIndex, loaderData: { tickets: never }, stage: "pending" });
+  it("renders the heading, the New ticket action and the table header at once, with skeleton rows where the tickets go", async () => {
+    const html = await pending();
 
     expect(html).toContain('<s-page heading="Support"');
     expect(html).toContain('slot="primary-action"');
-    expect(html).toContain('accessibilityLabel="Loading your tickets"');
+    for (const column of ["Subject", "Type", "Status", "Last activity"]) expect(html).toContain(`>${column}</s-table-header>`);
+    expect(count(html, "s-table-row")).toBe(5);
+    expect(count(html, "s-table-cell")).toBe(20);
+    expect(html).toContain('data-skeleton=""');
+    expect(html).not.toContain("<s-spinner");
     // Neither answer is shown before the data arrives.
     expect(html).not.toContain("No tickets yet");
-    expect(html).not.toContain("<s-table");
+    expect(html).not.toContain("<s-empty-state");
   });
 
-  it("replaces the spinner with the rows once the tickets arrive", async () => {
+  it("announces the wait once, not once per skeleton", async () => {
+    const html = await pending();
+
+    expect(count(html, /accessibilityRole="status"/g)).toBe(1);
+    expect(count(html, /Loading your tickets/g)).toBe(2); // the section's label and its one status text
+  });
+
+  it("keeps the footprint of a loaded list: the same section, table, header, rows, cells and badges", async () => {
+    const loading = await pending();
+    const loaded = await render(Array.from({ length: 5 }, (_, index) => ticket({ id: `t${index}`, subject: `Ticket ${index}` })));
+
+    for (const tag of ["s-section", "s-table", "s-table-header-row", "s-table-header", "s-table-body", "s-table-row", "s-table-cell", "s-badge", "s-page", "s-button"]) {
+      expect(count(loading, tag), tag).toBe(count(loaded, tag));
+    }
+    expect(loaded).not.toContain("data-skeleton");
+    expect(loaded).not.toContain('accessibilityRole="status"');
+  });
+
+  it("replaces the loading state with the rows once the tickets arrive", async () => {
     const html = await render([ticket({ subject: "Refund stuck" })]);
     expect(html).toContain("Refund stuck");
-    expect(html).not.toContain("<s-spinner");
+    expect(html).not.toContain("Loading your tickets");
   });
 
   it("shows a critical banner, not the empty state, when the tickets could not be loaded", async () => {
@@ -140,8 +194,17 @@ describe("streaming the ticket list", () => {
     expect(html).toContain('<s-page heading="Support"');
   });
 
-  it("translates the pending label", async () => {
-    const html = await renderRoute({ path: "/app/support", Component: SupportIndex, loaderData: { tickets: never }, stage: "pending", locale: "es" });
-    expect(html).toContain('accessibilityLabel="Cargando tus tickets"');
+  it("translates the pending label and keeps the real column headings in the reader's language", async () => {
+    const html = await pending("es");
+    expect(html).toContain("Cargando tus tickets");
+    expect(html).not.toContain("Loading your tickets");
+    expect(html).not.toContain(">Subject</s-table-header>");
+  });
+
+  it("shows only the failure, with no skeleton rows and no announcement, when the tickets could not be loaded", async () => {
+    const html = await renderRoute({ path: "/app/support", Component: SupportIndex, loaderData: { tickets: Promise.resolve(err("failed")) }, stage: "settled" });
+    expect(html).not.toContain("data-skeleton");
+    expect(html).not.toContain('accessibilityRole="status"');
+    expect(html).not.toContain("<s-table");
   });
 });

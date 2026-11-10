@@ -55,10 +55,18 @@ export type CreateOutcome =
   /** This Shopify user already has a membership in the shop (a parallel request got there first). */
   | { readonly kind: "exists" };
 
+/** How many members are in each status, and how many of the `pending` ones lost their seat to a trim (`noSeat`) rather than wait for approval. */
+export type StatusCounts = Readonly<Record<MemberStatus, number>> & { readonly noSeat: number };
+
 /** Every method takes `shop` first: a member id or an email from a request is attacker-controlled. */
 export interface MemberStore {
   findByUserId(shop: string, shopifyUserId: string): Promise<Member | undefined>;
   findById(shop: string, id: string): Promise<Member | undefined>;
+  /**
+   * One member of the shop with the name and address of whoever invited them, in ONE query. The inviter is looked up in the
+   * same shop only; `inviter` is undefined when nobody invited them or that member is gone.
+   */
+  findWithInviter(shop: string, id: string): Promise<{ readonly member: Member; readonly inviter: Pick<Member, "name" | "email"> | undefined } | undefined>;
   /** An open invitation for this email (any case), if there is one. */
   findInviteByEmail(shop: string, email: string): Promise<Member | undefined>;
   /** Any membership for this email that is not removed, an open invitation included. */
@@ -82,8 +90,8 @@ export interface MemberStore {
    * at most `limit`: the only shops a seat limit could be over, for the cron's scan. Reads across shops on purpose.
    */
   listShopsWithSeveralActive(afterShop: string | null, limit: number): Promise<readonly string[]>;
-  /** How many members are in each status. */
-  countByStatus(shop: string): Promise<Readonly<Record<MemberStatus, number>>>;
+  /** How many members are in each status (a cancelled invitation from before invitations were deleted is not counted). */
+  countByStatus(shop: string): Promise<StatusCounts>;
   /**
    * Adds the shop's FIRST member, `active` with `member.role`, only if nobody has opened the app yet (no membership with
    * a Shopify user in any status), in one statement, so two first requests cannot both be first. Undefined when someone
@@ -105,7 +113,8 @@ export interface MemberStore {
   restoreOwner(shop: string, id: string, profile: MemberProfile, now: number): Promise<Member | undefined>;
   /**
    * Makes a member `active` with `role`, only if they are in one of `from` and `cap` leaves a seat. Undefined otherwise;
-   * the caller reads the member again to say which. They start on the role's preset: any set they had is dropped.
+   * the caller reads the member again to say which. They start on the role's preset: any set they had is dropped. Refused
+   * for a row with no Shopify user, in the same statement: an invitation is never made active by hand.
    */
   activate(shop: string, id: string, input: { from: readonly MemberStatus[]; role: MemberRole; cap: SeatCap; now: number }): Promise<Member | undefined>;
   /**
@@ -130,10 +139,15 @@ export interface MemberStore {
    */
   trim(shop: string, id: string, limit: number, now: number): Promise<Member | undefined>;
   /**
-   * Marks a member removed, and drops any set of their own. Refused (undefined) for the last active owner, and for the last
-   * active member who may manage the team.
+   * Marks a member removed, and drops any set of their own. Refused (undefined) for the last active owner, for the last
+   * active member who may manage the team, and for a row with no Shopify user (an invitation: `cancelInvite`).
    */
   remove(shop: string, id: string, now: number): Promise<Member | undefined>;
+  /**
+   * Cancels an invitation nobody has taken up by DELETING it: it has no person behind it and holds no seat. Undefined when the
+   * row is not an open invitation of this shop (taken up in the meantime, already cancelled, or another shop's).
+   */
+  cancelInvite(shop: string, id: string): Promise<Member | undefined>;
   /** Keeps what Shopify says about the person, and when they were last seen. */
   recordSeen(shop: string, id: string, profile: MemberProfile, now: number): Promise<void>;
 }

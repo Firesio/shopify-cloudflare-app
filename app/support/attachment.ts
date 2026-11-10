@@ -27,6 +27,18 @@ const FILE_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ] as const;
 
+/**
+ * What the file picker offers, derived from the allowlist above so the two cannot
+ * drift. `image/*` would also offer HEIC and SVG, which the server refuses.
+ */
+export const ATTACHMENT_ACCEPT: readonly string[] = [...IMAGE_TYPES, ...VIDEO_TYPES, ...FILE_TYPES];
+
+/** The same list as an `accept` attribute value. */
+export const ATTACHMENT_ACCEPT_ATTRIBUTE: string = ATTACHMENT_ACCEPT.join(",");
+
+/** The most files one message can carry. The picker says so; it never drops extras silently. */
+export const MAX_FILES = 10;
+
 /** A screenshot. Generous enough for a retina full-page grab. */
 export const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 
@@ -78,27 +90,55 @@ export function validateUpload(upload: {
   return ok({ kind, maxBytes });
 }
 
-/** Every character allowed to survive into a stored, displayed, downloaded name. */
-const UNSAFE_FILENAME = /[^A-Za-z0-9 ._-]/g;
+/**
+ * Every character allowed to survive into a stored, displayed, downloaded name:
+ * letters, combining marks and digits of ANY script, plus space, dot, underscore
+ * and hyphen. Path separators, quotes, control characters and the bidi overrides
+ * (category Cf) all fall outside it.
+ */
+const UNSAFE_FILENAME = /[^\p{L}\p{M}\p{N} ._-]/gu;
+
+/**
+ * The name a client sent in `X-Support-Filename`. The browser percent-encodes it
+ * (headers are Latin-1), so it is decoded here; a malformed escape is kept as sent
+ * and `safeFilename` makes it safe either way.
+ */
+export function decodeFilenameHeader(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
 
 /**
  * A filename safe to store, render, and put in a `Content-Disposition` header.
  *
  * Drops any directory component, so an upload can never describe a path, and
  * removes quotes and control characters, which would otherwise let a filename
- * break out of the header it is written into.
+ * break out of the header it is written into. Unicode letters and digits are
+ * kept: a merchant's `captura de pantalla.png` or `注文.csv` stays recognisable.
  */
 export function safeFilename(raw: string): string {
   // Both separators: the client OS is not ours to assume.
   const base = raw.split(/[/\\]/).pop() ?? "";
-  const cleaned = base.replace(UNSAFE_FILENAME, "").trim();
+  const cleaned = base.normalize("NFC").replace(UNSAFE_FILENAME, "").trim();
   if (cleaned === "" || cleaned === "." || cleaned === "..") return "file";
-  if (cleaned.length <= FILENAME_MAX) return cleaned;
+  const characters = Array.from(cleaned);
+  if (characters.length <= FILENAME_MAX) return cleaned;
 
   // Truncate the stem, keep the extension — a name without one is unopenable.
+  // Counted in characters, not UTF-16 units, so a surrogate pair is never cut.
   const dot = cleaned.lastIndexOf(".");
-  const ext = dot > 0 ? cleaned.slice(dot) : "";
-  return cleaned.slice(0, Math.max(1, FILENAME_MAX - ext.length)) + ext;
+  const extension = dot > 0 ? Array.from(cleaned.slice(dot)) : [];
+  return characters.slice(0, Math.max(1, FILENAME_MAX - extension.length)).join("") + extension.join("");
+}
+
+/** The letters shown on a file tile: its extension, upper-cased and shortened. */
+export function fileExtensionLabel(filename: string): string {
+  const dot = filename.lastIndexOf(".");
+  const extension = dot > 0 ? filename.slice(dot + 1, dot + 5).toUpperCase() : "";
+  return extension || "FILE";
 }
 
 /**

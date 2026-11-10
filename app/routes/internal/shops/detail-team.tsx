@@ -12,6 +12,7 @@ const ROLE_LABEL = { owner: "Owner", admin: "Admin", member: "Member", viewer: "
 
 function seatLine(seats: SeatSummary): string {
   if (seats.kind === "unlimited") return "No seat limit";
+  if (seats.kind === "unknown") return `${seats.used} seats in use, limit unreadable`;
   return `${seats.used} of ${seats.maximum} seats in use${seats.over > 0 ? `, ${seats.over} over the limit` : ""}`;
 }
 

@@ -2,7 +2,20 @@ import { describe, expect, it } from "vitest";
 import { MEMBER_PERMISSIONS, MEMBER_ROLES, canAssignRole, presetOf, type MemberPermission } from "./member-access";
 import { customPolicy, grantableBy } from "./member-permissions";
 import { MEMBER_STATUSES } from "./member-lifecycle";
-import { contactsOf, memberDetail, orderTeam, rolesToOffer, seatSummary, teamRows, toTeamMember, type TeamMember } from "./member-team";
+import {
+  activationSeat,
+  contactsOf,
+  hiddenCount,
+  isCancelledInvitation,
+  memberDetail,
+  orderTeam,
+  seatSummary,
+  seatsOpenIn,
+  teamNotices,
+  teamRows,
+  toTeamMember,
+  type TeamMember,
+} from "./member-team";
 
 const member = (overrides: Partial<TeamMember> & Pick<TeamMember, "id">): TeamMember => ({
   linked: true,
@@ -80,7 +93,7 @@ const policyOn = customPolicy({ enabled: true, alsoProtected: [] });
 
 /** What the person looking may do to one member: read from that member's own page, the only place actions are offered. */
 const offers = (actor: { readonly id: string; readonly role: string; readonly permissions?: readonly MemberPermission[] | null }, target: TeamMember) =>
-  memberDetail(actor, { ...memberRecord(target), shopifyUserId: target.linked ? "1" : null, collaborator: false, createdAt: 1 }, undefined, policyOn).can;
+  memberDetail(actor, { ...memberRecord(target), shopifyUserId: target.linked ? "1" : null, collaborator: false, createdAt: 1 }, undefined, policyOn, undefined).can;
 
 describe("a member with a set of their own, in the list", () => {
   const stored = { ...memberRecord({ id: "x" }), shopifyUserId: "1" };
@@ -176,15 +189,6 @@ describe("what a member's page offers", () => {
   });
 });
 
-describe("rolesToOffer", () => {
-  it("is every role an owner holds, and fewer for an admin", () => {
-    expect(rolesToOffer({ role: "owner" })).toEqual(MEMBER_ROLES);
-    expect(rolesToOffer({ role: "admin" })).toEqual(["admin", "member", "viewer"]);
-    expect(rolesToOffer({ role: "viewer" })).toEqual(["viewer"]);
-    expect(rolesToOffer({ role: "retired" })).toEqual([]);
-  });
-});
-
 describe("seatSummary", () => {
   it("has no figures for an unlimited plan", () => {
     expect(seatSummary({ kind: "unlimited" }, 9)).toEqual({ kind: "unlimited" });
@@ -269,80 +273,80 @@ describe("memberDetail", () => {
 
 
   it("carries what the row shows and what only a detail page shows, and who invited them by name and address", () => {
-    const detail = memberDetail(owner, stored({ collaborator: true }), { name: "Bo", email: "bo@firesio.app" }, on);
+    const detail = memberDetail(owner, stored({ collaborator: true }), { name: "Bo", email: "bo@firesio.app" }, on, undefined);
     expect(detail).toMatchObject({ id: "x", name: "Ada", email: "ada@firesio.app", role: "member", status: "active", collaborator: true, createdAt: 1_000, invitedBy: { name: "Bo", email: "bo@firesio.app" } });
   });
 
   it("has nobody who invited them when there is no such member, and never carries the Shopify user id or the inviter's id", () => {
-    const detail = memberDetail(owner, stored(), undefined, on);
+    const detail = memberDetail(owner, stored(), undefined, on, undefined);
     expect(detail.invitedBy).toBeNull();
     expect(JSON.stringify(detail)).not.toContain("4242");
     expect(JSON.stringify(detail)).not.toContain("boss-id");
   });
 
   it("marks the person looking, an invitation nobody took up, and a lost seat", () => {
-    expect(memberDetail({ id: "x", role: "owner" }, stored(), undefined, on).isYou).toBe(true);
-    expect(memberDetail(owner, stored({ status: "invited", shopifyUserId: null }), undefined, on).isInvitation).toBe(true);
-    expect(memberDetail(owner, stored({ status: "pending", trimmedAt: 7 }), undefined, on).noSeat).toBe(true);
+    expect(memberDetail({ id: "x", role: "owner" }, stored(), undefined, on, undefined).isYou).toBe(true);
+    expect(memberDetail(owner, stored({ status: "invited", shopifyUserId: null }), undefined, on, undefined).isInvitation).toBe(true);
+    expect(memberDetail(owner, stored({ status: "pending", trimmedAt: 7 }), undefined, on, undefined).noSeat).toBe(true);
   });
 
   describe("what they hold", () => {
     it("is their role's preset while they have no set", () => {
-      const detail = memberDetail(owner, stored({ role: "member", permissions: null }), undefined, on);
+      const detail = memberDetail(owner, stored({ role: "member", permissions: null }), undefined, on, undefined);
       expect(detail).toMatchObject({ custom: false, permissions: presetOf("member") });
     });
 
     it("is exactly their set when they have one, whatever their role was", () => {
-      const detail = memberDetail(owner, stored({ role: "admin", permissions: ["app:view", "app:manage"] }), undefined, on);
+      const detail = memberDetail(owner, stored({ role: "admin", permissions: ["app:view", "app:manage"] }), undefined, on, undefined);
       expect(detail).toMatchObject({ custom: true, role: "admin", permissions: ["app:view", "app:manage"] });
     });
 
     it("is nothing for an empty set: an empty set is a set", () => {
-      expect(memberDetail(owner, stored({ permissions: [] }), undefined, on)).toMatchObject({ custom: true, permissions: [] });
+      expect(memberDetail(owner, stored({ permissions: [] }), undefined, on, undefined)).toMatchObject({ custom: true, permissions: [] });
     });
   });
 
   describe("whether they can be given a set, and what the person looking may tick", () => {
     it("allows it for an active member of an app that lets merchants do it, and offers what the giver holds without what is protected", () => {
-      const detail = memberDetail(owner, stored(), undefined, on);
+      const detail = memberDetail(owner, stored(), undefined, on, undefined);
       expect(detail.customize).toEqual({ allowed: true, grantable: grantableBy(owner, on) });
       expect(detail.customize.grantable).not.toContain("members:manage");
     });
 
     it("offers less when the app protects more, and never the permission that manages the team", () => {
       const strict = customPolicy({ enabled: true, alsoProtected: ["billing:manage"] });
-      expect(memberDetail(owner, stored(), undefined, strict).customize.grantable).toEqual(["app:view", "app:manage"]);
+      expect(memberDetail(owner, stored(), undefined, strict, undefined).customize.grantable).toEqual(["app:view", "app:manage"]);
     });
 
     it("is never allowed when the app does not let merchants do it", () => {
-      expect(memberDetail(owner, stored(), undefined, off).customize.allowed).toBe(false);
+      expect(memberDetail(owner, stored(), undefined, off, undefined).customize.allowed).toBe(false);
     });
 
     it("is never allowed on your own page, on an owner, on the store's owner, or on anyone who is not active", () => {
-      expect(memberDetail({ id: "x", role: "owner" }, stored(), undefined, on).customize.allowed).toBe(false);
-      expect(memberDetail(owner, stored({ role: "owner" }), undefined, on).customize.allowed).toBe(false);
-      expect(memberDetail(owner, stored({ accountOwner: true }), undefined, on).customize.allowed).toBe(false);
+      expect(memberDetail({ id: "x", role: "owner" }, stored(), undefined, on, undefined).customize.allowed).toBe(false);
+      expect(memberDetail(owner, stored({ role: "owner" }), undefined, on, undefined).customize.allowed).toBe(false);
+      expect(memberDetail(owner, stored({ accountOwner: true }), undefined, on, undefined).customize.allowed).toBe(false);
       for (const status of MEMBER_STATUSES.filter((status) => status !== "active")) {
-        expect(memberDetail(owner, stored({ status, shopifyUserId: status === "invited" ? null : "4242" }), undefined, on).customize.allowed, status).toBe(false);
+        expect(memberDetail(owner, stored({ status, shopifyUserId: status === "invited" ? null : "4242" }), undefined, on, undefined).customize.allowed, status).toBe(false);
       }
     });
 
     it("is never allowed to someone who cannot manage the team, nor on someone they may not touch", () => {
-      expect(memberDetail({ id: "me", role: "member" }, stored(), undefined, on).customize.allowed).toBe(false);
-      expect(memberDetail({ id: "me", role: "admin" }, stored({ role: "owner" }), undefined, on).customize.allowed).toBe(false);
-      expect(memberDetail({ id: "me", role: "admin", permissions: ["app:view", "app:manage"] }, stored(), undefined, on).customize.allowed).toBe(false);
+      expect(memberDetail({ id: "me", role: "member" }, stored(), undefined, on, undefined).customize.allowed).toBe(false);
+      expect(memberDetail({ id: "me", role: "admin" }, stored({ role: "owner" }), undefined, on, undefined).customize.allowed).toBe(false);
+      expect(memberDetail({ id: "me", role: "admin", permissions: ["app:view", "app:manage"] }, stored(), undefined, on, undefined).customize.allowed).toBe(false);
     });
 
     it("offers a giver with a set of their own only what that set holds", () => {
       const giver = { id: "me", role: "admin", permissions: [...MEMBER_PERMISSIONS] satisfies MemberPermission[] };
-      expect(memberDetail(giver, stored(), undefined, on).customize.grantable).toEqual(["app:view", "app:manage", "billing:manage"]);
+      expect(memberDetail(giver, stored(), undefined, on, undefined).customize.grantable).toEqual(["app:view", "app:manage", "billing:manage"]);
     });
 
     it("allows exactly what its row says the person may change, and nothing the row refuses", () => {
       for (const status of MEMBER_STATUSES) {
         for (const role of MEMBER_ROLES) {
           for (const actorRole of MEMBER_ROLES) {
-            const detail = memberDetail({ id: "me", role: actorRole }, member_(status, role), undefined, on);
+            const detail = memberDetail({ id: "me", role: actorRole }, member_(status, role), undefined, on, undefined);
             if (detail.customize.allowed) expect(detail.can.changeRole, `${actorRole} on ${status} ${role}`).toBe(true);
           }
         }
@@ -353,4 +357,97 @@ describe("memberDetail", () => {
   function member_(status: (typeof MEMBER_STATUSES)[number], role: (typeof MEMBER_ROLES)[number]) {
     return stored({ id: `${status}-${role}`, status, role });
   }
+});
+
+describe("what a person who is not a person yet may be offered", () => {
+  const on = customPolicy({ enabled: true, alsoProtected: [] });
+  const stored = (overrides: Partial<Parameters<typeof memberDetail>[1]> = {}) => ({
+    ...memberRecord({ id: "x", name: "Ada", email: "ada@firesio.app" }),
+    shopifyUserId: "4242",
+    trimmedAt: null,
+    collaborator: false,
+    createdAt: 1_000,
+    invitedBy: null,
+    ...overrides,
+  });
+
+  it("never lets in or restores a row with no Shopify user, whatever its status, but still lets an invitation be cancelled", () => {
+    for (const status of MEMBER_STATUSES) {
+      const detail = memberDetail(owner, stored({ status, shopifyUserId: null }), undefined, on, { open: true });
+      expect(detail.can.approve, `approve ${status}`).toBe(false);
+      expect(detail.can.restore, `restore ${status}`).toBe(false);
+      expect(detail.seat, `seat ${status}`).toBeNull();
+    }
+    expect(memberDetail(owner, stored({ status: "invited", shopifyUserId: null }), undefined, on, undefined).can).toMatchObject({ remove: true, changeRole: true });
+  });
+
+  it("offers letting in a waiting person, and restoring a removed one, only when there is a person", () => {
+    expect(memberDetail(owner, stored({ status: "pending" }), undefined, on, undefined).can).toMatchObject({ approve: true, restore: false });
+    expect(memberDetail(owner, stored({ status: "removed" }), undefined, on, undefined).can).toMatchObject({ approve: false, restore: true });
+  });
+
+  it("carries the seat answer only to someone who can be let in or brought back", () => {
+    const full = { open: false, why: "full" } as const;
+    expect(memberDetail(owner, stored({ status: "pending" }), undefined, on, full).seat).toEqual(full);
+    expect(memberDetail(owner, stored({ status: "removed" }), undefined, on, full).seat).toEqual(full);
+    expect(memberDetail(owner, stored({ status: "active" }), undefined, on, full).seat).toBeNull();
+    // Someone who may not act (a member) is shown no seat note: they have no button to disable.
+    expect(memberDetail({ id: "me", role: "member" }, stored({ status: "pending" }), undefined, on, full).seat).toBeNull();
+  });
+
+  it("recognises a cancelled invitation of the old kind: removed, and never linked", () => {
+    expect(isCancelledInvitation({ status: "removed", linked: false })).toBe(true);
+    expect(isCancelledInvitation({ status: "removed", linked: true })).toBe(false);
+    expect(isCancelledInvitation({ status: "invited", linked: false })).toBe(false);
+    expect(isCancelledInvitation({ status: "pending", linked: false })).toBe(false);
+  });
+});
+
+describe("seats for letting someone in", () => {
+  it("is open without a limit and while a seat is free, and full at and over the limit", () => {
+    expect(activationSeat({ kind: "unlimited" }, 99)).toEqual({ open: true });
+    expect(activationSeat({ kind: "limit", maximum: 3 }, 2)).toEqual({ open: true });
+    expect(activationSeat({ kind: "limit", maximum: 3 }, 3)).toEqual({ open: false, why: "full" });
+    expect(activationSeat({ kind: "limit", maximum: 3 }, 5)).toEqual({ open: false, why: "full" });
+    expect(activationSeat({ kind: "limit", maximum: 0 }, 0)).toEqual({ open: false, why: "full" });
+  });
+
+  it("is closed, and says the plan could not be read, when it could not be", () => {
+    expect(activationSeat({ kind: "unknown" }, 0)).toEqual({ open: false, why: "unreadable" });
+  });
+
+  it("agrees with the list's summary", () => {
+    for (const reading of [{ kind: "unlimited" }, { kind: "unknown" }, { kind: "limit", maximum: 0 }, { kind: "limit", maximum: 2 }, { kind: "limit", maximum: 3 }] as const) {
+      for (const used of [0, 2, 3, 6]) expect(seatsOpenIn(seatSummary(reading, used)), `${reading.kind} ${used}`).toEqual(activationSeat(reading, used));
+    }
+  });
+});
+
+describe("seatSummary of a plan that could not be read", () => {
+  it("is unknown with the count in use, never a limit of 0 and never over", () => {
+    expect(seatSummary({ kind: "unknown" }, 3)).toEqual({ kind: "unknown", used: 3 });
+  });
+
+  it("is still a real limit of 0 when the plan grants no seats", () => {
+    expect(seatSummary({ kind: "limit", maximum: 0 }, 2)).toEqual({ kind: "limit", maximum: 0, used: 2, left: 0, over: 2 });
+  });
+});
+
+describe("teamNotices and hiddenCount", () => {
+  it("counts people waiting apart from people who lost a seat", () => {
+    expect(teamNotices({ pending: 5, noSeat: 2 })).toEqual({ waiting: 3, noSeat: 2 });
+    expect(teamNotices({ pending: 2, noSeat: 2 })).toEqual({ waiting: 0, noSeat: 2 });
+    expect(teamNotices({ pending: 0, noSeat: 0 })).toEqual({ waiting: 0, noSeat: 0 });
+  });
+
+  it("never goes negative on counts that disagree", () => {
+    expect(teamNotices({ pending: 1, noSeat: 4 }).waiting).toBe(0);
+  });
+
+  it("says how many people the capped list did not show, and none when it is whole", () => {
+    const counts = { invited: 1, pending: 2, active: 600, removed: 3 };
+    expect(hiddenCount(counts, 500)).toBe(106);
+    expect(hiddenCount(counts, 606)).toBe(0);
+    expect(hiddenCount(counts, 700)).toBe(0);
+  });
 });

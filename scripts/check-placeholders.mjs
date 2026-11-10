@@ -20,6 +20,8 @@ const PLACEHOLDER = /REPLACE|CHANGE_?ME|TODO|XXXX|your-?(domain|account)/i;
 const SHOPIFY_APP_GID = /^gid:\/\/shopify\/App\/[^/]+$/;
 /** The template's invented dashboard (App Store 1.1.4: no fabricated store data). */
 const SAMPLE_DASHBOARD_IMPORT = /components\/dashboard\/SampleDashboard\b/;
+/** The template's invented setup steps and progress (same rule: no fabricated state shown to a merchant). */
+const SAMPLE_SETUP_GUIDE_IMPORT = /components\/dashboard\/SetupGuide\b/;
 /** Same rule as HANDLE_PATTERN in app/lib/install-target.ts (this script cannot import TypeScript). */
 const APP_HANDLE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
@@ -287,9 +289,16 @@ export function validateLaunchContract(files) {
   }
   if (PLACEHOLDER.test(files.plans)) issues.push("Managed Pricing plan handle contains placeholder");
   if (PLACEHOLDER.test(files.publicCopy)) issues.push("public pricing/support/privacy copy contains TODO");
+  // common.json holds the plan feature lists (plans.*) and the tagline, in every language the app ships.
+  for (const { path, source } of files.commonCopy ?? []) {
+    if (PLACEHOLDER.test(source)) issues.push(`${path} contains TODO (plan features / tagline are template copy)`);
+  }
   for (const { path, source } of files.routeSources ?? []) {
     if (SAMPLE_DASHBOARD_IMPORT.test(source)) {
       issues.push(`${path} renders the sample dashboard (invented store data); replace it with real data or an empty state`);
+    }
+    if (SAMPLE_SETUP_GUIDE_IMPORT.test(source)) {
+      issues.push(`${path} renders the template setup guide (invented steps and progress); drive it from the shop's real state or remove it`);
     }
   }
   return issues;
@@ -320,6 +329,17 @@ export function launchWarnings(files) {
     );
   }
   return warnings;
+}
+
+/** Every language's `common.json`, as `{ path, source }` with repo-relative paths. */
+function readCommonCopy(repoRoot) {
+  const localesDir = "app/i18n/locales";
+  return readdirSync(join(repoRoot, localesDir), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => {
+      const path = `${localesDir}/${entry.name}/common.json`;
+      return { path, source: readFileSync(join(repoRoot, path), "utf8") };
+    });
 }
 
 /** Every .ts/.tsx file under `dir`, as `{ path, source }` with repo-relative paths. */
@@ -374,6 +394,7 @@ function main() {
     identity: readFileSync(join(repoRoot, "app/identity.ts"), "utf8"),
     plans: readFileSync(join(repoRoot, "app/billing/plans.ts"), "utf8"),
     publicCopy: readFileSync(join(repoRoot, "app/i18n/locales/en/public.json"), "utf8"),
+    commonCopy: readCommonCopy(repoRoot),
     routeSources: readSources(repoRoot, "app/routes"),
   };
   for (const warning of launchWarnings(files)) console.warn(`warning: ${warning}`);

@@ -37,6 +37,6 @@ export function useActionToast(actionData: unknown, message: ActionMessage) {
     if (!actionData) return;
     const resolved = resolveToast(messageRef.current);
     if (!resolved) return;
-    globalThis.shopify.toast.show(resolved.message, { isError: resolved.tone === "error" });
+    globalThis.shopify?.toast?.show(resolved.message, { isError: resolved.tone === "error" });
   }, [actionData]);
 }

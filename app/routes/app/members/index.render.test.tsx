@@ -24,6 +24,8 @@ const base = {
   ],
   seats: { kind: "unlimited" as const },
   waiting: 0,
+  noSeat: 0,
+  hidden: 0,
   roles: ["owner", "admin", "member", "viewer"] as const,
   autoJoinRole: "member" as const,
   canChangePlan: true,
@@ -96,6 +98,41 @@ describe("the team page", () => {
     expect(await render(base)).not.toContain("waiting to be let in");
   });
 
+  it("counts people who lost a seat apart from people waiting, and explains what to do", async () => {
+    const html = await render({ ...base, waiting: 0, noSeat: 2 });
+    expect(html).toContain("People without a seat: 2");
+    expect(html).toContain("give them a seat again once one is free");
+    expect(html).not.toContain("People are waiting to be let in");
+    const both = await render({ ...base, waiting: 1, noSeat: 1 });
+    expect(both).toContain("People are waiting to be let in: 1");
+    expect(both).toContain("People without a seat: 1");
+    expect(await render(base)).not.toContain("without a seat");
+  });
+
+  it("says when the list was cut and how many people it left out", async () => {
+    const html = await render({ ...base, hidden: 7 });
+    expect(html).toContain("Showing the first 2 people. 7 more are not shown.");
+    expect(await render(base)).not.toContain("more are not shown");
+  });
+
+  it("shows an unreadable plan as unreadable, never as a limit of 0 or over the limit", async () => {
+    const html = await render({ ...base, seats: { kind: "unknown", used: 3 } });
+    expect(html).toContain("Seats in use: 3");
+    expect(html).toContain("cannot read your plan");
+    expect(html).not.toContain("of 0");
+    expect(html).not.toContain("<s-progress");
+    expect(html).not.toContain("Nobody is removed");
+  });
+
+  it("tells the invite form when no seat is free, without promising they can join", async () => {
+    const full = await render({ ...base, seats: { kind: "limit", maximum: 2, used: 2, left: 0, over: 0 } });
+    expect(full).toContain("Every seat is in use. You can save this person now, but they wait to be let in until a seat is free.");
+    const unreadable = await render({ ...base, seats: { kind: "unknown", used: 1 } });
+    expect(unreadable).toContain("wait to be let in until it can be read");
+    expect(await render(base)).not.toContain("wait to be let in until");
+    expect(await render({ ...base, seats: { kind: "limit", maximum: 5, used: 2, left: 3, over: 0 } })).not.toContain("wait to be let in until");
+  });
+
   it("says nothing of seats for a plan that does not limit the team", async () => {
     expect(await render(base)).not.toContain("Seats in use");
   });
@@ -145,9 +182,11 @@ describe("the team page", () => {
   it("has the invite form behind the primary action, offering only the roles on offer", async () => {
     const html = await render({ ...base, roles: ["admin", "member", "viewer"] });
     expect(html).toContain('slot="primary-action"');
-    expect(html).toContain("Invite member");
+    expect(html).toContain("Add a member");
     expect(html).toContain('commandFor="invite-modal"');
-    expect(html).toContain("Send invitation");
+    // Nothing is emailed, so nothing says an invitation is "sent".
+    expect(html).not.toMatch(/Send invitation|Invitation sent|Invite member/);
+    expect(html).toContain(">Add</s-button>");
     expect(html).not.toContain('value="owner"');
   });
 
@@ -156,7 +195,7 @@ describe("the team page", () => {
     expect(html).toContain(">Personalizado<");
     expect(html).toContain("Equipo");
     expect(html).toContain("Propietario");
-    expect(html).toContain("Invitar a un miembro");
+    expect(html).toContain("Añadir un miembro");
     expect(html).toContain("Personas esperando a que las dejes entrar: 1");
   });
 });

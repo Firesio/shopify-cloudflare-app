@@ -7,14 +7,15 @@ import type { MemberDetail } from "~/domain/member-team";
 /**
  * The role and permissions being edited on a member's page: the draft, what can be ticked, and what Save would ask for.
  * Every rule is in `domain/member-access-draft.ts`; this only holds the draft in state and starts it over when what is
- * saved changes (a save went through), the way React documents for state that follows a prop.
+ * saved changes (a save went through) or the page is another member's (the route component is reused between members),
+ * the way React documents for state that follows a prop.
  */
 export function useAccessDraft(
-  member: Pick<MemberDetail, "role" | "permissions" | "customize">,
+  member: Pick<MemberDetail, "id" | "role" | "permissions" | "customize">,
   policy: CustomPermissionPolicy,
 ) {
   const initial = draftOf(member);
-  const truth = `${initial.role}:${initial.permissions.join(",")}`;
+  const truth = `${member.id}|${initial.role}:${initial.permissions.join(",")}`;
   const [draft, setDraft] = useState<AccessDraft>(initial);
   const [seen, setSeen] = useState(truth);
   if (seen !== truth) {

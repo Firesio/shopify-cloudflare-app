@@ -34,11 +34,23 @@ function validFiles() {
     identity: 'name: "Useful App", companyName: "Example LLC", supportEmail: "support@example.org", address: "1 Main Street", effectiveDate: "2026-09-01"',
     plans: 'handle: "free"\nhandle: "pro"',
     publicCopy: '{"pricing":"Clear pricing","support":"Email support@example.org","privacy":"We process merchant data."}',
+    commonCopy: [{ path: "app/i18n/locales/en/common.json", source: '{"plans":{"free":{"features":{"0":"Up to 100 orders"}}},"tagline":"Sell more"}' }],
   };
 }
 
 test("accepts populated production config while allowing local fixture values", () => {
   assert.deepEqual(validateLaunchContract(validFiles()), []);
+});
+
+test("refuses a plan feature or tagline that is still template copy, in any language", () => {
+  const files = validFiles();
+  files.commonCopy = [
+    ...files.commonCopy,
+    { path: "app/i18n/locales/es/common.json", source: '{"plans":{"pro":{"features":{"0":"TODO: primera ventaja del plan de pago"}}}}' },
+  ];
+  const issues = validateLaunchContract(files);
+  assert.equal(issues.length, 1);
+  assert.match(issues[0], /app\/i18n\/locales\/es\/common\.json contains TODO/);
 });
 
 test("requires the hourly uninstall-probe cron and a daily cron in production", () => {
@@ -177,6 +189,28 @@ test("rejects a route that still renders the sample dashboard, and only that rou
   const issues = validateLaunchContract(files);
   assert.equal(issues.length, 1);
   assert.match(issues[0], /^app\/routes\/app\/home\.tsx renders the sample dashboard/);
+});
+
+test("rejects a route that still renders the template setup guide, and only that route", () => {
+  const files = validFiles();
+  files.routeSources = [
+    { path: "app/routes/app/home.tsx", source: 'import { SetupGuide } from "~/components/dashboard/SetupGuide";' },
+    { path: "app/routes/app/billing.tsx", source: 'import { GuideStep } from "~/components/dashboard/GuideStep";' },
+  ];
+  const issues = validateLaunchContract(files);
+  assert.equal(issues.length, 1);
+  assert.match(issues[0], /^app\/routes\/app\/home\.tsx renders the template setup guide/);
+});
+
+test("reports both when one route renders the sample dashboard and the setup guide", () => {
+  const files = validFiles();
+  files.routeSources = [
+    {
+      path: "app/routes/app/home.tsx",
+      source: 'import { SampleDashboard } from "~/components/dashboard/SampleDashboard";\nimport { SetupGuide } from "~/components/dashboard/SetupGuide";',
+    },
+  ];
+  assert.equal(validateLaunchContract(files).length, 2);
 });
 
 test("does not require production to re-declare the local-only VAPID_PRIVATE_KEY var", () => {

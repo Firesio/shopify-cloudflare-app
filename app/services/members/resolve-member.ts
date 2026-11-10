@@ -20,7 +20,7 @@ export type MemberLogEntry =
   | { readonly event: "member.invite_accepted"; readonly shop: string; readonly role: Member["role"]; readonly status: Member["status"] }
   | { readonly event: "member.owner_restored"; readonly shop: string }
   /** A change to the team by a member: `by` is that member's id (an opaque uuid), so the log says who did it. */
-  | { readonly event: "member.role_changed" | "member.removed" | "member.approved" | "member.restored"; readonly shop: string; readonly role: Member["role"]; readonly by: string }
+  | { readonly event: "member.role_changed" | "member.removed" | "member.invitation_cancelled" | "member.approved" | "member.restored"; readonly shop: string; readonly role: Member["role"]; readonly by: string }
   /** A member was given a set of their own: the permissions added and taken away, as comma-separated names (never personal data). */
   | { readonly event: "member.permissions_changed"; readonly shop: string; readonly role: Member["role"]; readonly by: string; readonly granted: string; readonly revoked: string };
 

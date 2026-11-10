@@ -2,6 +2,7 @@ import { Suspense, type ReactNode } from "react";
 import { Await } from "react-router";
 
 import type { Outcome } from "~/admin/outcome";
+import { SkeletonLines, SkeletonStatus } from "./Skeleton";
 
 type DeferredProps<T> = {
   /** A loader region already passed through `settle()`. */
@@ -34,23 +35,27 @@ export function Deferred<T>({ resolve, pending, failed, children }: DeferredProp
 }
 
 type PendingSectionProps = {
-  /** Translated name of what is loading; announced by assistive technology. */
+  /** Translated name of what is loading ("Loading plans"); announced once to assistive technology. */
   readonly label: string;
+  /** The section's real heading, shown at once. */
   readonly heading?: string;
+  /**
+   * The section's real static parts with skeletons where the data goes. Best produced by rendering the loaded
+   * component with its `loading` flag, so the two cannot differ. Omitted: three skeleton lines.
+   */
+  readonly children?: ReactNode;
 };
 
 /**
- * Loading feedback for one pending region: a real `s-section` holding a
- * labelled `s-spinner`, per Shopify's guidance (Polaris web components have no
- * skeleton). The padding gives the region a stable footprint so the content
- * replacing it moves the rest of the page as little as possible.
+ * Loading UI for one pending region (OWNER DECISION, `.claude/rules/polaris-app-home.md`, "Loading"): the real
+ * `s-section` and heading, the static children, skeletons where the data goes, and one hidden status for screen
+ * readers. No spinner: a button shows its own `loading`, and a navigation uses `shopify.loading`.
  */
-export function PendingSection({ label, heading }: PendingSectionProps) {
+export function PendingSection({ label, heading, children }: PendingSectionProps) {
   return (
     <s-section heading={heading} accessibilityLabel={label}>
-      <s-stack direction="block" alignItems="center" padding="large">
-        <s-spinner size="large" accessibilityLabel={label} />
-      </s-stack>
+      {children ?? <SkeletonLines lines={3} />}
+      <SkeletonStatus label={label} />
     </s-section>
   );
 }

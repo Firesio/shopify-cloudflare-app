@@ -1,4 +1,4 @@
-import { MEMBER_SEATS_KEY, overageLimitFrom, seatLimitFrom, type SeatCheck } from "~/domain/member-seats";
+import { MEMBER_SEATS_KEY, overageLimitFrom, seatLimitFrom, seatReadingFrom, type SeatCheck } from "~/domain/member-seats";
 import type { MemberSeats } from "~/ports/member-seats";
 
 /**
@@ -14,6 +14,7 @@ export function createMemberSeats(
 ): MemberSeats {
   return {
     limit: async (shop) => seatLimitFrom(await entitlements.check(shop, MEMBER_SEATS_KEY)),
+    reading: async (shop) => seatReadingFrom(await entitlements.check(shop, MEMBER_SEATS_KEY)),
     overageLimit: async (shop) => {
       options.forget?.(shop);
       return overageLimitFrom(await entitlements.check(shop, MEMBER_SEATS_KEY));

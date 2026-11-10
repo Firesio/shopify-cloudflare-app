@@ -26,63 +26,45 @@
     }
   },
   "dashboard": {
-    "heading": "Overview",
-    "greeting": "Good morning, {{shop}}",
+    "heading": "Home",
+    "greeting": "Hello, {{shop}}",
     "intro": "Here is what is happening across your store today.",
     "primaryAction": "Create promotion",
-    "period": "Last 30 days",
-    "overview": "Store overview",
+    "period": "Last {{days}} days",
     "sales": "Net sales",
-    "salesChange": "+12.5% vs previous period",
-    "salesChangeShort": "+12.5%",
     "orders": "Orders",
-    "ordersChange": "+8.2% vs previous period",
-    "ordersChangeShort": "+8.2%",
-    "customers": "New customers",
-    "customersChange": "+5.4% vs previous period",
     "conversion": "Conversion rate",
-    "conversionChange": "+0.7% vs previous period",
-    "conversionChangeShort": "+0.7%",
-    "performance": "Sales performance",
     "performanceWithPeriod": "Sales performance · {{period}}",
+    "performanceLoading": "Loading sales performance",
     "secondaryAction": "View analytics",
     "channelPerformance": "Sales by channel",
     "channel": "Channel",
     "channelSales": "Net sales",
     "channelOrders": "Orders",
+    "channelsLoading": "Loading sales by channel",
+    "channelsEmptyHeading": "No sales channels yet",
+    "channelsEmptyBody": "Sales by channel appear here once your store has orders.",
     "onlineStore": "Online store",
     "shopApp": "Shop app",
     "social": "Social",
-    "quickActions": "Quick actions",
-    "manageProducts": "Manage products",
-    "manageProductsBody": "Keep your catalog fresh and ready to sell.",
-    "viewOrders": "View orders",
-    "viewOrdersBody": "Review the latest orders and fulfillment status.",
-    "marketing": "Marketing",
-    "marketingBody": "Bring more customers back with a campaign.",
     "recentActivity": "Recent activity",
     "activity": {
-      "order": "Order #1048 was fulfilled",
-      "orderBody": "Online store · 2 minutes ago",
+      "order": "Order #{{number}} was fulfilled",
+      "orderBody": "Online store · {{when}}",
       "customer": "New customer joined",
-      "customerBody": "Maya Chen · 18 minutes ago",
+      "customerBody": "Maya Chen · {{when}}",
       "promotion": "Summer collection promotion started",
-      "promotionBody": "Marketing · 1 hour ago"
+      "promotionBody": "Marketing · {{when}}"
     },
-    "viewAll": "View all activity",
-    "feedbackHeading": "Make this dashboard yours",
-    "feedbackBody": "These sample metrics are ready to replace with your store data as you connect more features.",
-    "feedbackAction": "Explore support",
     "needHelp": "Need help?",
     "contactSupport": "Contact support"
   },
   "setupGuide": {
     "heading": "Finish setting up your store",
     "body": "Complete these steps to start selling with confidence.",
-    "progress": "1 of 3 steps completed",
-    "dismiss": "Dismiss setup guide",
+    "progress": "{{done}} of {{total}} steps completed",
     "toggleGuide": "Toggle setup guide",
-    "toggleStep": "Toggle step {{step}} details",
+    "toggleStep": "Toggle details of {{title}}",
     "steps": {
       "connect": "Connect your store",
       "connectBody": "Link your sales channels and preferences.",
@@ -116,22 +98,30 @@
     "heading": "Billing",
     "manage": "Manage plan",
     "upgrade": "Upgrade",
-    "testBadge": "Test charge — no real money",
+    "reviewPlan": "Review plan",
+    "resubscribe": "Resubscribe",
+    "choosePlan": "Choose a plan",
     "currentPlanBadge": "Current plan",
+    "subscriptionFallbackName": "Your subscription",
     "current": {
       "renews": "Renews {{date}} for {{price}}",
       "renewsUnknownPrice": "Renews {{date}}",
       "trial": "Your free trial ends {{date}}. After that, you'll be charged {{price}}.",
-      "trialUnknownPrice": "Your free trial ends {{date}}."
+      "trialUnknownPrice": "Your free trial ends {{date}}.",
+      "cancelsOn": "Your subscription ends on {{date}}. You keep access until then.",
+      "cancelsAtPeriodEnd": "Your subscription is set to end. You keep access until the end of the current billing period.",
+      "frozen": "Your payments are on hold, so this plan isn't active. Update your billing details in Shopify to restore it.",
+      "pending": "This plan is waiting for your approval in Shopify. Nothing changes until you approve it.",
+      "cancelled": "This subscription was cancelled. Choose a plan to subscribe again.",
+      "inactive": "This store has no active subscription. Choose a plan to subscribe."
     },
-    "status": {
-      "ACTIVE": "Active",
-      "CANCELLED": "Cancelled",
-      "PENDING": "Pending approval",
-      "DECLINED": "Declined",
-      "EXPIRED": "Expired",
-      "FROZEN": "Frozen",
-      "ACCEPTED": "Accepted"
+    "phase": {
+      "active": "Active",
+      "cancelling": "Cancelling",
+      "frozen": "Payment frozen",
+      "pending": "Waiting for your approval",
+      "cancelled": "Cancelled",
+      "inactive": "Not active"
     },
     "plans": {
       "heading": "Plans",
@@ -142,36 +132,43 @@
       "annualSaving": "or {{price}} billed yearly — save {{percent}}%",
       "freeForever": "Free forever",
       "buildsOn": "Everything in {{plan}}, plus",
-      "levelOneImageAlt": "Illustration for the starter plan",
-      "levelTwoImageAlt": "Illustration for the growing plan"
+      "imageAlt": {
+        "free": "Illustration for the free plan",
+        "pro": "Illustration for the paid plan"
+      }
     },
-    "promoBadge": "Promo active ({{days}}d remaining)",
+    "promoBadge": "Promotion",
+    "promoEnds": "Promotional access ends {{when}}.",
     "planLabel": "Your plan",
+    "subscriptionLabel": "Your subscription",
     "managedNote": "Plans are managed by Shopify. Use the button above to view available plans, upgrade, or change your subscription.",
+    "managedNoteNoLink": "Plans are managed by Shopify, so changes to your plan are made outside this app.",
     "processing": {
       "heading": "Updating your plan",
       "body": "Checking the latest details from Shopify. This usually takes only a moment.",
-      "spinnerLabel": "Updating your plan",
+      "statusLabel": "Updating your plan",
       "failedHeading": "We could not update your plan",
-      "failedBody": "Try again to check the latest details from Shopify."
+      "failedBody": "Try again to check the latest details from Shopify.",
+      "toastDone": "Your plan is up to date",
+      "toastFailed": "We could not update your plan"
     },
     "price": {
       "perMonth": "{{price}}/mo",
       "perYear": "{{price}}/yr",
-      "flat": "{{price}}"
+      "flat": "{{price}}",
+      "free": "Free"
     },
     "loading": "Loading your plan",
     "loadFailedHeading": "We couldn't load your plan",
     "loadFailedBody": "Reload the page to try again. If this keeps happening, contact support.",
-    "planLinkUnavailable": "The plan link is unavailable right now. Reload the page to try again.",
-    "plansLoading": "Loading plans"
+    "planLinkUnavailable": "The plan link is unavailable right now. Reload the page to try again."
   },
   "support": {
     "heading": "Support",
     "newTicket": "New ticket",
     "empty": {
       "heading": "No tickets yet",
-      "body": "When something looks wrong or you want a feature, open a ticket and we will reply here.",
+      "body": "Use New ticket to report a problem or ask a question. We will reply here.",
       "illustrationAlt": "Support conversation illustration"
     },
     "columns": {
@@ -205,7 +202,13 @@
       "ccHelp": "They get every reply, and can reply themselves. Up to {{max}}.",
       "attachments": "Screenshots, recordings, or files",
       "addFiles": "Add files",
-      "attachmentLimits": "Up to 10 MB images, 100 MB video, and 25 MB files",
+      "attachmentLimits": "Up to {{max}} files. Images up to {{image}}, video up to {{video}}, other files up to {{file}}.",
+      "attachmentsSkipped": "Only {{max}} files fit in one message. The extra files were not added.",
+      "fileUploading": "Uploading {{filename}}",
+      "fileRemove": "Remove {{filename}}",
+      "fileFailed": "{{filename}} could not be added",
+      "submit": "Send ticket",
+      "replyExpectation": "We reply by email and in this thread.",
       "emailHeading": "Replies",
       "ccEmpty": "No one else is copied.",
       "ccAdd": "Add email",
@@ -219,17 +222,14 @@
     "thread": {
       "conversation": "Conversation",
       "you": "You",
-      "us": "Support",
       "reply": "Your reply",
       "replyPlaceholder": "Add anything else that might help",
       "send": "Send reply",
       "sending": "Sending…",
-      "closedNotice": "This ticket is closed. Reply to reopen it.",
+      "closedNotice": "This ticket is closed. Replying will reopen it.",
+      "sendAndReopen": "Send reply and reopen",
       "details": "Details",
       "created": "Opened",
-      "attachmentCount": "{{count}} attachment",
-      "attachmentCount_plural": "{{count}} attachments",
-      "download": "Open file",
       "pageHeading": "Ticket",
       "loading": "Loading the conversation",
       "notFoundHeading": "We couldn't find this ticket",
@@ -242,7 +242,8 @@
       "upload_failed": "That file could not be uploaded. Try again.",
       "too_large": "That file is too big.",
       "unsupported_type": "That file type is not supported.",
-      "invalid_cc": "That copy list is not valid. Use one email address per line.",
+      "invalid_cc": "That copy list is not valid. Check each email address.",
+      "invalid_upload": "An attachment is no longer available, so nothing was sent. Add your files again.",
       "invalid_cc_email": "That does not look like an email address.",
       "duplicate_cc_email": "That address is already on the list.",
       "too_many_cc_emails": "The list is full. Remove someone to add another."
@@ -252,9 +253,26 @@
       "replied": "Reply sent.",
       "ccSaved": "Copy list saved."
     },
+    "fieldErrors": {
+      "required": "This field is required.",
+      "too_long": "This is too long.",
+      "invalid_email": "Enter a valid email address.",
+      "invalid_choice": "Choose one of the options.",
+      "invalid_cc_email": "One of the copied addresses is not a valid email address.",
+      "too_many_cc_emails": "You can copy up to {{max}} people.",
+      "invalid": "Check this field and try again."
+    },
+    "list": {
+      "truncated": "Showing your {{limit}} most recent tickets."
+    },
     "loading": "Loading your tickets",
     "loadFailedHeading": "We couldn't load your tickets",
     "loadFailedBody": "Reload the page to try again. If this keeps happening, contact support."
+  },
+  "shell": {
+    "memberMissing": {
+      "back": "Back to team"
+    }
   },
   "noAccess": {
     "pageHeading": "Access",
@@ -278,7 +296,8 @@
     "seat_limit": {
       "heading": "Your plan has no free seat for you",
       "body": "This store's {{appName}} plan has a limited number of seats, and yours was given up when the team went over it. When a seat is free, an owner or admin of this store can let you back in."
-    }
+    },
+    "backHome": "Go to Home"
   },
   "members": {
     "heading": "Team",
@@ -301,13 +320,15 @@
       }
     },
     "invite": {
-      "action": "Invite member",
-      "heading": "Invite a member",
+      "action": "Add a member",
+      "heading": "Add a member",
       "email": "Email address",
       "emailHint": "They join the first time they open {{appName}} with this address verified in Shopify.",
       "role": "Role",
-      "submit": "Send invitation",
-      "cancel": "Cancel"
+      "submit": "Add",
+      "cancel": "Cancel",
+      "seatsFull": "Every seat is in use. You can save this person now, but they wait to be let in until a seat is free.",
+      "seatsUnreadable": "We cannot read your plan's seat limit right now. You can save this person, but they wait to be let in until it can be read."
     },
     "seats": {
       "heading": "Seats",
@@ -316,7 +337,9 @@
       "full": "Every seat is in use. Remove someone or change your plan to let more people in.",
       "over": "Your plan's seat limit is {{max}} and {{used}} are in use. Nobody is removed, but nobody new can join until you are within the limit.",
       "changePlan": "Change plan",
-      "overTrim": "Your plan's seat limit is {{max}} and {{used}} are in use. Nobody new can join. If the team is still over the limit when the notice period ends, the people with the fewest privileges lose their seat. Owners never do."
+      "overTrim": "Your plan's seat limit is {{max}} and {{used}} are in use. Nobody new can join. If the team is still over the limit when the notice period ends, the people with the fewest privileges lose their seat. Owners never do.",
+      "unreadable": "We cannot read your plan's seat limit right now, so nobody new can be let in. Try again in a moment.",
+      "usedUnknown": "Seats in use: {{used}}"
     },
     "waiting": {
       "heading": "People are waiting to be let in: {{count}}",
@@ -333,7 +356,8 @@
       "unnamed": "Unnamed staff member",
       "invitation": "Invitation",
       "never": "Not yet",
-      "custom": "Custom"
+      "custom": "Custom",
+      "truncated": "Showing the first {{shown}} people. {{hidden}} more are not shown."
     },
     "status": {
       "invited": "Invited",
@@ -343,7 +367,6 @@
       "noSeat": "No seat"
     },
     "actions": {
-      "changeRole": "Make {{role}}",
       "approve": "Let in as {{role}}",
       "restore": "Restore as {{role}}",
       "remove": "Remove",
@@ -356,7 +379,7 @@
       "keep": "Keep"
     },
     "success": {
-      "invited": "Invitation sent. They can join the next time they open the app.",
+      "invited": "Invitation saved. Ask them to open {{appName}} from their Shopify admin.",
       "roleChanged": "Role changed.",
       "removed": "Member removed.",
       "invitationCancelled": "Invitation cancelled.",
@@ -383,7 +406,6 @@
     },
     "detail": {
       "profile": "Profile",
-      "email": "Email address",
       "noEmail": "No address on file",
       "collaborator": "Collaborator",
       "accessHeading": "Access",
@@ -403,7 +425,16 @@
       "roleLabel": "Role",
       "usePreset": "Use {{role}} permissions",
       "allowed": "Allowed",
-      "notAllowed": "Not allowed"
+      "notAllowed": "Not allowed",
+      "state": {
+        "invited": "Nobody has opened {{appName}} with this address yet. When they do, they join with the role below.",
+        "waiting": "{{name}} opened {{appName}} and is waiting to be let in. Choose a role to let them in, or remove them.",
+        "noSeat": "{{name}} lost their seat when the plan's seat limit was lowered, so they cannot use {{appName}}. Choose a role to give them a seat again once one is free.",
+        "removed": "{{name}} was removed and cannot use {{appName}}. Choose a role to bring them back."
+      },
+      "seatFull": "Every seat is in use, so nobody can be let in right now. Free a seat or change your plan.",
+      "seatUnreadable": "We cannot read your plan's seat limit right now, so nobody can be let in. Try again in a moment.",
+      "permissionsGroup": "Permissions of {{name}}"
     },
     "permissions": {
       "appView": {
@@ -422,6 +453,16 @@
         "label": "Manage the team",
         "description": "Invite people, change roles and permissions, and remove people."
       }
+    },
+    "noSeat": {
+      "heading": "People without a seat: {{count}}",
+      "body": "Your plan's seat limit is lower than the team, so they lost their seat and cannot use {{appName}}. Open a person below to give them a seat again once one is free."
+    },
+    "confirmCancel": {
+      "heading": "Cancel the invitation for {{name}}?",
+      "body": "Nobody has opened {{appName}} with this address yet. The invitation is deleted and cannot be used to join.",
+      "confirm": "Cancel invitation",
+      "keep": "Keep"
     }
   }
 }

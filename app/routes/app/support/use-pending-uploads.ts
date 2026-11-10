@@ -1,27 +1,31 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { storedUploadSchema } from "~/schemas/support-upload";
-import { validateUpload, type AttachmentKind } from "~/support/attachment";
-
-export interface PendingUpload {
-  readonly uploadId: string;
-  readonly r2Key: string;
-  readonly filename: string;
-  readonly contentType: string;
-  readonly sizeBytes: number;
-  readonly previewUrl: string;
-  readonly kind: AttachmentKind;
-}
+import { MAX_FILES } from "~/support/attachment";
+import {
+  emptyUploadList,
+  finishedUploadIds,
+  hasUploadInFlight,
+  occupiedCount,
+  planPick,
+  uploadListReducer,
+  type UploadAction,
+  type UploadList,
+  type UploadRow,
+} from "~/support/upload-rows";
 
 export interface UploadController {
-  readonly files: readonly PendingUpload[];
+  /** Every file the merchant picked, with its own status, in the order picked. */
+  readonly rows: readonly UploadRow[];
+  /** The finished uploads' ids, which is what the message adopts. */
+  readonly uploadIds: readonly string[];
+  /** True while any file is still on its way: the message must not be sent yet. */
   readonly busy: boolean;
-  readonly error: string | null;
-  add(files: FileList | null): Promise<void>;
-  remove(uploadId: string): void;
+  /** Valid files the last pick could not fit under the maximum. */
+  readonly skipped: number;
+  add(files: ArrayLike<File> | null): Promise<void>;
+  remove(key: string): void;
   reset(): void;
 }
-
-const MAX_FILES = 10;
 
 type StoredUpload = NonNullable<ReturnType<typeof parseStored>>;
 
@@ -64,56 +68,72 @@ async function uploadFile(file: File, ticketId?: string, shop?: string): Promise
   return stored ? { ok: true, stored } : { ok: false, reason: "upload_failed" };
 }
 
+function revoke(rows: readonly UploadRow[]) {
+  for (const row of rows) if (row.previewUrl) URL.revokeObjectURL(row.previewUrl);
+}
+
+/**
+ * The files being attached to one message.
+ *
+ * State is mirrored in a ref and updated synchronously, so two picks made in quick
+ * succession both see the files already queued and the maximum holds.
+ */
 export function usePendingUploads(ticketId?: string, shop?: string): UploadController {
-  const [files, setFiles] = useState<PendingUpload[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [list, setList] = useState<UploadList>(emptyUploadList);
+  const current = useRef<UploadList>(emptyUploadList);
 
-  const add = useCallback(async (picked: FileList | null) => {
+  const apply = useCallback((action: UploadAction) => {
+    const before = current.current;
+    const next = uploadListReducer(before, action);
+    current.current = next;
+    setList(next);
+    // A row that left the list takes its preview with it.
+    revoke(before.rows.filter((row) => !next.rows.some((kept) => kept.key === row.key)));
+  }, []);
+
+  const add = useCallback(async (picked: ArrayLike<File> | null) => {
     if (!picked || picked.length === 0) return;
-    setError(null);
-    setBusy(true);
-    try {
-      let remaining = Math.max(0, MAX_FILES - files.length);
-      for (const file of Array.from(picked)) {
-        const check = validateUpload({ contentType: file.type, sizeBytes: file.size });
-        if (!check.ok) {
-          setError(check.reason);
-          continue;
-        }
-        if (remaining === 0) break;
-        remaining -= 1;
-        const outcome = await uploadFile(file, ticketId, shop);
-        if (!outcome.ok) {
-          setError(outcome.reason);
-          continue;
-        }
-        setFiles((current) => {
-          if (current.length >= MAX_FILES) return current;
-          const previewUrl = URL.createObjectURL(file);
-          return [...current, { ...outcome.stored, previewUrl, kind: check.value.kind }];
-        });
+    const files = Array.from(picked);
+    const plan = planPick({
+      picked: files.map((file) => ({ name: file.name, type: file.type, size: file.size })),
+      occupied: occupiedCount(current.current.rows),
+      max: MAX_FILES,
+    });
+
+    const queued = plan.accepted.flatMap(({ index, kind }) => {
+      const file = files[index];
+      return file ? [{ file, row: { key: crypto.randomUUID(), filename: file.name, sizeBytes: file.size, kind, previewUrl: URL.createObjectURL(file), state: { status: "uploading" } } satisfies UploadRow }] : [];
+    });
+    const refused: UploadRow[] = plan.rejected.flatMap(({ index, reason }) => {
+      const file = files[index];
+      return file ? [{ key: crypto.randomUUID(), filename: file.name, sizeBytes: file.size, kind: null, previewUrl: null, state: { status: "failed", reason } }] : [];
+    });
+    apply({ type: "picked", rows: [...refused, ...queued.map((entry) => entry.row)], skipped: plan.skipped });
+
+    for (const { file, row } of queued) {
+      // Reset or removal while earlier files were uploading: do not upload what nobody is waiting for.
+      if (!current.current.rows.some((existing) => existing.key === row.key)) continue;
+      const outcome = await uploadFile(file, ticketId, shop);
+      if (outcome.ok) {
+        apply({ type: "uploaded", key: row.key, uploadId: outcome.stored.uploadId, r2Key: outcome.stored.r2Key, contentType: outcome.stored.contentType });
+      } else {
+        apply({ type: "failed", key: row.key, reason: outcome.reason });
       }
-    } finally {
-      setBusy(false);
     }
-  }, [files.length, ticketId, shop]);
+  }, [apply, ticketId, shop]);
 
-  const remove = useCallback((uploadId: string) => {
-    setFiles((current) => {
-      const target = current.find((file) => file.uploadId === uploadId);
-      if (target) URL.revokeObjectURL(target.previewUrl);
-      return current.filter((file) => file.uploadId !== uploadId);
-    });
-  }, []);
+  const remove = useCallback((key: string) => apply({ type: "removed", key }), [apply]);
+  const reset = useCallback(() => apply({ type: "reset" }), [apply]);
 
-  const reset = useCallback(() => {
-    setFiles((current) => {
-      for (const file of current) URL.revokeObjectURL(file.previewUrl);
-      return [];
-    });
-  }, []);
+  useEffect(() => () => revoke(current.current.rows), []);
 
-  useEffect(() => reset, [reset]);
-  return { files, busy, error, add, remove, reset };
+  return {
+    rows: list.rows,
+    uploadIds: finishedUploadIds(list.rows),
+    busy: hasUploadInFlight(list.rows),
+    skipped: list.skipped,
+    add,
+    remove,
+    reset,
+  };
 }

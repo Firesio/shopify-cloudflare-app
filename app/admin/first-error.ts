@@ -78,3 +78,8 @@ function firstBox(element: Element): Element | null {
   }
   return null;
 }
+
+/** Whether the person asked their system for less motion; scrolling then jumps instead of gliding. */
+export function prefersReducedMotion(): boolean {
+  return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+}

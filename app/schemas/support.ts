@@ -48,9 +48,7 @@ const optionalEmail = z
   .optional()
   .transform((raw) => raw?.trim().toLowerCase() ?? "")
   .transform((value) => (value === "" ? null : value))
-  .refine((value) => value === null || z.string().email().safeParse(value).success, {
-    message: "Enter a valid email address",
-  });
+  .refine((value) => value === null || z.string().email().safeParse(value).success);
 
 /** Trimmed, and required to have content once trimmed — " " is not a subject. */
 const requiredText = (max: number) =>
@@ -71,6 +69,12 @@ const uploadIdsSchema = z
       .filter((id) => id.length > 0),
   );
 
+/**
+ * The key a form carries so that sending it twice is one submission. A value that is not a uuid is treated as absent
+ * (the server then makes its own id): a forged key can never reach the database as an id.
+ */
+const submissionKeySchema = z.string().uuid().optional().catch(undefined);
+
 export const createTicketSchema = z.object({
   category: z.enum(SUPPORT_CATEGORIES),
   subject: requiredText(SUBJECT_MAX),
@@ -78,6 +82,7 @@ export const createTicketSchema = z.object({
   merchantEmail: optionalEmail,
   ccEmails: ccEmailsSchema,
   uploadIds: uploadIdsSchema,
+  submissionKey: submissionKeySchema,
 });
 
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
@@ -95,10 +100,9 @@ export const replySchema = z
       .transform((value) => value.trim())
       .pipe(z.string().max(BODY_MAX)),
     uploadIds: uploadIdsSchema,
+    submissionKey: submissionKeySchema,
   })
-  .refine((value) => value.body.length > 0 || value.uploadIds.length > 0, {
-    message: "Write a message or attach a file",
-  });
+  .refine((value) => value.body.length > 0 || value.uploadIds.length > 0);
 
 export type ReplyInput = z.infer<typeof replySchema>;
 

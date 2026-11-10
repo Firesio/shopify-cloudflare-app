@@ -67,7 +67,8 @@ function candidatesOf<T extends string>(available: readonly T[]): readonly Candi
  */
 function matchOne<T extends string>(tag: LanguageTag, available: readonly T[]): T | null {
   const start = new Intl.Locale(tag);
-  if (start.language === "und") return null;
+  // Some ICU builds report `language` as undefined for "und", so read the tag itself.
+  if (start.baseName.split("-")[0] === "und") return null;
   const candidates = candidatesOf(available);
   for (const step of lookupChain(start)) {
     const key = maximal(step).toString();

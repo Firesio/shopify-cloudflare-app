@@ -97,7 +97,26 @@ describe("streaming a support attachment", () => {
 
       const response = await get(id, token);
 
-      expect(response.headers.get("Content-Disposition")).toBe('attachment; filename="orders.csv"');
+      expect(response.headers.get("Content-Disposition")).toBe(`attachment; filename="orders.csv"; filename*=UTF-8''orders.csv`);
+    });
+  });
+
+  it("downloads a non-Latin filename under its own name, with an ASCII fallback for old clients", async () => {
+    await run(async () => {
+      const repo = new SupportRepo(testIds);
+      const created = await repo.open({
+        shop: SHOP, shopName: "Store", merchantEmail: null, ccEmails: [], category: "bug",
+        subject: "Broken", body: "Look at this", authorName: "Store", locale: null, at: 1_000,
+      });
+      const id = crypto.randomUUID();
+      await env.UPLOADS.put(`support/${SHOP}/cjk.csv`, "order_id\n1");
+      await repo.attachMany([{ shop: SHOP, messageId: created.messageId, id, r2Key: `support/${SHOP}/cjk.csv`, filename: "注文一覧.csv", contentType: "text/csv", sizeBytes: 10, at: 1_000 }]);
+      const token = await signAttachmentToken({ secret: SECRET, attachmentId: id, expiresAt: Date.now() + 60_000 });
+
+      const response = await get(id, token);
+
+      expect(response.headers.get("Content-Disposition")).toBe(`attachment; filename="____.csv"; filename*=UTF-8''%E6%B3%A8%E6%96%87%E4%B8%80%E8%A6%A7.csv`);
+      expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
     });
   });
 

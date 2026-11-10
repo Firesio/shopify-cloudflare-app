@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~
 import { Spinner } from "~/internal/components/ui/spinner";
 import { Textarea } from "~/internal/components/ui/textarea";
 import { BODY_MAX } from "~/schemas/support";
-import { InternalAttachmentPicker } from "~/components/support/InternalAttachmentPicker";
+import { InternalAttachmentPicker } from "~/internal/components/InternalAttachmentPicker";
 import type { usePendingUploads } from "~/routes/app/support/use-pending-uploads";
 import type { useReplyDraft } from "~/internal/use-reply-draft";
 import { REPLY_TONES, TONE_LABEL, toReplyTone } from "~/ai/tones";

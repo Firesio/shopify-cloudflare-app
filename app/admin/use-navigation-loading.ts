@@ -23,9 +23,9 @@ export function useNavigationLoading(): void {
 
   useEffect(() => {
     if (!busy) return;
-    globalThis.shopify.loading(true);
+    globalThis.shopify?.loading?.(true);
     return () => {
-      globalThis.shopify.loading(false);
+      globalThis.shopify?.loading?.(false);
     };
   }, [busy]);
 }

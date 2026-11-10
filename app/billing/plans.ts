@@ -3,8 +3,6 @@ import { fromMinorUnits, toCurrency, type Money } from "~/money";
 
 export type PlanHandle = "free" | "pro";
 
-export type BillingInterval = "monthly" | "annual";
-
 /** Every `common:plans.<key>.features.*` key that exists — see the locale files. */
 export type PlanFeatureKey =
   | "free.features.0"
@@ -98,11 +96,6 @@ export function cheapestPaidPlanHandle<T extends { handle: string; priceMonthly:
  * a plan key themselves.
  */
 export const FEATURED_PLAN_HANDLE: PlanHandle = cheapestPaidPlanHandle(PLAN_LIST);
-
-/** The one place that knows which column an interval reads from. */
-export function priceFor(plan: Plan, interval: BillingInterval): Money {
-  return interval === "annual" ? plan.priceAnnual : plan.priceMonthly;
-}
 
 /**
  * Map Shopify's `plan_handle` back to one of our plans.

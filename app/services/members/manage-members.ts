@@ -87,16 +87,31 @@ export async function changeRole(input: { actor: Actor; targetId: string; role: 
   return ok(changed);
 }
 
-/** Removes a member, or cancels an invitation that nobody has taken up. The last active owner and the last active manager stay. */
+/** An open invitation: nobody has taken it up, so there is no person behind it. */
+const isInvitation = (member: Member): boolean => member.status === "invited" && member.shopifyUserId === null;
+
+/**
+ * Removes a member, or cancels an invitation that nobody has taken up (which deletes it: no person, no seat, nothing to
+ * restore). The last active owner and the last active manager stay.
+ */
 export async function removeMember(input: { actor: Actor; targetId: string }, deps: ManageDependencies): Promise<Result<Member, ManageFailure>> {
   const found = await target(input.actor, input.targetId, deps);
   if (!found.ok) return found;
   const member = found.value;
   if (!canTransition(member.status, "removed")) return err("invalidState");
 
-  const removed = await deps.members.remove(input.actor.shop, member.id, deps.runtime.clock.now());
+  const shop = input.actor.shop;
+  if (isInvitation(member)) {
+    const cancelled = await deps.members.cancelInvite(shop, member.id);
+    // Taken up (or cancelled by someone else) a moment ago: say so rather than pretend.
+    if (!cancelled) return err((await deps.members.findById(shop, member.id)) ? "invalidState" : "notFound");
+    await deps.log({ event: "member.invitation_cancelled", shop, role: cancelled.role, by: input.actor.id });
+    return ok(cancelled);
+  }
+
+  const removed = await deps.members.remove(shop, member.id, deps.runtime.clock.now());
   if (!removed) return err(await whyRefused(input.actor, member, "removal", deps));
-  await deps.log({ event: "member.removed", shop: input.actor.shop, role: removed.role, by: input.actor.id });
+  await deps.log({ event: "member.removed", shop, role: removed.role, by: input.actor.id });
   return ok(removed);
 }
 
@@ -120,7 +135,8 @@ async function activate(
   if (!found.ok) return found;
   const member = found.value;
   if (!canAssignRole(input.actor, input.role)) return err("forbidden");
-  if (member.status !== from || !canTransition(member.status, "active")) return err("invalidState");
+  // A row with no Shopify user is an invitation, not a person: it has nobody to let in, and activating it would hold a seat for no one.
+  if (member.status !== from || !canTransition(member.status, "active") || member.shopifyUserId === null) return err("invalidState");
 
   const cap = seatCapOf(await deps.seats.limit(input.actor.shop));
   const activated = await deps.members.activate(input.actor.shop, member.id, { from: [from], role: input.role, cap, now: deps.runtime.clock.now() });

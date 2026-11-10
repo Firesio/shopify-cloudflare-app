@@ -18,7 +18,7 @@ import { appRuntime } from "~/wiring/runtime.server";
 
 /** Adapter factories are the only production boundary to repository classes. */
 export type ShopsPort = Pick<ShopRepo, "get" | "getMany" | "recordAuthenticatedIdentity" | "recordInstall" | "updateShopIdentity" | "applyUninstall" | "markReconciled" | "listAll" | "recordDevStatus">;
-export type SupportPort = Pick<SupportRepo, "find" | "findForStaff" | "stageUpload" | "adoptPendingUploads" | "findAttachment" | "listForShop" | "listOpenForStaff" | "listKnownContacts" | "replyAsStaff" | "closeAsStaff" | "markReadAsStaff" | "setCcEmails" | "attachMany" | "open" | "openAsStaff" | "reply" | "markRead" | "listExpiredUploads" | "deleteExpiredUploads" | "editStaffMessage" | "deleteStaffMessage">;
+export type SupportPort = Pick<SupportRepo, "find" | "findForStaff" | "stageUpload" | "adoptPendingUploads" | "claimUploads" | "findAttachment" | "listForShop" | "listRecentForShop" | "listOpenForStaff" | "listKnownContacts" | "replyAsStaff" | "closeAsStaff" | "markReadAsStaff" | "setCcEmails" | "attachMany" | "open" | "openAsStaff" | "reply" | "markRead" | "listExpiredUploads" | "deleteExpiredUploads" | "editStaffMessage" | "deleteStaffMessage">;
 export type ShopSubscriptionsPort = Pick<ShopSubscriptionRepo, "currentForShop" | "listCurrentForShops" | "upsertObservation">;
 export type ShopifyEventsPort = Pick<ShopifyEventRepo, "listSubscriptionEvents" | "listRelationshipEvents" | "listRecentSubscriptionEvents" | "recordPartnerRelationship" | "recordPartnerSubscription" | "listAllUninstallFeedback">;
 export type ShopSyncCheckpointsPort = Pick<ShopSyncCheckpointRepo, "read" | "markSucceeded" | "markFailed" | "readCheckpoint" | "markCheckpointSucceeded" | "markCheckpointFailed">;

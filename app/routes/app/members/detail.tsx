@@ -1,11 +1,12 @@
-import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
+import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs, ShouldRevalidateFunctionArgs } from "react-router";
 import { data, useActionData, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { guardMember } from "~/admin/require-member.server";
 import { MemberDetailView } from "~/components/members/MemberDetailView";
 import { memberDependencies } from "~/wiring.server";
-import { MEMBER_INTENTS, loadMember, readIntent, runIntent } from "./members.server";
+import { runMemberAction } from "./action.server";
+import { loadMember } from "./members.server";
 
 export const handle = { i18n: ["common", "admin"] };
 
@@ -20,19 +21,21 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   return page;
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const form = await request.formData();
-  const intent = readIntent(form);
-  // The permission first, before anything is read from the form or written: an unknown intent still needs the base one.
-  const { member } = await guardMember(request, intent === undefined ? "members:manage" : MEMBER_INTENTS[intent].needs);
-  const result = await runIntent(form, { actor: member, deps: memberDependencies() });
-  return data(result, { status: "error" in result ? 400 : 200 });
-};
+export const action = ({ request }: ActionFunctionArgs) => runMemberAction(request);
+
+/**
+ * A cancelled invitation is deleted, so reloading this page would answer 404 for a moment before the view leaves for the team.
+ * Skipping the reload for that one result keeps the page as it is until it navigates away; every other result reloads as usual.
+ */
+export function shouldRevalidate({ actionResult, defaultShouldRevalidate }: ShouldRevalidateFunctionArgs): boolean {
+  const cancelled = typeof actionResult === "object" && actionResult !== null && "success" in actionResult && actionResult.success === "invitationCancelled";
+  return cancelled ? false : defaultShouldRevalidate;
+}
 
 export default function MemberDetailPage() {
-  const { member, roles, policy } = useLoaderData<typeof loader>();
+  const { member, roles, policy, canChangePlan } = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
-  return <MemberDetailView member={member} roles={roles} policy={policy} result={result} />;
+  return <MemberDetailView member={member} roles={roles} policy={policy} canChangePlan={canChangePlan} result={result} />;
 }
 
 export const headers: HeadersFunction = (headersArgs) => boundary.headers(headersArgs);

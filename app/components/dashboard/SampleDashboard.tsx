@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { ChannelsSection, PerformanceSection, RecentActivitySection } from "./DashboardSections";
+import { ChannelsSection, PerformanceSection, RecentActivitySection, type DashboardPerformance } from "./DashboardSections";
 
 /**
  * SAMPLE DATA — a placeholder for the template, never a real app's dashboard.
@@ -10,36 +10,32 @@ import { ChannelsSection, PerformanceSection, RecentActivitySection } from "./Da
  * fabricated store data, so `npm run check:placeholders` refuses to deploy
  * production while any route under `app/routes/` imports this file. Replace it
  * with sections fed by the shop's real data (or the empty-state composition),
- * then delete this file and the `dashboard.activity` / `*Change*` copy.
+ * then delete this file and the `dashboard.activity` copy. The sections already
+ * take `"loading"` for the stretch while real data streams in.
  */
-const SAMPLE = {
-  sales: 184_260,
-  orders: 328,
-  conversion: 0.042,
+const SAMPLE_PERFORMANCE = {
+  sales: { value: 184_260, change: 0.125 },
+  orders: { value: 328, change: 0.082 },
+  conversion: { value: 0.042, change: 0.007 },
   currency: "USD",
-  channels: [
-    { key: "onlineStore", sales: 128_400, orders: 221 },
-    { key: "shopApp", sales: 42_360, orders: 76 },
-    { key: "social", sales: 13_500, orders: 31 },
-  ],
-} satisfies {
-  sales: number;
-  orders: number;
-  conversion: number;
-  currency: string;
-  channels: readonly { key: "onlineStore" | "shopApp" | "social"; sales: number; orders: number }[];
-};
+} satisfies DashboardPerformance;
+
+const SAMPLE_CHANNELS = [
+  { key: "onlineStore", sales: 128_400, orders: 221 },
+  { key: "shopApp", sales: 42_360, orders: 76 },
+  { key: "social", sales: 13_500, orders: 31 },
+] as const;
 
 export function SampleDashboard() {
   const { t } = useTranslation("admin");
-  const channels = SAMPLE.channels.map((channel) => ({
+  const channels = SAMPLE_CHANNELS.map((channel) => ({
     ...channel,
     label: t(`dashboard.${channel.key}`),
   }));
   return (
     <>
-      <PerformanceSection metrics={SAMPLE} currency={SAMPLE.currency} />
-      <ChannelsSection channels={channels} currency={SAMPLE.currency} />
+      <PerformanceSection performance={SAMPLE_PERFORMANCE} />
+      <ChannelsSection channels={channels} currency={SAMPLE_PERFORMANCE.currency} />
       <RecentActivitySection />
     </>
   );

@@ -38,6 +38,8 @@ export interface CurrentSubscriptionProjection {
   readonly currentPeriodEndsAt: number | null;
   readonly currentPeriodStartsAt: number | null;
   readonly cancellationEffectiveAt: number | null;
+  /** Partner's `cancelEffectiveOn`: a calendar date (`YYYY-MM-DD`), not an instant. */
+  readonly cancelEffectiveOn: string | null;
   readonly revision: number;
 }
 
@@ -131,6 +133,7 @@ export class ShopSubscriptionRepo {
       currentPeriodEndsAt: shopSubscriptions.currentPeriodEndsAt,
       currentPeriodStartsAt: shopSubscriptions.currentPeriodStartsAt,
       cancellationEffectiveAt: shopSubscriptions.cancellationEffectiveAt,
+      cancelEffectiveOn: shopSubscriptions.cancelEffectiveOn,
       revision: shopSubscriptions.revision,
     }).from(shopSubscriptions).leftJoin(shopSubscriptionItems, and(
       eq(shopSubscriptionItems.shop, shopSubscriptions.shop),
@@ -160,6 +163,7 @@ export class ShopSubscriptionRepo {
         currentPeriodEndsAt: shopSubscriptions.currentPeriodEndsAt,
         currentPeriodStartsAt: shopSubscriptions.currentPeriodStartsAt,
         cancellationEffectiveAt: shopSubscriptions.cancellationEffectiveAt,
+        cancelEffectiveOn: shopSubscriptions.cancelEffectiveOn,
         revision: shopSubscriptions.revision,
       }).from(shopSubscriptions).leftJoin(shopSubscriptionItems, and(
         eq(shopSubscriptionItems.shop, shopSubscriptions.shop),

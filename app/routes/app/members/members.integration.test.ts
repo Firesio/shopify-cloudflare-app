@@ -1,10 +1,10 @@
 import { env } from "cloudflare:test";
 import { drizzle } from "drizzle-orm/d1";
 import { describe, expect, it } from "vitest";
-import { shops } from "~/db/schema";
+import { shopMembers, shops } from "~/db/schema";
 import type { AdmissionConfig } from "~/domain/member-admission";
 import { customPolicy, type CustomPermissionPolicy } from "~/domain/member-permissions";
-import type { SeatLimit } from "~/domain/member-seats";
+import type { SeatLimit, SeatReading } from "~/domain/member-seats";
 import { can, grantsOf } from "~/domain/member-access";
 import { MemberRepo } from "~/models/members.server";
 import { runWithRequestContext } from "~/request-context.server";
@@ -31,8 +31,9 @@ function deps(
   limit: SeatLimit = { kind: "unlimited" },
   config: AdmissionConfig = { onUnknownUser: "auto_join", autoJoinRole: "member" },
   customPermissions: CustomPermissionPolicy = customAllowed,
+  reading: SeatReading = limit,
 ): MemberDependencies & TeamDependencies {
-  return { members: new MemberRepo(), seats: fakeSeats(limit), config, customPermissions, runtime: fakeRuntime({ idPrefix: "m" }), log: () => undefined };
+  return { members: new MemberRepo(), seats: fakeSeats(limit, reading), config, customPermissions, runtime: fakeRuntime({ idPrefix: "m" }), log: () => undefined };
 }
 
 const identity = (shopifyUserId: string, overrides: { email?: string | null; accountOwner?: boolean; shop?: string; name?: string | null } = {}) => ({
@@ -62,6 +63,12 @@ async function seed() {
 async function open(d: MemberDependencies, userId: string, overrides: Parameters<typeof identity>[1] = {}) {
   const access = await resolveMember(identity(userId, overrides), d);
   return access.ok ? access.member : undefined;
+}
+
+/** Opens the app as `userId` and returns their stored membership, whether they got in or are waiting. */
+async function known(d: MemberDependencies, userId: string, overrides: Parameters<typeof identity>[1] = {}) {
+  await resolveMember(identity(userId, overrides), d);
+  return new MemberRepo().findByUserId(A, userId);
 }
 
 describe("the team page, end to end", () => {
@@ -160,7 +167,41 @@ describe("the team page, end to end", () => {
       const row = (await loadTeam(owner, d)).rows.find((entry) => entry.isInvitation)!;
       return { cancelled: await runIntent(form({ intent: "remove", id: row.id }), { actor: owner, deps: d }), after: (await loadTeam(owner, d)).rows.find((entry) => entry.id === row.id)?.status };
     });
-    expect(outcome).toEqual({ cancelled: { success: "invitationCancelled" }, after: "removed" });
+    // Deleted: no row stays behind to be restored, counted or shown.
+    expect(outcome).toEqual({ cancelled: { success: "invitationCancelled" }, after: undefined });
+  });
+
+  it("cancels an invitation for good: it holds no seat, cannot be brought back, and the address can be invited again", async () => {
+    const outcome = await inRequest(async () => {
+      await seed();
+      const d = deps(seatsFor(5));
+      const owner = (await open(d, "1"))!;
+      await runIntent(form({ intent: "invite", email: "x@firesio.app", role: "viewer" }), { actor: owner, deps: d });
+      const id = (await loadTeam(owner, d)).rows.find((entry) => entry.isInvitation)!.id;
+      await runIntent(form({ intent: "remove", id }), { actor: owner, deps: d });
+      const restored = await runIntent(form({ intent: "restore", id, role: "viewer" }), { actor: owner, deps: d });
+      const approved = await runIntent(form({ intent: "approve", id, role: "viewer" }), { actor: owner, deps: d });
+      const again = await runIntent(form({ intent: "invite", email: "x@firesio.app", role: "viewer" }), { actor: owner, deps: d });
+      const page = await loadTeam(owner, d);
+      return { restored, approved, again, seats: page.seats, rows: page.rows.map((entry) => [entry.status, entry.isInvitation]) };
+    });
+    expect(outcome.restored).toEqual({ error: "notFound" });
+    expect(outcome.approved).toEqual({ error: "notFound" });
+    expect(outcome.again).toEqual({ success: "invited" });
+    expect(outcome.seats).toMatchObject({ used: 1, left: 4 });
+    expect(outcome.rows).toEqual([["active", false], ["invited", true]]);
+  });
+
+  it("cannot cancel another shop's invitation through its id", async () => {
+    const outcome = await inRequest(async () => {
+      await seed();
+      const d = deps();
+      const owner = (await open(d, "1"))!;
+      const foreign = await new MemberRepo().createInvite(B, { id: "b-inv", email: "b@firesio.app", role: "viewer", invitedBy: "someone", now: 1 });
+      const result = await runIntent(form({ intent: "remove", id: foreign.id }), { actor: owner, deps: d });
+      return { result, kept: (await new MemberRepo().findById(B, "b-inv"))?.status };
+    });
+    expect(outcome).toEqual({ result: { error: "notFound" }, kept: "invited" });
   });
 
   it("changes a role, restores a removed member, and protects the last owner", async () => {
@@ -322,6 +363,148 @@ describe("one member's page, end to end", () => {
     expect(after.goneCan).toMatchObject({ restore: true, remove: false, changeRole: false });
     expect(after.restored).toEqual({ success: "restored" });
     expect(after.back).toMatchObject({ status: "active", role: "member" });
+  });
+});
+
+describe("the team page tells waiting, no seat and unreadable apart", () => {
+  const pendingRow = (id: string, userId: string, overrides: Partial<typeof shopMembers.$inferInsert> = {}): typeof shopMembers.$inferInsert => ({
+    id,
+    shop: A,
+    shopifyUserId: userId,
+    role: "viewer",
+    status: "pending",
+    createdAt: 1,
+    updatedAt: 1,
+    ...overrides,
+  });
+
+  it("counts people waiting for approval apart from people who lost a seat, and only in this shop", async () => {
+    const page = await inRequest(async () => {
+      await seed();
+      const d = deps();
+      const owner = (await open(d, "1"))!;
+      await db.insert(shopMembers).values([
+        pendingRow("w1", "20"),
+        pendingRow("t1", "21", { trimmedAt: 5 }),
+        pendingRow("t2", "22", { trimmedAt: 6 }),
+        pendingRow("bt", "23", { shop: B, trimmedAt: 6 }),
+      ]);
+      return loadTeam(owner, d);
+    });
+    expect(page).toMatchObject({ waiting: 1, noSeat: 2 });
+    expect(page.rows.filter((row) => row.noSeat).map((row) => row.id).sort()).toEqual(["t1", "t2"]);
+  });
+
+  it("says when the list was cut at its cap and how many people it left out, and nothing when it is whole", async () => {
+    const outcome = await inRequest(async () => {
+      await seed();
+      const d = deps();
+      const owner = (await open(d, "1"))!;
+      const whole = await loadTeam(owner, d);
+      // Small batches: D1 refuses a statement with more than 100 bound variables.
+      for (let start = 0; start < 502; start += 5) {
+        await db.insert(shopMembers).values(Array.from({ length: Math.min(5, 502 - start) }, (_, offset) => pendingRow(`bulk-${start + offset}`, `u-${start + offset}`)));
+      }
+      const capped = await loadTeam(owner, d);
+      return { whole: whole.hidden, shown: capped.rows.length, hidden: capped.hidden, waiting: capped.waiting };
+    });
+    expect(outcome).toEqual({ whole: 0, shown: 500, hidden: 3, waiting: 502 });
+  });
+
+  it("shows an unreadable plan as unknown with the people in use, while admission still gives no new seat", async () => {
+    const outcome = await inRequest(async () => {
+      await seed();
+      const d = deps(seatsFor(0), undefined, undefined, { kind: "unknown" });
+      const owner = (await open(d, "1"))!;
+      const page = await loadTeam(owner, d);
+      const stranger = await known(d, "2");
+      return { seats: page.seats, stranger: stranger?.status };
+    });
+    expect(outcome).toEqual({ seats: { kind: "unknown", used: 1 }, stranger: "pending" });
+  });
+});
+
+describe("one member's page knows whether the plan has a seat for them", () => {
+  /** Alpha's owner, plus a waiting person, a removed person and an active one. */
+  async function team(d: ReturnType<typeof deps>) {
+    await seed();
+    const owner = (await open(d, "1"))!;
+    const active = (await known(d, "2", { name: "Act" }))!;
+    const waiting = (await known(d, "3", { name: "Wait" }))!;
+    const gone = (await known(d, "4", { name: "Gone" }))!;
+    await runIntent(form({ intent: "remove", id: gone.id }), { actor: owner, deps: d });
+    return { owner, active, waiting, gone };
+  }
+
+  it("is full for a waiting person once every seat is in use, and the server agrees", async () => {
+    const outcome = await inRequest(async () => {
+      const d = deps(seatsFor(2));
+      const { owner, waiting, gone } = await team(d);
+      const w = await loadMember(owner, waiting.id, d);
+      const g = await loadMember(owner, gone.id, d);
+      const refused = await runIntent(form({ intent: "approve", id: waiting.id, role: "viewer" }), { actor: owner, deps: d });
+      return { w: w?.member.seat, g: g?.member.seat, refused };
+    });
+    expect(outcome).toEqual({ w: { open: false, why: "full" }, g: { open: false, why: "full" }, refused: { error: "noSeat" } });
+  });
+
+  it("is open when a seat is free, and the server then lets them in", async () => {
+    const outcome = await inRequest(async () => {
+      const d = deps(seatsFor(2));
+      const { owner, active, waiting } = await team(d);
+      await runIntent(form({ intent: "remove", id: active.id }), { actor: owner, deps: d });
+      const seat = (await loadMember(owner, waiting.id, d))?.member.seat;
+      return { seat, approved: await runIntent(form({ intent: "approve", id: waiting.id, role: "viewer" }), { actor: owner, deps: d }) };
+    });
+    expect(outcome).toEqual({ seat: { open: true }, approved: { success: "approved" } });
+  });
+
+  it("is unreadable when the plan could not be read, and the server refuses too", async () => {
+    const outcome = await inRequest(async () => {
+      const d = deps(seatsFor(0), undefined, undefined, { kind: "unknown" });
+      const { owner, waiting } = await team(d);
+      const seat = (await loadMember(owner, waiting.id, d))?.member.seat;
+      return { seat, refused: await runIntent(form({ intent: "approve", id: waiting.id, role: "viewer" }), { actor: owner, deps: d }) };
+    });
+    expect(outcome).toEqual({ seat: { open: false, why: "unreadable" }, refused: { error: "noSeat" } });
+  });
+
+  it("reads the plan only for someone it decides for: an active member costs no seat read", async () => {
+    const outcome = await inRequest(async () => {
+      const seats = fakeSeats(seatsFor(2));
+      const d = { ...deps(seatsFor(2)), seats };
+      const { owner, active, waiting } = await team(d);
+      const before = seats.readings;
+      const activeRead = await loadMember(owner, active.id, d);
+      const afterActive = seats.readings;
+      await loadMember(owner, waiting.id, d);
+      return { activeSeat: activeRead?.member.seat, activeReads: afterActive - before, waitingReads: seats.readings - afterActive };
+    });
+    expect(outcome).toEqual({ activeSeat: null, activeReads: 0, waitingReads: 1 });
+  });
+
+  it("offers a way to the plan only to someone who may change it", async () => {
+    const outcome = await inRequest(async () => {
+      const d = deps();
+      const { owner, active } = await team(d);
+      return { owner: (await loadMember(owner, active.id, d))?.canChangePlan, member: (await loadMember({ ...owner, role: "member" }, active.id, d))?.canChangePlan };
+    });
+    expect(outcome).toEqual({ owner: true, member: false });
+  });
+
+  it("finds nothing for a cancelled invitation of the old kind, and for another shop's member", async () => {
+    const outcome = await inRequest(async () => {
+      const d = deps();
+      const { owner } = await team(d);
+      await db.insert(shopMembers).values([
+        { id: "old", shop: A, role: "viewer", status: "removed", createdAt: 1, updatedAt: 1 },
+        { id: "b-old", shop: B, role: "viewer", status: "removed", createdAt: 1, updatedAt: 1 },
+      ]);
+      return { old: await loadMember(owner, "old", d), foreign: await loadMember(owner, "b-old", d), list: (await loadTeam(owner, d)).rows.map((row) => row.id) };
+    });
+    expect(outcome.old).toBeUndefined();
+    expect(outcome.foreign).toBeUndefined();
+    expect(outcome.list).not.toContain("old");
   });
 });
 

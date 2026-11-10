@@ -1,10 +1,11 @@
-import { and, eq, gt, inArray, isNotNull, isNull, ne, notExists, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, isNull, ne, notExists, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 import { shopMembers, shops, type ShopMemberRow } from "~/db/schema";
 import { isMemberRole, type MemberPermission, type MemberRole } from "~/domain/member-access";
 import { heldBy, readStoredPermissions, serializePermissions } from "~/domain/member-permissions";
 import { shopLog } from "~/observability/shop-log";
 import { isMemberStatus, type MemberStatus } from "~/domain/member-lifecycle";
-import type { CreateOutcome, Member, MemberProfile, MemberStore, NewMember, SeatCap } from "~/ports/members";
+import type { CreateOutcome, Member, MemberProfile, MemberStore, NewMember, SeatCap, StatusCounts } from "~/ports/members";
 import { getDb } from "~/request-context.server";
 import { MANAGER_ROLES, activeMembers, hasSeat, notLastManager, notLastOwner, statusFor } from "./member-guards.server";
 
@@ -47,8 +48,14 @@ const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 /** The shops a seat-overage scan may reach: installed or installed again, never one that uninstalled or was deactivated. */
 const OPERATIONAL_STATUSES = ["INSTALLED", "REACTIVATED"] as const;
 
-/** A shop's team is read whole, up to this many rows. */
+/** A shop's team is read whole, up to this many rows. The page counts the rest (`countByStatus`) and says so when it hit the cap. */
 const TEAM_LIMIT = 500;
+
+/**
+ * A row that is a cancelled invitation from before cancelling one deleted it: removed, and no Shopify user was ever linked.
+ * Nobody is behind it, so it is not on the team and can never be brought back (`activate` refuses a row with no user).
+ */
+const notCancelledInvitation = or(ne(shopMembers.status, "removed"), isNotNull(shopMembers.shopifyUserId));
 
 /** D1 reports a unique-index violation only in the message; anything else is a real failure and is not hidden. */
 function isUniqueViolation(error: unknown): boolean {
@@ -74,9 +81,22 @@ export class MemberRepo implements MemberStore {
     return row === undefined ? undefined : toMember(row);
   }
 
+  async findWithInviter(shop: string, id: string): Promise<{ member: Member; inviter: Pick<Member, "name" | "email"> | undefined } | undefined> {
+    const inviter = alias(shopMembers, "inviter");
+    const found = await getDb()
+      .select({ member: shopMembers, inviterId: inviter.id, inviterName: inviter.name, inviterEmail: inviter.email })
+      .from(shopMembers)
+      // The inviter is joined within the SAME shop: a forged `invited_by` can never name another shop's member.
+      .leftJoin(inviter, and(eq(inviter.shop, shopMembers.shop), eq(inviter.id, shopMembers.invitedBy)))
+      .where(and(eq(shopMembers.shop, shop), eq(shopMembers.id, id)))
+      .get();
+    if (found === undefined) return undefined;
+    return { member: toMember(found.member), inviter: found.inviterId === null ? undefined : { name: found.inviterName, email: found.inviterEmail } };
+  }
+
   async list(shop: string): Promise<readonly Member[]> {
     // Bounded: a store's team is people, and a page must never grow with a runaway table.
-    const rows = await getDb().select().from(shopMembers).where(eq(shopMembers.shop, shop)).orderBy(shopMembers.createdAt, shopMembers.id).limit(TEAM_LIMIT);
+    const rows = await getDb().select().from(shopMembers).where(and(eq(shopMembers.shop, shop), notCancelledInvitation)).orderBy(shopMembers.createdAt, shopMembers.id).limit(TEAM_LIMIT);
     return rows.map(toMember);
   }
 
@@ -116,15 +136,21 @@ export class MemberRepo implements MemberStore {
     return rows.map((row) => row.shop);
   }
 
-  async countByStatus(shop: string): Promise<Readonly<Record<MemberStatus, number>>> {
+  async countByStatus(shop: string): Promise<StatusCounts> {
+    // `count(trimmed_at)` counts the rows that have a value: among the `pending` ones, those that lost their seat.
     const rows = await getDb()
-      .select({ status: shopMembers.status, n: sql<number>`count(*)` })
+      .select({ status: shopMembers.status, n: sql<number>`count(*)`, trimmed: sql<number>`count(${shopMembers.trimmedAt})` })
       .from(shopMembers)
-      .where(eq(shopMembers.shop, shop))
+      .where(and(eq(shopMembers.shop, shop), notCancelledInvitation))
       .groupBy(shopMembers.status);
     const counts: Record<MemberStatus, number> = { invited: 0, pending: 0, active: 0, removed: 0 };
-    for (const row of rows) counts[statusOf(row.status)] += Number(row.n);
-    return counts;
+    let noSeat = 0;
+    for (const row of rows) {
+      const status = statusOf(row.status);
+      counts[status] += Number(row.n);
+      if (status === "pending") noSeat += Number(row.trimmed);
+    }
+    return { ...counts, noSeat };
   }
 
   async findInviteByEmail(shop: string, email: string): Promise<Member | undefined> {
@@ -300,7 +326,7 @@ export class MemberRepo implements MemberStore {
     const [row] = await getDb()
       .update(shopMembers)
       .set({ status: "active", role: input.role, trimmedAt: null, permissions: null, updatedAt: input.now })
-      .where(and(eq(shopMembers.shop, shop), eq(shopMembers.id, id), inArray(shopMembers.status, [...input.from]), hasSeat(shop, input.cap)))
+      .where(and(eq(shopMembers.shop, shop), eq(shopMembers.id, id), inArray(shopMembers.status, [...input.from]), isNotNull(shopMembers.shopifyUserId), hasSeat(shop, input.cap)))
       .returning();
     return row === undefined ? undefined : toMember(row);
   }
@@ -368,7 +394,18 @@ export class MemberRepo implements MemberStore {
     const [row] = await getDb()
       .update(shopMembers)
       .set({ status: "removed", trimmedAt: null, permissions: null, updatedAt: now })
-      .where(and(eq(shopMembers.shop, shop), eq(shopMembers.id, id), ne(shopMembers.status, "removed"), notLastOwner(shop), notLastManager(shop)))
+      // A row with no Shopify user is an invitation: it is cancelled (`cancelInvite`), never parked as a removed member.
+      .where(and(eq(shopMembers.shop, shop), eq(shopMembers.id, id), ne(shopMembers.status, "removed"), isNotNull(shopMembers.shopifyUserId), notLastOwner(shop), notLastManager(shop)))
+      .returning();
+    return row === undefined ? undefined : toMember(row);
+  }
+
+  async cancelInvite(shop: string, id: string): Promise<Member | undefined> {
+    // Deleted, not marked: an invitation has no person behind it, holds no seat and nothing refers to it (an invitation has
+    // no Shopify user, so it cannot have invited anyone). A removed copy would only be a row that could never be restored.
+    const [row] = await getDb()
+      .delete(shopMembers)
+      .where(and(eq(shopMembers.shop, shop), eq(shopMembers.id, id), eq(shopMembers.status, "invited"), isNull(shopMembers.shopifyUserId)))
       .returning();
     return row === undefined ? undefined : toMember(row);
   }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { statusOf, isUnreadFor, SUPPORT_STATUSES } from "./status";
+import { statusOf, isUnreadFor, STATUS_TONE, SUPPORT_STATUSES } from "./status";
 
 /** The two stored facts every derivation reads. */
 const ticket = (over: Partial<Parameters<typeof statusOf>[0]> = {}) => ({
@@ -58,5 +58,12 @@ describe("isUnreadFor", () => {
 
   it("handles a read receipt at epoch 0 as a real read, not as never", () => {
     expect(isUnreadFor({ lastMessageAt: 0, lastReadAt: 0 })).toBe(false);
+  });
+});
+
+describe("STATUS_TONE", () => {
+  it("has a tone for every status, and none of them alarming for the merchant", () => {
+    expect(Object.keys(STATUS_TONE).sort()).toEqual([...SUPPORT_STATUSES].sort());
+    expect(STATUS_TONE).toEqual({ open: "info", answered: "success", closed: "neutral" });
   });
 });

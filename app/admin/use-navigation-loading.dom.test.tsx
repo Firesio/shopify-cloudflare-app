@@ -71,4 +71,17 @@ describe("useNavigationLoading", () => {
     view.unmount();
     expect(loading.mock.calls.map(([value]) => value)).toEqual([true, false]);
   });
+
+  it("does not throw when the Shopify global is absent (a preview, a failed App Bridge load)", async () => {
+    Reflect.deleteProperty(globalThis, "shopify");
+    const slow = gate();
+    const { router } = mount(slow);
+    await waitFor(() => expect(router.state.initialized).toBe(true));
+    act(() => void router.navigate("/slow"));
+    await act(async () => {
+      slow.release();
+      await slow.promise;
+    });
+    await waitFor(() => expect(router.state.location.pathname).toBe("/slow"));
+  });
 });

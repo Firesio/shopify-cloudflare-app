@@ -178,6 +178,33 @@ describe("requireMember", () => {
   });
 });
 
+describe("the contacts a refusal carries", () => {
+  const contacts = [{ name: "Ada", email: "ada@firesio.app" }];
+
+  it("puts who to ask in the 403 body, read once and only for the refused shop", async () => {
+    const asked: string[] = [];
+    const { deps } = harness({ ok: true, member: member("viewer") });
+    const withContacts = { ...deps, contacts: async (shop: string) => { asked.push(shop); return contacts; } };
+    const error = await inRequest(() => thrown(() => requireMember(request, "billing:manage", withContacts)));
+    expect(accessRefusalOf(error)).toEqual({ reason: "forbidden", shop: SHOP, contacts });
+    expect(asked).toEqual([SHOP]);
+  });
+
+  it("does not ask anyone for a member who is let in", async () => {
+    const asked: string[] = [];
+    const { deps } = harness({ ok: true, member: member("owner") });
+    await inRequest(() => requireMember(request, "billing:manage", { ...deps, contacts: async (shop) => { asked.push(shop); return contacts; } }));
+    expect(asked).toEqual([]);
+  });
+
+  it("carries no contacts when the guard has no way to read them", async () => {
+    const { deps } = harness({ ok: false, reason: "pending" });
+    const error = await inRequest(() => thrown(() => requireMember(request, "app:view", deps)));
+    expect(accessRefusalOf(error)).toEqual({ reason: "pending", shop: SHOP });
+    expect(accessRefusalOf(error)?.contacts).toBeUndefined();
+  });
+});
+
 describe("accessRefusalOf", () => {
   it("names the reason of a refusal the guard threw", async () => {
     for (const reason of ["pending", "removed", "not_invited", "forbidden"] as const) {

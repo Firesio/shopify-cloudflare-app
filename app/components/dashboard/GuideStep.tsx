@@ -27,7 +27,8 @@ function GuideStepDetails({
             {action}
           </s-button>
         </s-grid>
-        <s-box maxBlockSize="80px" maxInlineSize="80px">
+        {/* A fixed box: the picture loads after the text, and a box with no size would move everything below it. */}
+        <s-box blockSize="80px" inlineSize="80px">
           <s-image src={image} alt={alt} objectFit="contain"></s-image>
         </s-box>
       </s-grid>

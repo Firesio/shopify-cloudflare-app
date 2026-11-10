@@ -23,6 +23,12 @@ export interface SupportTicket {
   readonly createdAt: number;
 }
 
+/** What the merchant's ticket list shows of a ticket; the rest of the row is not read for it. */
+export type SupportTicketSummary = Pick<
+  SupportTicket,
+  "id" | "subject" | "category" | "lastAuthor" | "closedAt" | "lastMessageAt" | "merchantLastReadAt"
+>;
+
 export interface SupportMessage {
   readonly id: string;
   readonly ticketId: string;

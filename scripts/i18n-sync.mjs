@@ -76,7 +76,8 @@ function codeProblem(code) {
   } catch {
     return `${code}: the folder name is not a well-formed BCP-47 tag`;
   }
-  if (locale.language === "und") return `${code}: "und" is not a language`;
+  // Newer ICU builds report `language` as undefined for "und" (older ones say "und"), so read the tag itself.
+  if ((locale.language ?? locale.baseName.split("-")[0]) === "und") return `${code}: "und" is not a language`;
   if (locale.baseName !== code) {
     return `${code}: the folder name must be exactly "${locale.baseName}" (the canonical tag, no extensions, no underscores or odd casing)`;
   }

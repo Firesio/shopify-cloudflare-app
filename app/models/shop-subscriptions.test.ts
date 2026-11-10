@@ -153,6 +153,19 @@ describe("ShopSubscriptionRepo", () => {
     expect(row).toMatchObject({ cancellationEffectiveAt: 200 });
   });
 
+  it("returns Partner's date-only cancellation date, unchanged, in the current projection", async () => {
+    const row = await inRequest(async () => {
+      const repo = new ShopSubscriptionRepo();
+      await repo.upsertObservation("cancel-on.myshopify.com", {
+        type: "ACTIVE_SUBSCRIPTION", status: "CANCELLATION_SCHEDULED", subscriptionId: "sub-1",
+        occurredAt: 1, externalId: "sub-1", cancelEffectiveOn: "2026-12-31",
+      });
+      return { current: await repo.currentForShop("cancel-on.myshopify.com"), listed: await repo.listCurrentForShops(["cancel-on.myshopify.com"]) };
+    });
+    expect(row.current?.cancelEffectiveOn).toBe("2026-12-31");
+    expect(row.listed[0]?.cancelEffectiveOn).toBe("2026-12-31");
+  });
+
   it("invalidates entitlement cache after applied and duplicate projection writes", async () => {
     const invalidated: string[] = [];
     await inRequest(async () => {

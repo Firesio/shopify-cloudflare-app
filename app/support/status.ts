@@ -47,3 +47,14 @@ export function isUnreadFor(times: {
   if (times.lastReadAt === null) return true;
   return times.lastMessageAt > times.lastReadAt;
 }
+
+/**
+ * The badge tone for each status. `open` means "waiting on us", so from the
+ * MERCHANT's side it is the reassuring state, not an alarming one: `info`, not
+ * `warning`. A merchant has done nothing wrong by having an open ticket.
+ */
+export const STATUS_TONE: Record<SupportStatus, "info" | "success" | "neutral"> = {
+  open: "info",
+  answered: "success",
+  closed: "neutral",
+};

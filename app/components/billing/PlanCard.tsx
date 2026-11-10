@@ -1,9 +1,10 @@
 import { useTranslation } from "react-i18next";
 
+import { SkeletonBadge } from "~/components/admin/Skeleton";
 import { useLanguage } from "~/i18n/useLanguage";
 import { formatMoney } from "~/money";
 import { annualSavingPercent } from "~/billing/annual-savings";
-import type { Plan } from "~/billing/plans";
+import type { Plan, PlanHandle } from "~/billing/plans";
 
 /**
  * One plan, as a card, built only from Polaris web components. Polaris 2 gives `s-text` a font size, weight and tabular
@@ -12,19 +13,39 @@ import type { Plan } from "~/billing/plans";
  * Shopify's Polaris 2 guide says to remove: copied colours pin a card to the old look.)
  */
 
+/**
+ * Whether this card is the merchant's plan. `"loading"` until the subscription is known: the card is otherwise static
+ * (name, price, features come from the catalogue), so only the badge waits.
+ */
+export type PlanStanding = "loading" | "current" | "other";
+
 type PlanCardProps = {
   plan: Plan;
   buildsOn: Plan | null;
-  isCurrent: boolean;
+  standing: PlanStanding;
   isFeatured: boolean;
-  illustrationSrc?: string;
-  illustrationAlt?: string;
 };
 
-/** At most one badge per card, so they never stack or compete. */
-function PlanBadge({ isCurrent, isFeatured }: Pick<PlanCardProps, "isCurrent" | "isFeatured">) {
+type IllustrationAltKey = "billing.plans.imageAlt.free" | "billing.plans.imageAlt.pro";
+
+/**
+ * The art for each plan, keyed by the plan's HANDLE and not by its position in the list, so inserting or reordering a
+ * plan never moves a picture onto the wrong card. Exhaustive over `PlanHandle`: a new plan fails the build until it
+ * says which illustration (if any) it uses. See docs/illustrations.md for the source of the files.
+ */
+const ILLUSTRATIONS: Readonly<Record<PlanHandle, { readonly src: string; readonly altKey: IllustrationAltKey } | null>> = {
+  free: { src: "/plan-cards/lv1.svg", altKey: "billing.plans.imageAlt.free" },
+  pro: { src: "/plan-cards/lv2.svg", altKey: "billing.plans.imageAlt.pro" },
+};
+
+/**
+ * At most one badge per card, so they never stack or compete. It sits beside the plan name, in the name's own row, so a
+ * card with a badge and one without are the same height: the badge arriving (or not) moves nothing.
+ */
+function PlanBadge({ standing, isFeatured }: Pick<PlanCardProps, "standing" | "isFeatured">) {
   const { t } = useTranslation(["admin", "common"]);
-  if (isCurrent) return <s-badge tone="success" icon="check-circle">{t("billing.currentPlanBadge")}</s-badge>;
+  if (standing === "loading") return <SkeletonBadge chars={12} />;
+  if (standing === "current") return <s-badge tone="success" icon="check-circle">{t("billing.currentPlanBadge")}</s-badge>;
   if (!isFeatured) return null;
   return <s-badge tone="info" icon="star">{t("billing.plans.mostPopular")}</s-badge>;
 }
@@ -45,13 +66,16 @@ function AnnualLine({ plan }: { plan: Plan }) {
   return <>{t("billing.plans.annualSaving", { price, percent: savingPercent })}</>;
 }
 
-function PlanHead({ plan }: { plan: Plan }) {
+function PlanHead({ plan, standing, isFeatured }: Pick<PlanCardProps, "plan" | "standing" | "isFeatured">) {
   const { t } = useTranslation(["admin", "common"]);
   const language = useLanguage();
   const isPaid = plan.priceMonthly.amount > 0;
   return (
     <s-stack gap="small-200">
-      <s-text type="strong">{plan.name}</s-text>
+      <s-stack direction="inline" gap="small-200" alignItems="center">
+        <s-heading>{plan.name}</s-heading>
+        <PlanBadge standing={standing} isFeatured={isFeatured} />
+      </s-stack>
       {/* The amount is the hero and carries the weight; the interval sits subdued beside it so the two read as one figure. */}
       <s-stack direction="inline" gap="small-200" alignItems="baseline">
         <s-text fontSize="large-100" fontWeight="bold" fontVariantNumeric="tabular-nums">{formatMoney(language, plan.priceMonthly)}</s-text>
@@ -85,15 +109,17 @@ function PlanFeatures({ plan, buildsOn }: Pick<PlanCardProps, "plan" | "buildsOn
  * ever what this plan adds over the one below it, introduced by "Everything in X, plus", so a four-plan ladder never
  * makes the merchant re-read the same six bullets four times.
  */
-export function PlanCard({ plan, buildsOn, isCurrent, isFeatured, illustrationSrc, illustrationAlt }: PlanCardProps) {
+export function PlanCard({ plan, buildsOn, standing, isFeatured }: PlanCardProps) {
+  const { t } = useTranslation(["admin", "common"]);
+  const illustration = ILLUSTRATIONS[plan.handle];
+  const isCurrent = standing === "current";
   return (
     <s-box border={isCurrent ? "large" : "base"} borderRadius="large" padding="large" background={isCurrent ? "subdued" : "base"}>
       <s-stack gap="base">
-        <PlanBadge isCurrent={isCurrent} isFeatured={isFeatured} />
-        {illustrationSrc && illustrationAlt && (
-          <s-image src={illustrationSrc} alt={illustrationAlt} aspectRatio="1/1" objectFit="contain" loading="lazy"></s-image>
+        {illustration && (
+          <s-image src={illustration.src} alt={t(illustration.altKey)} aspectRatio="1/1" objectFit="contain" loading="lazy"></s-image>
         )}
-        <PlanHead plan={plan} />
+        <PlanHead plan={plan} standing={standing} isFeatured={isFeatured} />
         <s-divider></s-divider>
         <PlanFeatures plan={plan} buildsOn={buildsOn} />
       </s-stack>

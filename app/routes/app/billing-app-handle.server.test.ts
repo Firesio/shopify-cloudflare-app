@@ -38,4 +38,24 @@ describe("readAppHandle", () => {
     const handle = await readAppHandle({ kv: env.SESSION, shop: "corrupt.myshopify.com", fetchHandle: async () => "fresh" });
     expect(handle).toBe("fresh");
   });
+
+  it("still returns a fetched handle when caching it fails, and says so in the log", async () => {
+    const log = silence();
+    // The real local KV, except that writing to it fails: reads and key isolation stay genuine.
+    const unwritableKv = new Proxy(env.SESSION, {
+      get(target, property) {
+        if (property === "put") return async () => { throw new Error("kv write refused"); };
+        const member = Reflect.get(target, property);
+        return typeof member === "function" ? member.bind(target) : member;
+      },
+    });
+    const shop = "put-fails.myshopify.com";
+
+    expect(await readAppHandle({ kv: unwritableKv, shop, fetchHandle: async () => "kept-handle" })).toBe("kept-handle");
+
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("billing.app_handle.cache_write_failed"));
+    expect(log).not.toHaveBeenCalledWith(expect.stringContaining("billing.app_handle.unavailable"));
+    expect(await env.SESSION.get(`billing:app-handle:${shop}`)).toBeNull();
+    log.mockRestore();
+  });
 });

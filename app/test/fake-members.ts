@@ -1,6 +1,6 @@
 import { MEMBER_PERMISSIONS, rolesHolding, type MemberPermission, type MemberRole } from "~/domain/member-access";
 import type { MemberStatus } from "~/domain/member-lifecycle";
-import type { CreateOutcome, Member, MemberProfile, MemberStore, NewMember, SeatCap } from "~/ports/members";
+import type { CreateOutcome, Member, MemberProfile, MemberStore, NewMember, SeatCap, StatusCounts } from "~/ports/members";
 
 /**
  * An in-memory `MemberStore` that keeps the real store's promises: one membership per (shop, Shopify user), a first
@@ -149,8 +149,15 @@ export class FakeMemberStore implements MemberStore {
     return this.rows.find((row) => row.shop === shop && row.id === id);
   }
 
+  async findWithInviter(shop: string, id: string) {
+    const member = this.rows.find((row) => row.shop === shop && row.id === id);
+    if (member === undefined) return undefined;
+    const inviter = member.invitedBy === null ? undefined : this.rows.find((row) => row.shop === shop && row.id === member.invitedBy);
+    return { member, inviter: inviter === undefined ? undefined : { name: inviter.name, email: inviter.email } };
+  }
+
   async list(shop: string) {
-    return this.rows.filter((row) => row.shop === shop);
+    return this.rows.filter((row) => row.shop === shop && !this.isCancelledInvitation(row));
   }
 
   async listWithRoles(shop: string, roles: readonly MemberRole[], limit: number) {
@@ -167,16 +174,26 @@ export class FakeMemberStore implements MemberStore {
     return [...counts].filter(([shop, n]) => n > 1 && (afterShop === null || shop > afterShop)).map(([shop]) => shop).sort().slice(0, limit);
   }
 
-  async countByStatus(shop: string) {
+  async countByStatus(shop: string): Promise<StatusCounts> {
     const counts: Record<MemberStatus, number> = { invited: 0, pending: 0, active: 0, removed: 0 };
-    for (const row of this.rows) if (row.shop === shop) counts[row.status] += 1;
-    return counts;
+    let noSeat = 0;
+    for (const row of this.rows) {
+      if (row.shop !== shop || this.isCancelledInvitation(row)) continue;
+      counts[row.status] += 1;
+      if (row.status === "pending" && row.trimmedAt !== null) noSeat += 1;
+    }
+    return { ...counts, noSeat };
+  }
+
+  /** A removed row that never had a Shopify user: a cancelled invitation from before cancelling one deleted it. */
+  private isCancelledInvitation(row: Member): boolean {
+    return row.status === "removed" && row.shopifyUserId === null;
   }
 
   async activate(shop: string, id: string, input: { from: readonly MemberStatus[]; role: MemberRole; cap: SeatCap; now: number }) {
     this.write("activate");
     const target = this.rows.find((row) => row.shop === shop && row.id === id);
-    if (target === undefined || !input.from.includes(target.status) || !this.hasSeat(shop, input.cap)) return undefined;
+    if (target === undefined || !input.from.includes(target.status) || target.shopifyUserId === null || !this.hasSeat(shop, input.cap)) return undefined;
     return this.replace(id, { status: "active", role: input.role, trimmedAt: null, permissions: null, updatedAt: input.now });
   }
 
@@ -214,8 +231,15 @@ export class FakeMemberStore implements MemberStore {
   async remove(shop: string, id: string, now: number) {
     this.write("remove");
     const target = this.rows.find((row) => row.shop === shop && row.id === id);
-    if (target === undefined || target.status === "removed" || this.isLastOwner(target) || this.isLastManager(target)) return undefined;
+    if (target === undefined || target.status === "removed" || target.shopifyUserId === null || this.isLastOwner(target) || this.isLastManager(target)) return undefined;
     return this.replace(id, { status: "removed", trimmedAt: null, permissions: null, updatedAt: now });
+  }
+
+  async cancelInvite(shop: string, id: string) {
+    this.write("cancelInvite");
+    const index = this.rows.findIndex((row) => row.shop === shop && row.id === id && row.status === "invited" && row.shopifyUserId === null);
+    const [gone] = index === -1 ? [] : this.rows.splice(index, 1);
+    return gone;
   }
 
   async trim(shop: string, id: string, limit: number, now: number) {

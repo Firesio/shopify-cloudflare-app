@@ -6,21 +6,35 @@ import { useTranslation } from "react-i18next";
 
 import { guardMember } from "~/admin/require-member.server";
 import { settle } from "~/admin/settle.server";
+import { useActionToast } from "~/admin/use-action-toast";
 import type { Outcome } from "~/admin/outcome";
-import { Deferred, FailedSection, PendingSection } from "~/components/admin/Deferred";
+import { Deferred, FailedSection } from "~/components/admin/Deferred";
+import { SkeletonBadge, SkeletonStatus, SkeletonText } from "~/components/admin/Skeleton";
 import { getEnv } from "~/request-context.server";
-import { currentAppInstallationSchema } from "~/schemas/current-app-installation";
 import { readAppHandle } from "./billing-app-handle.server";
 import { ShopifyAppIdentityAdapter } from "~/adapters/shopify-app-identity.server";
 import { useLanguage } from "~/i18n/useLanguage";
-import { formatDateTime } from "~/i18n/format";
+import type { LanguageCode } from "~/i18n/catalogues.generated";
+import { formatDate, formatRelativeTime } from "~/i18n/format";
 import { useTimeZone } from "~/i18n/useTimeZone";
+import { UTC } from "~/i18n/time-zone";
 import { formatMoney } from "~/money";
-import { resolveProjectionBillingStatus, type BillingStatus } from "~/billing/subscription-status";
+import {
+  resolveProjectionBillingStatus,
+  type BillingStatus,
+  type SubscriptionPhase,
+} from "~/billing/subscription-status";
 import { currentPlanHandleFor } from "~/billing/current-plan";
-import { planPriceLine, type PriceCadence } from "~/billing/plan-price-line";
+import {
+  PHASE_TONE,
+  planActionKind,
+  statusLine,
+  type PlanActionKind,
+  type StatusLine,
+} from "~/billing/billing-presentation";
+import { planPriceLine, type PlanPriceLine } from "~/billing/plan-price-line";
 import { pricingPlansUrl } from "~/billing/pricing-plans-url";
-import { FEATURED_PLAN_HANDLE, PLANS, PLAN_LIST, planForShopifyHandle } from "~/billing/plans";
+import { FEATURED_PLAN_HANDLE, PLANS, PLAN_LIST, planForShopifyHandle, type PlanHandle } from "~/billing/plans";
 import {
   persistShopIdentity,
   planGrants,
@@ -28,52 +42,15 @@ import {
   refreshShopSubscription,
   shopSubscriptions,
 } from "~/wiring.server";
-import { PlanCard } from "~/components/billing/PlanCard";
-import type { SubscriptionStatus } from "~/billing/subscription-status";
+import { PendingButton } from "~/components/billing/PendingButton";
+import { PlanCard, type PlanStanding } from "~/components/billing/PlanCard";
 import { isPricingReturn } from "~/billing/pricing-return";
 import { reconcileShop } from "~/services/reconcile-shop";
 import { resolveEffectivePlan } from "~/domain/plan-hierarchy";
 
-type Subscribed = Extract<BillingStatus, { kind: "subscribed" }>;
-
-/**
- * A literal map, not a template literal: `t()` is typed against the `en` files,
- * so a cadence with no message fails the build instead of rendering a raw key
- * to a merchant (@rules/i18n.md).
- */
-type PriceKey =
-  | "billing.price.perMonth"
-  | "billing.price.perYear"
-  | "billing.price.flat";
-
-const PRICE_CADENCE_KEY: Record<PriceCadence, PriceKey> = {
-  monthly: "billing.price.perMonth",
-  yearly: "billing.price.perYear",
-  none: "billing.price.flat",
-};
-
 export const handle = { i18n: ["common", "admin"] };
 
-/** Partner refreshes only after Shopify redirects from hosted plan selection. */
-export function shouldRefreshSubscription(requestUrl: string): boolean {
-  return isPricingReturn(requestUrl);
-}
-
-/** The return URL is a trigger only; the plan data still comes from Shopify. */
-export function shouldShowProcessing(requestUrl: string): boolean {
-  return isPricingReturn(requestUrl);
-}
-
 type BillingReconciliationResponse = { readonly ok: true } | { readonly ok: false };
-
-export function parseCurrentAppInstallationHandle(payload: unknown): string {
-  const parsed = currentAppInstallationSchema.safeParse(payload);
-  if (!parsed.success) {
-    console.error(JSON.stringify({ event: "billing.current_app_installation.invalid_payload" }));
-    throw new Response("Invalid current app installation response", { status: 502 });
-  }
-  return parsed.data.data.currentAppInstallation.app.handle;
-}
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, session } = await guardMember(request, "billing:manage");
@@ -105,18 +82,23 @@ async function readPlan(shop: string) {
     PLAN_LIST,
     now,
   );
-  const planName = planForShopifyHandle(projection?.planHandle)?.name ?? PLANS.free.name;
-  const status = resolveProjectionBillingStatus(projection, planName, now);
+  // A handle we do not know has NO name: the page says "Your subscription", never the free plan's name.
+  const status = resolveProjectionBillingStatus(projection, planForShopifyHandle(projection?.planHandle)?.name ?? null, now);
 
   const promo = effective.source === "promo" && effective.activePromo
     ? {
         handle: effective.planHandle,
-        name: PLANS[effective.planHandle]?.name ?? effective.planHandle,
+        name: PLANS[effective.planHandle].name,
         remainingDays: effective.activePromo.remainingDays,
       }
     : null;
 
-  return { status, planHandle: projection?.planHandle ?? null, promo };
+  const currentPlanHandle = currentPlanHandleFor({
+    status,
+    planHandle: projection?.planHandle ?? null,
+    promoHandle: promo?.handle ?? null,
+  });
+  return { status, currentPlanHandle, promo };
 }
 
 type PlanLinkSource = {
@@ -146,7 +128,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Authentication is awaited: Shopify requires a valid session token on every
   // request, and its redirect / bounce responses must keep working.
   const { admin, session } = await guardMember(request, "billing:manage");
-  if (shouldShowProcessing(request.url)) return { pricingReturn: true as const };
+  if (isPricingReturn(request.url)) return { pricingReturn: true as const };
 
   const env = getEnv();
   const where = { shop: session.shop, route: "app/billing" };
@@ -162,79 +144,202 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   };
 };
 
+
 type Plan = Awaited<ReturnType<typeof readPlan>>;
 type PlanLink = Promise<Outcome<string | null>>;
 
-function PlanHeading({ status, promo }: Pick<Plan, "status" | "promo">) {
+/**
+ * Literal maps, not template literals: `t()` is typed against the `en` files,
+ * so a missing message fails the build instead of rendering a raw key to a
+ * merchant (@rules/i18n.md).
+ */
+const PHASE_LABEL = {
+  active: "billing.phase.active",
+  cancelling: "billing.phase.cancelling",
+  frozen: "billing.phase.frozen",
+  pending: "billing.phase.pending",
+  cancelled: "billing.phase.cancelled",
+  inactive: "billing.phase.inactive",
+} as const satisfies Record<SubscriptionPhase, string>;
+
+const ACTION_LABEL = {
+  upgrade: "billing.upgrade",
+  manage: "billing.manage",
+  review: "billing.reviewPlan",
+  resubscribe: "billing.resubscribe",
+  choose: "billing.choosePlan",
+} as const satisfies Record<PlanActionKind, string>;
+
+function PriceLine({ line }: { line: PlanPriceLine }) {
   const { t } = useTranslation(["admin", "common"]);
+  const language = useLanguage();
+  // The subscription's own money in Shopify's currency; the catalogue's (USD) is never substituted.
+  if (line.cadence === "free") return <s-text color="subdued">{t("billing.price.free")}</s-text>;
+  const price = formatMoney(language, line.price);
+  const text =
+    line.cadence === "monthly" ? t("billing.price.perMonth", { price })
+    : line.cadence === "yearly" ? t("billing.price.perYear", { price })
+    : t("billing.price.flat", { price });
+  return <s-text color="subdued">{text}</s-text>;
+}
+
+function statusLineText(
+  t: ReturnType<typeof useTranslation<["admin", "common"]>>["t"],
+  language: LanguageCode,
+  timeZone: string,
+  line: StatusLine,
+): string {
+  switch (line.kind) {
+    case "trial": {
+      // Trial, renewal and cancellation are calendar dates: no time of day, in the shop's zone.
+      const date = formatDate(language, line.endsAt, timeZone);
+      return line.price
+        ? t("billing.current.trial", { date, price: formatMoney(language, line.price) })
+        : t("billing.current.trialUnknownPrice", { date });
+    }
+    case "renews": {
+      const date = formatDate(language, line.at, timeZone);
+      return line.price
+        ? t("billing.current.renews", { date, price: formatMoney(language, line.price) })
+        : t("billing.current.renewsUnknownPrice", { date });
+    }
+    // Partner's cancellation date is a date, not an instant: print the day it names, in UTC, in every zone.
+    case "cancelsOn": return t("billing.current.cancelsOn", { date: formatDate(language, line.instant, UTC) });
+    case "cancelsAtPeriodEnd": return t("billing.current.cancelsAtPeriodEnd");
+    case "frozen": return t("billing.current.frozen");
+    case "pending": return t("billing.current.pending");
+    case "cancelled": return t("billing.current.cancelled");
+    case "inactive": return t("billing.current.inactive");
+  }
+}
+
+function StatusText({ line }: { line: StatusLine }) {
+  const { t } = useTranslation(["admin", "common"]);
+  const language = useLanguage();
+  const timeZone = useTimeZone();
+  return <s-text color="subdued">{statusLineText(t, language, timeZone, line)}</s-text>;
+}
+
+/** Roughly how many characters each pending value of the summary has once loaded (a plan name, a badge, a price, a renewal sentence). */
+const PENDING_CHARS = { name: 10, badge: 8, price: 10, line: 32, button: 12 } as const;
+
+/**
+ * The plan Shopify bills the shop for (or the free plan), with its status, price and what happens next. While the plan is
+ * on its way (`"loading"`) the label is real and each value is a skeleton in the same rows. The skeleton assumes the
+ * common shape (name, badge, price, one status line); a loaded plan that has no price or no status line is shorter.
+ */
+function SubscriptionBlock({ status, label }: { status: BillingStatus | "loading"; label: string }) {
+  const { t } = useTranslation(["admin", "common"]);
+  if (status === "loading") {
+    return (
+      <s-stack direction="block" gap="small-300">
+        <s-text color="subdued">{label}</s-text>
+        <s-stack direction="inline" gap="small" alignItems="center">
+          <SkeletonText heading chars={PENDING_CHARS.name} />
+          <SkeletonBadge chars={PENDING_CHARS.badge} />
+        </s-stack>
+        <SkeletonText chars={PENDING_CHARS.price} />
+        <SkeletonText chars={PENDING_CHARS.line} />
+      </s-stack>
+    );
+  }
+  const priceLine = planPriceLine(status);
+  const line = statusLine(status);
+  const name = status.kind === "free" ? PLANS.free.name : (status.name ?? t("billing.subscriptionFallbackName"));
   return (
-    <s-stack direction="inline" gap="small" alignItems="center">
-      <s-heading>
-        {promo ? promo.name : (status.kind === "free" ? PLANS.free.name : status.name)}
-      </s-heading>
-      {promo && (
-        <s-badge tone="success">
-          {t("billing.promoBadge", { days: promo.remainingDays })}
-        </s-badge>
-      )}
-      {status.kind === "subscribed" && (
-        <>
-          <s-badge tone={STATUS_TONE[status.status]}>
-            {t(`billing.status.${status.status}`)}
-          </s-badge>
-          {status.test && <s-badge tone="warning">{t("billing.testBadge")}</s-badge>}
-        </>
-      )}
+    <s-stack direction="block" gap="small-300">
+      <s-text color="subdued">{label}</s-text>
+      <s-stack direction="inline" gap="small" alignItems="center">
+        <s-heading>{name}</s-heading>
+        {status.kind === "subscribed" && (
+          <s-badge tone={PHASE_TONE[status.phase]}>{t(PHASE_LABEL[status.phase])}</s-badge>
+        )}
+      </s-stack>
+      {/* Absent entirely when Shopify reported no amount or nothing is being charged — see
+          ~/billing/plan-price-line for why a fallback would be a lie. */}
+      {priceLine && <PriceLine line={priceLine} />}
+      {line && <StatusText line={line} />}
     </s-stack>
   );
 }
 
-/**
- * The upgrade/manage button. Its URL is the slow part of the page, so while it
- * is pending the real button shows in its place, disabled and loading: the
- * column keeps its width and nothing reflows when the link arrives.
- */
-function PlanAction({ status, planLink }: Pick<Plan, "status"> & { planLink: PlanLink }) {
+/** A promotional grant that lifts the shop above its subscription: named as a promotion, with when it ends. */
+function PromoBlock({ promo }: { promo: NonNullable<Plan["promo"]> }) {
   const { t } = useTranslation(["admin", "common"]);
-  const label = status.kind === "free" ? t("billing.upgrade") : t("billing.manage");
+  const language = useLanguage();
+  return (
+    <s-stack direction="block" gap="small-300">
+      <s-text color="subdued">{t("billing.planLabel")}</s-text>
+      <s-stack direction="inline" gap="small" alignItems="center">
+        <s-heading>{promo.name}</s-heading>
+        <s-badge tone="success">{t("billing.promoBadge")}</s-badge>
+      </s-stack>
+      <s-text color="subdued">
+        {t("billing.promoEnds", { when: formatRelativeTime(language, promo.remainingDays, "day") })}
+      </s-text>
+    </s-stack>
+  );
+}
+
+function PlanLinkUnavailable() {
+  const { t } = useTranslation(["admin", "common"]);
+  return <s-text color="subdued">{t("billing.planLinkUnavailable")}</s-text>;
+}
+
+/**
+ * The one button, labelled by what the merchant can do (`planActionKind`), so before the plan is known its label is
+ * unknown too: a skeleton button. Its URL is the slow part of the page, so while that is pending the button is a
+ * skeleton of the real label's width: the column keeps its width and nothing reflows when the link arrives. With no
+ * URL (the lookup failed, or came back empty) the merchant is told so rather than shown nothing.
+ */
+function PlanAction({ status, planLink }: { status: BillingStatus | "loading"; planLink: PlanLink }) {
+  const { t } = useTranslation(["admin", "common"]);
+  if (status === "loading") return <PendingButton chars={PENDING_CHARS.button} />;
+  const label = t(ACTION_LABEL[planActionKind(status)]);
   return (
     <Deferred
       resolve={planLink}
-      pending={<s-button variant="primary" loading disabled>{label}</s-button>}
-      failed={<s-text color="subdued">{t("billing.planLinkUnavailable")}</s-text>}
+      pending={<PendingButton chars={label.length} />}
+      failed={<PlanLinkUnavailable />}
     >
-      {(url) => (url ? <s-button variant="primary" href={url} target="_top">{label}</s-button> : null)}
+      {(url) => (url ? <s-button variant="primary" href={url} target="_top">{label}</s-button> : <PlanLinkUnavailable />)}
     </Deferred>
   );
 }
 
-function PlanSummary({ status, promo, planLink }: Pick<Plan, "status" | "promo"> & { planLink: PlanLink }) {
+/** Says who owns the flow, so leaving the app to change plan is no surprise. It points at the button only when there is one. */
+function ManagedNote({ planLink }: { planLink: PlanLink }) {
   const { t } = useTranslation(["admin", "common"]);
-  const language = useLanguage();
-  const timeZone = useTimeZone();
-  const cycleCopy =
-    status.kind === "subscribed" ? billingCycleCopy(language, timeZone, status) : null;
-  const priceLine = planPriceLine(status);
+  const withButton = <s-paragraph color="subdued">{t("billing.managedNote")}</s-paragraph>;
+  return (
+    <Deferred
+      resolve={planLink}
+      pending={withButton}
+      failed={<s-paragraph color="subdued">{t("billing.managedNoteNoLink")}</s-paragraph>}
+    >
+      {(url) => (url ? withButton : <s-paragraph color="subdued">{t("billing.managedNoteNoLink")}</s-paragraph>)}
+    </Deferred>
+  );
+}
 
+type PlanSummaryProps = { readonly plan: Pick<Plan, "status" | "promo"> | "loading"; readonly planLink: PlanLink };
+
+function PlanSummary({ plan, planLink }: PlanSummaryProps) {
+  const { t } = useTranslation(["admin", "common"]);
+  const status = plan === "loading" ? "loading" : plan.status;
+  const promo = plan === "loading" ? null : plan.promo;
   return (
     <s-grid gridTemplateColumns="1fr auto" gap="base" alignItems="start">
-      <s-stack direction="block" gap="small-300">
-        <s-text color="subdued">{t("billing.planLabel")}</s-text>
-        <PlanHeading status={status} promo={promo} />
-
-        {/* Absent entirely when Shopify reported no amount — see
-            ~/billing/plan-price-line for why a fallback would be a lie. */}
-        {priceLine && (
-          <s-text color="subdued">
-            {t(PRICE_CADENCE_KEY[priceLine.cadence], {
-              price: formatMoney(language, priceLine.price),
-            })}
-          </s-text>
+      <s-stack direction="block" gap="base">
+        {promo ? (
+          <>
+            <PromoBlock promo={promo} />
+            {/* Two plans never share one block: the subscription underneath is its own, labelled one. */}
+            <SubscriptionBlock status={status} label={t("billing.subscriptionLabel")} />
+          </>
+        ) : (
+          <SubscriptionBlock status={status} label={t("billing.planLabel")} />
         )}
-
-        {/* The renewal or trial line is real information the price alone
-            does not carry, so it survives the redesign. */}
-        {cycleCopy && <s-text color="subdued">{t(...cycleCopy)}</s-text>}
       </s-stack>
 
       <PlanAction status={status} planLink={planLink} />
@@ -242,8 +347,26 @@ function PlanSummary({ status, promo, planLink }: Pick<Plan, "status" | "promo">
   );
 }
 
-function PlanCatalog({ currentPlanHandle }: { currentPlanHandle: string | null }) {
+/** "Your plan": the real section, label, grid and note at once; `"loading"` swaps only the values for skeletons, with one announcement. */
+function PlanSummarySection({ plan, planLink }: PlanSummaryProps) {
   const { t } = useTranslation(["admin", "common"]);
+  return (
+    <s-section accessibilityLabel={plan === "loading" ? t("billing.loading") : undefined}>
+      <PlanSummary plan={plan} planLink={planLink} />
+      <ManagedNote planLink={planLink} />
+      {plan === "loading" ? <SkeletonStatus label={t("billing.loading")} /> : null}
+    </s-section>
+  );
+}
+
+/**
+ * The catalogue is static (names, prices, features), so every card renders at once. Which one is the merchant's depends
+ * on the subscription: `"loading"` gives each card a skeleton badge, `null` (plan unknown or unavailable) no "current" mark.
+ */
+function PlanCatalog({ currentPlanHandle }: { currentPlanHandle: PlanHandle | null | "loading" }) {
+  const { t } = useTranslation(["admin", "common"]);
+  const standingOf = (handle: PlanHandle): PlanStanding =>
+    currentPlanHandle === "loading" ? "loading" : handle === currentPlanHandle ? "current" : "other";
   return (
     <s-section heading={t("billing.plans.heading")}>
       <s-paragraph color="subdued">{t("billing.plans.body")}</s-paragraph>
@@ -255,16 +378,8 @@ function PlanCatalog({ currentPlanHandle }: { currentPlanHandle: string | null }
             // PLAN_LIST is cheapest-first, so the plan before this one is the
             // one it builds on — which is what "Everything in X, plus" names.
             buildsOn={index > 0 ? PLAN_LIST[index - 1] : null}
-            isCurrent={plan.handle === currentPlanHandle}
+            standing={standingOf(plan.handle)}
             isFeatured={plan.handle === FEATURED_PLAN_HANDLE}
-            illustrationSrc={index === 0 ? "/plan-cards/lv1.svg" : index === 1 ? "/plan-cards/lv2.svg" : undefined}
-            illustrationAlt={
-              index === 0
-                ? t("billing.plans.levelOneImageAlt")
-                : index === 1
-                  ? t("billing.plans.levelTwoImageAlt")
-                  : undefined
-            }
           />
         ))}
       </s-grid>
@@ -282,45 +397,42 @@ export default function Billing() {
   return (
     <s-page heading={t("billing.heading")}>
       {/*
-        The shape is borrowed from the repair-ops console's plan card, because
-        it answers the merchant's questions in the order they ask them: which
-        plan am I on, what does it cost, how do I change it.
+        The shape answers the merchant's questions in the order they ask them:
+        which plan am I on, what does it cost, what happens next, how do I
+        change it. A quiet label, the plan name as the one heavy thing, the
+        price and status under it, and the action on the opposite edge —
+        top-aligned, so it sits against the plan name. `s-grid` and not an
+        inline `s-stack`: the left column must be free to grow and wrap without
+        ever pushing the button onto its own row (@rules/polaris-app-home.md §4).
 
-        A quiet label, the plan name as the one heavy thing on the card, the
-        price under it, and the action on the opposite edge — top-aligned, so it
-        sits against the plan name rather than drifting down beside the
-        supporting lines. `s-grid` and not an inline `s-stack`: the left column
-        must be free to grow and wrap without ever pushing the button onto its
-        own row (@rules/polaris-app-home.md §4).
-
-        Both branches keep this structure, so moving from free to paid changes
-        the words on this page and never its layout.
+        Every state keeps this structure, so moving from free to paid to
+        cancelled changes the words on this page and never its layout.
+      */}
+      {/*
+        One region: the plan decides both the summary and which card is current. While pending, every static part is the
+        real component and only the values are skeletons; on failure the summary is the banner and the catalogue (which
+        needs no data) stays, with no card marked current.
       */}
       <Deferred
         resolve={plan}
-        pending={<PendingSection label={t("billing.loading")} />}
-        failed={<FailedSection heading={t("billing.loadFailedHeading")} body={t("billing.loadFailedBody")} />}
+        pending={
+          <>
+            <PlanSummarySection plan="loading" planLink={planLink} />
+            <PlanCatalog currentPlanHandle="loading" />
+          </>
+        }
+        failed={
+          <>
+            <FailedSection heading={t("billing.loadFailedHeading")} body={t("billing.loadFailedBody")} />
+            <PlanCatalog currentPlanHandle={null} />
+          </>
+        }
       >
-        {({ status, promo }) => (
-          <s-section>
-            <PlanSummary status={status} promo={promo} planLink={planLink} />
-
-            {/* Says who owns the flow and what the button will do, so the merchant
-                is not surprised by leaving the app to change plan. */}
-            <s-paragraph color="subdued">{t("billing.managedNote")}</s-paragraph>
-          </s-section>
-        )}
-      </Deferred>
-
-      {/* The same promise as above: which card is "current" depends on the plan,
-          while the catalog itself is static and keeps its heading while pending. */}
-      <Deferred
-        resolve={plan}
-        pending={<PendingSection heading={t("billing.plans.heading")} label={t("billing.plansLoading")} />}
-        failed={null}
-      >
-        {({ status, planHandle, promo }) => (
-          <PlanCatalog currentPlanHandle={promo ? promo.handle : currentPlanHandleFor(status, planHandle)} />
+        {({ status, promo, currentPlanHandle }) => (
+          <>
+            <PlanSummarySection plan={{ status, promo }} planLink={planLink} />
+            <PlanCatalog currentPlanHandle={currentPlanHandle} />
+          </>
         )}
       </Deferred>
     </s-page>
@@ -331,6 +443,10 @@ function BillingProcessing() {
   const { t } = useTranslation(["admin", "common"]);
   const fetcher = useFetcher<BillingReconciliationResponse>();
   const navigate = useNavigate();
+  const busy = fetcher.state !== "idle";
+  const result = fetcher.data;
+  // Waiting means no failure to report yet: once it failed, nothing is loading and no skeleton may suggest it is.
+  const waiting = result?.ok !== false;
 
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data === undefined) {
@@ -342,65 +458,41 @@ function BillingProcessing() {
     if (fetcher.data?.ok) void navigate("/app/billing", { replace: true });
   }, [fetcher.data, navigate]);
 
-  const failed = fetcher.data?.ok === false;
+  // The inline banner below stays the authoritative report; the toast is the transient layer on top.
+  useActionToast(
+    result,
+    result === undefined
+      ? undefined
+      : result.ok
+        ? { success: t("billing.processing.toastDone") }
+        : { error: t("billing.processing.toastFailed") },
+  );
+
   return (
     <s-page heading={t("billing.processing.heading")} inlineSize="base">
-      <s-section>
-        <s-stack direction="block" gap="large-100" alignItems="center">
-          <s-spinner size="large-100" accessibilityLabel={t("billing.processing.spinnerLabel")} />
-          <s-stack direction="block" gap="small" alignItems="center">
-            <s-heading>{t("billing.processing.heading")}</s-heading>
-            <s-paragraph color="subdued">{t("billing.processing.body")}</s-paragraph>
-          </s-stack>
-          {failed && (
+      <s-section accessibilityLabel={t("billing.processing.statusLabel")}>
+        <s-stack direction="block" gap="base">
+          {result?.ok === false && (
             <s-banner tone="critical" heading={t("billing.processing.failedHeading")}>
               <s-paragraph>{t("billing.processing.failedBody")}</s-paragraph>
-              <fetcher.Form method="post">
-                <s-button slot="primary-actions" type="submit">{t("actions.retry", { ns: "common" })}</s-button>
-              </fetcher.Form>
+              <s-button
+                slot="secondary-actions"
+                loading={busy}
+                onClick={() => void fetcher.submit(null, { method: "post" })}
+              >
+                {t("actions.retry", { ns: "common" })}
+              </s-button>
             </s-banner>
           )}
+          <s-paragraph color="subdued">{t("billing.processing.body")}</s-paragraph>
+          {/* The page this one becomes, with its values still to come: the plan is being checked, not shown. */}
+          {waiting ? <SubscriptionBlock status="loading" label={t("billing.planLabel")} /> : null}
         </s-stack>
+        {waiting ? <SkeletonStatus label={t("billing.processing.statusLabel")} /> : null}
       </s-section>
+      <PlanCatalog currentPlanHandle={waiting ? "loading" : null} />
     </s-page>
   );
-}
-
-const STATUS_TONE: Record<SubscriptionStatus, "success" | "warning" | "critical" | "neutral"> = {
-  ACTIVE: "success",
-  ACCEPTED: "success",
-  PENDING: "warning",
-  FROZEN: "warning",
-  CANCELLED: "critical",
-  DECLINED: "critical",
-  EXPIRED: "neutral",
-};
-
-type BillingCycleKey =
-  | "billing.current.trial"
-  | "billing.current.trialUnknownPrice"
-  | "billing.current.renews"
-  | "billing.current.renewsUnknownPrice";
-
-/** Returns a [key, params] pair, spread straight into `t(...)` by the caller. */
-function billingCycleCopy(
-  language: Parameters<typeof formatDateTime>[0],
-  timeZone: string,
-  status: Subscribed,
-): readonly [BillingCycleKey, { date: string; price?: string }] {
-  const price = status.price ? formatMoney(language, status.price) : undefined;
-
-  if (status.trialEndsAt) {
-    const date = formatDateTime(language, status.trialEndsAt, timeZone);
-    return price
-      ? ["billing.current.trial", { date, price }]
-      : ["billing.current.trialUnknownPrice", { date }];
-  }
-
-  const date = formatDateTime(language, status.periodEnd, timeZone);
-  return price
-    ? ["billing.current.renews", { date, price }]
-    : ["billing.current.renewsUnknownPrice", { date }];
 }
 
 export const headers: HeadersFunction = (headersArgs) => {

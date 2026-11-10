@@ -75,3 +75,30 @@ export function trimmableLimitFrom(check: SeatCheck): number | null {
   const limit = overageLimitFrom(check);
   return limit.kind === "limit" ? limit.maximum : null;
 }
+
+/**
+ * What the plan says, read for DISPLAY: how many seats the page may claim the plan has.
+ *
+ * `seatLimitFrom` turns every refusal into a limit of 0 so that nobody new is let in, which is right for admission and wrong
+ * for words: a plan that could not be read would be shown as "3 of 0 seats, over the limit". This reading keeps the two
+ * apart. It never changes what admission does; it only decides what the page may say.
+ *
+ *   limit      an allowed capacity with a maximum, or `disabled` (a plan that really grants no seats: a maximum of 0)
+ *   unlimited  a capacity with no maximum, or a plan that never defined seats (`unknown_feature`)
+ *   unknown    everything else: an inactive or unreadable subscription, an unknown plan, a key defined as another kind,
+ *              a maximum that is not a whole number. The page says it cannot read the limit instead of inventing one.
+ */
+export type SeatReading =
+  | { readonly kind: "limit"; readonly maximum: number }
+  | { readonly kind: "unlimited" }
+  | { readonly kind: "unknown" };
+
+export function seatReadingFrom(check: SeatCheck): SeatReading {
+  if (!check.allowed) {
+    if (check.reason === "unknown_feature") return { kind: "unlimited" };
+    return check.reason === "disabled" ? { kind: "limit", maximum: 0 } : { kind: "unknown" };
+  }
+  if (check.kind !== "capacity") return { kind: "unknown" };
+  if (check.maximum === undefined) return { kind: "unlimited" };
+  return Number.isSafeInteger(check.maximum) && check.maximum >= 0 ? { kind: "limit", maximum: check.maximum } : { kind: "unknown" };
+}

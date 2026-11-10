@@ -10,6 +10,19 @@ import type { SeatSummary } from "~/domain/member-team";
 export function SeatsSection({ seats, canChangePlan, trimsOverage }: { readonly seats: SeatSummary; readonly canChangePlan: boolean; readonly trimsOverage: boolean }) {
   const { t } = useTranslation("admin");
   if (seats.kind === "unlimited") return null;
+  if (seats.kind === "unknown") {
+    // The plan could not be read: say so, and never print a limit (a refusal must not look like "3 of 0, over the limit").
+    return (
+      <s-section heading={t("members.seats.heading")}>
+        <s-stack gap="base">
+          <s-text type="strong" fontVariantNumeric="tabular-nums">
+            {t("members.seats.usedUnknown", { used: seats.used })}
+          </s-text>
+          <s-banner tone="warning">{t("members.seats.unreadable")}</s-banner>
+        </s-stack>
+      </s-section>
+    );
+  }
   const atLimit = seats.left === 0;
   return (
     <s-section heading={t("members.seats.heading")}>

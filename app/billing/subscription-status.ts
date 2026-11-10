@@ -1,139 +1,125 @@
-import { fromApiNumber, fromMinorUnits, toCurrency, type Money } from "~/money";
-export type SubscriptionStatus = "ACTIVE" | "CANCELLED" | "PENDING" | "DECLINED" | "EXPIRED" | "FROZEN" | "ACCEPTED";
+import { fromMinorUnits, toCurrency, type Money } from "~/money";
+import type { SubscriptionStatus } from "~/domain/subscription-lifecycle";
 
-/** The parts of `billing.check()`'s `AppSubscription` this module actually reads. */
-export interface AppSubscriptionLike {
-  readonly name: string;
-  readonly status: SubscriptionStatus;
-  readonly test: boolean;
-  readonly trialDays: number;
-  /** ISO timestamp. */
-  readonly createdAt: string;
-  /** ISO timestamp. */
-  readonly currentPeriodEnd: string;
-  readonly lineItems: readonly {
-    readonly plan: {
-      readonly pricingDetails:
-        | { readonly interval: string; readonly price: { readonly amount: number; readonly currencyCode: string } }
-        | { readonly balanceUsed: unknown };
-    };
-  }[];
+/**
+ * What the billing page says about a subscription. One phase per thing a
+ * merchant needs to be told differently, derived from Partner's
+ * `SubscriptionStatusState` (the projection in `shop_subscriptions`):
+ *
+ * | Partner state            | Phase        | Paid access |
+ * | ------------------------ | ------------ | ----------- |
+ * | ACTIVE                   | `active`     | yes         |
+ * | CANCELLATION_SCHEDULED   | `cancelling` | yes, until it ends |
+ * | FROZEN                   | `frozen`     | no          |
+ * | PENDING                  | `pending`    | no          |
+ * | CANCELED                 | `cancelled`  | no          |
+ * | UNKNOWN                  | `inactive`   | no          |
+ *
+ * "Paid access" must agree with `resolveEffectivePlan` (`~/domain/plan-hierarchy`),
+ * which treats only ACTIVE and CANCELLATION_SCHEDULED as paid: a test holds the
+ * two together for every status.
+ */
+export type SubscriptionPhase = "active" | "cancelling" | "frozen" | "pending" | "cancelled" | "inactive";
+
+/** Whether the merchant currently has the paid plan's entitlements. */
+export function grantsPaidAccess(phase: SubscriptionPhase): boolean {
+  return phase === "active" || phase === "cancelling";
 }
 
 export type BillingStatus =
   | { readonly kind: "free" }
   | {
       readonly kind: "subscribed";
-      readonly name: string;
-      readonly status: SubscriptionStatus;
-      readonly test: boolean;
+      readonly phase: SubscriptionPhase;
+      /** The catalogue plan's name, or `null` when Shopify's plan handle is not one we know. Never a guess. */
+      readonly name: string | null;
+      /** In the subscription's OWN currency (Shopify's), which need not be the catalogue's. */
       readonly price: Money | null;
       readonly interval: "every_30_days" | "annual" | null;
       /** Epoch ms — set only while a trial is still running. */
       readonly trialEndsAt: number | null;
-      /** Epoch ms — Shopify's `currentPeriodEnd`, regardless of trial state. */
-      readonly periodEnd: number;
+      /** Epoch ms of the end of the current billing period, or `null` when Shopify has not told us. Never invented. */
+      readonly currentPeriodEndsAt: number | null;
+      /**
+       * Partner's `cancelEffectiveOn`: a calendar DATE (`YYYY-MM-DD`), not an instant. Only meaningful for `cancelling`;
+       * `null` when it was not reported. Never turn it into a timestamp (see `dateOnlyInstant`).
+       */
+      readonly cancelsOn: string | null;
     };
 
-const INTERVAL_LABEL: Record<string, "every_30_days" | "annual"> = {
-  EVERY_30_DAYS: "every_30_days",
-  ANNUAL: "annual",
-};
-
-/**
- * `billing.check()`'s pricing already arrives as a parsed `{amount: number}`,
- * not the raw decimal string `~/money` normally parses. `fromApiNumber` rebuilds
- * a `Money` from the number's shortest round-trip digits and refuses anything
- * the currency cannot hold, instead of multiplying (`19.99 * 100` is
- * `1998.9999999999998`) or rounding with `toFixed`.
- */
-function moneyFromApiAmount(amount: number, currencyCode: string): Money | null {
-  const parsed = fromApiNumber(amount, currencyCode);
-  return parsed.ok ? parsed.value : null;
-}
-
-type Subscribed = Extract<BillingStatus, { kind: "subscribed" }>;
-
-function pricingOf(sub: AppSubscriptionLike): { price: Money | null; interval: Subscribed["interval"] } {
-  const details = sub.lineItems[0]?.plan.pricingDetails;
-  if (!details || !("interval" in details)) return { price: null, interval: null };
-  return {
-    price: moneyFromApiAmount(details.price.amount, details.price.currencyCode),
-    interval: INTERVAL_LABEL[details.interval] ?? null,
-  };
-}
-
-/** Current state projected from Partner Active Subscription, never Billing API. */
+/** The slice of `shop_subscriptions` (and its first price item) this module reads. */
 export interface PartnerSubscriptionProjection {
-  readonly status: "NONE" | "PENDING" | "ACTIVE" | "CANCELLATION_SCHEDULED" | "FROZEN" | "CANCELED" | "UNKNOWN";
+  readonly status: SubscriptionStatus;
   readonly planHandle: string | null;
   readonly billingInterval: string | null;
+  /** Integer minor units, paired with `priceCurrency`. */
   readonly priceAmount: number | null;
   readonly priceCurrency: string | null;
   readonly trialEndsAt: number | null;
   readonly currentPeriodEndsAt: number | null;
+  readonly cancelEffectiveOn: string | null;
 }
 
-/** `null` once the trial (if any) has already ended by `now`. */
-function trialEndsAt(sub: AppSubscriptionLike, now: number): number | null {
-  if (sub.trialDays <= 0) return null;
-  const createdAt = Date.parse(sub.createdAt);
-  if (Number.isNaN(createdAt)) return null;
-  const endsAt = createdAt + sub.trialDays * 86_400_000;
-  return endsAt > now ? endsAt : null;
+const PHASE_BY_STATUS: Readonly<Record<Exclude<SubscriptionStatus, "NONE">, SubscriptionPhase>> = {
+  ACTIVE: "active",
+  CANCELLATION_SCHEDULED: "cancelling",
+  FROZEN: "frozen",
+  PENDING: "pending",
+  CANCELED: "cancelled",
+  UNKNOWN: "inactive",
+};
+
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * A `YYYY-MM-DD` date as the instant at midnight UTC, for formatting with the `UTC` zone so the calendar day printed
+ * is the day stored in every time zone. `null` for anything that is not a real calendar date.
+ */
+export function dateOnlyInstant(value: string | null): number | null {
+  if (value === null || !DATE_ONLY.test(value)) return null;
+  const instant = Date.parse(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(instant)) return null;
+  return new Date(instant).toISOString().slice(0, 10) === value ? instant : null;
+}
+
+function priceOf(projection: PartnerSubscriptionProjection): Money | null {
+  if (projection.priceAmount === null || projection.priceCurrency === null) return null;
+  const currency = toCurrency(projection.priceCurrency);
+  if (!currency.ok) return null;
+  const money = fromMinorUnits(projection.priceAmount, currency.value);
+  return money.ok ? money.value : null;
+}
+
+function intervalOf(billingInterval: string | null): Extract<BillingStatus, { kind: "subscribed" }>["interval"] {
+  if (billingInterval === "EVERY_30_DAYS") return "every_30_days";
+  if (billingInterval === "ANNUAL") return "annual";
+  return null;
 }
 
 /**
- * Turn `billing.check()`'s raw result into the one thing the billing page
- * renders. `now` is a parameter, never `Date.now()` — see @rules/core.md.
+ * Convert the durable Partner projection into billing-page data. `planName` is the catalogue name for the
+ * projection's plan handle, or `null` when the handle is unknown. `now` is a parameter (@rules/core.md).
  */
-export function resolveBillingStatus(
-  check: { hasActivePayment: boolean; appSubscriptions: readonly AppSubscriptionLike[] },
-  now: number,
-): BillingStatus {
-  const sub = check.appSubscriptions[0];
-  if (!check.hasActivePayment || !sub) return { kind: "free" };
-
-  const { price, interval } = pricingOf(sub);
-
-  return {
-    kind: "subscribed",
-    name: sub.name,
-    status: sub.status,
-    test: sub.test,
-    price,
-    interval,
-    trialEndsAt: trialEndsAt(sub, now),
-    periodEnd: Date.parse(sub.currentPeriodEnd),
-  };
-}
-
-/** Convert the durable Partner projection into billing-page data. */
 export function resolveProjectionBillingStatus(
   projection: PartnerSubscriptionProjection | undefined,
-  planName: string,
+  planName: string | null,
   now: number,
 ): BillingStatus {
   if (!projection || projection.status === "NONE") return { kind: "free" };
-  const currency = projection.priceCurrency ? toCurrency(projection.priceCurrency) : null;
-  const parsedPrice = projection.priceAmount !== null && currency?.ok
-    ? fromMinorUnits(projection.priceAmount, currency.value)
-    : null;
-  const price = parsedPrice?.ok ? parsedPrice.value : null;
-  const interval = projection.billingInterval === "EVERY_30_DAYS"
-    ? "every_30_days"
-    : projection.billingInterval === "ANNUAL" ? "annual" : null;
-  const status: SubscriptionStatus = projection.status === "CANCELED" ? "CANCELLED"
-    : projection.status === "UNKNOWN" ? "EXPIRED"
-      : projection.status === "CANCELLATION_SCHEDULED" ? "ACTIVE" : projection.status;
+  const phase = PHASE_BY_STATUS[projection.status];
   return {
     kind: "subscribed",
+    phase,
     name: planName,
-    status,
-    test: false,
-    price,
-    interval,
-    trialEndsAt: projection.trialEndsAt !== null && projection.trialEndsAt > now ? projection.trialEndsAt : null,
-    periodEnd: projection.currentPeriodEndsAt ?? now,
+    price: priceOf(projection),
+    interval: intervalOf(projection.billingInterval),
+    trialEndsAt:
+      phase === "active" && projection.trialEndsAt !== null && projection.trialEndsAt > now
+        ? projection.trialEndsAt
+        : null,
+    currentPeriodEndsAt: projection.currentPeriodEndsAt,
+    cancelsOn: phase === "cancelling" && dateOnlyInstant(projection.cancelEffectiveOn) !== null
+      ? projection.cancelEffectiveOn
+      : null,
   };
 }

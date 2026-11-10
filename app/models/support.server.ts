@@ -1,8 +1,9 @@
 import { and, asc, desc, eq, inArray, isNull, lte } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
 import { getDb } from "~/request-context.server";
 import { pendingUploads, supportAttachments, supportMessages, supportTickets, type PendingUpload, type SupportTicket as DbSupportTicket } from "~/db/schema";
 import type { SupportCategory } from "~/support/categories";
-import type { SupportAttachment, SupportAuthor, SupportThread, SupportTicket } from "~/support/types";
+import type { SupportAttachment, SupportAuthor, SupportThread, SupportTicket, SupportTicketSummary } from "~/support/types";
 import type { ExpiredUpload } from "~/ports/scheduled";
 import { chunk } from "~/lib/chunk";
 import type { Ids } from "~/ports/runtime";
@@ -11,6 +12,29 @@ export type { SupportThread } from "~/support/types";
 
 /** Rows per statement: D1 allows 100 bound parameters, an attachment row binds 8. */
 const ATTACH_CHUNK = 10;
+
+/** A staged upload as the message that adopts it needs it. */
+export type StagedUpload = Pick<PendingUpload, "id" | "r2Key" | "filename" | "contentType" | "sizeBytes">;
+
+/**
+ * The statements that turn staged uploads into a message's attachments: one insert per chunk and one delete
+ * of the staging rows. Meant to ride the SAME batch as the message, so the files and the message are one unit.
+ * Chunked so each statement stays under D1's bound-parameter limit.
+ */
+function adoptionStatements(input: { shop: string; messageId: string; uploads: readonly StagedUpload[]; at: number }): BatchItem<"sqlite">[] {
+  if (input.uploads.length === 0) return [];
+  const db = getDb();
+  const inserts = chunk(input.uploads, ATTACH_CHUNK).map((slice) =>
+    db.insert(supportAttachments).values(slice.map((upload) => ({
+      id: upload.id, messageId: input.messageId, shop: input.shop, r2Key: upload.r2Key, filename: upload.filename,
+      contentType: upload.contentType, sizeBytes: upload.sizeBytes, createdAt: input.at,
+    }))),
+  );
+  const deletes = chunk(input.uploads.map((upload) => upload.id), ATTACH_CHUNK).map((slice) =>
+    db.delete(pendingUploads).where(and(eq(pendingUploads.shop, input.shop), inArray(pendingUploads.id, [...slice]), isNull(pendingUploads.adoptedAt))),
+  );
+  return [...inserts, ...deletes];
+}
 
 /**
  * The ONLY place the support tables are queried — see @rules/data.md.
@@ -66,33 +90,35 @@ export class SupportRepo {
     return rows.filter((row) => row.expiresAt > now);
   }
 
+  /**
+   * Staged uploads of `shop` that can still be adopted right now: unknown ids, other shops' ids, expired
+   * and already-adopted uploads are all absent, so a caller that gets fewer rows than it asked for knows
+   * to refuse BEFORE writing anything.
+   */
+  async claimUploads(shop: string, ids: readonly string[], now: number): Promise<StagedUpload[]> {
+    const rows = await this.claimPendingUploads(shop, ids, now);
+    return rows.map((row) => ({ id: row.id, r2Key: row.r2Key, filename: row.filename, contentType: row.contentType, sizeBytes: row.sizeBytes }));
+  }
+
+  /** Staff path: adopts onto a message that already exists, in one batch. */
   async adoptPendingUploads(shop: string, messageId: string, ids: readonly string[], at: number): Promise<boolean> {
-    const rows = await this.claimPendingUploads(shop, ids, at);
+    const rows = await this.claimUploads(shop, ids, at);
     if (rows.length !== new Set(ids).size) return false;
-    // One D1 batch (a single transaction): every attachment row lands and every
-    // staged upload is consumed, or neither. Chunked so each statement stays
-    // under D1's bound-parameter limit.
-    const db = getDb();
-    const inserts = chunk(rows, ATTACH_CHUNK).map((slice) =>
-      db.insert(supportAttachments).values(slice.map((row) => ({
-        id: row.id, messageId, shop, r2Key: row.r2Key, filename: row.filename,
-        contentType: row.contentType, sizeBytes: row.sizeBytes, createdAt: at,
-      }))),
-    );
-    const deletes = chunk(rows.map((row) => row.id), ATTACH_CHUNK).map((slice) =>
-      db.delete(pendingUploads).where(and(eq(pendingUploads.shop, shop), inArray(pendingUploads.id, [...slice]), isNull(pendingUploads.adoptedAt))),
-    );
-    const [first, ...rest] = [...inserts, ...deletes];
-    if (first !== undefined) await db.batch([first, ...rest]);
+    const [first, ...rest] = adoptionStatements({ shop, messageId, uploads: rows, at });
+    if (first !== undefined) await getDb().batch([first, ...rest]);
     return true;
   }
 
   /**
-   * Open a ticket and write its first message together.
+   * Open a ticket and write its first message together, with the files it carries, as ONE batch: a
+   * failure anywhere leaves nothing behind, so a retry cannot meet half a ticket.
    *
    * The ticket's `lastAuthor`/`lastMessageAt` are set from that message rather
    * than defaulted, so the derived status is correct from the first row — there
    * is no moment where a thread exists with no author.
+   *
+   * `ticketId` is the submission's idempotency key (a uuid the form carried). The same key from the same
+   * shop answers with the ticket it already made (`created: false`) instead of making a second one.
    */
   async open(input: {
     shop: string;
@@ -106,36 +132,61 @@ export class SupportRepo {
     /** The merchant's language when they opened it. Null if we never knew. */
     locale: string | null;
     at: number;
-  }): Promise<{ id: string; messageId: string }> {
-    const id = this.ids.uuid();
+    ticketId?: string;
+    uploads?: readonly StagedUpload[];
+  }): Promise<{ id: string; messageId: string; created: boolean }> {
+    const id = input.ticketId ?? this.ids.uuid();
     const messageId = this.ids.uuid();
+
+    const existing = input.ticketId ? await this.firstMessageId(input.shop, id) : undefined;
+    if (existing) return { id, messageId: existing, created: false };
+
     const db = getDb();
+    try {
+      await db.batch([
+        db.insert(supportTickets).values({
+          id,
+          shop: input.shop,
+          shopName: input.shopName,
+          merchantEmail: input.merchantEmail,
+          ccEmails: [...input.ccEmails],
+          category: input.category,
+          subject: input.subject,
+          lastAuthor: "merchant",
+          lastMessageAt: input.at,
+          locale: input.locale,
+          createdAt: input.at,
+        }),
+        db.insert(supportMessages).values({
+          id: messageId,
+          ticketId: id,
+          shop: input.shop,
+          author: "merchant",
+          authorName: input.authorName,
+          body: input.body,
+          createdAt: input.at,
+        }),
+        ...adoptionStatements({ shop: input.shop, messageId, uploads: input.uploads ?? [], at: input.at }),
+      ]);
+    } catch (failure) {
+      // Two identical submissions raced and the other one won: its batch is whole, ours rolled back.
+      const winner = input.ticketId ? await this.firstMessageId(input.shop, id) : undefined;
+      if (winner) return { id, messageId: winner, created: false };
+      throw failure;
+    }
 
-    await db.insert(supportTickets).values({
-      id,
-      shop: input.shop,
-      shopName: input.shopName,
-      merchantEmail: input.merchantEmail,
-      ccEmails: [...input.ccEmails],
-      category: input.category,
-      subject: input.subject,
-      lastAuthor: "merchant",
-      lastMessageAt: input.at,
-      locale: input.locale,
-      createdAt: input.at,
-    });
+    return { id, messageId, created: true };
+  }
 
-    await db.insert(supportMessages).values({
-      id: messageId,
-      ticketId: id,
-      shop: input.shop,
-      author: "merchant",
-      authorName: input.authorName,
-      body: input.body,
-      createdAt: input.at,
-    });
-
-    return { id, messageId };
+  /** The first message of one of this shop's tickets, or undefined when the shop has no such ticket. */
+  private async firstMessageId(shop: string, ticketId: string): Promise<string | undefined> {
+    const [row] = await getDb()
+      .select({ id: supportMessages.id })
+      .from(supportMessages)
+      .where(and(eq(supportMessages.shop, shop), eq(supportMessages.ticketId, ticketId)))
+      .orderBy(asc(supportMessages.createdAt))
+      .limit(1);
+    return row?.id;
   }
 
   /**
@@ -244,6 +295,27 @@ export class SupportRepo {
   }
 
   /**
+   * The newest `limit` tickets of one shop for the merchant's list: only the columns the list shows, read through
+   * the (shop, last message) index, so the cost does not grow with a shop's history.
+   */
+  async listRecentForShop(shop: string, limit: number): Promise<SupportTicketSummary[]> {
+    return getDb()
+      .select({
+        id: supportTickets.id,
+        subject: supportTickets.subject,
+        category: supportTickets.category,
+        lastAuthor: supportTickets.lastAuthor,
+        closedAt: supportTickets.closedAt,
+        lastMessageAt: supportTickets.lastMessageAt,
+        merchantLastReadAt: supportTickets.merchantLastReadAt,
+      })
+      .from(supportTickets)
+      .where(eq(supportTickets.shop, shop))
+      .orderBy(desc(supportTickets.lastMessageAt))
+      .limit(limit);
+  }
+
+  /**
    * The staff queue: every live thread across every shop, most recently active
    * first. Closed threads are excluded — they are not work.
    */
@@ -287,6 +359,9 @@ export class SupportRepo {
    * closing note does not put the thread back in the queue. Returns the new
    * message's id, or undefined when the ticket does not belong to `shop` — pass the staff shop to bypass, which
    * `replyAsStaff` does explicitly.
+   *
+   * The message, the ticket's facts and the adopted files are one batch. `messageId` is the submission's
+   * idempotency key: sending it again answers with the message already stored (`created: false`).
    */
   async reply(input: {
     shop: string;
@@ -295,7 +370,9 @@ export class SupportRepo {
     authorName: string;
     body: string;
     at: number;
-  }): Promise<{ messageId: string } | undefined> {
+    messageId?: string;
+    uploads?: readonly StagedUpload[];
+  }): Promise<{ messageId: string; created: boolean } | undefined> {
     const db = getDb();
     const [ticket] = await db
       .select({ id: supportTickets.id })
@@ -304,8 +381,29 @@ export class SupportRepo {
       .limit(1);
     if (!ticket) return undefined;
 
-    const messageId = await this.appendMessage(input.shop, input);
-    return { messageId };
+    const messageId = input.messageId ?? this.ids.uuid();
+    if (input.messageId && (await this.messageExists(input.shop, input.ticketId, messageId))) {
+      return { messageId, created: false };
+    }
+
+    try {
+      await this.appendMessage(input.shop, { ...input, messageId });
+    } catch (failure) {
+      if (input.messageId && (await this.messageExists(input.shop, input.ticketId, messageId))) {
+        return { messageId, created: false };
+      }
+      throw failure;
+    }
+    return { messageId, created: true };
+  }
+
+  private async messageExists(shop: string, ticketId: string, messageId: string): Promise<boolean> {
+    const [row] = await getDb()
+      .select({ id: supportMessages.id })
+      .from(supportMessages)
+      .where(and(eq(supportMessages.shop, shop), eq(supportMessages.ticketId, ticketId), eq(supportMessages.id, messageId)))
+      .limit(1);
+    return row !== undefined;
   }
 
   /** Staff answer any shop's thread, so this one is not shop-scoped by design. */
@@ -369,35 +467,41 @@ export class SupportRepo {
     shop: string | null,
     input: {
       ticketId: string;
+      messageId?: string;
       author: SupportAuthor;
       authorName: string;
       body: string;
       at: number;
+      uploads?: readonly StagedUpload[];
     },
   ): Promise<string> {
     const db = getDb();
-    const messageId = this.ids.uuid();
+    const messageId = input.messageId ?? this.ids.uuid();
 
-    await db.insert(supportMessages).values({
-      id: messageId,
-      ticketId: input.ticketId,
-      shop,
-      author: input.author,
-      authorName: input.authorName,
-      body: input.body,
-      createdAt: input.at,
-    });
-
-    await db
-      .update(supportTickets)
-      .set({
-        lastAuthor: input.author,
-        lastMessageAt: input.at,
-        // A merchant coming back reopens the thread; staff closing it does not
-        // undo itself. `undefined` leaves the column alone.
-        ...(input.author === "merchant" ? { closedAt: null } : {}),
-      })
-      .where(eq(supportTickets.id, input.ticketId));
+    // One batch (a single transaction): the message, what it does to the thread, and the files it adopts
+    // land together or not at all. A staff reply has no `shop` to adopt under and carries no files.
+    await db.batch([
+      db.insert(supportMessages).values({
+        id: messageId,
+        ticketId: input.ticketId,
+        shop,
+        author: input.author,
+        authorName: input.authorName,
+        body: input.body,
+        createdAt: input.at,
+      }),
+      db
+        .update(supportTickets)
+        .set({
+          lastAuthor: input.author,
+          lastMessageAt: input.at,
+          // A merchant coming back reopens the thread; staff closing it does not
+          // undo itself. `undefined` leaves the column alone.
+          ...(input.author === "merchant" ? { closedAt: null } : {}),
+        })
+        .where(eq(supportTickets.id, input.ticketId)),
+      ...(shop === null ? [] : adoptionStatements({ shop, messageId, uploads: input.uploads ?? [], at: input.at })),
+    ]);
 
     return messageId;
   }

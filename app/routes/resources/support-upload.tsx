@@ -3,7 +3,7 @@ import { data } from "react-router";
 import type { ActionFunctionArgs } from "react-router";
 import { guardMember } from "~/admin/require-member.server";
 import { getEnv } from "~/request-context.server";
-import { attachmentKey, safeFilename, validateUpload } from "~/support/attachment";
+import { attachmentKey, decodeFilenameHeader, safeFilename, validateUpload } from "~/support/attachment";
 import { getAdminUser } from "~/services/admin-auth.server";
 import { adminUsers } from "~/wiring.server";
 
@@ -150,7 +150,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const uploadId = crypto.randomUUID();
   const key = attachmentKey({ shop, ticketId, uploadId });
-  const filename = safeFilename(request.headers.get("X-Support-Filename") ?? "file");
+  // The browser percent-encodes the name (header values are Latin-1); decode it, then make it safe.
+  const filename = safeFilename(decodeFilenameHeader(request.headers.get("X-Support-Filename") ?? "file"));
 
   const object = await env.UPLOADS.put(key, request.body, { httpMetadata: { contentType } });
   const upload: StagedUpload = { uploadId, shop, ticketId, key, filename, contentType, sizeBytes: object.size };

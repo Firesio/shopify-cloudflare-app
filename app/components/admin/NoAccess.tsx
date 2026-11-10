@@ -20,7 +20,16 @@ const MESSAGES = {
  * What a person sees when they are signed in to Shopify but the app will not let them in, or not onto this page. Says why
  * and who can change it; the app never shows a bare error for a person who simply is not allowed.
  */
-export function NoAccess({ reason, contacts = [] }: { readonly reason: AccessRefusal; readonly contacts?: readonly TeamContact[] }) {
+export function NoAccess({
+  reason,
+  contacts = [],
+  homeHref,
+}: {
+  readonly reason: AccessRefusal;
+  readonly contacts?: readonly TeamContact[];
+  /** Where the person can go instead, when they can use the app at all (a page they may not open, not a locked-out person). */
+  readonly homeHref?: string;
+}) {
   const { t } = useTranslation("admin");
   const language = useLanguage();
   // "Ada (ada@shop.com)", or whichever of the two is known: the one thing a person kept out needs is someone to ask.
@@ -32,6 +41,11 @@ export function NoAccess({ reason, contacts = [] }: { readonly reason: AccessRef
         <s-empty-state heading={heading}>
           <s-icon slot="graphic" type="lock"></s-icon>
           <s-text slot="subheading">{t(MESSAGES[reason].body)}</s-text>
+          {homeHref === undefined ? null : (
+            <s-button slot="primary-action" variant="primary" href={homeHref}>
+              {t("noAccess.backHome")}
+            </s-button>
+          )}
         </s-empty-state>
         {contacts.length > 0 && <s-paragraph color="subdued">{t("noAccess.contact", { who })}</s-paragraph>}
       </s-section>

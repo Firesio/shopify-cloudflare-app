@@ -1,6 +1,6 @@
-import { isMemberRole, type MemberPermission, type MemberRole } from "~/domain/member-access";
+import { assignableRoles, can, isMemberRole, type MemberPermission, type MemberRole } from "~/domain/member-access";
 import type { CustomPermissionPolicy } from "~/domain/member-permissions";
-import { memberDetail, rolesToOffer, seatSummary, teamRows, toTeamMember, type MemberDetail, type SeatSummary, type TeamRow } from "~/domain/member-team";
+import { activationSeat, hiddenCount, isCancelledInvitation, memberDetail, seatSummary, teamNotices, teamRows, toTeamMember, type ActivationSeat, type MemberDetail, type SeatSummary, type TeamRow } from "~/domain/member-team";
 import type { MemberActionResult } from "~/members/feedback";
 import type { Member } from "~/ports/members";
 import type { Runtime } from "~/ports/runtime";
@@ -16,20 +16,27 @@ import { approveMember, changeRole, inviteMember, removeMember, restoreMember, s
 export interface TeamPage {
   readonly rows: readonly TeamRow[];
   readonly seats: SeatSummary;
-  /** How many people are waiting to be let in, for the banner. */
+  /** How many people are waiting to be let in (not people who lost a seat), for the banner. */
   readonly waiting: number;
+  /** How many people lost their seat to a downgrade: they are told apart from the ones waiting. */
+  readonly noSeat: number;
+  /** How many people the list did not show because it is read up to a cap; 0 when it is whole. */
+  readonly hidden: number;
   /** The roles the person looking may hand out. */
   readonly roles: readonly MemberRole[];
 }
 
-/** One batch of reads: the team, how many seats are in use, and what the plan allows. */
+/** One batch of reads: the team, how many people are in each state (also what the cap hid), and what the plan allows. */
 export async function loadTeam(actor: Actor, deps: Pick<ManageDependencies, "members" | "seats">): Promise<TeamPage> {
-  const [members, counts, limit] = await Promise.all([deps.members.list(actor.shop), deps.members.countByStatus(actor.shop), deps.seats.limit(actor.shop)]);
+  const [members, counts, reading] = await Promise.all([deps.members.list(actor.shop), deps.members.countByStatus(actor.shop), deps.seats.reading(actor.shop)]);
+  const notices = teamNotices(counts);
   return {
     rows: teamRows(actor, members.map(toTeamMember)),
-    seats: seatSummary(limit, counts.active),
-    waiting: counts.pending,
-    roles: rolesToOffer(actor),
+    seats: seatSummary(reading, counts.active),
+    waiting: notices.waiting,
+    noSeat: notices.noSeat,
+    hidden: hiddenCount(counts, members.length),
+    roles: assignableRoles(actor),
   };
 }
 
@@ -39,17 +46,34 @@ export interface MemberPage {
   readonly roles: readonly MemberRole[];
   /** What the app lets merchants do with a member's own set of permissions, and which permissions only come with a role. */
   readonly policy: CustomPermissionPolicy;
+  /** The looker may change the plan, so a full-seats note can link to it. */
+  readonly canChangePlan: boolean;
 }
 
+/** Whether the plan's seats matter for this person: only someone who could be let in or brought back. */
+const needsSeatAnswer = (member: Member): boolean => member.shopifyUserId !== null && (member.status === "pending" || member.status === "removed");
+
 /**
- * One member's page: their detail, and who invited them when that member is still in this shop. Undefined when this shop's
- * team has nobody with that id: another shop's member is never found, because every read is shop-scoped.
+ * One member's page: their detail, and who invited them when that member is still in this shop (one query). Undefined when
+ * this shop's team has nobody with that id: another shop's member is never found, because every read is shop-scoped. So is a
+ * cancelled invitation from before cancelling one deleted it.
  */
-export async function loadMember(actor: Actor, id: string, deps: Pick<ManageDependencies, "members" | "customPermissions">): Promise<MemberPage | undefined> {
-  const found = await deps.members.findById(actor.shop, id);
-  if (found === undefined) return undefined;
-  const inviter = found.invitedBy === null ? undefined : await deps.members.findById(actor.shop, found.invitedBy);
-  return { member: memberDetail(actor, found, inviter, deps.customPermissions), roles: rolesToOffer(actor), policy: deps.customPermissions };
+export async function loadMember(actor: Actor, id: string, deps: Pick<ManageDependencies, "members" | "customPermissions" | "seats">): Promise<MemberPage | undefined> {
+  const found = await deps.members.findWithInviter(actor.shop, id);
+  if (found === undefined || isCancelledInvitation(toTeamMember(found.member))) return undefined;
+  // Seats are read only for someone the plan's seats decide for, and then as one batch.
+  const activation = needsSeatAnswer(found.member) ? await readActivationSeat(actor.shop, deps) : undefined;
+  return {
+    member: memberDetail(actor, found.member, found.inviter, deps.customPermissions, activation),
+    roles: assignableRoles(actor),
+    policy: deps.customPermissions,
+    canChangePlan: can(actor, "billing:manage"),
+  };
+}
+
+async function readActivationSeat(shop: string, deps: Pick<ManageDependencies, "members" | "seats">): Promise<ActivationSeat> {
+  const [counts, reading] = await Promise.all([deps.members.countByStatus(shop), deps.seats.reading(shop)]);
+  return activationSeat(reading, counts.active);
 }
 
 /** The role field, or undefined when it is not one of ours: a guard, never `as`. */

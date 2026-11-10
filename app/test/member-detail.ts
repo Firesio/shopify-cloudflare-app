@@ -22,6 +22,7 @@ export function memberDetailFixture(overrides: Partial<MemberDetail> & Pick<Memb
     permissions: ["app:view", "app:manage"],
     customize: { allowed: false, grantable: ["app:view", "app:manage", "billing:manage"] },
     can: { changeRole: true, remove: true, approve: false, restore: false },
+    seat: null,
     ...overrides,
   };
 }

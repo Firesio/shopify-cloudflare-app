@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { revealFirstError } from "~/admin/first-error";
-import { prefersReducedMotion } from "~/admin/use-reveal-first-error";
+import { prefersReducedMotion, revealFirstError } from "~/admin/first-error";
 import { trackDirty, type DirtyTracker } from "~/admin/form-dirty";
+
+/**
+ * Hides the bar. The host rejects with "SaveBar with ID ... not found" when it already removed the bar (a save or a
+ * navigation tore it down first); a bar that is gone is the state wanted, so that one rejection ends here.
+ */
+function hideSaveBar(id: string): void {
+  void Promise.resolve(globalThis.shopify?.saveBar?.hide?.(id)).catch(
+    () => undefined,
+  );
+}
 
 /**
  * The save bar of the form it sits in, the programmatic way Shopify documents (the Save Bar API: a `<ui-save-bar>`
@@ -24,16 +33,6 @@ import { trackDirty, type DirtyTracker } from "~/admin/form-dirty";
  * the merchant types, until a save goes through or they discard. Discard then also calls `onDiscard`, so the page
  * can drop the draft (a plain reset would only put the draft's own values back).
  */
-/**
- * Hides the bar. The host rejects with "SaveBar with ID ... not found" when it already removed the bar (a save or a
- * navigation tore it down first); a bar that is gone is the state wanted, so that one rejection ends here.
- */
-function hideSaveBar(id: string): void {
-  void Promise.resolve(globalThis.shopify?.saveBar?.hide?.(id)).catch(
-    () => undefined,
-  );
-}
-
 export function FormSaveBar(props: {
   /** Unique on the page. */
   readonly id: string;

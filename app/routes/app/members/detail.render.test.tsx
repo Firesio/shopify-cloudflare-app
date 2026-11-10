@@ -11,7 +11,7 @@ const member = memberDetailFixture;
 const roles = ["owner", "admin", "member", "viewer"] as const;
 const on = customPolicy({ enabled: true, alsoProtected: [] });
 const render = (page: MemberDetail, locale: "en" | "es" = "en", policy = on) =>
-  renderRoute({ path: "/app/members/mia", Component: MemberDetailPage, loaderData: { member: page, roles, policy }, locale, stage: "settled" });
+  renderRoute({ path: "/app/members/mia", Component: MemberDetailPage, loaderData: { member: page, roles, policy, canChangePlan: true }, locale, stage: "settled" });
 
 /** What the page shows for each permission, read from the markup: an editable one is a checkbox, any other a static row. */
 function checkboxes(html: string): { label: string; checked: boolean; details: string }[] {
@@ -67,26 +67,89 @@ describe("one member's page", () => {
     expect(html).toContain("They lose access to");
   });
 
-  it("offers an invitation to be cancelled rather than removed", async () => {
+  it("offers an invitation to be cancelled rather than removed, and the confirmation says the invitation is deleted", async () => {
     const html = await render(member({ id: "inv", name: null, email: "i@firesio.app", status: "invited", isInvitation: true }));
-    expect(html).toContain("Cancel invitation");
     expect(html).toContain("Invited");
+    expect(html).toMatch(/<s-button[^>]*slot="secondary-actions"[^>]*>Cancel invitation</);
+    expect(html).toContain("Cancel the invitation for i@firesio.app?");
+    expect(html).toContain("The invitation is deleted");
+    expect(html).not.toContain("They lose access to");
+    expect(html).not.toContain("Remove i@firesio.app?");
   });
 
-  it("offers to let a waiting person in as each role, and removing them, and no role to choose yet", async () => {
-    const html = await render(member({ id: "w", status: "pending", can: { changeRole: true, remove: true, approve: true, restore: false } }));
+  it("lets a waiting person in with ONE role select and ONE button, and says why they cannot use the app", async () => {
+    const html = await render(member({ id: "w", status: "pending", role: "viewer", can: { changeRole: true, remove: true, approve: true, restore: false } }));
+    expect(html.match(/<s-select\b/g)).toHaveLength(1);
+    expect(html.match(/Let in as /g)).toHaveLength(1);
     expect(html).toContain("Let in as Viewer");
-    expect(html).toContain("Let in as Admin");
+    expect(html).toMatch(/<s-select[^>]*label="Role"[^>]*value="viewer"/);
+    for (const role of roles) expect(html).toContain(`<s-option value="${role}"`);
+    expect(html).toContain("is waiting to be let in");
     expect(html).toContain("Waiting");
-    expect(html).not.toContain("<s-select");
+    expect(html).not.toMatch(/<s-button[^>]*disabled/);
   });
 
-  it("offers to restore a removed person as each role, and not to remove them again", async () => {
+  it("restores a removed person with one select and one button, and does not offer to remove them again", async () => {
     const html = await render(member({ id: "r", status: "removed", can: { changeRole: false, remove: false, approve: false, restore: true } }));
+    expect(html.match(/<s-select\b/g)).toHaveLength(1);
+    expect(html.match(/Restore as /g)).toHaveLength(1);
     expect(html).toContain("Restore as Member");
+    expect(html).toContain("was removed and cannot use");
     expect(html).toContain("Removed");
     expect(html).not.toContain('tone="critical"');
-    expect(html).not.toContain("<s-select");
+  });
+
+  it("disables letting in, with the reason beside it and a way to the plan, when no seat is free", async () => {
+    const waiting = { id: "w", status: "pending", can: { changeRole: true, remove: true, approve: true, restore: false } } as const;
+    const full = await render(member({ ...waiting, seat: { open: false, why: "full" } }));
+    expect(full).toMatch(/<s-button[^>]*variant="primary"[^>]*disabled[^>]*>Let in as Member/);
+    expect(full).toContain("Every seat is in use, so nobody can be let in right now.");
+    expect(full).toContain('href="/app/billing"');
+    const unreadable = await render(member({ ...waiting, seat: { open: false, why: "unreadable" } }));
+    expect(unreadable).toMatch(/<s-button[^>]*disabled[^>]*>Let in as Member/);
+    expect(unreadable).toContain("cannot read your plan");
+    const open = await render(member({ ...waiting, seat: { open: true } }));
+    expect(open).not.toMatch(/<s-button[^>]*disabled/);
+    expect(open).not.toContain("Every seat is in use");
+    const removed = await render(member({ id: "r", status: "removed", can: { changeRole: false, remove: false, approve: false, restore: true }, seat: { open: false, why: "full" } }));
+    expect(removed).toMatch(/<s-button[^>]*disabled[^>]*>Restore as Member/);
+  });
+
+  it("offers the plan link only to someone who may change the plan", async () => {
+    const page = member({ id: "w", status: "pending", can: { changeRole: true, remove: true, approve: true, restore: false }, seat: { open: false, why: "full" } });
+    const html = await renderRoute({ path: "/app/members/w", Component: MemberDetailPage, loaderData: { member: page, roles, policy: on, canChangePlan: false }, locale: "en", stage: "settled" });
+    expect(html).toContain("Every seat is in use");
+    expect(html).not.toContain('href="/app/billing"');
+  });
+
+  it("explains a lost seat in its own words, not as waiting for approval", async () => {
+    const html = await render(member({ id: "t", status: "pending", noSeat: true, can: { changeRole: true, remove: true, approve: true, restore: false } }));
+    expect(html).toContain("No seat");
+    expect(html).toContain("lost their seat when the plan&#x27;s seat limit was lowered");
+    expect(html).not.toContain("is waiting to be let in");
+  });
+
+  it("shows no permissions for anyone who cannot use the app: waiting, no seat, removed or an invitation", async () => {
+    const cases = [
+      member({ id: "w", status: "pending", can: { changeRole: true, remove: true, approve: true, restore: false } }),
+      member({ id: "t", status: "pending", noSeat: true, can: { changeRole: true, remove: true, approve: true, restore: false } }),
+      member({ id: "r", status: "removed", can: { changeRole: false, remove: false, approve: false, restore: true } }),
+      member({ id: "i", status: "invited", isInvitation: true, name: null, can: { changeRole: true, remove: true, approve: false, restore: false } }),
+    ];
+    for (const page of cases) {
+      const html = await render(page);
+      expect(html, page.id).not.toContain('heading="Permissions"');
+      expect(html, page.id).not.toContain("data-permission=");
+      expect(html, page.id).not.toContain("<s-checkbox");
+    }
+    expect(await render(member({ id: "a" }))).toContain('heading="Permissions"');
+  });
+
+  it("says what an invitation is, lets its role be set, and never offers to let it in", async () => {
+    const html = await render(member({ id: "inv", status: "invited", isInvitation: true, name: null, email: "i@firesio.app", can: { changeRole: true, remove: true, approve: false, restore: false } }));
+    expect(html).toContain("Nobody has opened");
+    expect(html).toMatch(/<s-select[^>]*label="Role"/);
+    expect(html).not.toMatch(/Let in as|Restore as/);
   });
 
   it("offers nothing on your own page, and says so", async () => {
@@ -193,6 +256,23 @@ describe("the permissions on one member's page", () => {
     const html = await render(member({ id: "mia", permissions: ["app:view"] }));
     expect(html.match(/>Allowed</g)).toHaveLength(1);
     expect(html.match(/>Not allowed</g)).toHaveLength(3);
+  });
+
+  it("keeps the spoken word beside the name, not inside it, so a screen reader never reads them run together", async () => {
+    const html = await render(member({ id: "mia", permissions: ["app:view"] }));
+    // The name and the word are sibling elements; the word is hidden from sight only.
+    expect(html).toMatch(/<s-text>Use the app<\/s-text><s-text accessibilityVisibility="exclusive">Allowed<\/s-text>/);
+    expect(html).not.toMatch(/Use the app<s-text accessibilityVisibility/);
+  });
+
+  it("groups the permissions under one name for a screen reader: whose they are", async () => {
+    const html = await render(member({ id: "mia", customize: editable }));
+    expect(html).toMatch(/<div role="group" aria-label="Permissions of Mia">/);
+    const group = html.slice(html.indexOf('role="group"'), html.indexOf("</div>", html.indexOf('role="group"')));
+    // Every permission, boxes and plain rows alike, sits inside the group.
+    expect(checkboxes(group).map((box) => box.label)).toEqual(["Change settings and data", "Manage the plan"]);
+    expect(group).toContain('data-permission="app:view"');
+    expect(group).toContain('data-permission="members:manage"');
   });
 
   it("lets the looker tick what they may give, and shows the way in, what only comes with a role and what they may not give as plain rows with the reason", async () => {

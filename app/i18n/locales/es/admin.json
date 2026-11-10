@@ -26,63 +26,45 @@
     }
   },
   "dashboard": {
-    "heading": "Resumen",
-    "greeting": "Buenos días, {{shop}}",
+    "heading": "Inicio",
+    "greeting": "Hola, {{shop}}",
     "intro": "Esto es lo que ocurre hoy en tu tienda.",
     "primaryAction": "Crear promoción",
-    "period": "Últimos 30 días",
-    "overview": "Resumen de la tienda",
+    "period": "Últimos {{days}} días",
     "sales": "Ventas netas",
-    "salesChange": "+12,5 % frente al periodo anterior",
-    "salesChangeShort": "+12,5 %",
     "orders": "Pedidos",
-    "ordersChange": "+8,2 % frente al periodo anterior",
-    "ordersChangeShort": "+8,2 %",
-    "customers": "Clientes nuevos",
-    "customersChange": "+5,4 % frente al periodo anterior",
     "conversion": "Tasa de conversión",
-    "conversionChange": "+0,7 % frente al periodo anterior",
-    "conversionChangeShort": "+0,7 %",
-    "performance": "Rendimiento de ventas",
     "performanceWithPeriod": "Rendimiento de ventas · {{period}}",
+    "performanceLoading": "Cargando el rendimiento de ventas",
     "secondaryAction": "Ver analíticas",
     "channelPerformance": "Ventas por canal",
     "channel": "Canal",
     "channelSales": "Ventas netas",
     "channelOrders": "Pedidos",
+    "channelsLoading": "Cargando las ventas por canal",
+    "channelsEmptyHeading": "Aún no hay canales de venta",
+    "channelsEmptyBody": "Las ventas por canal aparecerán aquí cuando tu tienda tenga pedidos.",
     "onlineStore": "Tienda online",
     "shopApp": "Shop app",
     "social": "Redes sociales",
-    "quickActions": "Acciones rápidas",
-    "manageProducts": "Gestionar productos",
-    "manageProductsBody": "Mantén tu catálogo actualizado y listo para vender.",
-    "viewOrders": "Ver pedidos",
-    "viewOrdersBody": "Revisa los pedidos recientes y su estado de preparación.",
-    "marketing": "Marketing",
-    "marketingBody": "Haz que más clientes vuelvan con una campaña.",
     "recentActivity": "Actividad reciente",
     "activity": {
-      "order": "El pedido #1048 se ha preparado",
-      "orderBody": "Tienda online · hace 2 minutos",
+      "order": "El pedido #{{number}} se ha preparado",
+      "orderBody": "Tienda online · {{when}}",
       "customer": "Se ha unido un cliente nuevo",
-      "customerBody": "Maya Chen · hace 18 minutos",
+      "customerBody": "Maya Chen · {{when}}",
       "promotion": "Ha comenzado la promoción de verano",
-      "promotionBody": "Marketing · hace 1 hora"
+      "promotionBody": "Marketing · {{when}}"
     },
-    "viewAll": "Ver toda la actividad",
-    "feedbackHeading": "Haz tuyo este panel",
-    "feedbackBody": "Estas métricas de ejemplo están listas para sustituirse por los datos de tu tienda al conectar más funciones.",
-    "feedbackAction": "Explorar soporte",
     "needHelp": "¿Necesitas ayuda?",
     "contactSupport": "Contactar con soporte"
   },
   "setupGuide": {
     "heading": "Termina de configurar tu tienda",
     "body": "Completa estos pasos para empezar a vender con confianza.",
-    "progress": "1 de 3 pasos completados",
-    "dismiss": "Cerrar guía de configuración",
+    "progress": "{{done}} de {{total}} pasos completados",
     "toggleGuide": "Mostrar u ocultar guía de configuración",
-    "toggleStep": "Mostrar u ocultar detalles del paso {{step}}",
+    "toggleStep": "Mostrar u ocultar los detalles de {{title}}",
     "steps": {
       "connect": "Conecta tu tienda",
       "connectBody": "Vincula tus canales de venta y preferencias.",
@@ -116,22 +98,30 @@
     "heading": "Facturación",
     "manage": "Gestionar plan",
     "upgrade": "Mejorar plan",
-    "testBadge": "Cobro de prueba: no es dinero real",
+    "reviewPlan": "Revisar plan",
+    "resubscribe": "Volver a suscribirse",
+    "choosePlan": "Elegir un plan",
     "currentPlanBadge": "Plan actual",
+    "subscriptionFallbackName": "Tu suscripción",
     "current": {
       "renews": "Se renueva el {{date}} por {{price}}",
       "renewsUnknownPrice": "Se renueva el {{date}}",
       "trial": "Tu prueba gratuita termina el {{date}}. Después, se te cobrará {{price}}.",
-      "trialUnknownPrice": "Tu prueba gratuita termina el {{date}}."
+      "trialUnknownPrice": "Tu prueba gratuita termina el {{date}}.",
+      "cancelsOn": "Tu suscripción termina el {{date}}. Mantienes el acceso hasta entonces.",
+      "cancelsAtPeriodEnd": "Tu suscripción está programada para terminar. Mantienes el acceso hasta el final del periodo de facturación actual.",
+      "frozen": "Tus pagos están en pausa, así que este plan no está activo. Actualiza tus datos de facturación en Shopify para restablecerlo.",
+      "pending": "Este plan está esperando tu aprobación en Shopify. No cambia nada hasta que lo apruebes.",
+      "cancelled": "Esta suscripción se canceló. Elige un plan para volver a suscribirte.",
+      "inactive": "Esta tienda no tiene una suscripción activa. Elige un plan para suscribirte."
     },
-    "status": {
-      "ACTIVE": "Activo",
-      "CANCELLED": "Cancelado",
-      "PENDING": "Aprobación pendiente",
-      "DECLINED": "Rechazado",
-      "EXPIRED": "Caducado",
-      "FROZEN": "Congelado",
-      "ACCEPTED": "Aceptado"
+    "phase": {
+      "active": "Activo",
+      "cancelling": "En cancelación",
+      "frozen": "Pago congelado",
+      "pending": "Esperando tu aprobación",
+      "cancelled": "Cancelado",
+      "inactive": "No activo"
     },
     "plans": {
       "heading": "Planes",
@@ -142,36 +132,43 @@
       "annualSaving": "o {{price}} con facturación anual — ahorra {{percent}}%",
       "freeForever": "Gratis para siempre",
       "buildsOn": "Todo lo del plan {{plan}}, y además",
-      "levelOneImageAlt": "Ilustración del plan inicial",
-      "levelTwoImageAlt": "Ilustración del plan de crecimiento"
+      "imageAlt": {
+        "free": "Ilustración del plan gratuito",
+        "pro": "Ilustración del plan de pago"
+      }
     },
-    "promoBadge": "Promoción activa (quedan {{days}} d)",
+    "promoBadge": "Promoción",
+    "promoEnds": "El acceso promocional termina {{when}}.",
     "planLabel": "Tu plan",
+    "subscriptionLabel": "Tu suscripción",
     "managedNote": "Los planes los gestiona Shopify. Usa el botón de arriba para ver los planes disponibles, mejorar tu plan o cambiar tu suscripción.",
+    "managedNoteNoLink": "Los planes los gestiona Shopify, así que los cambios de plan se hacen fuera de esta app.",
     "processing": {
       "heading": "Actualizando tu plan",
       "body": "Estamos comprobando los últimos detalles de Shopify. Normalmente tarda solo un momento.",
-      "spinnerLabel": "Actualizando tu plan",
+      "statusLabel": "Actualizando tu plan",
       "failedHeading": "No hemos podido actualizar tu plan",
-      "failedBody": "Inténtalo de nuevo para comprobar los últimos detalles de Shopify."
+      "failedBody": "Inténtalo de nuevo para comprobar los últimos detalles de Shopify.",
+      "toastDone": "Tu plan está al día",
+      "toastFailed": "No hemos podido actualizar tu plan"
     },
     "price": {
       "perMonth": "{{price}}/mes",
       "perYear": "{{price}}/año",
-      "flat": "{{price}}"
+      "flat": "{{price}}",
+      "free": "Gratis"
     },
     "loading": "Cargando tu plan",
     "loadFailedHeading": "No pudimos cargar tu plan",
     "loadFailedBody": "Vuelve a cargar la página para intentarlo de nuevo. Si sigue ocurriendo, contacta con soporte.",
-    "planLinkUnavailable": "El enlace del plan no está disponible en este momento. Vuelve a cargar la página para intentarlo de nuevo.",
-    "plansLoading": "Cargando planes"
+    "planLinkUnavailable": "El enlace del plan no está disponible en este momento. Vuelve a cargar la página para intentarlo de nuevo."
   },
   "support": {
     "heading": "Soporte",
     "newTicket": "Nuevo ticket",
     "empty": {
       "heading": "Aún no hay tickets",
-      "body": "Cuando algo no funcione o quieras una función, abre un ticket y te responderemos aquí.",
+      "body": "Usa Nuevo ticket para avisar de un problema o hacer una pregunta. Te responderemos aquí.",
       "illustrationAlt": "Ilustración de una conversación de soporte"
     },
     "columns": {
@@ -205,7 +202,13 @@
       "ccHelp": "Reciben todas las respuestas y pueden responder. Hasta {{max}}.",
       "attachments": "Capturas, vídeos o archivos",
       "addFiles": "Añadir archivos",
-      "attachmentLimits": "Hasta 10 MB para imágenes, 100 MB para vídeos y 25 MB para archivos",
+      "attachmentLimits": "Hasta {{max}} archivos. Imágenes de hasta {{image}}, vídeos de hasta {{video}} y otros archivos de hasta {{file}}.",
+      "attachmentsSkipped": "En un mensaje caben {{max}} archivos como máximo. Los archivos sobrantes no se han añadido.",
+      "fileUploading": "Subiendo {{filename}}",
+      "fileRemove": "Quitar {{filename}}",
+      "fileFailed": "No se pudo añadir {{filename}}",
+      "submit": "Enviar ticket",
+      "replyExpectation": "Respondemos por correo y en este hilo.",
       "emailHeading": "Respuestas",
       "ccEmpty": "No hay nadie más en copia.",
       "ccAdd": "Añadir correo",
@@ -219,17 +222,14 @@
     "thread": {
       "conversation": "Conversación",
       "you": "Tú",
-      "us": "Soporte",
       "reply": "Tu respuesta",
       "replyPlaceholder": "Añade cualquier detalle que pueda ayudar",
       "send": "Enviar respuesta",
       "sending": "Enviando…",
-      "closedNotice": "Este ticket está cerrado. Responde para reabrirlo.",
+      "closedNotice": "Este ticket está cerrado. Si respondes, se reabrirá.",
+      "sendAndReopen": "Enviar respuesta y reabrir",
       "details": "Detalles",
       "created": "Abierto",
-      "attachmentCount": "{{count}} archivo adjunto",
-      "attachmentCount_plural": "{{count}} archivos adjuntos",
-      "download": "Abrir archivo",
       "pageHeading": "Ticket",
       "loading": "Cargando la conversación",
       "notFoundHeading": "No encontramos este ticket",
@@ -242,7 +242,8 @@
       "upload_failed": "No se pudo subir el archivo. Inténtalo de nuevo.",
       "too_large": "El archivo es demasiado grande.",
       "unsupported_type": "Ese tipo de archivo no es compatible.",
-      "invalid_cc": "Esa lista de copias no es válida. Usa una dirección por línea.",
+      "invalid_cc": "Esa lista de copias no es válida. Revisa cada dirección de correo.",
+      "invalid_upload": "Un archivo adjunto ya no está disponible, así que no se envió nada. Vuelve a añadir tus archivos.",
       "invalid_cc_email": "Eso no parece un correo electrónico.",
       "duplicate_cc_email": "Esa dirección ya está en la lista.",
       "too_many_cc_emails": "La lista está llena. Quita a alguien para añadir a otra persona."
@@ -252,9 +253,26 @@
       "replied": "Respuesta enviada.",
       "ccSaved": "Lista de copias guardada."
     },
+    "fieldErrors": {
+      "required": "Este campo es obligatorio.",
+      "too_long": "Es demasiado largo.",
+      "invalid_email": "Introduce un correo electrónico válido.",
+      "invalid_choice": "Elige una de las opciones.",
+      "invalid_cc_email": "Una de las direcciones en copia no es un correo electrónico válido.",
+      "too_many_cc_emails": "Puedes poner en copia hasta {{max}} personas.",
+      "invalid": "Revisa este campo e inténtalo de nuevo."
+    },
+    "list": {
+      "truncated": "Se muestran tus {{limit}} tickets más recientes."
+    },
     "loading": "Cargando tus tickets",
     "loadFailedHeading": "No pudimos cargar tus tickets",
     "loadFailedBody": "Vuelve a cargar la página para intentarlo de nuevo. Si sigue ocurriendo, contacta con soporte."
+  },
+  "shell": {
+    "memberMissing": {
+      "back": "Volver al equipo"
+    }
   },
   "noAccess": {
     "pageHeading": "Acceso",
@@ -278,7 +296,8 @@
     "seat_limit": {
       "heading": "Tu plan no tiene una plaza libre para ti",
       "body": "El plan de {{appName}} de esta tienda tiene un número limitado de plazas, y la tuya se cedió cuando el equipo lo superó. Cuando haya una plaza libre, un propietario o administrador de esta tienda puede volver a dejarte entrar."
-    }
+    },
+    "backHome": "Ir a Inicio"
   },
   "members": {
     "heading": "Equipo",
@@ -301,13 +320,15 @@
       }
     },
     "invite": {
-      "action": "Invitar a un miembro",
-      "heading": "Invitar a un miembro",
+      "action": "Añadir un miembro",
+      "heading": "Añadir un miembro",
       "email": "Correo electrónico",
       "emailHint": "Se une la primera vez que abre {{appName}} con este correo verificado en Shopify.",
       "role": "Rol",
-      "submit": "Enviar invitación",
-      "cancel": "Cancelar"
+      "submit": "Añadir",
+      "cancel": "Cancelar",
+      "seatsFull": "Todas las plazas están en uso. Puedes guardar a esta persona ahora, pero esperará a que la dejes entrar hasta que haya una plaza libre.",
+      "seatsUnreadable": "Ahora no podemos leer el límite de plazas de tu plan. Puedes guardar a esta persona, pero esperará a que la dejes entrar hasta que se pueda leer."
     },
     "seats": {
       "heading": "Plazas",
@@ -316,7 +337,9 @@
       "full": "Todas las plazas están en uso. Quita a alguien o cambia de plan para que entren más personas.",
       "over": "El límite de plazas de tu plan es {{max}} y hay {{used}} en uso. No se quita a nadie, pero nadie nuevo puede unirse hasta que estés dentro del límite.",
       "changePlan": "Cambiar de plan",
-      "overTrim": "El límite de plazas de tu plan es {{max}} y hay {{used}} en uso. Nadie nuevo puede unirse. Si el equipo sigue por encima del límite cuando termine el plazo del aviso, las personas con menos privilegios pierden su plaza. Los propietarios nunca."
+      "overTrim": "El límite de plazas de tu plan es {{max}} y hay {{used}} en uso. Nadie nuevo puede unirse. Si el equipo sigue por encima del límite cuando termine el plazo del aviso, las personas con menos privilegios pierden su plaza. Los propietarios nunca.",
+      "unreadable": "Ahora no podemos leer el límite de plazas de tu plan, así que nadie nuevo puede entrar. Inténtalo de nuevo en un momento.",
+      "usedUnknown": "Plazas en uso: {{used}}"
     },
     "waiting": {
       "heading": "Personas esperando a que las dejes entrar: {{count}}",
@@ -333,7 +356,8 @@
       "unnamed": "Persona sin nombre",
       "invitation": "Invitación",
       "never": "Aún no",
-      "custom": "Personalizado"
+      "custom": "Personalizado",
+      "truncated": "Se muestran las primeras {{shown}} personas. Otras {{hidden}} no se muestran."
     },
     "status": {
       "invited": "Invitado",
@@ -343,7 +367,6 @@
       "noSeat": "Sin plaza"
     },
     "actions": {
-      "changeRole": "Hacer {{role}}",
       "approve": "Dejar entrar como {{role}}",
       "restore": "Restaurar como {{role}}",
       "remove": "Quitar",
@@ -356,7 +379,7 @@
       "keep": "Conservar"
     },
     "success": {
-      "invited": "Invitación enviada. Puede unirse la próxima vez que abra la app.",
+      "invited": "Invitación guardada. Pide a la persona que abra {{appName}} desde su administración de Shopify.",
       "roleChanged": "Rol cambiado.",
       "removed": "Miembro eliminado.",
       "invitationCancelled": "Invitación cancelada.",
@@ -383,7 +406,6 @@
     },
     "detail": {
       "profile": "Perfil",
-      "email": "Correo electrónico",
       "noEmail": "Sin correo registrado",
       "collaborator": "Colaborador",
       "accessHeading": "Acceso",
@@ -403,7 +425,16 @@
       "roleLabel": "Rol",
       "usePreset": "Usar los permisos de {{role}}",
       "allowed": "Permitido",
-      "notAllowed": "No permitido"
+      "notAllowed": "No permitido",
+      "state": {
+        "invited": "Nadie ha abierto {{appName}} con este correo todavía. Cuando lo haga, se une con el rol de abajo.",
+        "waiting": "{{name}} abrió {{appName}} y espera a que la dejes entrar. Elige un rol para dejarla entrar, o quítala.",
+        "noSeat": "{{name}} perdió su plaza cuando se bajó el límite de plazas del plan, así que no puede usar {{appName}}. Elige un rol para devolverle una plaza cuando haya una libre.",
+        "removed": "{{name}} fue eliminada y no puede usar {{appName}}. Elige un rol para volver a admitirla."
+      },
+      "seatFull": "Todas las plazas están en uso, así que ahora no se puede dejar entrar a nadie. Libera una plaza o cambia de plan.",
+      "seatUnreadable": "Ahora no podemos leer el límite de plazas de tu plan, así que no se puede dejar entrar a nadie. Inténtalo de nuevo en un momento.",
+      "permissionsGroup": "Permisos de {{name}}"
     },
     "permissions": {
       "appView": {
@@ -422,6 +453,16 @@
         "label": "Gestionar el equipo",
         "description": "Invitar personas, cambiar roles y permisos, y quitar personas."
       }
+    },
+    "noSeat": {
+      "heading": "Personas sin plaza: {{count}}",
+      "body": "El límite de plazas de tu plan es inferior al equipo, así que perdieron su plaza y no pueden usar {{appName}}. Abre a cada persona más abajo para devolverle una plaza cuando haya una libre."
+    },
+    "confirmCancel": {
+      "heading": "¿Cancelar la invitación de {{name}}?",
+      "body": "Nadie ha abierto {{appName}} con este correo todavía. La invitación se elimina y ya no sirve para unirse.",
+      "confirm": "Cancelar invitación",
+      "keep": "Conservar"
     }
   }
 }

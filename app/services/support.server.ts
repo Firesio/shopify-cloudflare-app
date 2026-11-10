@@ -6,7 +6,7 @@ import type { SupportRepository, SupportThread } from "~/ports/support";
 import { excerpt } from "~/support/excerpt";
 import { alertStaff, type StaffAlert } from "~/services/support-staff-alert";
 import type { SupportCategory } from "~/support/categories";
-import type { SupportTicket } from "~/support/types";
+import type { SupportTicket, SupportTicketSummary } from "~/support/types";
 import { ATTACHMENT_TOKEN_TTL_MS } from "~/support/file-token";
 import { replyChannels, replyRecipient } from "~/support/inbound/delivery";
 import { buildThreadHeaders, referenceableMessageIds } from "~/support/inbound/headers";
@@ -21,7 +21,7 @@ import { supportAddress, ticketReplyAddress } from "~/support/inbound/reply-addr
  * `notification_logs` rather than an exception on the merchant's screen.
  */
 
-export type OpenTicketFailure = "rate_limited";
+export type OpenTicketFailure = "rate_limited" | "invalid_upload";
 
 interface Clock {
   now(): number;
@@ -85,27 +85,57 @@ export class SupportService {
      * nothing about the merchant.
      */
     locale?: string | null;
-  }): Promise<Result<{ id: string; messageId: string }, OpenTicketFailure>> {
+    /** The submission's idempotency key: the same key from the same shop is the same ticket, never a second one. */
+    submissionKey?: string;
+    /** Staged uploads to attach to the first message. Every one must still be adoptable, or nothing is written. */
+    uploadIds?: readonly string[];
+  }): Promise<Result<{ id: string; messageId: string; created: boolean }, OpenTicketFailure>> {
     if (!(await this.dependencies.withinRateLimit(input.shop))) return err("rate_limited");
 
+    const at = this.dependencies.clock.now();
+    const uploads = await this.claimUploads(input.shop, input.uploadIds ?? [], at);
+    if (uploads === null) return err("invalid_upload");
+
     const created = await this.dependencies.repo.open({
-      ...input,
+      shop: input.shop,
+      shopName: input.shopName,
+      merchantEmail: input.merchantEmail,
+      ccEmails: input.ccEmails,
+      category: input.category,
+      subject: input.subject,
+      body: input.body,
       // The shop is the author of its own first message.
       authorName: input.shopName,
       locale: input.locale ?? null,
-      at: this.dependencies.clock.now(),
+      at,
+      ticketId: input.submissionKey,
+      uploads,
     });
 
-    await this.notifyStaff({
-      ticketId: created.id,
-      shopName: input.shopName,
-      subject: input.subject,
-      body: input.body,
-      isNew: true,
-      messageId: created.messageId,
-    });
+    // A repeated submission is the ticket already made: staff were told then, and are not told twice.
+    if (created.created) {
+      await this.notifyStaff({
+        ticketId: created.id,
+        shopName: input.shopName,
+        subject: input.subject,
+        body: input.body,
+        isNew: true,
+        messageId: created.messageId,
+      });
+    }
 
     return ok(created);
+  }
+
+  /**
+   * The staged uploads a message may adopt, or `null` when ANY id is unknown, another shop's, expired or taken.
+   * Asked BEFORE anything is written, so a bad id refuses the whole message instead of leaving it half stored.
+   */
+  private async claimUploads(shop: string, ids: readonly string[], at: number) {
+    const wanted = new Set(ids);
+    if (wanted.size === 0) return [];
+    const claimed = await this.dependencies.repo.claimUploads(shop, [...wanted], at);
+    return claimed.length === wanted.size ? claimed : null;
   }
 
   /**
@@ -140,8 +170,16 @@ export class SupportService {
     shopName: string;
     ticketId: string;
     body: string;
-  }): Promise<Result<null, OpenTicketFailure | "not_found">> {
+    /** The submission's idempotency key: sending the same key again stores nothing new. */
+    submissionKey?: string;
+    /** Staged uploads to attach. Every one must still be adoptable, or nothing is written. */
+    uploadIds?: readonly string[];
+  }): Promise<Result<{ messageId: string; created: boolean }, OpenTicketFailure | "not_found">> {
     if (!(await this.dependencies.withinRateLimit(input.shop))) return err("rate_limited");
+
+    const at = this.dependencies.clock.now();
+    const uploads = await this.claimUploads(input.shop, input.uploadIds ?? [], at);
+    if (uploads === null) return err("invalid_upload");
 
     const replied = await this.dependencies.repo.reply({
       shop: input.shop,
@@ -149,21 +187,25 @@ export class SupportService {
       author: "merchant",
       authorName: input.shopName,
       body: input.body,
-      at: this.dependencies.clock.now(),
+      at,
+      messageId: input.submissionKey,
+      uploads,
     });
     if (!replied) return err("not_found");
 
-    const thread = await this.dependencies.repo.find(input.shop, input.ticketId);
-    await this.notifyStaff({
-      ticketId: input.ticketId,
-      shopName: thread?.ticket.shopName ?? input.shopName,
-      subject: thread?.ticket.subject ?? "",
-      body: input.body,
-      isNew: false,
-      messageId: replied.messageId,
-    });
+    if (replied.created) {
+      const thread = await this.dependencies.repo.find(input.shop, input.ticketId);
+      await this.notifyStaff({
+        ticketId: input.ticketId,
+        shopName: thread?.ticket.shopName ?? input.shopName,
+        subject: thread?.ticket.subject ?? "",
+        body: input.body,
+        isNew: false,
+        messageId: replied.messageId,
+      });
+    }
 
-    return ok(null);
+    return ok(replied);
   }
 
   /** Staff answer any shop's thread, then email the merchant. */
@@ -252,6 +294,10 @@ export class SupportService {
   /** Everything below is a thin pass-through; the repo owns the scoping. */
   listForShop(shop: string): Promise<SupportTicket[]> {
     return this.dependencies.repo.listForShop(shop);
+  }
+
+  listRecentForShop(shop: string, limit: number): Promise<SupportTicketSummary[]> {
+    return this.dependencies.repo.listRecentForShop(shop, limit);
   }
 
   find(shop: string, ticketId: string): Promise<SupportThread | undefined> {
