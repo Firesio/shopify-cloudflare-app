@@ -77,7 +77,7 @@ Lighthouse is unreliable for an embedded app (it runs outside the Shopify iframe
 
 | Finding | Fixed in the template | Apps |
 |---|---|---|
-| Entitlement checks rebuilt the snapshot (3 D1 reads) and wrote KV on every call; a page ran 3 to 12 of them | `requestMemo` on the snapshot, no write on `check` | see [the porting note](porting/merchant-speed-2026-10-16.md) |
+| Entitlement checks rebuilt the snapshot (3 D1 reads) and wrote KV on every call; a page ran 3 to 12 of them | `requestMemo` on the snapshot, no write on `check` | |
 | `afterAuth` awaited identity, announce and the Partner API on the merchant's request, once an hour | `runAfterResponse` | |
 | Partner API had no timeout | `timeoutMs`, default 10 s | |
 | `/assets/*` revalidated on every load | `_headers` rule, pinned by a test | |

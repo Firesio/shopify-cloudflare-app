@@ -151,18 +151,6 @@ One new handler file, one registry entry, one test, plus the plumbing a webhook 
 The 5 s budget: `compliance.enqueued` logs `durationMs` for the compliance route and `webhook.process` logs `latencyMs`
 for every route. Alert if either approaches 5 s.
 
-## Deploying this change over an older version
-
-Messages the previous receiver enqueued are `{ shop, id }` with an inbox row already written. The consumer accepts
-both shapes (`intake` is optional) and skips admission for the old one. Remove that tolerance after the queue has
-drained (retries span hours; retention is configurable up to 14 days), together with the `queued` status that only the
-old receiver wrote. There are no migrations.
-
-Do not run a new receiver against an **old consumer**: an old consumer finds no inbox row for a new message and
-acknowledges it as missing, which loses it. A plain `wrangler deploy` replaces the Worker as a unit (one script serves
-`fetch` and `queue`); avoid gradual deployments for the release that introduces this. Not verified against a real
-rollout.
-
 ## Not verified
 
 - A real Shopify delivery through a deployed Worker: the whole path is tested with a local Queue binding and D1, with

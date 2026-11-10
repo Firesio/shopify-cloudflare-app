@@ -9,14 +9,14 @@ and marks the steps that are **risky for an app already in production**.
 
 ## 2026-10-23 Entitlements: typed keys, shop-local months, usage, adopt, batch reads, scheduled reconciler
 
-Commits `c04bd44` (scheduled reconciler) and `a091fc4` (the rest); the port guide is `porting/entitlements-2026-10.md`. Verified on this
+Commits `c04bd44` (scheduled reconciler) and `a091fc4` (the rest). Verified on this
 template: `npm run verify` (typecheck, lint, 51 `node --test`, 274 vitest files / 2536 tests) and `npx vitest run --sequence.shuffle.files`.
 **Not verified:** migration `0032` on a real D1, the sweep on a real cron trigger.
 
 **Affected if** the app uses entitlements, or copied `app/{domain,services,models,ports,wiring}/entitlement*` / `app/billing/gates.ts`.
 
 **Checklist**
-1. Copy the files in the port guide by path (not by cherry-pick: app-specific wiring differs).
+1. Copy the entitlement files named above by path (not by cherry-pick: app-specific wiring differs).
 2. Copy `drizzle/0032_*.sql`, its snapshot and the journal entry. If the app already has a `0032`, run `npm run db:generate` instead. It only
    adds two partial indexes (additive, safe to apply before the code).
 3. `ScheduledDependencies` has a new required `entitlementReconcile`: build it in your `scheduledDependencies`

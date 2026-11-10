@@ -23,17 +23,11 @@ What an agent must always follow is in `CLAUDE.md`; per-area rules are in `.clau
 - [Polaris admin guide](polaris-admin-guide.md): page anatomy, toast example, done-checklist.
 - [Illustrations](illustrations.md): assets used and their licences.
 
-## Facts and findings
+## Facts
 
 - [Shopify API invariants](shopify-api-invariants.md): verified and still-unverified findings about Shopify and Cloudflare, with the design consequence of each. Read the section you need (the `shopify-findings` skill has the index).
-- [Template audit](AUDIT.md): architectural review and known seams.
 
 ## Mirrors (generated, large)
 
 - `polaris/`: Shopify App Home reference (`npm run docs:polaris:sync`; start at `polaris/README.md`).
 - `shadcn/`: shadcn/ui docs for the staff console (`npm run docs:shadcn:sync`).
-
-## Porting notes and history
-
-- [`porting/`](porting/): what changed in the template, per change, for bringing it into a derived app.
-- [`history/`](history/): old status and planning documents, kept for context only. Do not treat them as current.
