@@ -1,12 +1,10 @@
 ---
-description: Money is integer minor units plus a currency, always together, never a float. Everything enters through app/money and nothing else parses, stores, or formats an amount. Apply whenever an amount, price, total, tax, discount, or refund is read, written, computed, or displayed.
-globs:
+paths:
   - "app/money/**"
   - "app/models/**"
-  - "app/services/**"
   - "app/db/**"
-  - "app/routes/**"
-alwaysApply: true
+  - "app/billing/**"
+  - "app/services/billing*"
 ---
 
 # Money

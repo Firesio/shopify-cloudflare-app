@@ -2,7 +2,7 @@ import { encodeBase64Url } from "~/lib/base64url";
 
 /**
  * HMAC-SHA256 signing for links we put in front of people. Pure by signature: the secret is an argument, never an
- * ambient read (@rules/code-craft.md).
+ * ambient read (@rules/core.md).
  */
 
 /** The base64url (no padding) HMAC-SHA256 of `payload` under `secret`. */

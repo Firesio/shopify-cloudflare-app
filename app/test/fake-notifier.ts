@@ -34,7 +34,7 @@ export function fakeNotifier(): FakeNotifier {
         );
       }
       // Guaranteed by the length check above; read this way rather than with a
-      // non-null assertion, which @rules/code-craft.md bans.
+      // non-null assertion, which @rules/core.md bans.
       const [only] = matches;
       if (!only) throw new Error("unreachable");
       return only;

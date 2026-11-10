@@ -8,7 +8,7 @@
  *
  * THE BARREL, and the only thing anything imports (`~/db/schema`). The tables
  * are grouped by domain under `./schema/` so no one file carries every table —
- * @rules/architecture.md caps a file at 700 lines and targets 400, and this had
+ * @rules/core.md caps a file at 700 lines and targets 400, and this had
  * grown past the target.
  *
  * `drizzle.config.ts` still points here, so migration generation sees exactly

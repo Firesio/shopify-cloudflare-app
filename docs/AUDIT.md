@@ -1,6 +1,6 @@
 # Template audit (second pass)
 
-This review checks the starter against `AGENTS.md`, `.claude/rules/*`, the
+This review checks the starter against `CLAUDE.md`, `.claude/rules/*`, the
 current source tree, and the needs of an app that will be derived from it.
 It distinguishes defects in the base from decisions that each adopting app
 must make. The Shopify CLI in this environment does not provide `shopify doc

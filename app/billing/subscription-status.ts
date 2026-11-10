@@ -85,7 +85,7 @@ function trialEndsAt(sub: AppSubscriptionLike, now: number): number | null {
 
 /**
  * Turn `billing.check()`'s raw result into the one thing the billing page
- * renders. `now` is a parameter, never `Date.now()` — see @rules/code-craft.md.
+ * renders. `now` is a parameter, never `Date.now()` — see @rules/core.md.
  */
 export function resolveBillingStatus(
   check: { hasActivePayment: boolean; appSubscriptions: readonly AppSubscriptionLike[] },

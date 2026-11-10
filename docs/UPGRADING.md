@@ -3,6 +3,8 @@
 Sections are newest first. Each says **affected if**, gives a **checklist** you can follow mechanically,
 and marks the steps that are **risky for an app already in production**.
 
+> The template no longer ships `.github/` (no GitHub Actions, no Dependabot): deploys come from Cloudflare Workers Builds and the pre-commit hook is the only local gate. Older sections below that mention `.github/workflows/ci.yml` or Dependabot describe the past and can be skipped.
+
 ---
 
 ## 2026-10-23 Entitlements: typed keys, shop-local months, usage, adopt, batch reads, scheduled reconciler
@@ -287,7 +289,7 @@ Vitest 5 itself was **not** blocked: the blocker was `@cloudflare/vitest-pool-wo
 **Affected if** `app/shopify.server.ts` says `ApiVersion.July26` or either `shopify.app*.toml` says
 `api_version = "2026-07"`. These are **one decision**: change all of them together, in one commit.
 
-Evidence (see `.claude/rules/shopify-api-invariants.md`, section dated 2026-10-09):
+Evidence (see `docs/shopify-api-invariants.md`, section dated 2026-10-09):
 
 * 2026-10 is the **latest stable** release (2026-10-01), accessible until 2027-10-16 15:00 UTC; 2027-01 is the
   release candidate (https://shopify.dev/docs/api/usage/versioning). `ApiVersion.October26 = "2026-10"` exists in

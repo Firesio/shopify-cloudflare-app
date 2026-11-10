@@ -1,11 +1,11 @@
 # agent-skills
 
-Skills for coding agents (Claude Code reads `.claude/skills/`, Codex reads `.agents/skills/`). Both of those folders are per-developer and gitignored. This folder is the tracked source, and `scripts/setup-skills.mjs` puts everything in place.
+Skills for Claude Code (it reads `.claude/skills/`, which is per-developer and gitignored). This folder is the tracked source, and `scripts/setup-skills.mjs` puts everything in place.
 
 | What | Where | How a clone gets it |
 |---|---|---|
-| Skills written in this repo | `agent-skills/<name>/SKILL.md` | linked into `.claude/skills` and `.agents/skills` |
-| Skills from other repos | listed in `third-party.json` | fetched at a pinned commit, checked against a content hash, copied into `.agents/skills`, linked for Claude Code |
+| Skills written in this repo | `agent-skills/<name>/SKILL.md` | linked into `.claude/skills` |
+| Skills from other repos | listed in `third-party.json` | fetched at a pinned commit, checked against a content hash, copied into `.claude/skills` |
 
 `npm install` runs it (through `prepare`, in `--soft` mode: a network problem warns and never breaks the install). It does nothing when `CI` or `SKIP_AGENT_SKILLS` is set, because builds do not need agent skills.
 
@@ -25,10 +25,7 @@ Create `agent-skills/<name>/SKILL.md` (with `name` and `description` frontmatter
 3. Add the entry to `third-party.json`. A changed upstream cannot slip in: the hash must match.
 4. Read the skill before pinning it. A skill is instructions an agent will follow.
 
-## What is in `third-party.json` today
+## What is here today
 
-Five skills from [MengTo/Skills](https://github.com/MengTo/Skills) (MIT): `landing-page`, `pricing-page`, `editorial-tech`, `build-awwwards-quality-sites`, `build-threejs-scroll-worlds`.
-
-## Written here
-
-- `illustrated-3d-landing`: a painted, cinematic parallax 3D landing page (three.js, layered artwork, one scroll value drives the camera). Works with artwork from any generator.
+- `third-party.json`: no third-party skills (empty `sources`).
+- `shopify-findings`: where to look in `docs/shopify-api-invariants.md` before relying on remembered Shopify/Cloudflare behaviour.

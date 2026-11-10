@@ -57,7 +57,7 @@ After each workstream: `npm install && npm run cf-typegen && npm run verify`. `n
 - `app/routes/public/install-button.tsx` (`useInstallTarget`, `InstallLink`), `install.render.test.tsx`
 - changed: `app/routes/public/{_layout,landing,pricing}.tsx`, `app/routes/auth/login.tsx`, `app/routes/auth/login.app-store.test.ts`
 - `app/i18n/locales/{en,es}/public.json`: key `landing.appStoreCta` (add to every locale the app has)
-- `.claude/rules/shopify-api-invariants.md`: the "App Store install requirements" section
+- `docs/shopify-api-invariants.md`: the "App Store install requirements" section
 
 **Config.** `wrangler.jsonc`: var `SHOPIFY_APP_HANDLE: ""` at the top level AND under `env.production.vars` (named envs do not inherit). Run `npm run cf-typegen`. Document it in `.dev.vars.example`.
 

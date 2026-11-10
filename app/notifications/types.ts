@@ -53,7 +53,7 @@ const CHANNEL_KEYS: Record<ChannelKey, true> = { email: true, push: true };
  *
  * A real type guard rather than `as ChannelKey`: stored values outlive the code
  * that wrote them, and a cast would keep claiming a retired channel is valid
- * (@rules/code-craft.md).
+ * (@rules/core.md).
  */
 export function isChannelKey(value: string): value is ChannelKey {
   return Object.prototype.hasOwnProperty.call(CHANNEL_KEYS, value);

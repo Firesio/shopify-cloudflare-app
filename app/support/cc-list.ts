@@ -4,7 +4,7 @@ import { err, ok, type Result } from "~/lib/result";
 /**
  * The CC list as the merchant builds it, one address at a time.
  *
- * A pure functional core (@rules/design-patterns.md): the modal that adds an
+ * A pure functional core (@rules/core.md): the modal that adds an
  * address owns no rules, it calls this and renders the reason. That is what
  * makes "is this a duplicate", "is the list full" and "is this an email"
  * testable without a browser, and what stops the same three checks being

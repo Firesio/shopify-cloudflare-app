@@ -55,7 +55,7 @@ export class NotificationSettingsRepo {
       // Stored values outlive the code that wrote them, so a row naming a
       // retired event or channel is narrowed rather than cast — `as` would let
       // a stale row through typed as something it is not
-      // (@rules/code-craft.md).
+      // (@rules/core.md).
       if (!isNotificationEvent(event) || !isChannelKey(channel)) continue;
 
       // Every event with any row gets an array — including an EMPTY one, which is

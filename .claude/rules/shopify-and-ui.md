@@ -1,118 +1,46 @@
 ---
-description: Never write Shopify code from memory — search the Shopify skill's docs first, validate after. Admin UI is Polaris, and every element's real API is looked up before it is used. Apply to any Shopify API, config, scope, or UI work.
-globs:
-  - "app/**/*.ts"
-  - "app/**/*.tsx"
-  - "extensions/**/*"
+paths:
   - "shopify.app*.toml"
+  - "extensions/**"
   - "**/*.graphql"
-alwaysApply: true
+  - "app/shopify*"
+  - "app/routes/app/**"
+  - "app/routes/webhooks/**"
+  - "app/adapters/shopify*"
 ---
 
 # Shopify APIs and admin UI
 
-Two rules, one reason. Shopify's APIs and component libraries change faster than
-any model's training data, and a plausible-looking wrong answer here costs a
-failed app review or a broken merchant install. **Assumption is the failure
-mode this rule exists to prevent.**
+Shopify's APIs and component libraries change faster than any model's training data; a plausible wrong answer costs a failed app review or a broken install. Inventing a component prop, a mutation field, a scope or a config key and presenting it as correct is fabrication (No Cheating), even when it typechecks.
 
-This is the No-Cheating rule applied to external APIs: inventing a component
-prop, a mutation field, a scope name, or a config key — and presenting it as
-correct — is fabrication, even when it typechecks.
+## Never write Shopify code from memory
 
-## 1. Never write Shopify code from memory
-
-Before writing or changing **any** Shopify-touching code, invoke the matching
-skill from the Shopify AI Toolkit plugin (plugin name `shopify-plugin`, so the
-skills are invoked as `shopify-plugin:<skill>`):
+Before any Shopify-touching code, invoke the matching `shopify-plugin:*` skill:
 
 | What you're touching | Skill |
 |---|---|
 | Embedded admin UI (App Home, Polaris) | `shopify-polaris-app-home` |
-| Admin UI extensions (`s-admin-block`, `s-button`, …) | `shopify-polaris-admin-extensions` |
-| Admin GraphQL queries/mutations | `shopify-admin` |
-| Running/validating via CLI, `shopify.app.toml`, store auth | `shopify-use-shopify-cli` |
+| Admin UI extensions | `shopify-polaris-admin-extensions` |
+| Admin GraphQL queries and mutations | `shopify-admin` |
+| CLI, `shopify.app.toml`, store auth | `shopify-use-shopify-cli` |
 | Metafields / metaobjects | `shopify-custom-data` |
-| Functions (discounts, cart/checkout validation) | `shopify-functions` |
-| Analytics/aggregate numbers | `shopify-shopifyql` |
+| Functions (discounts, validation) | `shopify-functions` |
+| Analytics numbers | `shopify-shopifyql` |
 | App Store submission readiness | `shopify-app-store-review` |
-| Anything else Shopify, or you're unsure which | `shopify-dev` |
+| Anything else Shopify, or unsure | `shopify-dev` |
 
-**Scopes, webhook topics, protected-data requirements, billing, rate limits,
-API version behavior — all of it goes through a skill lookup, not recall.**
-"I'm fairly sure the scope is `write_discounts`" is not a source. Look it up.
+Scopes, webhook topics, protected-data requirements, billing, rate limits and API-version behaviour all go through a lookup, never recall.
 
-### The loop the skills require
+**The loop is not optional**: `scripts/search_docs.mjs "<query>"` → write against what it returned → `scripts/validate.mjs --code '...'` → on failure search the error, fix, re-validate (at most 3 retries). Never return unvalidated code. `OPT_OUT_INSTRUMENTATION=true` only stops telemetry; never remove it or skip validation because of it. If a lookup contradicts this repo's docs or your memory, the lookup wins: say so out loud.
 
-The Polaris/API skills mandate a concrete sequence, and it is not optional:
+**Record what you verify** in `docs/shopify-api-invariants.md` (see the `shopify-findings` skill): what you observed and when, and the design consequence. Label anything unverified as unverified.
 
-1. `scripts/search_docs.mjs "<query>"` — **search before writing code.**
-2. Write the code against what the search returned.
-3. `scripts/validate.mjs --code '...'` — **validate before returning it.**
-4. Validation failed? Search the error, fix, re-validate (the skills cap this
-   at 3 retries). Never return unvalidated code.
+## Admin UI is Polaris, and every element is looked up
 
-Set `OPT_OUT_INSTRUMENTATION=true` in your environment if you do not want the
-scripts reporting usage telemetry to shopify.dev. It changes nothing else —
-`search_docs.mjs` and `validate.mjs` still work normally. Never remove it to
-"fix" a script, and never skip validation because telemetry is off.
+All merchant-facing admin UI (embedded `/app/**` and extensions) is Polaris web components plus App Bridge. No Tailwind, no hand-rolled CSS, no styled `<div>`s imitating Polaris. Public pages are a different surface (SCSS, `.claude/rules/styling.md`) with no Polaris and no App Bridge.
 
-If a lookup contradicts something in this repo's docs or in your memory, the
-lookup wins — and say so out loud rather than silently picking one.
+Which elements exist depends on the installed `@shopify/polaris-types`; if the JSX type is missing the element is not available. Look up props, slots and allowed children first: the procedure is `.claude/rules/polaris-app-home.md`. A component that renders is not a component used correctly. Polaris cannot be unit-tested: test the server side and say the UI was verified by hand.
 
-### Record what you verify
+## Red flags: stop and look it up
 
-Findings that were expensive to establish (an API-version quirk, a mutation that
-behaves unlike its docs, a scope that turns out to be protected data) go into
-`@rules/shopify-api-invariants.md`, so the next person does not re-derive or
-contradict them. Findings that are still unverified must be **labelled
-unverified** — recording a guess is useful, presenting it as settled is not.
-
-## 2. Admin UI is Polaris — and you look up every element
-
-All merchant-facing admin UI in this app is **Polaris**. Not Tailwind, not
-hand-rolled CSS, not a component library you like better, not raw `<div>`s
-styled to look like Polaris.
-
-This applies to the **embedded admin** (`/app/**`) and to extensions. The
-**public** pages — landing, pricing, legal, support — are a different surface:
-they are not embedded, have no App Bridge, and are styled with SCSS tokens per
-`@rules/styling.md`. Do not bring Polaris there, and do not bring SCSS here.
-
-- Embedded app pages (`app/routes/**`): Polaris **web components** (`s-page`,
-  `s-section`, `s-button`, …) + App Bridge, via `AppProvider` from
-  `@shopify/shopify-app-react-router/react`. `@shopify/polaris-types` supplies
-  their JSX types.
-- Admin UI extensions (`extensions/**`): Polaris **web components**
-  (`s-admin-block`, `s-button`, …).
-
-Which elements exist depends on the installed `@shopify/polaris-types` version —
-they are added and removed between releases. Never assume an element exists
-because it did in an older template; if the JSX type is missing, the element is
-not available to you and the skill will say what replaced it.
-
-**Before using any Polaris element, know its actual API.** Look up the
-component's real props, allowed children, slot names, and layout semantics via
-the skill first — every time you reach for one you have not verified in this
-session. `@rules/polaris-app-home.md` is the procedure: the three lookups, the
-element inventory for this install, the job-to-mechanism map, and the anatomy of
-a page.
-Guessing a prop name, nesting components in a combination Polaris does not
-support, or reaching for CSS because a prop "should" exist are all rule
-violations. A component that renders is not a component used correctly.
-
-Polaris also carries the accessibility and interaction behavior for free. Reimplementing
-a Polaris pattern by hand throws that away and fails app review.
-
-Corollary from `@rules/testing.md`: Polaris web components cannot be
-meaningfully unit-tested. Test the server side, verify the UI by hand, and **say
-honestly** that it was verified by hand — never fake coverage by mocking the
-component tree.
-
-## Red flags — stop and look it up
-
-- "I think the field is called…" / "it should accept…"
-- Writing a GraphQL mutation without having searched its current shape
-- Adding a scope because it sounds right
-- Reaching for custom CSS in an admin surface
-- Returning Polaris code that `validate.mjs` never saw
+"I think the field is called…" · "it should accept…" · a GraphQL mutation written without searching its current shape · a scope added because it sounds right · custom CSS on an admin surface · Polaris code `validate.mjs` never saw.

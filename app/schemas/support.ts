@@ -110,7 +110,7 @@ export const updateCcSchema = z.object({ ccEmails: ccEmailsSchema });
  *
  * `admin.graphql().json()` is untyped, so reading it with `as string` would be
  * a claim about a network response rather than a check on one — and
- * @rules/code-craft.md bans exactly that. Every field is optional because a
+ * @rules/core.md bans exactly that. Every field is optional because a
  * partial response is a real possibility; the caller decides the fallback.
  */
 export const shopContactSchema = z.object({

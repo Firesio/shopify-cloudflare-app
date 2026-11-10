@@ -155,6 +155,6 @@ export function isNotificationEvent(value: string): value is NotificationEvent {
 /** Every event, for a settings screen or an audit. */
 export function allEvents(): NotificationEvent[] {
   // Object.keys widens to string[], so it goes through the guard above instead of
-  // an assertion — @rules/code-craft.md bans `as`.
+  // an assertion — @rules/core.md bans `as`.
   return Object.keys(EVENTS).filter(isNotificationEvent);
 }

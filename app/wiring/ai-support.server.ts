@@ -24,7 +24,7 @@ export function requireAttachmentTokenSecret(env: { readonly ATTACHMENT_TOKEN_SE
 /**
  * THE COMPOSITION ROOT — the one place a port is bound to an adapter.
  *
- * It exists because @rules/architecture.md forbids ring 3 importing ring 4: a
+ * It exists because @rules/core.md forbids ring 3 importing ring 4: a
  * use case declares a port and RECEIVES an implementation, it never names one.
  * `AiService` used to import the Workers AI adapter directly, which quietly made
  * the service impossible to run against anything else and dragged the provider
@@ -38,7 +38,7 @@ export function requireAttachmentTokenSecret(env: { readonly ATTACHMENT_TOKEN_SE
  *
  * Built per REQUEST, not at module load: bindings arrive on the request `env`,
  * and a module-level instance would be shared across shops in a reused isolate
- * (@rules/architecture.md — no mutable module state).
+ * (@rules/core.md — no mutable module state).
  */
 
 /** The text generator every AI use case runs on. */

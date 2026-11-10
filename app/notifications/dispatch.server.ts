@@ -79,7 +79,7 @@ type Handler = (message: Message, context: SendContext) => Promise<SendOutcome>;
  *
  * Each handler re-checks its own discriminant instead of using a type
  * assertion. The check is trivially true — the key proves the kind — but it
- * costs nothing and keeps this file free of `as`, which @rules/code-craft.md
+ * costs nothing and keeps this file free of `as`, which @rules/core.md
  * bans. A cast here is what the equivalent code in other codebases needs,
  * because TypeScript cannot correlate an index with a value that CONSUMES the
  * indexed type.

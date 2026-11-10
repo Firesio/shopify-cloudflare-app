@@ -99,7 +99,7 @@ machine sees the same set. Do not delete `~/.agents/skills/`: the symlinks point
 | `Shopify/shopify-ai-toolkit` (2: `shopify`, `ucp`) | Unified Shopify API/CLI/Polaris lookup plus UCP — the lookups `@rules/shopify-and-ui.md` requires |
 | `remotion-dev/skills` (12) | React video, if a project needs it |
 
-The `shopify-plugin:*` skills `AGENTS.md` names come from the `shopify-ai-toolkit` Claude Code plugin, not from this
+The `shopify-plugin:*` skills `CLAUDE.md` names come from the `shopify-ai-toolkit` Claude Code plugin, not from this
 install; enable that plugin separately.
 
 ## Two Shopify apps: dev and prod
@@ -663,7 +663,7 @@ is reused across shops and module state would leak between tenants.
 | ------------------------ | ------------------------------------------------- |
 | `npm run dev`            | `shopify app dev` against the dev app + tunnel     |
 | `npm run precommit`      | lint staged files + incremental typecheck — the **pre-commit** hook, 0–15 s |
-| `npm run verify`         | full typecheck + lint + test, ~50 s — what CI runs |
+| `npm run verify`         | full typecheck + lint + test, ~50 s — run it before pushing to `main` |
 | `npm run db:generate`    | Drizzle schema → a new migration in `./drizzle`    |
 | `npm run db:migrate:local` | Apply migrations to local D1                    |
 | `npm run cf-typegen`     | Regenerate `worker-configuration.d.ts` (`Env`)     |
@@ -686,7 +686,7 @@ Two generated files are committed on purpose:
   has run `cf-typegen`. Regenerate it after every `wrangler.jsonc` change; never
   hand-edit `Env`.
 - **`package-lock.json`** — what makes the pinned versions reproducible, and what
-  `npm ci` needs in CI.
+  `npm ci` needs on the Cloudflare builder.
 
 ## Dependency overrides — do not remove
 
@@ -723,7 +723,7 @@ a production email.
 
 ## Conventions for agents
 
-`AGENTS.md` is the single contract — no cheating, CLEAN rings,
-Cloudflare invariants, and "never write Shopify code from memory". `CLAUDE.md` is
-a one-line pointer at it, so there is no second copy to keep in sync. The
-detailed rules live in `.claude/rules/`.
+`CLAUDE.md` is the single contract — no cheating, CLEAN rings,
+Cloudflare invariants, and "never write Shopify code from memory". It stays short:
+the detailed rules live in `.claude/rules/` and load only when a matching file is
+read or edited (`paths:` frontmatter); reference material is in `docs/`.

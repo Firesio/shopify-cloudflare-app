@@ -33,7 +33,7 @@ export function handleError(error: unknown, { request }: { request: Request }): 
  * A FRESH i18next instance is created per request. A shared module-level one
  * would leak the previous request's locale into this one — an isolate serves
  * many shops, and a Spanish merchant's page could render in English or vice
- * versa (@rules/architecture.md: no mutable module state).
+ * versa (@rules/core.md: no mutable module state).
  */
 export default async function handleRequest(
   request: Request,

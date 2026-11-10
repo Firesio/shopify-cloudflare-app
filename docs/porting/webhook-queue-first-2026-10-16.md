@@ -1,7 +1,7 @@
 # Porting guide: queue-first webhook receiver (2026-10-16)
 
 For an app created from the template. Design and reasoning: [`docs/webhooks.md`](../webhooks.md); verified facts and
-what is still unverified: `.claude/rules/shopify-api-invariants.md` ("Queue-first receiver…").
+what is still unverified: `docs/shopify-api-invariants.md` ("Queue-first receiver…").
 
 ## What changed
 
@@ -23,7 +23,7 @@ what is still unverified: `.claude/rules/shopify-api-invariants.md` ("Queue-firs
 - Uninstall: `app/services/record-uninstall.ts` (announce earlier), `reconcile-after-uninstall.ts` (comment)
 - Dead-letter alert: topic `webhook_dead_letter` (`staff-notification-topics.ts`, new group `system`), event in `app/notifications/{types,catalogue,payloads,envelope}.ts`, `channels/push/builders.ts`, `app/emails/templates/webhook-dead-letter.tsx` + registry, `app/services/announce-webhook-dead-letter.ts`, `app/wiring/shop-announcements.server.ts`
 - Tests/helpers: `app/test/webhook-queue.ts` (`captureWebhookQueue`, `failWebhookQueue`), `app/test/webhook-deliveries.ts` (`queuedDelivery` is now `admittedDelivery`), `app/test/notification-payloads.ts`
-- Docs/rules: `docs/webhooks.md`, `docs/OPERATIONS.md`, `.claude/rules/{shopify-api-invariants,cloudflare,design-patterns,testing,web-push}.md`, `AGENTS.md`
+- Docs/rules: `docs/webhooks.md`, `docs/OPERATIONS.md`, `docs/shopify-api-invariants.md`, `.claude/rules/{cloudflare,design-patterns,testing,web-push}.md`, `AGENTS.md`
 
 **No migrations.** The `webhook_deliveries` columns are unchanged; `queued` stays a valid status for rows the old receiver wrote.
 

@@ -7,7 +7,7 @@
  * development conveniences.
  *
  * PURE: the URL is a parameter, never read from `getEnv()` here. Ring 1 imports
- * nothing with I/O (@rules/architecture.md), and reading the environment inside
+ * nothing with I/O (@rules/core.md), and reading the environment inside
  * made this untestable — calling it outside a request context simply threw. The
  * caller is in ring 5, which is where `getEnv()` belongs.
  */

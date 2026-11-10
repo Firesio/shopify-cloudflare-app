@@ -1,3 +1,18 @@
+---
+paths:
+  - "app/domain/campaign*"
+  - "app/models/campaign*"
+  - "app/services/campaign*"
+  - "app/adapters/campaign*"
+  - "app/wiring/campaigns*"
+  - "app/mcp/tools/campaign*"
+  - "app/emails/templates/campaign*"
+  - "app/schemas/campaign*"
+  - "app/lib/unsubscribe-token*"
+  - "app/routes/public/unsubscribe*"
+  - "app/routes/internal/campaigns/**"
+---
+
 # Campaigns — one announcement, many merchants
 
 A **campaign** is an announcement the team writes once and emails to many merchants ("a big update ships next week").
@@ -67,24 +82,6 @@ write (draft) → choose who → preview the exact number → [send me a test] �
 | Who may send from the console / over MCP | MCP scope `mcp:campaigns:send` (see below); the console is for signed-in staff | one scope check |
 | The wording around the team's words (footer, unsubscribe line) | `campaign.*` in the `email` catalogue (en, es) | translation keys |
 
-## MCP — an agent drafts, a person approves, the send is its own scope
-
-`app/mcp/tools/campaigns.ts` (shaping in `campaign-results.ts`, reads and the actor in
-`app/services/internal-admin/campaign-mcp-ops.server.ts`) exposes 11 tools over the same use cases as the console.
-
-| Scope | Tools |
-|---|---|
-| `mcp:read` | `list_campaigns`, `get_campaign` (recipient sample capped at 50), `preview_campaign_audience` |
-| `mcp:campaigns:write` | `create_campaign` (draft only), `update_campaign`, `delete_campaign`, `send_campaign_test`, `pause_campaign`, `resume_campaign`, `cancel_campaign` |
-| `mcp:campaigns:send` | `start_campaign` (emails real merchants) |
-
-- `send` is implied by neither `write` nor `read` (only `mcp:admin` covers it). Preparing and sending are separate powers; a dynamically registered OAuth client may be granted any scope but `mcp:admin`, and the consent page lets the person tick which ones (it opens with what the client asked for); the console's default token checkboxes do not include either new scope.
-- `start_campaign` REQUIRES `expectedRecipients`, the number the human saw in the latest `create_campaign`, `update_campaign`, preview or `get_campaign`. A different current size returns `audience_changed` with the new count and sends nothing. Its description tells the model not to call it unless the human explicitly asked to send.
-- `send_campaign_test` mails only the staff account that owns the token. `ctx.actorEmail` is the token's LABEL, not an address, so the owner is resolved from `ctx.adminUserId` (`resolveCampaignActor`); a token with no resolvable owner gets `no_owner_address` and nothing is sent.
-- Results are structured JSON with a `next` hint. Invalid content or a bad date returns `{ ok: false, reason: "invalid", errors: [{ field, fault, message }] }` (not a thrown error). A missing scope throws `Forbidden`.
-- The audit log (`mcp_audit_logs`) stores the tool name, whether it mutated and the outcome, never the arguments: no words, no address. It does not record the campaign id (the wrapper records only a `shop` argument); the campaign's own `createdByEmail` and the `campaign.*` log lines (id and `by: "token"`) are the trail.
-- Tests: `app/routes/api/mcp/mcp-campaigns.integration.test.ts` drives the real HTTP bridge against local D1. The test mail is refused locally (no `EMAIL_FROM`), so it asserts `delivered: false`.
-
 ## Queue and deploy
 
 `CAMPAIGN_QUEUE` (`campaigns` / `campaigns-prod`, DLQ `campaigns-dlq` / `campaigns-dlq-prod`) is its own queue, with the
@@ -93,17 +90,6 @@ reply. Create the production queues with `wrangler queues create campaigns-prod`
 environments do not inherit bindings: it is declared at the top level AND under `env.production`. The unsubscribe link uses
 `ATTACHMENT_TOKEN_SECRET` (purpose-prefixed, so the same secret cannot forge an attachment link) and `SHOPIFY_APP_URL`.
 
-## Verified, and not
+## Deeper reference
 
-Verified by tests with real local D1 and the real pipeline up to the Email Sending binding (which is replaced): a full
-send of several merchants, exactly one mail each, a replayed step sending nothing, each mail's own unsubscribe link,
-pause/resume/cancel, the watchdog, the audience safety filters, the tenant purge.
-
-**Not verified — check before relying on it:**
-- A real send through Cloudflare Email Sending: delivery, bounces, and the account's daily/hourly limits were not looked up
-  or exercised. Do a small real send (an audience of yourself) before the first large one.
-- The `List-Unsubscribe` / `List-Unsubscribe-Post` headers are NOT set: whether Email Sending's header allowlist permits them
-  was not checked. Large senders to Gmail/Yahoo are expected to offer one-click unsubscribe; until the headers exist, the
-  link in the body is the only way.
-- Whether Gmail and Outlook thread or filter these mails as promotions.
-- The page layout of the console screens and of the email in real mail clients was not checked by eye.
+The MCP tools (scopes, `start_campaign` guard, audit) and what is verified or not: `docs/campaigns.md`. New MCP tools: the `add-mcp-tool` skill.

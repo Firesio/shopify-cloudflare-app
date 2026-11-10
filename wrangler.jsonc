@@ -285,7 +285,7 @@
         }
       ],
       // Re-declared, never inherited. Daily: full maintenance + probe. Hourly: probe only (app/domain/cron-schedule.ts).
-      // 40 probes/tick x 24 ticks = 960 shops/day; see .claude/rules/shopify-api-invariants.md.
+      // 40 probes/tick x 24 ticks = 960 shops/day; see docs/shopify-api-invariants.md.
       "triggers": { "crons": ["30 3 * * *", "0 * * * *"] },
       "d1_databases": [
         {

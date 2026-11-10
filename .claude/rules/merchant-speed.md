@@ -1,6 +1,5 @@
 ---
-description: Keeping the embedded admin (/app/**) fast — what a loader, afterAuth, an entitlement check and a list query may and may not do on the merchant's request. Apply when touching app/routes/app/**, app/shopify.server.ts, app/wiring/**, app/services/entitlements*, public/_headers, vite.config.ts or any D1 query behind a page.
-globs:
+paths:
   - "app/routes/app/**"
   - "app/shopify.server.ts"
   - "app/wiring/**"
@@ -9,8 +8,8 @@ globs:
   - "app/models/**"
   - "public/_headers"
   - "vite.config.ts"
-alwaysApply: false
 ---
+
 # Merchant speed
 
 The merchant's first paint must not wait for anything the page does not need. Full reasoning, the measuring table and

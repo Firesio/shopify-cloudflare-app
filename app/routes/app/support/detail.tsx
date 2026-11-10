@@ -107,7 +107,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 
 /**
  * Command dispatch on `intent` — the action stays a thin lookup and each branch
- * is one call into the service (@rules/design-patterns.md).
+ * is one call into the service (@rules/core.md).
  *
  * There is deliberately no `close` intent. Closing is a support decision, not a
  * merchant one: a merchant either stops replying or says it is fixed, and

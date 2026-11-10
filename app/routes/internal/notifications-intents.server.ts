@@ -38,7 +38,7 @@ const deviceRemoveFields = z.object({ id });
 const testFields = z.object({ id: id.optional() });
 
 /**
- * Command dispatch on the submitted intent (@rules/design-patterns.md): the action only looks a handler up, and each
+ * Command dispatch on the submitted intent (@rules/core.md): the action only looks a handler up, and each
  * handler parses its own fields, calls one use case and shapes the success. Keyed by the intent union, so a new intent
  * cannot ship without one.
  */

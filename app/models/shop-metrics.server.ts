@@ -7,7 +7,7 @@ import type { RevenueBillingGroup, ShopBillingGroup } from "~/billing/dashboard-
  * Read-only aggregates for the staff console and its API.
  *
  * These deliberately span every shop: the staff console is the one surface that
- * is not tenant-scoped (see @rules/architecture.md on `admin_users`), so no
+ * is not tenant-scoped (see @rules/core.md on `admin_users`), so no
  * method here takes a `shop`. Each one returns a bounded result — grouped
  * counts, a LIMITed page, or a single row — never a row per shop that a caller
  * then aggregates in JS.

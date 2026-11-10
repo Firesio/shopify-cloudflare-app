@@ -17,7 +17,7 @@ import type { ModelRole } from "./roles";
  *
  * STRATEGY, not a registry: tasks are dispatched by IMPORTING one, never by
  * looking a string up in a map, so a caller cannot ask for a task that does not
- * exist and no dispatcher needs editing (@rules/design-patterns.md — a registry
+ * exist and no dispatcher needs editing (@rules/core.md — a registry
  * is for behaviour that varies by a STORED type string, which this is not).
  *
  * @example A whole new AI feature

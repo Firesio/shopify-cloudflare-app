@@ -2,7 +2,7 @@
 
 How the merchant side (`/app/**`) is kept fast, the rules that keep it that way, and how to measure it. The incident
 list at the bottom is real: every item was found in the template or in the apps built on it by the 2026-10-16 audit.
-Verified Shopify and Cloudflare facts are in [`shopify-api-invariants.md`](../.claude/rules/shopify-api-invariants.md);
+Verified Shopify and Cloudflare facts are in [`shopify-api-invariants.md`](shopify-api-invariants.md);
 the rule file agents load is [`merchant-speed.md`](../.claude/rules/merchant-speed.md).
 
 ## What the merchant waits for
@@ -33,7 +33,7 @@ Client-side navigations skip 1, 2 and the layout loader (`shouldRevalidate` on t
    with a key that carries the shop; every write that makes it stale calls `forgetRequestMemo`. Today:
    the subscription snapshot (`subscriptionsPort().current`, dropped by `invalidateEntitlements` and by a refresh)
    and the `shops` row read by `persistShopIdentity` and `shopTimeZone`. Never memoise in module scope: an isolate is
-   shared across shops (`@rules/architecture.md`).
+   shared across shops (`@rules/core.md`).
 4. **An entitlement check does not write.** `check`, `allocate`, `reserve` read the projection; only `preview` reads
    and fills the KV cache. A KV write per check was never read by anything, and concurrent checks wrote one key
    several times in a request (KV rate-limits writes to one key).

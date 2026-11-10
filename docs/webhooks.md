@@ -2,7 +2,7 @@
 
 How this template receives, stores and processes Shopify webhooks, why it is built that way, and how to add a topic
 without breaking the guarantees. Verified facts and their sources are in
-[`.claude/rules/shopify-api-invariants.md`](../.claude/rules/shopify-api-invariants.md); this page is the how-to.
+[`docs/shopify-api-invariants.md`](shopify-api-invariants.md); this page is the how-to.
 
 ## The rule in one line
 
@@ -94,7 +94,7 @@ build for a topic without a handler (`Record<WebhookTopic, …>`).
    consistent and caches a miss for about a minute, so right after a reinstall the session can read as missing. Throw
    (retry with the growing delay) for an INSTALLED shop; settle only for an uninstalled or unknown one. And a destructive
    step that follows a slow one (cleanup after an announcement) re-reads the shop's facts first, as `recordUninstall`
-   does: a reinstall can land in between. See `.claude/rules/shopify-api-invariants.md`, "Session lookup after a quick
+   does: a reinstall can land in between. See `docs/shopify-api-invariants.md`, "Session lookup after a quick
    uninstall and reinstall".
 
 ## Topic classes

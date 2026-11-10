@@ -24,7 +24,7 @@ const decimalsCache = new Map<string, number>();
  * the database looking valid. `Intl.supportedValuesOf` is the real list.
  *
  * Built once when the module loads, as a `const`. It used to be a lazily-filled
- * module-level `let`, which @rules/architecture.md bans outright — a Workers
+ * module-level `let`, which @rules/core.md bans outright — a Workers
  * isolate is reused across shops, so module-scope mutable state is the shape a
  * cross-tenant leak takes. This particular value could not leak anything (it is
  * the same 159 ISO codes for everyone), but "safe because of what it happens to

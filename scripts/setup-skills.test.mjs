@@ -37,14 +37,12 @@ test("links own skills and installs a pinned third-party skill, verified by hash
   const { root, run } = fixture();
   const result = run();
   assert.equal(result.status, 0, result.stderr);
-  for (const store of [".claude/skills", ".agents/skills"]) {
-    assert.ok(lstatSync(path.join(root, store, "own-skill")).isSymbolicLink(), `${store}/own-skill is a link`);
-    assert.match(readFileSync(path.join(root, store, "own-skill", "SKILL.md"), "utf8"), /own/);
-  }
-  assert.match(readFileSync(path.join(root, ".agents/skills/remote-skill/SKILL.md"), "utf8"), /remote/);
-  assert.ok(existsSync(path.join(root, ".agents/skills/remote-skill/extra/note.md")), "files below the skill folder come too");
-  assert.ok(existsSync(path.join(root, ".claude/skills/remote-skill/SKILL.md")), "linked for Claude Code");
-  assert.ok(!existsSync(path.join(root, ".agents/skills/unrelated")), "only the requested path is taken from the source");
+  assert.ok(lstatSync(path.join(root, ".claude/skills/own-skill")).isSymbolicLink(), "own-skill is a link");
+  assert.match(readFileSync(path.join(root, ".claude/skills/own-skill/SKILL.md"), "utf8"), /own/);
+  assert.match(readFileSync(path.join(root, ".claude/skills/remote-skill/SKILL.md"), "utf8"), /remote/);
+  assert.ok(existsSync(path.join(root, ".claude/skills/remote-skill/extra/note.md")), "files below the skill folder come too");
+  assert.ok(!existsSync(path.join(root, ".claude/skills/unrelated")), "only the requested path is taken from the source");
+  assert.ok(!existsSync(path.join(root, ".agents")), "nothing is written for other agents");
   assert.equal(run("--check").status, 0, "check passes after install");
 });
 
@@ -61,7 +59,7 @@ test("content that does not match the pinned hash is refused", () => {
   const result = run();
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /does not match the pinned hash/);
-  assert.ok(!existsSync(path.join(root, ".agents/skills/remote-skill")), "nothing is installed");
+  assert.ok(!existsSync(path.join(root, ".claude/skills/remote-skill")), "nothing is installed");
   assert.equal(run("--check").status, 1);
 });
 

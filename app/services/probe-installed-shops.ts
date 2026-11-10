@@ -46,7 +46,7 @@ export type ProbeSummary = { readonly [K in Disposition | "examined" | "leased" 
  * Bounded: at most `PROBE_BATCH_SIZE` shops per tick, least-recently-attempted first, so successive ticks walk the
  * whole fleet without a cursor. One shop at a time (Shopify: "refresh one store at a time"), and each shop is held
  * under a D1 lease so two overlapping ticks can never refresh the same shop concurrently. That lease does NOT stop
- * the Shopify library refreshing the same shop during a merchant request — see shopify-api-invariants.md.
+ * the Shopify library refreshing the same shop during a merchant request — see docs/shopify-api-invariants.md.
  */
 export async function probeInstalledShops(ports: ProbePorts, now: number): Promise<ProbeSummary> {
   const shops = await ports.probes.listDue(now, PROBE_COOLDOWN_MS, PROBE_BATCH_SIZE);

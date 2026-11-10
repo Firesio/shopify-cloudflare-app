@@ -22,7 +22,7 @@ export type SupportErrorKey =
 
 /**
  * Indexed by `string` on purpose, so narrowing an untrusted reason needs no
- * cast — @rules/code-craft.md bans `as`.
+ * cast — @rules/core.md bans `as`.
  */
 const KEYS: Record<string, SupportErrorKey> = {
   rate_limited: "support.errors.rate_limited",

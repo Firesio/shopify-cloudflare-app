@@ -19,7 +19,7 @@
  * and invents a growth story that did not happen. A month is the half-open
  * interval [start, end), so the last millisecond of a month is never lost.
  *
- * Pure — `now` is a parameter, never `Date.now()` (@rules/code-craft.md).
+ * Pure — `now` is a parameter, never `Date.now()` (@rules/core.md).
  */
 export interface MerchantMonth {
   /** Short month label — "Jan", "Feb"… Internal-console-only, so unlocalized. */

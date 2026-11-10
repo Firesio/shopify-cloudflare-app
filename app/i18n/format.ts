@@ -6,7 +6,7 @@ import type { LanguageCode } from "./catalogues.generated";
  *
  * Every function is PURE and takes the language explicitly: never read an ambient
  * language here. That is what makes these testable and keeps them in ring 1
- * (@rules/architecture.md).
+ * (@rules/core.md).
  *
  * Translating strings is not enough on its own. `1/2/2026` means January 2nd in
  * en and February 1st in es, and `1,5` is one-and-a-half in es but a thousand in
@@ -48,7 +48,7 @@ export function formatNumber(
 
 /**
  * Money. Takes **integer minor units** and the currency, together — the only
- * representation allowed in this codebase (@rules/code-craft.md). Passing a
+ * representation allowed in this codebase (@rules/core.md). Passing a
  * float here is a bug at the call site.
  */
 export function formatMoney(

@@ -1,12 +1,8 @@
 ---
-description: Testing guidance — real behavior over mocks, no test ever touching a real external service. Apply when writing or changing any test, or any production code that needs one.
-globs:
-  - "app/test/**/*.ts"
-  - "app/**/*.test.{ts,tsx}"
-  - "app/**/__tests__/**"
-  - "app/**/*.ts"
-  - "app/**/*.tsx"
-alwaysApply: true
+paths:
+  - "**/*.test.{ts,tsx,mjs}"
+  - "app/test/**"
+  - "vitest.config.ts"
 ---
 
 # Testing

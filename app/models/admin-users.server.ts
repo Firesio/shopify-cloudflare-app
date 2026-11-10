@@ -113,7 +113,7 @@ export class AdminUserRepo {
       })
       .returning();
     // `.returning()` on an insert of one row always yields one, but the type is
-    // an array — checked rather than asserted (@rules/code-craft.md).
+    // an array — checked rather than asserted (@rules/core.md).
     if (!row) throw new Error("insert returned no row");
     return toSafe(row);
   }

@@ -26,7 +26,7 @@ import { MODEL_ROLES } from "~/ai/roles";
  * console offers a select. NOT shop-scoped, deliberately, and one of only two
  * tables that are not: which model serves a purpose is OUR operational choice,
  * the same for every merchant and paid for by us. Not a precedent
- * (@rules/architecture.md).
+ * (@rules/core.md).
  */
 export const aiModels = sqliteTable(
   "ai_models",

@@ -105,7 +105,7 @@ Required source-of-truth rules:
 
 ### Agent setup and launch safety
 
-- `AGENTS.md` is source of truth; `CLAUDE.md` points to it.
+- `CLAUDE.md` is the source of truth.
 - Shopify MCP configured for Claude Code (`.mcp.json`).
 - Skills are installed once per machine (`npx skills add <owner>/<repo> -g -a claude-code`), not by the project: the
   per-project installer, `skills-lock.json`, the `postinstall` hook and the Codex/Cursor/Gemini configs were removed on

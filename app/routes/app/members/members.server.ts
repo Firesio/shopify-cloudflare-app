@@ -10,7 +10,7 @@ import { approveMember, changeRole, inviteMember, removeMember, restoreMember, s
  * The members page's server half, beside its route: what the page loads and what each of its forms does.
  *
  * `.server.ts` because every branch reaches the store; keeping it out of the route file also keeps that file under the
- * size target (@rules/architecture.md).
+ * size target (@rules/core.md).
  */
 
 export interface TeamPage {
@@ -78,7 +78,7 @@ const roleInvalid: MemberActionResult = { error: "roleInvalid" };
 const failed = (reason: Extract<MemberActionResult, { error: unknown }>["error"]): MemberActionResult => ({ error: reason });
 
 /**
- * Command dispatch on `intent` (@rules/design-patterns.md): the action is a thin lookup, and each intent's logic lives in
+ * Command dispatch on `intent` (@rules/core.md): the action is a thin lookup, and each intent's logic lives in
  * a use case. Adding one is one entry here, one in `MEMBER_SUCCESSES`, and words in the catalogue.
  */
 export const MEMBER_INTENTS = {

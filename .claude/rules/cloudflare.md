@@ -1,14 +1,9 @@
 ---
-description: Cloudflare Workers infra — the services that are in scope and the ones that must not be added, the limits that change design, config and runtime invariants, deploy order. Apply when touching wrangler config, workers/, bindings, drizzle/, or scripts/.
-globs:
+paths:
   - "wrangler.jsonc"
-  - "wrangler.toml"
   - "workers/**"
   - "drizzle/**"
-  - "scripts/**"
-  - "app/db/**"
-  - "package.json"
-alwaysApply: true
+  - "public/_headers"
 ---
 
 # Cloudflare Workers
@@ -40,52 +35,7 @@ Stream, Containers, Analytics Engine, service bindings, Workers for Platforms.
 Adding a binding is an architecture decision, not a convenience — write down
 *why* in the same change.
 
-**Workers AI moved IN SCOPE**, and here is the written reason. Support staff
-answer the same questions repeatedly, and a draft they edit is faster than a
-reply they compose; drafting is also the safest possible first AI surface,
-because a human reads every word before a merchant does. Workers AI rather than
-a hosted provider because it is a BINDING: no API key to store, rotate or leak,
-no egress, and it bills on the same account as everything else. The AI SDK
-(`ai` + `workers-ai-provider`) sits behind our own port, so swapping to a hosted
-model later is an adapter change and nothing above it moves.
-
-The constraints that come with it:
-
-- **No model id is ever hardcoded in a feature.** A caller names a ROLE
-  (`writing`, `summary`); which model serves that role is a row in `ai_models`,
-  chosen from a catalogue in the internal console. A typo'd or retired id
-  resolves to nothing at call time, which reads as a broken feature rather than
-  a bad setting — hence a select, never a text field.
-- **Every call is metered.** One `ai_runs` row per call, with tokens and
-  latency, because tokens are what cost money and an unmetered AI surface is an
-  unbounded bill.
-- **AI is decoration, never correctness.** A failed or absent model degrades the
-  feature to "no draft"; it must never block a reply being sent
-  (@rules/data.md).
-
-**The two extension points, and what they cost.** The base is deliberately
-policy-free; both seams below are where an app adds its own.
-
-- **A new AI feature is one file.** `defineAiTask` for prose or
-  `defineAiObjectTask` for a value of a known shape (`app/ai/task.ts`) — name the
-  purpose it needs, name itself for the ledger, turn its input into messages —
-  then `run` / `runObject` / `stream` on `AiService`. It inherits the gate, the
-  fallback chain, health tracking, metering and streaming, because none of those
-  are a feature's job. An object task's Zod schema is sent to the model as JSON
-  Schema AND validated on the way back, and a wrong shape falls through to the
-  next model rather than reaching the caller. `app/ai/task.test.ts` asserts all
-  of this: if adding a task ever needs a change to the service, adapter, gate or
-  ledger, that test fails and the base has stopped being extensible.
-- **Ports are bound in `app/wiring.server.ts`, nowhere else.** A use case
-  declares a port and receives an implementation; it must never import an
-  adapter (@rules/architecture.md). Swapping the provider, or the gating policy,
-  is a line in that file.
-- **Gating is composed, not built in.** `app/ai/gate.ts` ships `allowAll` and
-  `composeGates`; the base contains no notion of a plan or a quota, because those
-  differ per app and a base that guesses makes every app delete code first. An
-  app writes one `AiGate` and names it in its composition root. `merchantsOnly`
-  wraps a policy so our own console is never gated by a merchant's plan — the
-  mistake that otherwise breaks the support desk on a downgrade.
+**Workers AI** is in scope, behind a port, metered per call, and never on the correctness path. Contract, extension points and constraints: `.claude/rules/ai.md` (loads when you open `app/ai/**`).
 
 Two calls that recur and deserve a recorded answer rather than a reflex:
 
@@ -93,7 +43,7 @@ Two calls that recur and deserve a recorded answer rather than a reflex:
   (which also reads it by id). KV is eventually consistent and caches a miss for about a minute, so right after a
   reinstall a session can read as missing. An INSTALLED shop with no readable session is **retried with a growing
   delay, never settled**; only an uninstalled or unknown shop settles. A listing never deletes an index entry.
-  Evidence and what is unverified: `@rules/shopify-api-invariants.md`, "Session lookup after a quick uninstall and
+  Evidence and what is unverified: `docs/shopify-api-invariants.md`, "Session lookup after a quick uninstall and
   reinstall".
 - **Queues vs Workflows.** Queues fit enqueue-and-forget single steps.
   **Workflows** fit multi-step processes where each step must survive failure
@@ -141,7 +91,7 @@ Two calls that recur and deserve a recorded answer rather than a reflex:
 - **No floating promises.** Every promise is awaited, returned, or handed to
   `ctx.waitUntil()`. `@typescript-eslint/no-floating-promises` is the gate.
 - **No module-level mutable state** — an isolate is reused across shops
-  (`@rules/architecture.md`).
+  (`@rules/core.md`).
 - **`env` / `getEnv()`, never `process.env`** — workerd does not populate it.
 - All three surfaces — `fetch`, `queue`, `scheduled` — wrap work in the request
   context so `getDb()`/`getEnv()` resolve.

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Make the agent skills available after a fresh clone (runs from `npm install` through `prepare`).
 //
-//   agent-skills/<name>/        skills written in this repo (tracked). Linked into .claude/skills and .agents/skills.
+//   agent-skills/<name>/        skills written in this repo (tracked). Linked into .claude/skills.
 //   agent-skills/third-party.json  skills that live in someone else's repo, pinned to a commit and a content hash.
-//                               Fetched with a sparse checkout, verified, copied into .agents/skills, linked for Claude.
+//                               Fetched with a sparse checkout, verified, copied into .claude/skills.
 //
-// .agents/ and .claude/skills/ are per-developer (gitignored): this script is how a clone gets them.
+// .claude/skills/ is per-developer (gitignored): this script is how a clone gets it.
 //
 //   node scripts/setup-skills.mjs            install, fail loudly
 //   node scripts/setup-skills.mjs --soft     install, but a network problem only warns (what `prepare` uses)
@@ -30,7 +30,6 @@ const valueOf = (name) => { const i = argv.indexOf(`--${name}`); return i >= 0 ?
 const repoRoot = resolve(valueOf("root") ?? join(dirname(fileURLToPath(import.meta.url)), ".."));
 const ownDir = join(repoRoot, "agent-skills");
 const manifestPath = join(ownDir, "third-party.json");
-const storeDir = join(repoRoot, ".agents", "skills");
 const claudeDir = join(repoRoot, ".claude", "skills");
 const gitBase = process.env.SKILLS_GIT_BASE ?? "https://github.com";
 const log = (message) => console.log(`[skills] ${message}`);
@@ -110,7 +109,7 @@ function fetchSource(source, tmp) {
 function installThirdParty(problems, networkProblems) {
   const sources = manifest();
   const missing = sources.map((source) => ({ source, skills: source.skills.filter((skill) => {
-    const folder = join(storeDir, skill.name);
+    const folder = join(claudeDir, skill.name);
     return !(existsSync(folder) && hashFolder(folder) === skill.sha256);
   }) })).filter((entry) => entry.skills.length);
 
@@ -126,38 +125,28 @@ function installThirdParty(problems, networkProblems) {
             problems.push(`${skill.name}: content from ${source.repo}@${source.ref.slice(0, 7)} does not match the pinned hash; not installed`);
             continue;
           }
-          const to = join(storeDir, skill.name);
+          const to = join(claudeDir, skill.name);
           rmSync(to, { recursive: true, force: true });
-          mkdirSync(storeDir, { recursive: true });
+          mkdirSync(claudeDir, { recursive: true });
           cpSync(from, to, { recursive: true });
           log(`installed ${skill.name} (${source.repo}@${source.ref.slice(0, 7)})`);
         }
       }
     } finally { rmSync(tmp, { recursive: true, force: true }); }
   }
-  for (const skill of sources.flatMap((source) => source.skills)) {
-    const folder = join(storeDir, skill.name);
-    if (existsSync(folder) && hashFolder(folder) === skill.sha256) {
-      const problem = ensureLink(join(claudeDir, skill.name), folder, skill.name);
-      if (problem) problems.push(problem);
-    }
-  }
 }
 
 function verify() {
   const problems = [];
   for (const name of ownSkills()) {
-    for (const store of [claudeDir, storeDir]) {
-      const link = join(store, name);
-      if (!exists(link) || !existsSync(join(link, "SKILL.md"))) problems.push(`${name}: missing in ${relative(repoRoot, store)}`);
-    }
+    const link = join(claudeDir, name);
+    if (!exists(link) || !existsSync(join(link, "SKILL.md"))) problems.push(`${name}: missing in ${relative(repoRoot, claudeDir)}`);
   }
   for (const source of manifest()) {
     for (const skill of source.skills) {
-      const folder = join(storeDir, skill.name);
+      const folder = join(claudeDir, skill.name);
       if (!existsSync(folder)) problems.push(`${skill.name}: not installed`);
       else if (hashFolder(folder) !== skill.sha256) problems.push(`${skill.name}: installed content differs from the pinned hash`);
-      else if (!exists(join(claudeDir, skill.name))) problems.push(`${skill.name}: not linked for Claude Code`);
     }
   }
   return problems;
@@ -176,10 +165,8 @@ function main() {
 
   const problems = [], networkProblems = [];
   for (const name of ownSkills()) {
-    for (const store of [claudeDir, storeDir]) {
-      const problem = ensureLink(join(store, name), join(ownDir, name), name);
-      if (problem) problems.push(problem);
-    }
+    const problem = ensureLink(join(claudeDir, name), join(ownDir, name), name);
+    if (problem) problems.push(problem);
   }
   try { installThirdParty(problems, networkProblems); } catch (error) { problems.push(error.message); }
 

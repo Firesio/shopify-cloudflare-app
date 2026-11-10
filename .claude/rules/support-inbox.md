@@ -1,5 +1,14 @@
 ---
-globs: ["app/support/**", "app/services/support*", "app/models/support*", "app/ports/support*", "app/adapters/inbound-mail*", "app/adapters/bot-check*", "workers/inbound-email*", "app/routes/public/support*", "app/routes/internal/support/**"]
+paths:
+  - "app/support/**"
+  - "app/services/support*"
+  - "app/models/support*"
+  - "app/ports/support*"
+  - "app/adapters/inbound-mail*"
+  - "app/adapters/bot-check*"
+  - "workers/inbound-email*"
+  - "app/routes/public/support*"
+  - "app/routes/internal/support/**"
 ---
 
 # Support inbox — one conversation model, many sources
@@ -60,19 +69,6 @@ Read from the Cloudflare Email Service docs ([headers](https://developers.cloudf
 - Support mail domain = the host of `SHOPIFY_APP_URL` (`supportMailDomain`); a URL that cannot receive mail (localhost, workers.dev, an IP) leaves the reply address off.
 - Set up per app: onboard the app's subdomain to Email Routing, route `support@` (and `support+*` if subaddressing is on) to this Worker, point the app listing's contact email at `support@<app domain>`. `EMAIL_FROM` for the notifications sender is separate and optional.
 
-## Trying it locally (no deploy)
+## Deeper reference
 
-`npm run dev:local` serves the `email` handler too. Feed it a raw message at the local endpoint (the body must be RFC 5322 text and carry a `Message-ID`):
-
-```bash
-curl -X POST 'http://localhost:5179/cdn-cgi/local/email?from=jane@buyer.example&to=support@vip.firesio.app' --data-binary @mail.eml
-```
-
-Verified 2026-10-31: that opened an `email` ticket in the local D1 (`Worker successfully processed email`), and migration `0034` applied on the local D1. The app URL locally is a tunnel that cannot receive mail, so there is no `support+<id>@` address and mail is matched only by `In-Reply-To`/`References`. To exercise the address, put `SUPPORT_MAIL_DOMAIN=<domain>` in `.dev.vars`, reply to a ticket in the console, and send a mail to the `Reply-To` it printed. Email Sending itself is not simulated locally: a staff reply is queued and the channel refuses without `EMAIL_FROM`.
-
-## Unverified — confirm before relying on it
-
-- That Email Routing delivers mail sent to `support+<id>@` to a rule for `support@` (subaddressing). If not, mail still threads by `In-Reply-To` for threads the customer started, but not for replies to our mail.
-- That the `messageId` `send()` returns equals the header Message-ID (it is not stored for that reason; `support_messages.mail_id` is reserved and unused).
-- That Gmail and Outlook thread our reply under the customer's original mail from `In-Reply-To`/`References` alone.
-- The relay parser is built from ONE sample (English). A changed Shopify template parses as `unparseable` and falls back to plain mail, so nothing a person wrote is lost.
+Trying the mail path locally with no deploy, and what is still unverified (subaddressing, threading in Gmail/Outlook, the relay parser): `docs/support-inbox.md`.

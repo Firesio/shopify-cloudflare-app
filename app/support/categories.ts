@@ -3,7 +3,7 @@
  *
  * Keyed by a union type rather than `string` so a new category fails the build
  * everywhere it must be handled — the label maps, the filter, the icon — rather
- * than rendering a raw key to a merchant (@rules/design-patterns.md).
+ * than rendering a raw key to a merchant (@rules/core.md).
  *
  * The order is the order the picker offers them: the two a merchant most often
  * needs first.
@@ -28,7 +28,7 @@ export const CATEGORY_LABEL_KEY: Record<SupportCategory, `support.category.${Sup
   billing: "support.category.billing",
 };
 
-/** English labels for the internal console (no i18n there — see AGENTS.md). */
+/** English labels for the internal console (no i18n there — see CLAUDE.md). */
 export const CATEGORY_LABEL_EN: Record<SupportCategory, string> = {
   bug: "Bug",
   question: "Question",

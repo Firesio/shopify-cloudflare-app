@@ -2,7 +2,7 @@
  * What a MEMBER of a shop may do inside the app. PURE: no I/O, no clock, safe to import from the browser.
  *
  * A member is a person from the merchant's side (a Shopify staff user linked to the shop). Two closed vocabularies, both
- * static literal maps keyed by a union (@rules/design-patterns.md):
+ * static literal maps keyed by a union (@rules/core.md):
  *
  *   PERMISSION  one thing a person can do, `area:action`, described in words a merchant can read.
  *   ROLE        a named bundle of permissions: a PRESET. A member has exactly one role.

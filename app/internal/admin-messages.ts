@@ -4,7 +4,7 @@ import { MIN_PASSWORD_LENGTH } from "~/lib/password-policy";
 /**
  * English copy for the admin-management error reasons, shared by every
  * console page that surfaces them. The internal console has no i18n — see
- * AGENTS.md — so this is the one place the mapping lives.
+ * CLAUDE.md — so this is the one place the mapping lives.
  */
 export const ADMIN_ERRORS: Record<AdminErrorReason, string> = {
   nameRequired: "A name is required.",

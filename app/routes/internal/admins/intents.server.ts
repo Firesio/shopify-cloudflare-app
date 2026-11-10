@@ -15,7 +15,7 @@ import { adminUsers, appRuntime, staffAudit, staffMfa } from "~/wiring.server";
  *
  * `.server.ts` because every branch calls a service that touches D1 — keeping
  * it out of the route file also keeps that file under the size target
- * (@rules/architecture.md).
+ * (@rules/core.md).
  */
 /** The role field, narrowed by comparison rather than asserted with `as`. */
 export function readRole(form: FormData): AdminRole {
@@ -23,7 +23,7 @@ export function readRole(form: FormData): AdminRole {
 }
 
 /**
- * Command dispatch on `intent`, per @rules/design-patterns.md: the action is a
+ * Command dispatch on `intent`, per @rules/core.md: the action is a
  * thin lookup, and each intent's logic lives in the service.
  */
 export const INTENTS = {
@@ -94,7 +94,7 @@ export type Intent = keyof typeof INTENTS;
  * A GUARD, not `as Intent`. The value comes off a form, so it is attacker-
  * controlled; casting it would tell the compiler a forged string is one of our
  * intents and make `SUCCESS_KEY[intent]` a lookup on a key that does not exist.
- * @rules/code-craft.md: parse at the edge, trust inside.
+ * @rules/core.md: parse at the edge, trust inside.
  */
 function isIntent(value: string): value is Intent {
   return Object.prototype.hasOwnProperty.call(INTENTS, value);

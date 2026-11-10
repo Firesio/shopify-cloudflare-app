@@ -4,8 +4,8 @@
 # takes a few seconds.
 #
 # Tests are NOT here on purpose: the full suite takes about 40 s (real workerd, real D1, SSR renders), and a hook that
-# slow gets bypassed with --no-verify, at which point it protects nothing. `npm run verify` runs everything, and CI runs
-# it on every push to main and every pull request.
+# slow gets bypassed with --no-verify, at which point it protects nothing. `npm run verify` runs everything: there is no
+# GitHub CI, so run it yourself before pushing to main (Cloudflare Workers Builds deploys main without running it).
 #
 # Never bypass this with --no-verify; fix what it reports.
 npm run -s precommit

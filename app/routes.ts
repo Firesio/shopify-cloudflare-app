@@ -12,7 +12,7 @@ import {
  * The URL structure lives here, and the file tree mirrors it — `/legal/privacy`
  * is `routes/public/legal/privacy.tsx`, not `routes/legal.privacy.tsx`. With
  * dozens of routes, a flat directory of dot-separated names stops being
- * readable, and you cannot tell a layout from a leaf. See @rules/architecture.md.
+ * readable, and you cannot tell a layout from a leaf. See @rules/core.md.
  *
  * One surface per top-level group. Add a route to the group it belongs to; if it
  * fits none of them, that is a sign it is a new surface, so add a new group and

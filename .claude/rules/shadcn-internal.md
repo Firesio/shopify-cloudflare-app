@@ -1,5 +1,8 @@
 ---
-globs: ["app/routes/internal/**", "app/internal/**", "app/styles/internal/**"]
+paths:
+  - "app/routes/internal/**"
+  - "app/internal/**"
+  - "app/styles/internal/**"
 ---
 
 # Internal staff console — shadcn/ui, 100%

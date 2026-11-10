@@ -1,11 +1,8 @@
 ---
-description: How the PUBLIC pages are styled — SCSS only, every value from a token, mobile-first, dark mode and reduced motion honoured. Does not apply to the embedded Shopify admin, which is Polaris. Apply when writing or editing any stylesheet or public page markup.
-globs:
-  - "app/styles/**"
+paths:
+  - "app/styles/public/**"
   - "app/routes/public/**"
   - "**/*.scss"
-  - "**/*.css"
-alwaysApply: true
 ---
 
 # Styling the public pages

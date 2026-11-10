@@ -1,5 +1,10 @@
 ---
-globs: ["app/notifications/**", "app/lib/web-push/**", "app/internal/push/**", "app/routes/internal/notifications*", "public/internal-sw.js"]
+paths:
+  - "app/notifications/**"
+  - "app/lib/web-push/**"
+  - "app/internal/push/**"
+  - "app/routes/internal/notifications*"
+  - "public/internal-sw.js"
 ---
 
 # Web push for the staff console

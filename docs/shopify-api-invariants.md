@@ -1,14 +1,3 @@
----
-description: The project's log of hard-won Shopify API findings — what is settled, what is still unverified, and the design consequence of each. Read before relying on remembered API behavior; add to it whenever a lookup or a real store teaches you something costly.
-globs:
-  - "app/services/**"
-  - "app/adapters/**"
-  - "app/models/**"
-  - "app/routes/webhooks*"
-  - "extensions/**"
-alwaysApply: true
----
-
 # Shopify API invariants
 
 **This file starts empty on purpose.** It is the project's memory, not a
@@ -46,7 +35,7 @@ Two that hold for every Shopify app, so they are here from the start:
 
 | Finding | Design consequence |
 |---|---|
-| Webhooks deliver **at-least-once** | Every handler is idempotent — `@rules/design-patterns.md`. The replay test ships with the handler, not later |
+| Webhooks deliver **at-least-once** | Every handler is idempotent — `@rules/core.md`. The replay test ships with the handler, not later |
 | A mutation's shape is only true **for an API version** | Pin the version you checked against. `apiVersion` in `app/shopify.server.ts` and `api_version` in both `shopify.app*.toml` are the same decision — change them together |
 
 ## Webhook delivery, compliance and offline tokens (2026-10-08)

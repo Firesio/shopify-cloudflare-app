@@ -1,8 +1,7 @@
 ---
-description: Rules for merchant-facing dashboard pages in the embedded Shopify admin. Use the checked-in docs/polaris templates and compositions as the source for layout and component choices.
-globs:
-  - "app/routes/app/**"
-alwaysApply: true
+paths:
+  - "app/routes/app/home*"
+  - "app/routes/app/_layout*"
 ---
 
 # Polaris dashboard pages

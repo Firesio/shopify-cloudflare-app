@@ -1,7 +1,7 @@
 /**
  * The three ambient facts a decision may need: the time, a fresh id, and random
  * bytes. They are ports so rings 1-3 never read them from the runtime
- * (@rules/code-craft.md: time, randomness, ids and env are parameters). The real
+ * (@rules/core.md: time, randomness, ids and env are parameters). The real
  * implementation lives in `app/adapters/system-runtime.ts`, bound only in
  * `app/wiring.server.ts`; fakes live in `app/test/fake-runtime.ts`.
  */

@@ -12,7 +12,7 @@ import { resetMfa, type StaffMfaDependencies } from "~/services/staff-mfa";
  * forget one.
  *
  * Expected failures are returned as a `Result`, never thrown
- * (@rules/code-craft.md). The reason strings are translation keys under
+ * (@rules/core.md). The reason strings are translation keys under
  * `internal.admins.errors` / `internal.profile.errors`.
  */
 /**

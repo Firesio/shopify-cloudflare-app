@@ -145,7 +145,7 @@ const shopRedact: ComplianceHandler = async ({ shop }, deps) => {
 
 /**
  * Static literal map keyed by the topic union, so TypeScript fails the build if
- * a topic is added without a handler. See @rules/design-patterns.md.
+ * a topic is added without a handler. See @rules/core.md.
  */
 export const complianceHandlers: Record<ComplianceTopic, ComplianceHandler> = {
   CUSTOMERS_DATA_REQUEST: customersDataRequest,

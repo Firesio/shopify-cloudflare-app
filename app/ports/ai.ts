@@ -6,7 +6,7 @@ import type { PromptMessage } from "~/ai/draft-prompt";
  *
  * Narrow on purpose — two methods, because we have two callers. The reference
  * implementation this is modelled on carries six (structured, tools, audio,
- * embeddings…) for callers that do not exist here, which @rules/design-patterns.md
+ * embeddings…) for callers that do not exist here, which @rules/core.md
  * calls out directly: no interface with one caller, no ceremony for a seam the
  * rules do not name. Widen it when a second kind of call actually arrives.
  *

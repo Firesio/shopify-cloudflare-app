@@ -28,7 +28,7 @@ import { enqueueVerifiedWebhook } from "./enqueue.server";
  * Once a shop has been redacted a minimal tombstone (hash + timestamp) remains, and the consumer's admission step
  * (`admitWebhook`) drops any later delivery for it (including a duplicate `shop/redact`) without storing a delivery
  * row; the route still answers 2xx. That tombstone is our own design: Shopify's docs say nothing about reinstalls.
- * See `.claude/rules/shopify-api-invariants.md`.
+ * See `docs/shopify-api-invariants.md`.
  */
 export const action = ({ request }: ActionFunctionArgs) => withWebhookFailureLog(request, () => receive(request));
 

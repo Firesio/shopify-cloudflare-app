@@ -3,7 +3,7 @@ import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 /**
  * Redaction tombstones: the minimum we must remember AFTER `shop/redact` has erased a shop, so the shop is not
  * silently recreated by Partner history, a late webhook or a sweep. Shopify's docs are silent on reinstalls and
- * tombstones, so this is our own design (see `.claude/rules/shopify-api-invariants.md`).
+ * tombstones, so this is our own design (see `docs/shopify-api-invariants.md`).
  *
  * NOT shop-scoped, and the second deliberate exception to the shop-scoping rule in @rules/data.md (after
  * `admin_users`): it exists precisely because the shop's rows are gone, and it has no `shop` column on purpose — so

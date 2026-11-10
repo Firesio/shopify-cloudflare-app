@@ -16,7 +16,7 @@
  * The signed payload is `attachmentId:expiresAt`, so a token is useless for any
  * other attachment and stops working on its own. Pure by signature — the
  * secret and the current time are arguments, never ambient reads
- * (@rules/code-craft.md), which is what makes every branch here testable.
+ * (@rules/core.md), which is what makes every branch here testable.
  */
 
 /** How long a minted URL stays usable. Long enough to read a thread, not to share. */
@@ -69,7 +69,7 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
   // `?? 0` rather than a non-null assertion: the index is in range by the
-  // loop bound, and @rules/code-craft.md has no exception for "obviously safe".
+  // loop bound, and @rules/core.md has no exception for "obviously safe".
   for (let i = 0; i < a.length; i += 1) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
   return diff === 0;
 }

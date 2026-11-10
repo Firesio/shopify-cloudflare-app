@@ -1,10 +1,8 @@
 ---
-description: Rules for adapters that touch D1 — shop-scoping on every query, no N+1, forward-only migrations, degrade decoration never correctness. Apply in app/models, app/db, and drizzle.
-globs:
+paths:
   - "app/models/**/*.ts"
   - "app/db/**/*.ts"
   - "drizzle/**"
-alwaysApply: true
 ---
 
 # Data access

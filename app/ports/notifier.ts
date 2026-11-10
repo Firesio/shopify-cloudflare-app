@@ -4,7 +4,7 @@ import type { PayloadByEvent } from "~/notifications/payloads";
 /**
  * The port a use case depends on to send a notification.
  *
- * @rules/design-patterns.md requires a port and adapter for every external call
+ * @rules/core.md requires a port and adapter for every external call
  * — email included — and this is that seam. It exists for a concrete reason
  * rather than ceremony: an email leaves no database state to assert, so without
  * a port there is no honest way to prove a use case asked for the right one.

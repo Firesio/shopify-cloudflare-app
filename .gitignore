@@ -57,5 +57,4 @@ app/types/
 *.cpuprofile
 
 # Agent skills installed on a developer machine; each person keeps their own.
-.agents/
 .claude/skills/

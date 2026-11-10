@@ -3,7 +3,7 @@
  *
  * A plain module rather than `.server.ts`: the COMPONENT renders this, so it
  * has to reach the client bundle. Route-local, beside its route and suffixed,
- * per @rules/architecture.md. Knows nothing about intents — the intent-to-key
+ * per @rules/core.md. Knows nothing about intents — the intent-to-key
  * map lives with the intents, so this stays pure and has no server import.
  */
 export type SuccessKey =
