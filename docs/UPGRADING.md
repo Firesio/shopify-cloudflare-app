@@ -7,6 +7,21 @@ and marks the steps that are **risky for an app already in production**.
 
 ---
 
+## 2026-11-10 Back-ports from porting the template into a derived app (branch `fix/backports-from-team-up`)
+
+**Affected if** the app uses online tokens or members, staff API access (MCP, REST), the support upload API, campaigns, or imports `app/routes` modules.
+
+- **Session storage keeps the online user's profile.** `Session.toPropertyArray()` / `fromPropertyArray()` drop `account_owner`, email, names and `collaborator` unless called with `true`; `app/session-storage.server.ts` now stores and loads the full profile (the KV index metadata stays free of personal data). Without it only the request that minted an online session knew who the person was and the member guard could overwrite a true `account_owner`. **Risky:** none; sessions stored before the change simply lack the profile until the next token exchange.
+- **Disabled or removed staff lose API access.** `verifyBearerToken` and the OAuth code and refresh exchanges refuse a missing or disabled token owner on every request (one extra D1 read); disabling or removing an account revokes its tokens and unredeemed codes (`McpTokenPort.revokeAllForAdmin`); re-enabling does not bring them back. **Risky:** tokens of accounts disabled earlier stop working at the deploy.
+- **Dynamic OAuth clients can never be granted `mcp:campaigns:send`** (nor `mcp:admin`): only a personal access token a staff member ticks on purpose.
+- `api/v1/support/upload` decodes the filename header safely (a bare `decodeURIComponent` made `100%.png` a 500); API CORS allows `PATCH`.
+- **`npm run verify` does not build.** `app/route-module-exports.test.ts` fails when a route module's client-reachable export reaches a `*.server` import (that breaks `react-router build`); run `CLOUDFLARE_ENV=production npx react-router build` before pushing `main`.
+- `scripts/vite-child-compiler.mjs` replaces the load counter in `vite.config.ts` (the counter dropped the Cloudflare plugin after a dev-server restart). Not verified: `scripts/vite-restart-check.mjs` was not ported or run.
+- **Open owner decision:** whether to port team-up-new's instant navigation (`clientLoader` + `instantData`, `InstantPage`, per-page skeletons, `PrefetchPageLinks`): see `docs/ideas/instant-navigation.md`.
+- Not verified: the full `verify` result on this branch is what the implementing agent reported.
+
+---
+
 ## 2026-10-23 Entitlements: typed keys, shop-local months, usage, adopt, batch reads, scheduled reconciler
 
 Commits `c04bd44` (scheduled reconciler) and `a091fc4` (the rest). Verified on this
