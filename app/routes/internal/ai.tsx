@@ -17,14 +17,13 @@ import { Skeleton } from "~/internal/components/ui/skeleton";
 import { Coins, Gauge } from "lucide-react";
 import { requireOwner } from "~/services/admin-auth.server";
 import { adminUsers } from "~/wiring.server";
-import { MODEL_ROLES, ROLE_LABEL, isModelRole } from "~/ai/roles";
-import { findCatalogueModel } from "~/ai/catalogue";
-import { recommendedChain } from "~/ai/ranking";
+import { MODEL_ROLES } from "~/ai/roles";
 import { useActionToast } from "~/internal/use-action-toast";
 import { formatNumber } from "~/i18n/format";
 import type { LanguageCode } from "~/i18n/catalogues.generated";
 import { Deferred, StatRowSkeleton } from "~/internal/components";
 import { streamRegion } from "~/internal/stream-region.server";
+import { AI_INTENT_HANDLERS, readAiIntent, type IntentOutcome } from "./ai/intents.server";
 import { PurposeCard } from "./ai/purpose-card";
 import { buildPurpose, summarizeRun } from "./ai/purposes";
 import { RecentCallsTable } from "./ai/recent-calls-table";
@@ -60,55 +59,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return { overview: streamRegion("ai", "overview", loadAiOverview()) };
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: ActionFunctionArgs): Promise<IntentOutcome> => {
   const actor = await requireOwner(request, { users: adminUsers() });
   const form = await request.formData();
 
-  const role = String(form.get("role") ?? "");
-  const intent = String(form.get("intent") ?? "");
-  const modelId = String(form.get("modelId") ?? "");
+  const intent = readAiIntent(String(form.get("intent") ?? ""));
+  if (intent === null) return { error: "Unknown action." };
 
-  // Both sides narrowed by MEMBERSHIP, never cast: they arrive off a form, and
-  // a model outside the catalogue resolves to nothing at call time — which
-  // reads as a broken feature, not a bad setting (@rules/cloudflare.md).
-  if (!isModelRole(role)) return { error: "That is not a purpose we use." as const };
-
-  const repo = aiRepository();
-  const at = Date.now();
-
-  switch (intent) {
-    case "add": {
-      if (!findCatalogueModel(modelId)) {
-        return { error: "That model is not in the catalogue." as const };
-      }
-      await repo.addToChain({ role, modelId, updatedBy: actor.email, at });
-      return { success: `Added to ${ROLE_LABEL[role]}.` as const };
-    }
-    case "recommend": {
-      // Seeds the top of this purpose's own ranking. An explicit button rather
-      // than a silent default, so "no models" stays a real, choosable state and
-      // what the runtime will actually use is always what the page shows.
-      // Sequential on purpose: each append reads the chain's current max priority,
-      // and the list is the fixed-length recommendation (CHAIN_LENGTH), staff-only.
-      for (const id of recommendedChain(role)) {
-        await repo.addToChain({ role, modelId: id, updatedBy: actor.email, at });
-      }
-      return { success: `${ROLE_LABEL[role]} set to the recommended chain.` as const };
-    }
-    case "remove":
-      await repo.removeFromChain(role, modelId);
-      return { success: `Removed from ${ROLE_LABEL[role]}.` as const };
-    case "up":
-    case "down":
-      await repo.reorder({ role, modelId, direction: intent, at });
-      return { success: `Reordered ${ROLE_LABEL[role]}.` as const };
-    case "enable":
-    case "disable":
-      await repo.setEnabled({ role, modelId, enabled: intent === "enable", at });
-      return { success: `Updated ${ROLE_LABEL[role]}.` as const };
-    default:
-      return { error: "Unknown action." as const };
-  }
+  return AI_INTENT_HANDLERS[intent](
+    { role: String(form.get("role") ?? ""), modelId: String(form.get("modelId") ?? "") },
+    { repo: aiRepository(), actor: actor.email, at: Date.now() },
+  );
 };
 
 export default function AiSettings() {
