@@ -6,6 +6,7 @@ import {
   mcpAuditLogs,
   notificationLogs,
   staffAuditLogs,
+  supportQuarantine,
   webhookDeliveries,
   webhookScopeObservations,
 } from "~/db/schema";
@@ -60,6 +61,24 @@ describe("RetentionRepo", () => {
     expect(await inRequest(() => repo.prune("mcp_audit_logs", CUTOFF, 500))).toBe(1);
     expect(await ids(db.select({ id: aiRuns.id }).from(aiRuns))).toEqual(["a-new"]);
     expect(await ids(db.select({ id: mcpAuditLogs.id }).from(mcpAuditLogs))).toEqual(["m-new"]);
+  });
+
+  it("prunes held mail by age, and only the held mail", async () => {
+    const held = (id: string, createdAt: number) => ({
+      id,
+      externalId: `<${id}@mail.example>`,
+      source: "email" as const,
+      reason: "ai_spam" as const,
+      senderEmail: "seo@spam.example",
+      senderName: "SEO",
+      subject: "Rank #1",
+      body: "Buy links",
+      createdAt,
+    });
+    await db.insert(supportQuarantine).values([held("q-old", 1), held("q-new", CUTOFF + 1)]);
+
+    expect(await inRequest(() => new RetentionRepo().prune("support_quarantine", CUTOFF, 500))).toBe(1);
+    expect(await ids(db.select({ id: supportQuarantine.id }).from(supportQuarantine))).toEqual(["q-new"]);
   });
 
   it("removes old settled deliveries with their scope observations, and never an in-flight one", async () => {

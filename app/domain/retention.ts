@@ -17,6 +17,7 @@ export type RetentionTarget =
   | "webhook_deliveries_failed"
   | "notification_logs"
   | "ai_runs"
+  | "support_quarantine"
   | "mcp_audit_logs"
   | "staff_audit_logs";
 
@@ -46,6 +47,12 @@ export const RETENTION_POLICY: Readonly<Record<RetentionTarget, RetentionRule>> 
   ai_runs: {
     keepDays: 400,
     reason: "Token metering, no content. Thirteen months so a year-over-year cost comparison is possible.",
+  },
+  support_quarantine: {
+    keepDays: 30,
+    reason:
+      "A stranger's mail that nobody owns, held only so a person can rescue a wrongly held one. A month is far past the " +
+      "next time staff open the Spam page, and the mail is personal data nobody asked us to keep.",
   },
   mcp_audit_logs: {
     keepDays: 365,

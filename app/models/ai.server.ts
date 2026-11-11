@@ -1,10 +1,10 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, ne, sql } from "drizzle-orm";
 import { aiModels, aiRuns, type AiModel, type AiRun } from "~/db/schema";
 import { getDb } from "~/request-context.server";
 import type { ModelRole } from "~/ai/roles";
 import { orderChain } from "~/ai/chain";
 import type { ChainPlan } from "~/ai/preset";
-import type { AiFailureReason } from "~/ports/ai";
+import { GATED_MODEL_ID, type AiFailureReason } from "~/ports/ai";
 
 /**
  * The ONLY place `ai_models` and `ai_runs` are queried.
@@ -178,6 +178,20 @@ export class AiRepo {
     await getDb()
       .insert(aiRuns)
       .values(input);
+  }
+
+  /**
+   * How many calls of a purpose actually ran since `since`, for a spend cap.
+   *
+   * A call a gate REFUSED left a ledger row too (so "why did nothing happen" has an answer), but it spent nothing:
+   * counting it would make a cap that has tripped keep itself tripped for as long as the flood lasts.
+   */
+  async callsSince(role: ModelRole, since: number): Promise<number> {
+    const [row] = await getDb()
+      .select({ calls: count() })
+      .from(aiRuns)
+      .where(and(eq(aiRuns.role, role), gte(aiRuns.createdAt, since), ne(aiRuns.modelId, GATED_MODEL_ID)));
+    return row?.calls ?? 0;
   }
 
   async recentRuns(limit = 50): Promise<AiRun[]> {

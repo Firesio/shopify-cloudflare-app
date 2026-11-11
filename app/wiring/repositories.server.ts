@@ -6,6 +6,7 @@ import { AiRepo } from "~/models/ai.server";
 import { OperationalHealthRepo } from "~/models/operational-health.server";
 import { SupportRepo } from "~/models/support.server";
 import { SupportInboundRepo } from "~/models/support-inbound.server";
+import { SupportTriageRepo } from "~/models/support-triage.server";
 import { WebhookDeliveryRepo } from "~/models/webhook-deliveries.server";
 import { WebhookScopeObservationRepo } from "~/models/webhook-scope-observations.server";
 import { ShopSyncCheckpointRepo } from "~/models/shop-sync-checkpoints.server";
@@ -25,12 +26,13 @@ export type ShopSyncCheckpointsPort = Pick<ShopSyncCheckpointRepo, "read" | "mar
 export type WebhookScopeObservationsPort = Pick<WebhookScopeObservationRepo, "record" | "list" | "applyScopes" | "listGrantedForShop" | "latestChangeAt">;
 export type WebhookDeliveryRepositoryPort = Pick<WebhookDeliveryRepo, "listForShop" | "claim" | "get" | "markProcessing" | "markProcessed" | "markFailed" | "markDeadLetter" | "listFailures" | "deleteDelivery">;
 export type OperationalHealthPort = Pick<OperationalHealthRepo, "read">;
-export type AiRepositoryPort = Pick<AiRepo, "chainFor" | "markHealth" | "recordRun" | "allModels" | "tokensSince" | "recentRuns" | "addToChain" | "replaceChains" | "removeFromChain" | "reorder" | "setEnabled">;
+export type AiRepositoryPort = Pick<AiRepo, "chainFor" | "markHealth" | "recordRun" | "callsSince" | "allModels" | "tokensSince" | "recentRuns" | "addToChain" | "replaceChains" | "removeFromChain" | "reorder" | "setEnabled">;
 
 export function shops(): ShopsPort { return new ShopRepo(); }
 export function shopMetrics(): ShopMetricsRepo { return new ShopMetricsRepo(); }
 export function support(): SupportPort { return new SupportRepo(appRuntime().ids); }
 export function supportInbound(): SupportInboundRepo { return new SupportInboundRepo(appRuntime().ids); }
+export function supportTriage(): SupportTriageRepo { return new SupportTriageRepo(appRuntime().ids); }
 export function shopSubscriptions(): ShopSubscriptionsPort { return new ShopSubscriptionRepo({ invalidate: (shop) => afterPlanChange(shop) }); }
 export function shopifyEvents(): ShopifyEventsPort { return new ShopifyEventRepo(); }
 export function shopSyncCheckpoints(): ShopSyncCheckpointsPort { return new ShopSyncCheckpointRepo(); }

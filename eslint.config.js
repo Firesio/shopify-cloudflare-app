@@ -11,6 +11,8 @@ export default tseslint.config(
       ".claude/**",
       // Skills written for coding agents (markdown, templates, a python script): instructions, not app source.
       "agent-skills/**",
+      // Where coding-agent tooling installs skills (third-party instructions, templates, vendored scripts): same kind as the line above.
+      ".agents/**",
       // Throwaway design explorations (static pages with vendored three.js): prototypes, not app source.
       "docs/explorations/**",
       ".shopify-home/**",

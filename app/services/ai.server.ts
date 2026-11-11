@@ -5,6 +5,7 @@ import type { AiCaller, AiGate } from "~/ai/gate";
 import type { ModelRole } from "~/ai/roles";
 import {
   AiError,
+  GATED_MODEL_ID,
   isRetriable,
   type AiFailureReason,
   type AiUsage,
@@ -248,7 +249,7 @@ export class AiService {
     const reason = await this.gate.refuse({ caller, role: task.role });
     if (!reason) return null;
 
-    await this.record({ task, caller, model: "(gated)", reason, startedAt: this.clock.now() });
+    await this.record({ task, caller, model: GATED_MODEL_ID, reason, startedAt: this.clock.now() });
     return reason;
   }
 

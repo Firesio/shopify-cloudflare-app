@@ -3,6 +3,7 @@ import { env } from "cloudflare:test";
 import { runWithRequestContext } from "~/request-context.server";
 import { setupTestDatabase } from "~/test/db";
 import { AiRepo } from "./ai.server";
+import { GATED_MODEL_ID } from "~/ports/ai";
 import { MODEL_RECOVERY_MS } from "~/ai/chain";
 import { testIds } from "~/test/fake-runtime";
 
@@ -131,6 +132,52 @@ describe("a purpose's chain", () => {
     });
 
     expect(chain).toEqual(["@cf/b/two"]);
+  });
+});
+
+describe("counting calls for a spend cap", () => {
+  const classification = (id: string, over: Partial<Parameters<AiRepo["recordRun"]>[0]> = {}) => ({
+    id,
+    role: "classification" as const,
+    modelId: "@cf/m/m",
+    feature: "support.spam_triage",
+    shop: null,
+    status: "ok" as const,
+    reasonCode: null,
+    inputTokens: 1,
+    outputTokens: 1,
+    latencyMs: 1,
+    createdAt: AT,
+    ...over,
+  });
+
+  it("counts the calls of one purpose since a moment, failed ones included", async () => {
+    const calls = await inRequest(async () => {
+      const repo = new AiRepo();
+      await repo.recordRun(classification("old", { createdAt: AT - 10 }));
+      await repo.recordRun(classification("ok"));
+      await repo.recordRun(classification("failed", { status: "error", reasonCode: "provider" }));
+      await repo.recordRun(classification("other-role", { role: "writing" }));
+      return repo.callsSince("classification", AT);
+    });
+
+    expect(calls).toBe(2);
+  });
+
+  it("does not count a call a gate refused, which spent nothing", async () => {
+    // Otherwise a cap that has tripped would keep itself tripped for as long as the flood lasts.
+    const calls = await inRequest(async () => {
+      const repo = new AiRepo();
+      await repo.recordRun(classification("ran"));
+      await repo.recordRun(classification("refused", { modelId: GATED_MODEL_ID, status: "error", reasonCode: "rate_limited" }));
+      return repo.callsSince("classification", AT);
+    });
+
+    expect(calls).toBe(1);
+  });
+
+  it("is zero when nothing ran", async () => {
+    expect(await inRequest(() => new AiRepo().callsSince("classification", 0))).toBe(0);
   });
 });
 

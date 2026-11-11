@@ -138,6 +138,13 @@
       "simple": { "limit": 5, "period": 60 }
     },
     {
+      "name": "SUPPORT_MAIL_LIMITER",
+      "namespace_id": "1005",
+      // Inbound support mail has no shop either, so it is limited per sender address (for the Shopify relay, the
+      // asker in Reply-To, never the relay's own no-reply sender). A person writes a few mails a minute at most.
+      "simple": { "limit": 5, "period": 60 }
+    },
+    {
       "name": "RESET_LIMITER",
       "namespace_id": "1003",
       "simple": { "limit": 3, "period": 60 }
@@ -276,6 +283,11 @@
         {
           "name": "SUPPORT_FORM_LIMITER",
           "namespace_id": "1004",
+          "simple": { "limit": 5, "period": 60 }
+        },
+        {
+          "name": "SUPPORT_MAIL_LIMITER",
+          "namespace_id": "1005",
           "simple": { "limit": 5, "period": 60 }
         },
         {

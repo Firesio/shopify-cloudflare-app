@@ -20,7 +20,7 @@ function validFiles() {
     send_email: [{ name: "EMAIL" }],
     ai: { binding: "AI" },
     queues: { producers: [{ binding: "WEBHOOK_QUEUE", queue: "queue" }], consumers: [{ queue: "queue", max_retries: 5, dead_letter_queue: "queue-dlq" }] },
-    ratelimits: [{ name: "SUPPORT_LIMITER" }, { name: "LOGIN_LIMITER" }, { name: "RESET_LIMITER" }],
+    ratelimits: [{ name: "SUPPORT_LIMITER" }, { name: "SUPPORT_MAIL_LIMITER" }, { name: "LOGIN_LIMITER" }, { name: "RESET_LIMITER" }],
     triggers: { crons: ["30 3 * * *", "0 * * * *"] },
   };
   return {

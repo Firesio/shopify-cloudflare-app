@@ -47,6 +47,12 @@ export function isRetriable(reason: AiFailureReason): boolean {
   return reason === "provider" || reason === "timeout" || reason === "rate_limited";
 }
 
+/**
+ * The model id the ledger records for a call a gate refused, before any model was resolved. Shared by the service
+ * that writes it and the repository that must not count it as a call that ran.
+ */
+export const GATED_MODEL_ID = "(gated)";
+
 export interface AiUsage {
   readonly model: string;
   readonly inputTokens: number | null;

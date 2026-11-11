@@ -224,7 +224,7 @@ export function validateLaunchContract(files) {
   const requiredBindings = [
     ["SESSION", "kv_namespaces"], ["DB", "d1_databases"], ["UPLOADS", "r2_buckets"],
     ["EMAIL", "send_email"], ["AI", "ai"], ["WEBHOOK_QUEUE", "queues"],
-    ["SUPPORT_LIMITER", "ratelimits"], ["LOGIN_LIMITER", "ratelimits"], ["RESET_LIMITER", "ratelimits"],
+    ["SUPPORT_LIMITER", "ratelimits"], ["SUPPORT_MAIL_LIMITER", "ratelimits"], ["LOGIN_LIMITER", "ratelimits"], ["RESET_LIMITER", "ratelimits"],
   ];
   for (const [binding, section] of requiredBindings) {
     const configured = section === "ai"

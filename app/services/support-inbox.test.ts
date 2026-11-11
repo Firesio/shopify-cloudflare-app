@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { fakeNotifier } from "~/test/fake-notifier";
 import { FakeSupportInbound } from "~/test/fake-support-inbound";
+import { FakeSpamQuarantine, fixedTriage } from "~/test/fake-support-triage";
+import { quarantineFor } from "~/support/triage/decision";
+import type { InboundTriage } from "~/ports/support-triage";
+import type { TriageDecision } from "~/support/triage/types";
 import type { ParsedMail } from "~/support/inbound/types";
 import { SupportInboxService } from "./support-inbox.server";
 
@@ -43,11 +47,14 @@ const relay = (overrides: Partial<ParsedMail> = {}) =>
     ...overrides,
   });
 
-function setup(knownShops: Record<string, string> = {}, mailDomain: string | null = DOMAIN) {
+function setup(knownShops: Record<string, string> = {}, mailDomain: string | null = DOMAIN, triage: InboundTriage = fixedTriage()) {
   const repo = new FakeSupportInbound();
+  const quarantine = new FakeSpamQuarantine();
   const notifier = fakeNotifier();
   const service = new SupportInboxService({
     repo,
+    triage,
+    quarantine,
     shops: { find: async (domain) => (knownShops[domain] ? { shop: domain, name: knownShops[domain] } : null) },
     clock: { now: () => 1_000 },
     ids: { uuid: (() => { let n = 0; return () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`; })() },
@@ -57,7 +64,7 @@ function setup(knownShops: Record<string, string> = {}, mailDomain: string | nul
     mailDomain,
     log: () => {},
   });
-  return { repo, notifier, service };
+  return { repo, quarantine, notifier, service };
 }
 
 describe("SupportInboxService", () => {
@@ -172,5 +179,98 @@ describe("SupportInboxService", () => {
     const outcome = await service.receive(relay({ text: "Something Shopify changed." }));
     expect(outcome).toMatchObject({ status: "opened", source: "email" });
     expect(repo.threads[0]?.messages[0]?.body).toBe("Something Shopify changed.");
+  });
+
+  describe("a mail triage holds back", () => {
+    const SPAM = quarantineFor("ai_spam");
+
+    it("opens no conversation and alerts nobody, but holds the mail", async () => {
+      const { repo, quarantine, notifier, service } = setup({}, DOMAIN, fixedTriage(SPAM));
+      const outcome = await service.receive(mail({ from: { address: "seo@spam.example", name: "SEO" }, subject: "Rank #1", text: "Buy links" }));
+
+      expect(outcome).toEqual({ status: "quarantined", reason: "ai_spam" });
+      expect(repo.threads).toEqual([]);
+      expect(notifier.sent).toEqual([]);
+      expect(quarantine.held).toEqual([
+        expect.objectContaining({ senderEmail: "seo@spam.example", subject: "Rank #1", body: "Buy links", reason: "ai_spam", source: "email", createdAt: 1_000 }),
+      ]);
+    });
+
+    it("holds a relay mail under the asker, not under Shopify's no-reply sender", async () => {
+      const { quarantine, service } = setup({}, DOMAIN, fixedTriage(quarantineFor("flood")));
+      await service.receive(relay());
+      expect(quarantine.held[0]).toMatchObject({ senderEmail: "josh.johnson@atelier-studios.com", source: "shopify_relay", reason: "flood" });
+    });
+
+    it("holds a redelivered mail once", async () => {
+      const { quarantine, service } = setup({}, DOMAIN, fixedTriage(SPAM));
+      await service.receive(mail());
+      expect(await service.receive(mail())).toEqual({ status: "duplicate" });
+      expect(quarantine.held).toHaveLength(1);
+    });
+
+    it("is only asked about a mail that would open a conversation, never an automated or an empty one", async () => {
+      const asked: string[] = [];
+      const { service } = setup({}, DOMAIN, { assess: async (candidate) => (asked.push(candidate.subject), { action: "open" }) });
+      await service.receive(mail({ messageId: "<a@mail.example>", autoSubmitted: "auto-replied", subject: "Out of office" }));
+      await service.receive(mail({ messageId: "<b@mail.example>", text: "   ", subject: "Empty" }));
+      await service.receive(mail({ messageId: "<c@mail.example>", subject: "Real" }));
+      expect(asked).toEqual(["Real"]);
+    });
+
+    it("is not asked about a participant's answer in an existing thread", async () => {
+      let decision: TriageDecision = { action: "open" };
+      const { quarantine, service } = setup({}, DOMAIN, { assess: async () => decision });
+      const opened = await service.receive(mail());
+      if (opened.status !== "opened") throw new Error("expected opened");
+
+      // From here triage would hold anything: an answer inside a thread must still land in it.
+      decision = SPAM;
+      const answer = await service.receive(
+        mail({ messageId: "<m2@mail.example>", recipients: [`support+${opened.ticketId}@${DOMAIN}`], text: "More detail." }),
+      );
+      expect(answer).toMatchObject({ status: "appended" });
+      expect(quarantine.held).toEqual([]);
+    });
+  });
+
+  describe("releasing a held mail", () => {
+    async function held(knownShops: Record<string, string> = {}) {
+      const context = setup(knownShops, DOMAIN, fixedTriage(quarantineFor("ai_spam")));
+      await context.service.receive(relay());
+      const [mailHeld] = context.quarantine.held;
+      if (!mailHeld) throw new Error("expected a held mail");
+      return { ...context, heldId: mailHeld.id };
+    }
+
+    it("opens the conversation it would have had, alerts staff, and stops holding it", async () => {
+      const { repo, quarantine, notifier, service, heldId } = await held();
+      const released = await service.release(heldId);
+
+      expect(released).toMatchObject({ ok: true });
+      expect(repo.threads).toHaveLength(1);
+      expect(repo.threads[0]).toMatchObject({ source: "shopify_relay", participants: ["josh.johnson@atelier-studios.com"] });
+      expect(notifier.onlyFor("support_merchant_activity").payload).toMatchObject({ isNew: true, shopName: "Dev Playground" });
+      expect(quarantine.held).toEqual([]);
+    });
+
+    it("gives the conversation to the shop it names, when that shop is known by now", async () => {
+      const { repo, service, heldId } = await held({ "dev-playground-3getbhj4.myshopify.com": "Dev Playground Store" });
+      await service.release(heldId);
+      expect(repo.threads[0]?.shop).toBe("dev-playground-3getbhj4.myshopify.com");
+    });
+
+    it("finds nothing the second time, and opens nothing twice", async () => {
+      const { repo, notifier, service, heldId } = await held();
+      await service.release(heldId);
+      expect(await service.release(heldId)).toMatchObject({ ok: false, reason: "missing" });
+      expect(repo.threads).toHaveLength(1);
+      expect(notifier.sent).toHaveLength(1);
+    });
+
+    it("refuses an id that was never held", async () => {
+      const { service } = setup();
+      expect(await service.release("held-404")).toMatchObject({ ok: false, reason: "missing" });
+    });
   });
 });

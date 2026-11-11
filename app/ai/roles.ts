@@ -6,8 +6,8 @@
  * stays short however many features arrive. Each purpose also fails
  * differently, which is exactly why they are not one setting.
  *
- * Two are wired today (`writing` drafts support replies, `summary` triages a
- * thread). The rest are defined because they are the distinctions the CATALOGUE
+ * Three are wired today (`writing` drafts support replies, `summary` triages a
+ * thread, `classification` screens inbound mail for spam). The rest are defined because they are the distinctions the CATALOGUE
  * itself makes — tool calling, thinking traces, price, context — so the console
  * can be configured before the feature that needs it exists. The settings page
  * marks which are actually in use, so nobody mistakes a configured purpose for
@@ -51,7 +51,7 @@ export const ROLES_IN_USE: Record<ModelRole, string | null> = {
   summary: "Support thread summaries",
   reasoning: null,
   extraction: null,
-  classification: null,
+  classification: "Inbound mail spam check",
 };
 
 /** Narrow an untrusted string — a stored row, a form field — to a purpose. */

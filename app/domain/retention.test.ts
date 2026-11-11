@@ -23,6 +23,7 @@ describe("retentionCutoffs", () => {
       webhook_deliveries_failed: 180,
       notification_logs: 90,
       ai_runs: 400,
+      support_quarantine: 30,
       mcp_audit_logs: 365,
       staff_audit_logs: 365,
     });

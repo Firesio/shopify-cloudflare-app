@@ -1,13 +1,15 @@
 import { err, ok, type Result } from "~/lib/result";
 import type { Clock, Ids } from "~/ports/runtime";
 import type { InboundSupportRepository, ShopDirectory } from "~/ports/support-inbound";
+import type { InboundTriage, SpamQuarantine } from "~/ports/support-triage";
 import type { ContactInput } from "~/schemas/support-contact";
 import { alertStaff, type StaffAlertDependencies } from "~/services/support-staff-alert";
 import { isAutomatedMail } from "~/support/inbound/automated";
-import { PLAIN_EMAIL_SOURCE, detectMailSource } from "~/support/inbound/sources";
+import { PLAIN_EMAIL_SOURCE, detectMailSource, type MailSource } from "~/support/inbound/sources";
 import { stripQuotedReply } from "~/support/inbound/quote";
 import { normalizeMessageId, senderMayPost, threadLookupKeys } from "~/support/inbound/thread-match";
 import type { NormalizedInbound, ParsedMail } from "~/support/inbound/types";
+import type { SpamReason } from "~/support/triage/types";
 
 /** A mail longer than this is cut: a conversation, not a document store. */
 export const INBOUND_BODY_MAX = 20_000;
@@ -16,11 +18,15 @@ const SUBJECT_MAX = 200;
 export type ReceiveOutcome =
   | { readonly status: "appended"; readonly ticketId: string }
   | { readonly status: "opened"; readonly ticketId: string; readonly source: NormalizedInbound["source"] }
+  /** Held back as probable spam: no conversation, no alert. A person may release it from the Spam page. */
+  | { readonly status: "quarantined"; readonly reason: SpamReason }
   | { readonly status: "duplicate" }
   | { readonly status: "ignored"; readonly reason: "no_message_id" | "automated" | "own_domain" | "empty" };
 
 export interface SupportInboxDependencies extends StaffAlertDependencies {
   readonly repo: InboundSupportRepository;
+  readonly triage: InboundTriage;
+  readonly quarantine: SpamQuarantine;
   readonly shops: ShopDirectory;
   readonly clock: Clock;
   readonly ids: Ids;
@@ -139,6 +145,20 @@ export class SupportInboxService {
     return { status: "appended", ticketId: thread.id };
   }
 
+  /**
+   * Give a held mail the conversation it would have had. Idempotent: a mail already released (a double click, a second
+   * staff member) finds nothing to release, and a ticket that already exists for it is not duplicated.
+   */
+  async release(heldId: string): Promise<Result<{ readonly ticketId: string }, "missing">> {
+    const { quarantine } = this.dependencies;
+    const held = await quarantine.find(heldId);
+    if (held === null) return err("missing");
+
+    const outcome = await this.openConversation(held);
+    await quarantine.discard(heldId);
+    return outcome.status === "opened" ? ok({ ticketId: outcome.ticketId }) : err("missing");
+  }
+
   private async open(mail: ParsedMail, externalId: string): Promise<ReceiveOutcome> {
     const source = detectMailSource(mail);
     // Auto-replies and bounces are dropped, but never the one machine sender
@@ -147,26 +167,44 @@ export class SupportInboxService {
       return { status: "ignored", reason: "automated" };
     }
 
+    const inbound = this.normalize(source, mail, externalId);
+    if (inbound === null) return { status: "ignored", reason: "empty" };
+
+    const decision = await this.dependencies.triage.assess({
+      source: inbound.source,
+      senderEmail: inbound.senderEmail,
+      subject: inbound.subject,
+      body: inbound.body,
+    });
+    return decision.action === "open" ? this.openConversation(inbound) : this.hold(inbound, decision.reason);
+  }
+
+  /** The mail as a conversation would store it: through its source, with the body and subject cut to size. */
+  private normalize(source: MailSource, mail: ParsedMail, externalId: string): NormalizedInbound | null {
     const normalized = source.normalize(mail, externalId);
     // A source whose template changed falls back to treating it as plain mail,
     // so nothing a person wrote is lost to a parser that no longer fits.
     const result = normalized.ok ? normalized : PLAIN_EMAIL_SOURCE.normalize(mail, externalId);
-    if (!result.ok) return { status: "ignored", reason: "empty" };
-    const inbound = result.value;
+    if (!result.ok) return null;
 
+    const body = clip(stripQuotedReply(result.value.body), INBOUND_BODY_MAX);
+    if (body === "") return null;
+    return { ...result.value, subject: clip(result.value.subject, SUBJECT_MAX), body };
+  }
+
+  private async openConversation(inbound: NormalizedInbound): Promise<ReceiveOutcome> {
     const shop = inbound.shopHint === null ? null : await this.dependencies.shops.find(inbound.shopHint);
-    const body = clip(stripQuotedReply(inbound.body), INBOUND_BODY_MAX);
-    if (body === "") return { status: "ignored", reason: "empty" };
+    const shopName = shop?.name ?? inbound.shopName ?? (inbound.senderName || inbound.senderEmail);
 
     const written = await this.dependencies.repo.open({
-      externalId,
+      externalId: inbound.externalId,
       source: inbound.source,
       shop: shop?.shop ?? null,
-      shopName: shop?.name ?? inbound.shopName ?? (inbound.senderName || inbound.senderEmail),
+      shopName,
       replyAddress: inbound.senderEmail,
       senderName: inbound.senderName || inbound.senderEmail,
-      subject: clip(inbound.subject, SUBJECT_MAX),
-      body,
+      subject: inbound.subject,
+      body: inbound.body,
       category: "question",
       at: this.dependencies.clock.now(),
     });
@@ -174,12 +212,18 @@ export class SupportInboxService {
 
     await alertStaff(this.dependencies, {
       ticketId: written.value.ticketId,
-      shopName: shop?.name ?? inbound.shopName ?? (inbound.senderName || inbound.senderEmail),
+      shopName,
       subject: inbound.subject,
-      body,
+      body: inbound.body,
       isNew: true,
-      messageId: externalId,
+      messageId: inbound.externalId,
     });
     return { status: "opened", ticketId: written.value.ticketId, source: inbound.source };
+  }
+
+  /** Held, not opened: nobody is alerted, because nothing here is a conversation yet. */
+  private async hold(inbound: NormalizedInbound, reason: SpamReason): Promise<ReceiveOutcome> {
+    const held = await this.dependencies.quarantine.hold({ ...inbound, reason, createdAt: this.dependencies.clock.now() });
+    return held ? { status: "quarantined", reason } : { status: "duplicate" };
   }
 }

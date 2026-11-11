@@ -5,6 +5,7 @@ import {
   mcpAuditLogs,
   notificationLogs,
   staffAuditLogs,
+  supportQuarantine,
   webhookDeliveries,
   webhookScopeObservations,
 } from "~/db/schema";
@@ -25,6 +26,7 @@ const PRUNERS: Readonly<Record<RetentionTarget, Prune>> = {
   webhook_deliveries_failed: (cutoff, limit) => pruneDeliveries(["failed", "dead_letter"], cutoff, limit),
   notification_logs: (cutoff, limit) => pruneByAge(notificationLogs, notificationLogs.id, notificationLogs.createdAt, cutoff, limit),
   ai_runs: (cutoff, limit) => pruneByAge(aiRuns, aiRuns.id, aiRuns.createdAt, cutoff, limit),
+  support_quarantine: (cutoff, limit) => pruneByAge(supportQuarantine, supportQuarantine.id, supportQuarantine.createdAt, cutoff, limit),
   mcp_audit_logs: (cutoff, limit) => pruneByAge(mcpAuditLogs, mcpAuditLogs.id, mcpAuditLogs.createdAt, cutoff, limit),
   staff_audit_logs: (cutoff, limit) => pruneByAge(staffAuditLogs, staffAuditLogs.id, staffAuditLogs.createdAt, cutoff, limit),
 };
