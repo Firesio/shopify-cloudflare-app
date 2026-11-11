@@ -26,4 +26,3 @@ export class SupportTriageService implements InboundTriage {
     return decisionForVerdict(await classify(candidate));
   }
 }
-
