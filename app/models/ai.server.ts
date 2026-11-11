@@ -3,6 +3,7 @@ import { aiModels, aiRuns, type AiModel, type AiRun } from "~/db/schema";
 import { getDb } from "~/request-context.server";
 import type { ModelRole } from "~/ai/roles";
 import { orderChain } from "~/ai/chain";
+import type { ChainPlan } from "~/ai/preset";
 import type { AiFailureReason } from "~/ports/ai";
 
 /**
@@ -64,6 +65,41 @@ export class AiRepo {
       // Already in this chain: leave its place alone rather than moving it to
       // the end, which is not what "add" means to someone who clicked twice.
       .onConflictDoNothing();
+  }
+
+  /**
+   * Replace whole chains with the given ones, in ONE batch.
+   *
+   * A batch rather than a loop of `addToChain`: that costs two queries per model
+   * in sequence, and a failure halfway leaves a purpose with half a chain. Here
+   * every purpose is either fully replaced or untouched.
+   */
+  async replaceChains(
+    plans: readonly ChainPlan[],
+    meta: { readonly updatedBy: string | null; readonly at: number },
+  ): Promise<void> {
+    const db = getDb();
+    const [first, ...rest] = plans.flatMap((plan) => [
+      db.delete(aiModels).where(eq(aiModels.role, plan.role)),
+      ...(plan.modelIds.length === 0
+        ? []
+        : [
+            db.insert(aiModels).values(
+              plan.modelIds.map((modelId, priority) => ({
+                role: plan.role,
+                modelId,
+                priority,
+                enabled: true,
+                healthy: true,
+                lastFailedAt: null,
+                updatedAt: meta.at,
+                updatedBy: meta.updatedBy,
+              })),
+            ),
+          ]),
+    ]);
+    if (first === undefined) return;
+    await db.batch([first, ...rest]);
   }
 
   async removeFromChain(role: ModelRole, modelId: string): Promise<void> {

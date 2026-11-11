@@ -21,9 +21,10 @@ import { MODEL_ROLES } from "~/ai/roles";
 import { useActionToast } from "~/internal/use-action-toast";
 import { formatNumber } from "~/i18n/format";
 import type { LanguageCode } from "~/i18n/catalogues.generated";
-import { Deferred, StatRowSkeleton } from "~/internal/components";
+import { Deferred, StatRowSkeleton, TableSkeleton } from "~/internal/components";
 import { streamRegion } from "~/internal/stream-region.server";
 import { AI_INTENT_HANDLERS, readAiIntent, type IntentOutcome } from "./ai/intents.server";
+import { PresetBar } from "./ai/preset-bar";
 import { PurposeCard } from "./ai/purpose-card";
 import { buildPurpose, summarizeRun } from "./ai/purposes";
 import { RecentCallsTable } from "./ai/recent-calls-table";
@@ -67,7 +68,11 @@ export const action = async ({ request }: ActionFunctionArgs): Promise<IntentOut
   if (intent === null) return { error: "Unknown action." };
 
   return AI_INTENT_HANDLERS[intent](
-    { role: String(form.get("role") ?? ""), modelId: String(form.get("modelId") ?? "") },
+    {
+      role: String(form.get("role") ?? ""),
+      modelId: String(form.get("modelId") ?? ""),
+      scope: String(form.get("scope") ?? ""),
+    },
     { repo: aiRepository(), actor: actor.email, at: Date.now() },
   );
 };
@@ -90,6 +95,11 @@ export default function AiSettings() {
           <>
             <div className="flex flex-col gap-4 px-4 lg:px-6">
               <UsageStats spend={spend} />
+              <PresetBar
+                unconfigured={purposes.filter((purpose) => purpose.chain.length === 0).length}
+                total={purposes.length}
+                busy={busy}
+              />
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {purposes.map((purpose) => (
                   <PurposeCard key={purpose.role} purpose={purpose} busy={busy} />
@@ -120,18 +130,21 @@ function CardPlaceholder({ lines }: { lines: number }) {
   );
 }
 
-/** Mirrors the page: three usage tiles, one card per purpose, recent calls. */
+/** Mirrors the page: three usage tiles, the setup bar, one card per purpose, then the recent-calls table. */
 function AiSkeleton() {
   return (
-    <div className="flex flex-col gap-4 px-4 lg:px-6">
-      <StatRowSkeleton count={3} />
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {MODEL_ROLES.map((role) => (
-          <CardPlaceholder key={role} lines={3} />
-        ))}
+    <>
+      <div className="flex flex-col gap-4 px-4 lg:px-6">
+        <StatRowSkeleton count={3} />
+        <CardPlaceholder lines={0} />
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {MODEL_ROLES.map((role) => (
+            <CardPlaceholder key={role} lines={3} />
+          ))}
+        </div>
       </div>
-      <CardPlaceholder lines={5} />
-    </div>
+      <TableSkeleton rows={5} columns={5} inset />
+    </>
   );
 }
 

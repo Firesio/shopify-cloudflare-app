@@ -25,7 +25,7 @@ export type ShopSyncCheckpointsPort = Pick<ShopSyncCheckpointRepo, "read" | "mar
 export type WebhookScopeObservationsPort = Pick<WebhookScopeObservationRepo, "record" | "list" | "applyScopes" | "listGrantedForShop" | "latestChangeAt">;
 export type WebhookDeliveryRepositoryPort = Pick<WebhookDeliveryRepo, "listForShop" | "claim" | "get" | "markProcessing" | "markProcessed" | "markFailed" | "markDeadLetter" | "listFailures" | "deleteDelivery">;
 export type OperationalHealthPort = Pick<OperationalHealthRepo, "read">;
-export type AiRepositoryPort = Pick<AiRepo, "chainFor" | "markHealth" | "recordRun" | "allModels" | "tokensSince" | "recentRuns" | "addToChain" | "removeFromChain" | "reorder" | "setEnabled">;
+export type AiRepositoryPort = Pick<AiRepo, "chainFor" | "markHealth" | "recordRun" | "allModels" | "tokensSince" | "recentRuns" | "addToChain" | "replaceChains" | "removeFromChain" | "reorder" | "setEnabled">;
 
 export function shops(): ShopsPort { return new ShopRepo(); }
 export function shopMetrics(): ShopMetricsRepo { return new ShopMetricsRepo(); }

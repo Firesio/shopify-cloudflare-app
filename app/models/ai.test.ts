@@ -134,6 +134,73 @@ describe("a purpose's chain", () => {
   });
 });
 
+describe("replacing chains", () => {
+  const META = { updatedBy: "sam@x.test", at: AT };
+
+  it("writes each plan in the order given, best first", async () => {
+    const chains = await inRequest(async () => {
+      const repo = new AiRepo();
+      await repo.replaceChains(
+        [
+          { role: "writing", modelIds: ["@cf/a/one", "@cf/b/two", "@cf/c/three"] },
+          { role: "summary", modelIds: ["@cf/s/s"] },
+        ],
+        META,
+      );
+      return { writing: await repo.chainFor("writing", AT), summary: await repo.chainFor("summary", AT) };
+    });
+
+    expect(chains).toEqual({ writing: ["@cf/a/one", "@cf/b/two", "@cf/c/three"], summary: ["@cf/s/s"] });
+  });
+
+  it("replaces what was there, and only for the purposes planned", async () => {
+    const chains = await inRequest(async () => {
+      const repo = new AiRepo();
+      await add(repo, "@cf/old/one", "writing");
+      await add(repo, "@cf/old/two", "writing");
+      await add(repo, "@cf/keep/me", "summary");
+      await repo.replaceChains([{ role: "writing", modelIds: ["@cf/new/one"] }], META);
+      return { writing: await repo.chainFor("writing", AT), summary: await repo.chainFor("summary", AT) };
+    });
+
+    expect(chains).toEqual({ writing: ["@cf/new/one"], summary: ["@cf/keep/me"] });
+  });
+
+  it("starts the new rows healthy and enabled, even where a failed one stood", async () => {
+    const [row] = await inRequest(async () => {
+      const repo = new AiRepo();
+      await add(repo, "@cf/a/one");
+      await repo.markHealth({ role: "writing", modelId: "@cf/a/one", healthy: false, at: AT });
+      await repo.replaceChains([{ role: "writing", modelIds: ["@cf/a/one"] }], META);
+      return repo.allModels();
+    });
+
+    expect(row).toMatchObject({ healthy: true, lastFailedAt: null, enabled: true, priority: 0, updatedBy: META.updatedBy });
+  });
+
+  it("clears a purpose given an empty plan", async () => {
+    const chain = await inRequest(async () => {
+      const repo = new AiRepo();
+      await add(repo, "@cf/a/one");
+      await repo.replaceChains([{ role: "writing", modelIds: [] }], META);
+      return repo.chainFor("writing", AT);
+    });
+
+    expect(chain).toEqual([]);
+  });
+
+  it("does nothing for no plans", async () => {
+    const chain = await inRequest(async () => {
+      const repo = new AiRepo();
+      await add(repo, "@cf/a/one");
+      await repo.replaceChains([], META);
+      return repo.chainFor("writing", AT);
+    });
+
+    expect(chain).toEqual(["@cf/a/one"]);
+  });
+});
+
 describe("model health", () => {
   it("demotes a just-failed model to the back, without losing it", async () => {
     const chain = await inRequest(async () => {

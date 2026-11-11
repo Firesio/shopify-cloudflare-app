@@ -28,6 +28,10 @@ The constraints that come with it:
   chosen from a catalogue in the internal console. A typo'd or retired id
   resolves to nothing at call time, which reads as a broken feature rather than
   a bad setting — hence a select, never a text field.
+- **Setup is one click, never a silent default.** `/internal/ai` has a "Set up recommended" button that fills only the
+  purposes with no models (`planRecommended("empty", …)`, pure, in `app/ai/preset.ts`) and a confirmed "Reset all". A
+  purpose with no models is OFF, so the page counts them. Writes go through `AiRepo.replaceChains`, one batch: a
+  purpose is replaced whole or not at all. A new purpose needs no edit here; it is picked up from `MODEL_ROLES`.
 - **Every call is metered.** One `ai_runs` row per call, with tokens and
   latency, because tokens are what cost money and an unmetered AI surface is an
   unbounded bill.
