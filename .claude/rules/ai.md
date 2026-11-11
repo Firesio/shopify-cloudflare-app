@@ -32,6 +32,9 @@ The constraints that come with it:
   purposes with no models (`planRecommended("empty", …)`, pure, in `app/ai/preset.ts`) and a confirmed "Reset all". A
   purpose with no models is OFF, so the page counts them. Writes go through `AiRepo.replaceChains`, one batch: a
   purpose is replaced whole or not at all. A new purpose needs no edit here; it is picked up from `MODEL_ROLES`.
+- **A purpose driven by traffic we do not control has a spend cap.** `classification` (the inbound-mail spam check) is
+  capped per rolling day by `dailyCallCap` in `aiGate()`; an attacker's flood must not become our AI bill, and a refused
+  call degrades to "no verdict", which the feature treats as "open the conversation".
 - **Every call is metered.** One `ai_runs` row per call, with tokens and
   latency, because tokens are what cost money and an unmetered AI surface is an
   unbounded bill.

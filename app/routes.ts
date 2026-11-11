@@ -87,6 +87,7 @@ export default [
     route("internal/ai", "routes/internal/ai.tsx"),
     route("internal/support", "routes/internal/support/index.tsx"),
     route("internal/support/new", "routes/internal/support/new.tsx"),
+    route("internal/support/spam", "routes/internal/support/spam.tsx"),
     route("internal/support/:ticketId", "routes/internal/support/detail.tsx"),
     route("internal/shops", "routes/internal/shops/index.tsx"),
     route("internal/shops/:shop", "routes/internal/shops/detail.tsx"),

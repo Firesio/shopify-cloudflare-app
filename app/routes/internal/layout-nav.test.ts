@@ -7,6 +7,11 @@ describe("titleFor", () => {
     expect(titleFor("/internal/profile")).toBe("Profile");
   });
 
+  it("titles the spam page under support, not as support itself", () => {
+    expect(titleFor("/internal/support/spam")).toBe("Spam");
+    expect(titleFor("/internal/support/42")).toBe("Support");
+  });
+
   it("uses the longest known prefix and falls back for an unknown path", () => {
     expect(titleFor("/internal/support/42")).toBe("Support");
     expect(titleFor("/internal/nowhere")).toBe("Staff console");

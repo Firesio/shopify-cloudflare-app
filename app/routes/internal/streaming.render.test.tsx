@@ -20,6 +20,7 @@ import NewInternalSupportTicket from "./support/new";
 import Admins from "./admins/index";
 import ResetAdminPassword from "./admins/reset";
 import AiSettings from "./ai";
+import Spam from "./support/spam";
 import McpAdmin from "./mcp";
 import { buildPurpose } from "./ai/purposes";
 
@@ -136,6 +137,22 @@ const CASES: readonly PageCase[] = [
     frame: "New support ticket",
     data: "Create ticket and email merchant",
     errorTitle: "The shop list",
+  },
+  {
+    name: "support spam",
+    path: "/internal/support/spam",
+    url: "/internal/support/spam",
+    Component: Spam,
+    immediate: {},
+    region: "spam",
+    resolved: {
+      held: [{ id: "h1", senderName: "SEO", senderEmail: "seo@spam.example", subject: "Rank #1", preview: "Buy links", reason: "ai_spam", source: "email", receivedAt: 1 }],
+      blocked: [],
+    },
+    // The heading and breadcrumb sit outside the streamed region.
+    frame: "Mail from strangers that looks like spam",
+    data: "Rank #1",
+    errorTitle: "Held mail",
   },
   {
     name: "admins",

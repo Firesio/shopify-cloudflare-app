@@ -42,6 +42,7 @@ export {
   shopSubscriptions,
   shopSyncCheckpoints,
   support,
+  supportTriage,
   webhookDeliveries,
   webhookDeliveryRepository,
   webhookScopeObservations,

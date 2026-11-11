@@ -4,6 +4,9 @@
  * the toast/DOM side of showing it lives in `~/internal/use-action-toast`.
  */
 
+/** What a console action reports about itself: a toast either way. */
+export type ActionOutcome = { readonly success: string } | { readonly error: string };
+
 export type ActionMessage = { success?: string; error?: string } | undefined;
 
 export type ResolvedToast = { tone: "success" | "error"; message: string };

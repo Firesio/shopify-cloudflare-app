@@ -6,7 +6,7 @@ export const meta: MetaFunction = () => [
   { title: "Support · Staff Console" },
 ];
 import { Button } from "~/internal/components/ui/button";
-import { Bell, Plus } from "lucide-react";
+import { Bell, Plus, ShieldAlert } from "lucide-react";
 import { requireAdminUser } from "~/services/admin-auth.server";
 import { supportService } from "~/wiring.server";
 import { planForShopifyHandle } from "~/billing/plans";
@@ -79,13 +79,26 @@ function NotificationSettingsLink() {
   );
 }
 
+/** Mail held back as probable spam lives on its own page, never in this queue. */
+function SpamLink() {
+  return (
+    <Button size="sm" variant="outline" asChild>
+      <Link to="/internal/support/spam">
+        <ShieldAlert />
+        Spam
+      </Link>
+    </Button>
+  );
+}
+
 export default function InternalSupport() {
   const { tickets } = useLoaderData<typeof loader>();
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       {/* Outside the streamed region: it stays when the tickets fail to load. */}
-      <div className="flex justify-end px-4 lg:px-6">
+      <div className="flex justify-end gap-2 px-4 lg:px-6">
+        <SpamLink />
         <NotificationSettingsLink />
       </div>
 

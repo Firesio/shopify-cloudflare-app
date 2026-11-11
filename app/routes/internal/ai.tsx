@@ -18,12 +18,13 @@ import { Coins, Gauge } from "lucide-react";
 import { requireOwner } from "~/services/admin-auth.server";
 import { adminUsers } from "~/wiring.server";
 import { MODEL_ROLES } from "~/ai/roles";
+import type { ActionOutcome } from "~/lib/action-feedback";
 import { useActionToast } from "~/internal/use-action-toast";
 import { formatNumber } from "~/i18n/format";
 import type { LanguageCode } from "~/i18n/catalogues.generated";
 import { Deferred, StatRowSkeleton, TableSkeleton } from "~/internal/components";
 import { streamRegion } from "~/internal/stream-region.server";
-import { AI_INTENT_HANDLERS, readAiIntent, type IntentOutcome } from "./ai/intents.server";
+import { AI_INTENT_HANDLERS, readAiIntent } from "./ai/intents.server";
 import { PresetBar } from "./ai/preset-bar";
 import { PurposeCard } from "./ai/purpose-card";
 import { buildPurpose, summarizeRun } from "./ai/purposes";
@@ -60,7 +61,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return { overview: streamRegion("ai", "overview", loadAiOverview()) };
 };
 
-export const action = async ({ request }: ActionFunctionArgs): Promise<IntentOutcome> => {
+export const action = async ({ request }: ActionFunctionArgs): Promise<ActionOutcome> => {
   const actor = await requireOwner(request, { users: adminUsers() });
   const form = await request.formData();
 

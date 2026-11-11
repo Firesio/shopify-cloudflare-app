@@ -47,6 +47,7 @@ Read from the Cloudflare Email Service docs ([headers](https://developers.cloudf
 ## Data
 
 - `support_tickets.shop` and `support_messages.shop` are **nullable**. A NULL never equals a shop, so every shop-scoped query and `purgeShop` pass over unassigned rows by construction. `SupportInboundRepo.assignShop` is the only way from NULL to a shop, and it refuses a thread that already has one. `support_attachments.shop` stays NOT NULL: files need an owner, so staff attachments on an unassigned thread are refused before the reply is written.
+- `support_quarantine` and `support_blocked_senders` have **no `shop` column** (see the schema's note; not a precedent): a held mail is a stranger's and no shop owns it, and `shop_hint` is only what it CLAIMED, re-checked against the shops we know when it is released. They are not touched by `purgeShop`; retention deletes held mail.
 - `support_messages.external_id` (the mail's own `Message-ID`, normalised) is UNIQUE: the same mail arriving twice is one message.
 - Migration `0034` was **edited by hand** after `drizzle-kit generate`: the generated one selected columns the old tables lack, and dropped the parent table first, which on D1 (foreign keys enforced, `PRAGMA foreign_keys` ignored) would cascade-delete messages and attachments. It backs up and drops children first. Verified against SQLite with foreign keys on and real rows. Not run on a real D1.
 
@@ -55,7 +56,25 @@ Read from the Cloudflare Email Service docs ([headers](https://developers.cloudf
 - Cloudflare Email Routing delivers to the Worker's `email` handler (`workers/inbound-email.ts`): parse (`postal-mime`), hand to `SupportInboxService.receive`, answer. A mail we cannot read or store is **rejected** so the sender is bounced; a mail we choose to ignore (auto-reply, our own domain) is **accepted and dropped** — bouncing it would start a loop.
 - Only the text/plain part is read. The HTML part's links are tracking redirects.
 - **No sender verification**: no `Authentication-Results` header is read and there is no `INBOUND_AUTH_SERVER_ID` (removed 2026-11-05). The Shopify relay is recognised by sender, Reply-To and subject; a forged one can only open a conversation in the console.
-- Mail is never stored for a stranger beyond the conversation row; the body is cut at `INBOUND_BODY_MAX`, and no address or body is logged.
+- Mail is never stored for a stranger beyond the conversation row, or the quarantine row below; the body is cut at `INBOUND_BODY_MAX`, and no address or body is logged.
+
+## Spam: triage before a conversation exists
+
+A stranger's FIRST mail (plain email and the Shopify relay; not the form, which has Turnstile, and not a participant's answer in an existing thread, which `senderMayPost` already guards) passes `InboundTriage.assess` before `SupportInboxService.openConversation`. Cheapest refusal first, like the form (`app/services/support-triage.server.ts`):
+
+1. **Blocklist** (`support_blocked_senders`): an address, or a domain with its subdomains (`parseSenderPattern`, `isBlockedSender`, both pure).
+2. **Per-sender limit** (`SUPPORT_MAIL_LIMITER`, 5 per minute, fails open when absent). Keyed by the NORMALISED sender: for the relay that is the asker in Reply-To. Keying on `mail.from` would put every relay mail in one bucket (`no-reply@shopify.com`).
+3. **The model** (`classification` purpose, `spamTriageTask`, run as `system`): `legit` / `spam` / `unsure`. It only ever sees mail that passed 1 and 2.
+
+**Only a confident `spam` holds a mail.** `unsure`, `legit` and NO answer (no model configured, 4 s timeout, the daily cap) all open the conversation (`decisionForVerdict`): a model that is down must never cost a customer's mail. A refused or failed check logs `support.spam_check_unavailable` with its reason, so a check that is silently off is visible.
+
+**Held mail is not a ticket.** It goes to `support_quarantine`, a table of its own, so no queue, unread count, push or MCP listing can include it by forgetting a `WHERE`. Staff release it from `/internal/support/spam` (`SupportInboxService.release`, idempotent: opens an ordinary ticket and alerts staff) or delete it / block the sender. A held mail alerts NOBODY, and the sender is NOT bounced: the mail is accepted, because a bounce to a forged address is backscatter. Held mail expires after 30 days (`support_quarantine` in `app/domain/retention.ts`).
+
+**Cost is bounded twice.** The per-sender limit stops one sender; `dailyCallCap` (`app/ai/quota-gate.ts`, wired in `aiGate()`) stops a flood from many: 500 classification calls per rolling day, refused as `rate_limited` (which opens the conversation). Calls a gate refused are not counted, or a tripped cap would keep itself tripped for as long as the flood lasts.
+
+**The mail is untrusted input to the model.** `buildSpamPrompt` says it is data, fences it, cuts it to `SPAM_BODY_MAX`, strips fence look-alikes, and never shows the address. The answer is a closed enum validated by the task's schema, so an injection can at most change a label, and labels 1 and 2 above never depend on it.
+
+Where the next variant goes: another reason a mail can be held is a new entry in `SPAM_REASONS` and a branch in `SupportTriageService.assess`; another kind of mail to triage means calling `assess` from that path, not a new triage.
 
 ## The public form
 

@@ -53,6 +53,7 @@ interface TitledPath {
 const EXTRA_PAGES: readonly TitledPath[] = [
   { href: "/internal/profile", title: "Profile" },
   { href: "/internal/notifications", title: "Notifications" },
+  { href: "/internal/support/spam", title: "Spam" },
 ];
 
 /** The page title shown in the shell header: the longest known path that prefixes `pathname`. */

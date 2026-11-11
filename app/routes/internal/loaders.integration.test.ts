@@ -14,6 +14,7 @@ import { loader as shopDetail } from "./shops/detail";
 import { loader as subscriptions } from "./subscriptions";
 import { loader as supportIndex } from "./support/index";
 import { loader as supportDetail } from "./support/detail";
+import { loader as supportSpam } from "./support/spam";
 import { loader as supportNew } from "./support/new";
 import { loader as adminsIndex } from "./admins/index";
 import { loader as adminsReset } from "./admins/reset";
@@ -65,6 +66,7 @@ describe("internal loaders stream their data", () => {
     { name: "subscriptions", path: "/internal/subscriptions", run: subscriptions, regions: ["events"], params: {} },
     { name: "support queue", path: "/internal/support", run: supportIndex, regions: ["tickets"], params: {} },
     { name: "support ticket", path: "/internal/support/t1", run: supportDetail, regions: ["detail"], params: { ticketId: "t1" } },
+    { name: "support spam", path: "/internal/support/spam", run: supportSpam, regions: ["spam"], params: {} },
     { name: "new ticket", path: "/internal/support/new", run: supportNew, regions: ["shops"], params: {} },
     { name: "admins", path: "/internal/admins", run: adminsIndex, regions: ["admins"], params: {} },
     { name: "reset password", path: "/internal/admins/zzz/reset", run: adminsReset, regions: ["target"], params: { adminId: "zzz" } },

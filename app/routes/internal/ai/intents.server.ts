@@ -1,10 +1,8 @@
 import { findCatalogueModel } from "~/ai/catalogue";
 import { planRecommended, readPresetScope, recommendedPlan } from "~/ai/preset";
 import { ROLE_LABEL, isModelRole, type ModelRole } from "~/ai/roles";
+import type { ActionOutcome } from "~/lib/action-feedback";
 import type { aiRepository } from "~/wiring.server";
-
-/** What the page shows after an intent: a toast either way. */
-export type IntentOutcome = { readonly success: string } | { readonly error: string };
 
 export interface IntentContext {
   readonly repo: ReturnType<typeof aiRepository>;
@@ -20,8 +18,8 @@ export interface IntentFields {
   readonly scope: string;
 }
 
-type Handler = (fields: IntentFields, context: IntentContext) => Promise<IntentOutcome>;
-type RoleHandler = (input: { readonly role: ModelRole; readonly modelId: string }, context: IntentContext) => Promise<IntentOutcome>;
+type Handler = (fields: IntentFields, context: IntentContext) => Promise<ActionOutcome>;
+type RoleHandler = (input: { readonly role: ModelRole; readonly modelId: string }, context: IntentContext) => Promise<ActionOutcome>;
 
 export const AI_INTENTS = ["add", "recommend", "preset", "remove", "up", "down", "enable", "disable"] as const;
 export type AiIntent = (typeof AI_INTENTS)[number];
