@@ -10,6 +10,7 @@ import { AI_INTENT_HANDLERS, AI_INTENTS, readAiIntent, type IntentFields } from 
 setupTestDatabase();
 
 const AT = 1_700_000_000_000;
+const PURPOSES = MODEL_ROLES.length;
 const NO_FIELDS: IntentFields = { role: "", modelId: "", scope: "" };
 
 /** Runs one intent against the real repository, then reads every chain back. */
@@ -30,7 +31,7 @@ describe("the one-click preset", () => {
   it("sets every purpose to its recommended chain when none is configured", async () => {
     const { outcome, chains } = await run("preset", { scope: "empty" });
 
-    expect(outcome).toEqual({ success: "Recommended models set for 5 purposes." });
+    expect(outcome).toEqual({ success: `Recommended models set for ${PURPOSES} purposes.` });
     for (const role of MODEL_ROLES) expect(chains[role]).toEqual(recommendedChain(role));
   });
 
@@ -39,7 +40,7 @@ describe("the one-click preset", () => {
 
     expect(chains.writing).toEqual([TUNED]);
     expect(chains.summary).toEqual(recommendedChain("summary"));
-    expect(outcome).toEqual({ success: "Recommended models set for 4 purposes." });
+    expect(outcome).toEqual({ success: `Recommended models set for ${PURPOSES - 1} purposes.` });
   });
 
   it("changes nothing, and says so, when every purpose already has models", async () => {
@@ -51,7 +52,7 @@ describe("the one-click preset", () => {
       );
     });
 
-    expect(all.outcome).toEqual({ success: "Recommended models set for 5 purposes." });
+    expect(all.outcome).toEqual({ success: `Recommended models set for ${PURPOSES} purposes.` });
     expect(again.outcome).toEqual({ success: "Every purpose already has models." });
     for (const role of MODEL_ROLES) expect(again.chains[role]).toEqual([TUNED]);
   });
@@ -86,6 +87,23 @@ describe("intents that name a purpose", () => {
 
     expect(outcome).toEqual({ error: "That is not a purpose we use." });
     for (const role of MODEL_ROLES) expect(chains[role]).toEqual([]);
+  });
+
+  it("adds a decision model to the decision purpose", async () => {
+    const { outcome, chains } = await run("add", { role: "decision", modelId: "@cf/cloudflare/clef" });
+
+    expect(outcome).toEqual({ success: "Added to Decisions." });
+    expect(chains.decision).toEqual(["@cf/cloudflare/clef"]);
+  });
+
+  it.each([
+    ["a decision model to a text purpose", "writing", "@cf/cloudflare/clef"],
+    ["a text model to the decision purpose", "decision", "@cf/openai/gpt-oss-120b"],
+  ])("refuses %s", async (_name, role, modelId) => {
+    const { outcome, chains } = await run("add", { role, modelId });
+
+    expect(outcome).toEqual({ error: "That model is not in the catalogue." });
+    expect(chains[role === "decision" ? "decision" : "writing"]).toEqual([]);
   });
 
   it("refuses to add a model that is not in the catalogue", async () => {

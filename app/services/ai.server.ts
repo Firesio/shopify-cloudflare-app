@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "~/lib/result";
 import { z } from "zod";
-import type { AiObjectTask, AiTask } from "~/ai/task";
+import type { AiDecisionTask, AiObjectTask, AiTask } from "~/ai/task";
 import type { AiCaller, AiGate } from "~/ai/gate";
 import type { ModelRole } from "~/ai/roles";
 import {
@@ -12,6 +12,7 @@ import {
   type GeneratedStream,
   type TextGenerator,
 } from "~/ports/ai";
+import type { Decider } from "~/ports/ai-decision";
 import type { AiRepository } from "~/ports/ai-repository";
 import type { Clock, Ids } from "~/ports/runtime";
 
@@ -41,6 +42,8 @@ import type { Clock, Ids } from "~/ports/runtime";
 export interface AiServiceDependencies {
   readonly repo: AiRepository;
   readonly generator: TextGenerator;
+  /** Serves the decision purposes; the text purposes never reach it. */
+  readonly decider: Decider;
   readonly clock: Clock;
   /** Names each `ai_runs` row. */
   readonly ids: Ids;
@@ -55,16 +58,18 @@ export interface AiStream {
 }
 
 export class AiService {
-  constructor({ repo, generator, clock, ids, gate }: AiServiceDependencies) {
+  constructor({ repo, generator, decider, clock, ids, gate }: AiServiceDependencies) {
     this.repo = repo;
     this.ids = ids;
     this.generator = generator;
+    this.decider = decider;
     this.clock = clock;
     this.gate = gate;
   }
 
   private readonly repo: AiRepository;
   private readonly generator: TextGenerator;
+  private readonly decider: Decider;
   private readonly clock: Clock;
   private readonly ids: Ids;
   private readonly gate: AiGate;
@@ -75,49 +80,20 @@ export class AiService {
     input: Input,
     caller: AiCaller,
   ): Promise<Result<string, AiFailureReason>> {
-    const refusal = await this.refused(task, caller);
-    if (refusal) return err(refusal);
-
     const messages = task.buildMessages(input);
-    const chain = await this.repo.chainFor(task.role, this.clock.now());
-    if (chain.length === 0) {
-      await this.record({ task, caller, model: "(none)", reason: "no_model", startedAt: this.clock.now() });
-      return err("no_model");
-    }
 
-    let last: AiFailureReason = "provider";
+    return this.walkChain(task, caller, async (model) => {
+      const result = await this.generator.generate({
+        model,
+        messages,
+        ...(task.maxTokens === undefined ? {} : { maxTokens: task.maxTokens }),
+      });
 
-    for (const model of chain) {
-      const startedAt = this.clock.now();
-
-      try {
-        const result = await this.generator.generate({
-          model,
-          messages,
-          ...(task.maxTokens === undefined ? {} : { maxTokens: task.maxTokens }),
-        });
-
-        const text = result.text.trim();
-        if (text === "") {
-          // Whitespace is a failed answer, not an answer — and another model may
-          // well produce words, so it is worth the retry.
-          last = "provider";
-          await this.afterFailure({ task, caller, model, reason: last, startedAt });
-          continue;
-        }
-
-        await this.afterSuccess({ task, caller, model, usage: result.usage, startedAt });
-        return ok(text);
-      } catch (cause) {
-        last = reasonOf(cause);
-        await this.afterFailure({ task, caller, model, reason: last, startedAt });
-        // Nothing another model can do about it.
-        if (!isRetriable(last)) return err(last);
-      }
-    }
-
-    // Chain exhausted: the caller hears about the last thing that went wrong.
-    return err(last);
+      // Whitespace is a failed answer, not an answer — and another model may
+      // well produce words, so it is worth the retry.
+      const text = result.text.trim();
+      return text === "" ? null : { value: text, usage: result.usage };
+    });
   }
 
   /**
@@ -134,47 +110,40 @@ export class AiService {
     input: Input,
     caller: AiCaller,
   ): Promise<Result<Output, AiFailureReason>> {
-    const refusal = await this.refused(task, caller);
-    if (refusal) return err(refusal);
-
     const messages = task.buildMessages(input);
     const schema = z.toJSONSchema(task.schema);
-    const chain = await this.repo.chainFor(task.role, this.clock.now());
-    if (chain.length === 0) {
-      await this.record({ task, caller, model: "(none)", reason: "no_model", startedAt: this.clock.now() });
-      return err("no_model");
-    }
 
-    let last: AiFailureReason = "provider";
+    return this.walkChain(task, caller, async (model) => {
+      const result = await this.generator.generateObject({
+        model,
+        messages,
+        schema,
+        ...(task.maxTokens === undefined ? {} : { maxTokens: task.maxTokens }),
+      });
 
-    for (const model of chain) {
-      const startedAt = this.clock.now();
+      const parsed = task.schema.safeParse(result.value);
+      return parsed.success ? { value: parsed.data, usage: result.usage } : null;
+    });
+  }
 
-      try {
-        const result = await this.generator.generateObject({
-          model,
-          messages,
-          schema,
-          ...(task.maxTokens === undefined ? {} : { maxTokens: task.maxTokens }),
-        });
+  /**
+   * Run a task that asks a yes/no question and wants a PROBABILITY.
+   *
+   * The same machinery again, over the decision models of its purpose. A probability outside 0..1 is a failed
+   * answer, not a number to pass on: the next model gets a turn.
+   */
+  async runDecision<Input>(
+    task: AiDecisionTask<Input>,
+    input: Input,
+    caller: AiCaller,
+  ): Promise<Result<number, AiFailureReason>> {
+    const state = task.state(input);
 
-        const parsed = task.schema.safeParse(result.value);
-        if (!parsed.success) {
-          last = "provider";
-          await this.afterFailure({ task, caller, model, reason: last, startedAt });
-          continue;
-        }
-
-        await this.afterSuccess({ task, caller, model, usage: result.usage, startedAt });
-        return ok(parsed.data);
-      } catch (cause) {
-        last = reasonOf(cause);
-        await this.afterFailure({ task, caller, model, reason: last, startedAt });
-        if (!isRetriable(last)) return err(last);
-      }
-    }
-
-    return err(last);
+    return this.walkChain(task, caller, async (model) => {
+      const decided = await this.decider.decide({ model, state, question: task.question });
+      const valid = decided.probability >= 0 && decided.probability <= 1;
+      return valid ? { value: decided.probability, usage: decided.usage } : null;
+    });
   }
 
   /**
@@ -233,6 +202,56 @@ export class AiService {
           await this.afterFailure({ task, caller, model, reason: reasonOf(cause), startedAt });
         }),
     });
+  }
+
+  /**
+   * The machinery every non-streaming task shares:
+   *
+   *   gate → resolve the purpose's chain → try each model → meter every attempt → write health back
+   *
+   * `attempt` asks ONE model and returns its answer with its usage, or `null` for an answer that cannot be used
+   * (empty, the wrong shape): that is a failed attempt, and the next model gets a turn. It throws `AiError` for a
+   * provider failure.
+   */
+  private async walkChain<Value>(
+    task: { feature: string; role: ModelRole },
+    caller: AiCaller,
+    attempt: (model: string) => Promise<{ value: Value; usage: AiUsage } | null>,
+  ): Promise<Result<Value, AiFailureReason>> {
+    const refusal = await this.refused(task, caller);
+    if (refusal) return err(refusal);
+
+    const chain = await this.repo.chainFor(task.role, this.clock.now());
+    if (chain.length === 0) {
+      await this.record({ task, caller, model: "(none)", reason: "no_model", startedAt: this.clock.now() });
+      return err("no_model");
+    }
+
+    let last: AiFailureReason = "provider";
+
+    for (const model of chain) {
+      const startedAt = this.clock.now();
+
+      try {
+        const answered = await attempt(model);
+        if (!answered) {
+          last = "provider";
+          await this.afterFailure({ task, caller, model, reason: last, startedAt });
+          continue;
+        }
+
+        await this.afterSuccess({ task, caller, model, usage: answered.usage, startedAt });
+        return ok(answered.value);
+      } catch (cause) {
+        last = reasonOf(cause);
+        await this.afterFailure({ task, caller, model, reason: last, startedAt });
+        // Nothing another model can do about it.
+        if (!isRetriable(last)) return err(last);
+      }
+    }
+
+    // Chain exhausted: the caller hears about the last thing that went wrong.
+    return err(last);
   }
 
   /**

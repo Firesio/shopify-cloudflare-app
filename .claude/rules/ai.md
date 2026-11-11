@@ -32,9 +32,9 @@ The constraints that come with it:
   purposes with no models (`planRecommended("empty", …)`, pure, in `app/ai/preset.ts`) and a confirmed "Reset all". A
   purpose with no models is OFF, so the page counts them. Writes go through `AiRepo.replaceChains`, one batch: a
   purpose is replaced whole or not at all. A new purpose needs no edit here; it is picked up from `MODEL_ROLES`.
-- **A purpose driven by traffic we do not control has a spend cap.** `classification` (the inbound-mail spam check) is
+- **A purpose driven by traffic we do not control has a spend cap.** `decision` (the inbound-mail spam check) is
   capped per rolling day by `dailyCallCap` in `aiGate()`; an attacker's flood must not become our AI bill, and a refused
-  call degrades to "no verdict", which the feature treats as "open the conversation".
+  call degrades to "no answer", which the feature treats as "open the conversation".
 - **Every call is metered.** One `ai_runs` row per call, with tokens and
   latency, because tokens are what cost money and an unmetered AI surface is an
   unbounded bill.
@@ -45,10 +45,11 @@ The constraints that come with it:
 **The two extension points, and what they cost.** The base is deliberately
 policy-free; both seams below are where an app adds its own.
 
-- **A new AI feature is one file.** `defineAiTask` for prose or
-  `defineAiObjectTask` for a value of a known shape (`app/ai/task.ts`) — name the
+- **A new AI feature is one file.** `defineAiTask` for prose,
+  `defineAiObjectTask` for a value of a known shape or `defineAiDecisionTask` for the probability of a yes/no
+  question (`app/ai/task.ts`) — name the
   purpose it needs, name itself for the ledger, turn its input into messages —
-  then `run` / `runObject` / `stream` on `AiService`. It inherits the gate, the
+  then `run` / `runObject` / `runDecision` / `stream` on `AiService`. It inherits the gate, the
   fallback chain, health tracking, metering and streaming, because none of those
   are a feature's job. An object task's Zod schema is sent to the model as JSON
   Schema AND validated on the way back, and a wrong shape falls through to the
@@ -65,3 +66,13 @@ policy-free; both seams below are where an app adds its own.
   app writes one `AiGate` and names it in its composition root. `merchantsOnly`
   wraps a policy so our own console is never gated by a merchant's plan — the
   mistake that otherwise breaks the support desk on a downgrade.
+
+**Two kinds of model, two kinds of purpose.** A TEXT model writes (`TextGenerator`, `app/adapters/workers-ai.server.ts`,
+catalogue `app/ai/catalogue.ts`). A DECISION model scores a yes/no question about some content as a probability
+(`Decider`, `app/ports/ai-decision.ts`, `app/adapters/workers-ai-decider.server.ts`, catalogue
+`app/ai/decision-catalogue.ts`): Cloudflare's Clef and Clef Flash, called with `env.AI.run` and no AI SDK. A purpose is
+one kind or the other (`decision` is the only decision purpose; `isDecisionRole`, `TextRole`), and the types keep a text
+task off it; the console offers each purpose only its own kind's models (`modelLabel`). For a closed question about
+untrusted content (is this spam, is this on topic) prefer a decision task: the answer is a number, so there is no JSON
+to mis-parse and nothing in the content can change its format. A new decision model is one entry in
+`DECISION_MODELS`, in recommendation order, since Cloudflare publishes no price or window to rank Clef Flash by.

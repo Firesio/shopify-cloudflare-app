@@ -1,14 +1,14 @@
 import type { BlockedSenders, InboundTriage } from "~/ports/support-triage";
-import { decisionForVerdict, quarantineFor } from "~/support/triage/decision";
+import { decisionForSpamScore, quarantineFor } from "~/support/triage/decision";
 import { isBlockedSender } from "~/support/triage/sender-pattern";
-import type { SpamVerdict, TriageCandidate, TriageDecision } from "~/support/triage/types";
+import type { TriageCandidate, TriageDecision } from "~/support/triage/types";
 
 export interface SupportTriageDependencies {
   readonly blocked: BlockedSenders;
   /** True while the sender is within their allowance. Absent limiter: always true (fails open). */
   readonly withinRateLimit: (senderEmail: string) => Promise<boolean>;
-  /** The model's verdict, or null when there is none. */
-  readonly classify: (candidate: TriageCandidate) => Promise<SpamVerdict | null>;
+  /** The probability the mail is spam, or null when there is no answer. */
+  readonly scoreSpam: (candidate: TriageCandidate) => Promise<number | null>;
 }
 
 /**
@@ -19,10 +19,10 @@ export class SupportTriageService implements InboundTriage {
   constructor(private readonly dependencies: SupportTriageDependencies) {}
 
   async assess(candidate: TriageCandidate): Promise<TriageDecision> {
-    const { blocked, withinRateLimit, classify } = this.dependencies;
+    const { blocked, withinRateLimit, scoreSpam } = this.dependencies;
 
     if (isBlockedSender(await blocked.patterns(), candidate.senderEmail)) return quarantineFor("blocked_sender");
     if (!(await withinRateLimit(candidate.senderEmail))) return quarantineFor("flood");
-    return decisionForVerdict(await classify(candidate));
+    return decisionForSpamScore(await scoreSpam(candidate));
   }
 }

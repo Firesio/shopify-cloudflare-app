@@ -1,17 +1,14 @@
-import { z } from "zod";
 import type { TriageCandidate } from "~/support/triage/types";
-import { SPAM_VERDICTS } from "~/support/triage/types";
-import { buildSpamPrompt } from "../spam-prompt";
-import { defineAiObjectTask } from "../task";
+import { SPAM_QUESTION, buildSpamState } from "../spam-prompt";
+import { defineAiDecisionTask } from "../task";
 
 /**
- * One label for an inbound mail: legit, spam or unsure. The `classification` purpose exists for exactly this: a
- * closed set, the shortest and cheapest job there is.
+ * How likely a mail is spam, as a probability. The `decision` purpose exists for exactly this: a yes/no question
+ * about some content, scored by a decision model instead of answered in text.
  */
-export const spamTriageTask = defineAiObjectTask<TriageCandidate, { readonly verdict: (typeof SPAM_VERDICTS)[number] }>({
+export const spamTriageTask = defineAiDecisionTask<TriageCandidate>({
   feature: "support.spam_triage",
-  role: "classification",
-  maxTokens: 30,
-  schema: z.object({ verdict: z.enum(SPAM_VERDICTS) }),
-  buildMessages: buildSpamPrompt,
+  role: "decision",
+  question: SPAM_QUESTION,
+  state: buildSpamState,
 });

@@ -1,14 +1,16 @@
 import { WorkersAiGenerator, workersAiModelFactory } from "~/adapters/workers-ai.server";
+import { WorkersAiDecider, workersAiRunner } from "~/adapters/workers-ai-decider.server";
 import { composeGates, type AiGate } from "~/ai/gate";
 import { dailyCallCap } from "~/ai/quota-gate";
 import type { TextGenerator } from "~/ports/ai";
+import type { Decider } from "~/ports/ai-decision";
 import { getEnv } from "~/request-context.server";
 import { AiService } from "~/services/ai.server";
 import { SupportService } from "~/services/support.server";
 import { signAttachmentToken } from "~/support/file-token";
 import { supportMailDomain } from "~/support/inbound/mail-domain";
 import { SupportInboxService } from "~/services/support-inbox.server";
-import { classifySpam } from "~/services/support-spam-check.server";
+import { scoreSpam } from "~/services/support-spam-check.server";
 import { SupportTriageService } from "~/services/support-triage.server";
 import { SupportContactService } from "~/services/support-contact.server";
 import { noBotCheck, turnstileBotCheck } from "~/adapters/bot-check.server";
@@ -49,8 +51,13 @@ export function aiGenerator(): TextGenerator {
   return new WorkersAiGenerator({ languageModel: workersAiModelFactory() });
 }
 
+/** The decision models every decision purpose runs on: a different kind of model, so a different port. */
+export function aiDecider(timeoutMs?: number): Decider {
+  return new WorkersAiDecider({ run: workersAiRunner(), ...(timeoutMs === undefined ? {} : { timeoutMs }) });
+}
+
 export function aiService(): AiService {
-  return new AiService({ repo: aiRepository(), generator: aiGenerator(), clock: appRuntime().clock, ids: appRuntime().ids, gate: aiGate() });
+  return new AiService({ repo: aiRepository(), generator: aiGenerator(), decider: aiDecider(), clock: appRuntime().clock, ids: appRuntime().ids, gate: aiGate() });
 }
 
 export function supportService(): SupportService {
@@ -69,23 +76,23 @@ export function supportService(): SupportService {
 }
 
 /**
- * How many classification calls may run per rolling day. The only caller today is the inbound-mail spam check,
+ * How many decision calls may run per rolling day. The only caller today is the inbound-mail spam check,
  * which runs once per stranger's mail: far above real traffic, far below a flood paid for in tokens.
  */
-const CLASSIFICATION_CALLS_PER_DAY = 500;
+const DECISION_CALLS_PER_DAY = 500;
 
 /**
  * Who may use AI.
  *
  * No plan policy in the base: that is the app's decision, not the base's. The one rule that ships is a spend cap on
- * `classification`, because that purpose is driven by traffic we do not control. An app adds its own by naming more
+ * `decision`, because that purpose is driven by traffic we do not control. An app adds its own by naming more
  * gates in `composeGates(...)` (see `~/ai/gate`); this is the ONLY file that has to change.
  */
 export function aiGate(): AiGate {
   return composeGates(
     dailyCallCap({
-      role: "classification",
-      perDay: CLASSIFICATION_CALLS_PER_DAY,
+      role: "decision",
+      perDay: DECISION_CALLS_PER_DAY,
       callsSince: (role, since) => aiRepository().callsSince(role, since),
       now: appRuntime().clock.now,
     }),
@@ -98,7 +105,7 @@ const SPAM_CHECK_TIMEOUT_MS = 4_000;
 /** The same AI service as everywhere, except that this caller cannot wait half a minute for a model. */
 function spamCheckAiService(): AiService {
   const generator = new WorkersAiGenerator({ languageModel: workersAiModelFactory(), timeoutMs: SPAM_CHECK_TIMEOUT_MS });
-  return new AiService({ repo: aiRepository(), generator, clock: appRuntime().clock, ids: appRuntime().ids, gate: aiGate() });
+  return new AiService({ repo: aiRepository(), generator, decider: aiDecider(SPAM_CHECK_TIMEOUT_MS), clock: appRuntime().clock, ids: appRuntime().ids, gate: aiGate() });
 }
 
 /** What happens to a stranger's first mail: blocklist, per-sender limit, then the model. */
@@ -108,8 +115,8 @@ export function supportTriageService(): SupportTriageService {
     blocked: supportTriage(),
     withinRateLimit: async (senderEmail) =>
       env.SUPPORT_MAIL_LIMITER ? (await env.SUPPORT_MAIL_LIMITER.limit({ key: senderEmail })).success : true,
-    classify: (candidate) =>
-      classifySpam({ ai: spamCheckAiService(), log: (entry) => console.error(JSON.stringify(entry)) }, candidate),
+    scoreSpam: (candidate) =>
+      scoreSpam({ ai: spamCheckAiService(), log: (entry) => console.error(JSON.stringify(entry)) }, candidate),
   });
 }
 

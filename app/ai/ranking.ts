@@ -1,5 +1,6 @@
 import { WORKERS_AI_MODELS, type CatalogueModel } from "./catalogue";
-import type { ModelRole } from "./roles";
+import { DECISION_MODELS } from "./decision-catalogue";
+import { isDecisionRole, type ModelRole, type TextRole } from "./roles";
 
 /**
  * Which models suit a purpose, best first.
@@ -86,7 +87,7 @@ type Comparator = (a: CatalogueModel, b: CatalogueModel) => number;
  * in the other. `reasoning` ranks the same property up. That opposition is why
  * they are separate purposes rather than one "text" setting.
  */
-const COMPARATORS: Record<ModelRole, Comparator[]> = {
+const COMPARATORS: Record<TextRole, Comparator[]> = {
   writing: [
     // Never think out loud at a customer.
     (a, b) => flagFirst(!a.reasoning, !b.reasoning),
@@ -130,7 +131,8 @@ const COMPARATORS: Record<ModelRole, Comparator[]> = {
   ],
 };
 
-export function rankModelsForRole(role: ModelRole): CatalogueModel[] {
+/** Text purposes only: a decision purpose has nothing to rank by, and its own catalogue is already in order. */
+export function rankModelsForRole(role: TextRole): CatalogueModel[] {
   const comparators = COMPARATORS[role];
 
   return [...WORKERS_AI_MODELS].sort((a, b) => {
@@ -152,6 +154,7 @@ const CHAIN_LENGTH = 3;
  * of the list is that a model failing costs a retry rather than the feature.
  */
 export function recommendedChain(role: ModelRole): string[] {
+  if (isDecisionRole(role)) return DECISION_MODELS.map((model) => model.id);
   return rankModelsForRole(role)
     .slice(0, CHAIN_LENGTH)
     .map((model) => model.id);

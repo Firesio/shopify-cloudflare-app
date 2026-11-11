@@ -13,7 +13,7 @@ describe("planning the recommended chains", () => {
   it("leaves a purpose that already has models alone when filling empty ones", () => {
     // The point of `empty`: an owner's hand-tuned chain is never overwritten.
     const plans = planRecommended("empty", ["writing", "summary"]);
-    expect(roles(plans)).toEqual(["reasoning", "extraction", "classification"]);
+    expect(roles(plans)).toEqual(["reasoning", "extraction", "classification", "decision"]);
   });
 
   it("plans nothing when every purpose is configured", () => {

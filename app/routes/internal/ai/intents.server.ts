@@ -1,4 +1,4 @@
-import { findCatalogueModel } from "~/ai/catalogue";
+import { modelLabel } from "~/ai/role-models";
 import { planRecommended, readPresetScope, recommendedPlan } from "~/ai/preset";
 import { ROLE_LABEL, isModelRole, type ModelRole } from "~/ai/roles";
 import type { ActionOutcome } from "~/lib/action-feedback";
@@ -61,7 +61,7 @@ const reorder =
  */
 export const AI_INTENT_HANDLERS: Record<AiIntent, Handler> = {
   add: forRole(async ({ role, modelId }, { repo, actor, at }) => {
-    if (!findCatalogueModel(modelId)) return { error: "That model is not in the catalogue." };
+    if (modelLabel(role, modelId) === undefined) return { error: "That model is not in the catalogue." };
     await repo.addToChain({ role, modelId, updatedBy: actor, at });
     return { success: `Added to ${ROLE_LABEL[role]}.` };
   }),

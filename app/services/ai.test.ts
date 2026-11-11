@@ -3,7 +3,7 @@ import { env } from "cloudflare:test";
 import { runWithRequestContext } from "~/request-context.server";
 import { setupTestDatabase } from "~/test/db";
 import { AiRepo } from "~/models/ai.server";
-import { fakeTextGenerator } from "~/test/fake-ai";
+import { fakeDecider, fakeTextGenerator } from "~/test/fake-ai";
 import type { AiFailureReason } from "~/ports/ai";
 import type { AiGate } from "~/ai/gate";
 import { replyTask } from "~/ai/tasks/reply";
@@ -30,7 +30,7 @@ const thread: ThreadForPrompt = {
 };
 
 const service = (generator = fakeTextGenerator()) =>
-  new AiService({ repo: new AiRepo(), generator, clock: { now: () => AT }, ids: testIds, gate: { async refuse() { return null; } } });
+  new AiService({ repo: new AiRepo(), generator, clock: { now: () => AT }, decider: fakeDecider(), ids: testIds, gate: { async refuse() { return null; } } });
 
 describe("drafting a support reply", () => {
   it("uses injected repository chain", async () => {
@@ -40,7 +40,7 @@ describe("drafting a support reply", () => {
       recordRun: async () => {},
       markHealth: async () => {},
     };
-    const result = await new AiService({ repo, generator: fakeTextGenerator({ reply: "Injected." }), clock: { now: () => AT }, ids: testIds, gate: { async refuse() { return null; } } }).run(
+    const result = await new AiService({ repo, generator: fakeTextGenerator({ reply: "Injected." }), clock: { now: () => AT }, decider: fakeDecider(), ids: testIds, gate: { async refuse() { return null; } } }).run(
       replyTask, { thread, currentText: "", instruction: "", tone: "professional" }, STAFF,
     );
     expect(result).toEqual({ ok: true, value: "Injected." });
@@ -382,7 +382,7 @@ describe("gating AI by who is asking", () => {
 
   const withGate = (gate: AiGate, generator = fakeTextGenerator()) => ({
     generator,
-    service: new AiService({ repo: new AiRepo(), generator, clock: { now: () => AT }, ids: testIds, gate }),
+    service: new AiService({ repo: new AiRepo(), generator, clock: { now: () => AT }, decider: fakeDecider(), ids: testIds, gate }),
   });
 
   it("refuses when the gate says so", async () => {

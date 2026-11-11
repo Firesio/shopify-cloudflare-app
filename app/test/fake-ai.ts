@@ -6,6 +6,7 @@ import type {
   TextGenerator,
 } from "~/ports/ai";
 import { AiError, type AiFailureReason } from "~/ports/ai";
+import type { Decided, DecideRequest, Decider } from "~/ports/ai-decision";
 
 /**
  * A `TextGenerator` that generates nothing and remembers everything.
@@ -90,6 +91,39 @@ export function fakeTextGenerator(options: FakeTextGeneratorOptions = {}): FakeT
           for (const chunk of chunks) yield chunk;
         })(),
         usage: Promise.resolve({ ...usage, model: request.model }),
+      };
+    },
+  };
+}
+
+/**
+ * A `Decider` that scores nothing and remembers everything: the decision-model twin of `fakeTextGenerator`, for the
+ * same reason. `probability` is what every call returns, `failFor` drives the fallback chain.
+ */
+export interface FakeDecider extends Decider {
+  readonly calls: DecideRequest[];
+}
+
+export interface FakeDeciderOptions {
+  /** What every call returns. Not validated, so a test can return an impossible one. */
+  probability?: number;
+  /** Make every call fail this way instead. */
+  fail?: AiFailureReason;
+  /** Fail only for these model ids, so a test can drive the fallback chain. */
+  failFor?: Readonly<Record<string, AiFailureReason>>;
+}
+
+export function fakeDecider(options: FakeDeciderOptions = {}): FakeDecider {
+  const calls: DecideRequest[] = [];
+  return {
+    calls,
+    async decide(request): Promise<Decided> {
+      calls.push(request);
+      const reason = options.failFor?.[request.model] ?? options.fail;
+      if (reason) throw new AiError(reason, `fake failure for ${request.model}: ${reason}`);
+      return {
+        probability: options.probability ?? 0,
+        usage: { model: request.model, inputTokens: 10, outputTokens: 0 },
       };
     },
   };

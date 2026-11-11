@@ -4,9 +4,9 @@ import { runWithRequestContext } from "~/request-context.server";
 import { setupTestDatabase } from "~/test/db";
 import { AiRepo } from "~/models/ai.server";
 import { AiService } from "~/services/ai.server";
-import { fakeTextGenerator } from "~/test/fake-ai";
+import { fakeDecider, fakeTextGenerator, type FakeDecider } from "~/test/fake-ai";
 import { z } from "zod";
-import { defineAiObjectTask, defineAiTask } from "./task";
+import { defineAiDecisionTask, defineAiObjectTask, defineAiTask } from "./task";
 import { allowAll, type AiCaller } from "./gate";
 import type { ModelRole } from "./roles";
 import { testIds } from "~/test/fake-runtime";
@@ -36,7 +36,7 @@ const inventedTask = defineAiTask<{ productTitle: string; audience: string }>({
 });
 
 const service = (generator = fakeTextGenerator()) =>
-  new AiService({ repo: new AiRepo(), generator, clock: { now: () => AT }, ids: testIds, gate: allowAll });
+  new AiService({ repo: new AiRepo(), generator, clock: { now: () => AT }, decider: fakeDecider(), ids: testIds, gate: allowAll });
 
 async function chain(role: ModelRole, models: string[]) {
   const repo = new AiRepo();
@@ -109,7 +109,7 @@ describe("adding a new AI feature", () => {
 
     const result = await inRequest(async () => {
       await chain("writing", ["@cf/a/one"]);
-      return new AiService({ repo: new AiRepo(), generator, clock: { now: () => AT }, ids: testIds, gate: refuseAll }).run(
+      return new AiService({ repo: new AiRepo(), generator, clock: { now: () => AT }, decider: fakeDecider(), ids: testIds, gate: refuseAll }).run(
         inventedTask,
         { productTitle: "K", audience: "c" },
         STAFF,
@@ -230,7 +230,7 @@ describe("a task that wants a shape, not prose", () => {
 
     const result = await inRequest(async () => {
       await chain("classification", ["@cf/a/one", "@cf/b/two"]);
-      return new AiService({ repo: new AiRepo(), generator, clock: { now: () => AT }, ids: testIds, gate: allowAll }).runObject(
+      return new AiService({ repo: new AiRepo(), generator, clock: { now: () => AT }, decider: fakeDecider(), ids: testIds, gate: allowAll }).runObject(
         triageTask,
         { subject: "x" },
         STAFF,
@@ -251,5 +251,85 @@ describe("a task that wants a shape, not prose", () => {
     });
 
     expect(runs[0]).toMatchObject({ feature: "test.triage", role: "classification", status: "ok" });
+  });
+});
+
+const spamishTask = defineAiDecisionTask<{ subject: string }>({
+  feature: "test.spamish",
+  role: "decision",
+  question: "Is this spam?",
+  state: ({ subject }) => `Subject: ${subject}`,
+});
+
+const decisionService = (decider: FakeDecider, gate = allowAll) =>
+  new AiService({ repo: new AiRepo(), generator: fakeTextGenerator(), decider, clock: { now: () => AT }, ids: testIds, gate });
+
+describe("a decision task", () => {
+  it("asks its question about its own state and returns the probability", async () => {
+    const decider = fakeDecider({ probability: 0.97 });
+
+    const result = await inRequest(async () => {
+      await chain("decision", ["@cf/cloudflare/clef"]);
+      return decisionService(decider).runDecision(spamishTask, { subject: "Rank #1" }, STAFF);
+    });
+
+    expect(result).toEqual({ ok: true, value: 0.97 });
+    expect(decider.calls).toEqual([{ model: "@cf/cloudflare/clef", state: "Subject: Rank #1", question: "Is this spam?" }]);
+  });
+
+  it("falls through to the next model when one fails, like a text task", async () => {
+    const decider = fakeDecider({ probability: 0.02, failFor: { "@cf/a/one": "provider" } });
+
+    const result = await inRequest(async () => {
+      await chain("decision", ["@cf/a/one", "@cf/b/two"]);
+      return decisionService(decider).runDecision(spamishTask, { subject: "x" }, STAFF);
+    });
+
+    expect(decider.calls.map((call) => call.model)).toEqual(["@cf/a/one", "@cf/b/two"]);
+    expect(result).toEqual({ ok: true, value: 0.02 });
+  });
+
+  it.each([-0.1, 1.2, Number.NaN])("treats a probability of %s as a failed answer and tries the next model", async (probability) => {
+    const decider = fakeDecider({ probability });
+
+    const result = await inRequest(async () => {
+      await chain("decision", ["@cf/a/one", "@cf/b/two"]);
+      return decisionService(decider).runDecision(spamishTask, { subject: "x" }, STAFF);
+    });
+
+    expect(decider.calls).toHaveLength(2);
+    expect(result).toEqual({ ok: false, reason: "provider" });
+  });
+
+  it("has no answer when the purpose has no models", async () => {
+    const decider = fakeDecider();
+
+    const result = await inRequest(() => decisionService(decider).runDecision(spamishTask, { subject: "x" }, STAFF));
+
+    expect(result).toEqual({ ok: false, reason: "no_model" });
+    expect(decider.calls).toEqual([]);
+  });
+
+  it("is refused by the gate before any model is asked", async () => {
+    const decider = fakeDecider();
+    const refuseAll = { refuse: async () => "rate_limited" as const };
+
+    const result = await inRequest(async () => {
+      await chain("decision", ["@cf/a/one"]);
+      return decisionService(decider, refuseAll).runDecision(spamishTask, { subject: "x" }, STAFF);
+    });
+
+    expect(result).toEqual({ ok: false, reason: "rate_limited" });
+    expect(decider.calls).toEqual([]);
+  });
+
+  it("is metered like every other task, with the tokens the decision model reported", async () => {
+    const runs = await inRequest(async () => {
+      const repo = await chain("decision", ["@cf/a/one"]);
+      await decisionService(fakeDecider({ probability: 0.5 })).runDecision(spamishTask, { subject: "x" }, STAFF);
+      return repo.recentRuns();
+    });
+
+    expect(runs[0]).toMatchObject({ feature: "test.spamish", role: "decision", modelId: "@cf/a/one", status: "ok", inputTokens: 10, outputTokens: 0 });
   });
 });

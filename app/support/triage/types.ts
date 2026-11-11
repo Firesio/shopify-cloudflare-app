@@ -4,10 +4,6 @@ import type { SupportSource } from "~/support/inbound/types";
 export const SPAM_REASONS = ["blocked_sender", "flood", "ai_spam"] as const;
 export type SpamReason = (typeof SPAM_REASONS)[number];
 
-/** What the model may answer. `unsure` exists so a doubtful mail is never forced into a verdict. */
-export const SPAM_VERDICTS = ["legit", "spam", "unsure"] as const;
-export type SpamVerdict = (typeof SPAM_VERDICTS)[number];
-
 /** What a triage decision is made from: the mail as a source reduced it, and nothing else. */
 export interface TriageCandidate {
   readonly source: SupportSource;

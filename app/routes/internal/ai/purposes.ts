@@ -3,17 +3,20 @@ import {
   ROLES_IN_USE,
   ROLE_DESCRIPTION,
   ROLE_LABEL,
+  isDecisionRole,
   type ModelRole,
 } from "~/ai/roles";
-import { findCatalogueModel } from "~/ai/catalogue";
+import { DECISION_MODELS } from "~/ai/decision-catalogue";
+import { modelLabel } from "~/ai/role-models";
 import { rankModelsForRole } from "~/ai/ranking";
 import { isDemoted } from "~/ai/chain";
 import { modelNote } from "./model-note";
 
-function chainEntry(row: AiModel, now: number) {
+function chainEntry(role: ModelRole, row: AiModel, now: number) {
+  const label = modelLabel(role, row.modelId);
   return {
     modelId: row.modelId,
-    label: findCatalogueModel(row.modelId)?.label ?? row.modelId,
+    label: label ?? row.modelId,
     enabled: row.enabled,
     // Demoted by the RUNTIME after a failure — not something an admin set.
     demoted: isDemoted(
@@ -28,8 +31,20 @@ function chainEntry(row: AiModel, now: number) {
     ),
     // A model chosen before Cloudflare retired it still WORKS; say so
     // rather than showing it as an ordinary choice.
-    retired: findCatalogueModel(row.modelId) === undefined,
+    retired: label === undefined,
   };
+}
+
+interface ModelOption {
+  readonly id: string;
+  readonly label: string;
+  readonly note: string;
+}
+
+/** What a purpose may be given, best first: ranked for a text purpose, in the catalogue's own order for a decision one. */
+function optionsFor(role: ModelRole): ModelOption[] {
+  if (isDecisionRole(role)) return DECISION_MODELS.map(({ id, label, note }) => ({ id, label, note }));
+  return rankModelsForRole(role).map((model) => ({ id: model.id, label: model.label, note: modelNote(model) }));
 }
 
 export function buildPurpose(role: ModelRole, rows: readonly AiModel[], now: number) {
@@ -41,16 +56,10 @@ export function buildPurpose(role: ModelRole, rows: readonly AiModel[], now: num
     label: ROLE_LABEL[role],
     description: ROLE_DESCRIPTION[role],
     usedBy: ROLES_IN_USE[role],
-    chain: chain.map((row) => chainEntry(row, now)),
+    chain: chain.map((row) => chainEntry(role, row, now)),
     // Ranked FOR THIS PURPOSE, best first, minus what is already in the
     // chain — so the top of the list is always the right next pick.
-    available: rankModelsForRole(role)
-      .filter((model) => !chosen.has(model.id))
-      .map((model) => ({
-        id: model.id,
-        label: model.label,
-        note: modelNote(model),
-      })),
+    available: optionsFor(role).filter((model) => !chosen.has(model.id)),
   };
 }
 

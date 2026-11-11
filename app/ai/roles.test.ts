@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MODEL_ROLES, ROLES_IN_USE, ROLE_DESCRIPTION, ROLE_LABEL, isModelRole } from "./roles";
+import { MODEL_ROLES, ROLES_IN_USE, ROLE_DESCRIPTION, ROLE_LABEL, isDecisionRole, isModelRole } from "./roles";
 
 describe("model roles", () => {
   it("narrows a known role and rejects anything else", () => {
@@ -17,6 +17,11 @@ describe("model roles", () => {
     expect(inUse).toContain("writing");
     expect(inUse).toContain("summary");
     expect(inUse.length).toBeLessThan(MODEL_ROLES.length);
+  });
+
+  it("marks the decision purpose as the spam check's, and only that one as a decision purpose", () => {
+    expect(ROLES_IN_USE.decision).toBe("Inbound mail spam check");
+    expect(MODEL_ROLES.filter(isDecisionRole)).toEqual(["decision"]);
   });
 
   it("labels and describes every role", () => {

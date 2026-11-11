@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { PromptMessage } from "./draft-prompt";
-import type { ModelRole } from "./roles";
+import type { DecisionRole, TextRole } from "./roles";
 
 /**
  * ONE AI FEATURE, described as data.
@@ -47,7 +47,7 @@ export interface AiTask<Input> {
    */
   readonly feature: string;
   /** Which purpose's chain runs it. The task names a capability, never a model. */
-  readonly role: ModelRole;
+  readonly role: TextRole;
   /** Ceiling on the answer. Omit for the service default. */
   readonly maxTokens?: number;
   /** The whole prompt, from the task's own input. PURE — no I/O in here. */
@@ -76,7 +76,7 @@ export function defineAiTask<Input>(task: AiTask<Input>): AiTask<Input> {
  */
 export interface AiObjectTask<Input, Output> {
   readonly feature: string;
-  readonly role: ModelRole;
+  readonly role: TextRole;
   readonly maxTokens?: number;
   /**
    * The shape, as Zod.
@@ -95,5 +95,25 @@ export interface AiObjectTask<Input, Output> {
 export function defineAiObjectTask<Input, Output>(
   task: AiObjectTask<Input, Output>,
 ): AiObjectTask<Input, Output> {
+  return task;
+}
+
+/**
+ * A task that asks a yes/no question about some content and wants a PROBABILITY back.
+ *
+ * Its own type, because the model is a different kind: a decision model scores, it does not write, so there are no
+ * messages and no token ceiling. The task says what the content is (`state`, from its own input) and what is asked
+ * of it (`question`); the service runs it through the same gate, chain, fallback and ledger as every other task.
+ */
+export interface AiDecisionTask<Input> {
+  readonly feature: string;
+  readonly role: DecisionRole;
+  /** The yes/no question. The probability that comes back is the probability of YES. */
+  readonly question: string;
+  /** The content to judge, from the task's own input. PURE — no I/O in here. */
+  state(input: Input): string;
+}
+
+export function defineAiDecisionTask<Input>(task: AiDecisionTask<Input>): AiDecisionTask<Input> {
   return task;
 }

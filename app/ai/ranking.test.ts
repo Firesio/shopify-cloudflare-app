@@ -1,12 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { rankModelsForRole, recommendedChain } from "./ranking";
-import { findCatalogueModel, WORKERS_AI_MODELS } from "./catalogue";
-import { MODEL_ROLES } from "./roles";
+import { WORKERS_AI_MODELS } from "./catalogue";
+import { modelLabel } from "./role-models";
+import { DECISION_MODELS } from "./decision-catalogue";
+import { MODEL_ROLES, isDecisionRole, type TextRole } from "./roles";
+
+/** The purposes a text model serves: ranking is for these. A decision purpose has its own, already ordered, catalogue. */
+const TEXT_ROLES = MODEL_ROLES.filter((role): role is TextRole => !isDecisionRole(role));
 
 const ids = (models: readonly { id: string }[]) => models.map((m) => m.id);
 
 describe("ranking models for a purpose", () => {
-  it.each(MODEL_ROLES)("offers every catalogue model for %s, just reordered", (role) => {
+  it.each(TEXT_ROLES)("offers every catalogue model for %s, just reordered", (role) => {
     // A ranking that HIDES models would stop an admin picking one we ranked
     // badly but they know works. Order is a recommendation, not a filter.
     const ranked = rankModelsForRole(role);
@@ -51,7 +56,7 @@ describe("ranking models for a purpose", () => {
       (a, b) => a.outputMicroUsdPerMTokens - b.outputMicroUsdPerMTokens,
     )[0];
 
-    for (const role of MODEL_ROLES) {
+    for (const role of TEXT_ROLES) {
       expect(rankModelsForRole(role)[0]?.id, role).not.toBe(cheapest?.id);
     }
   });
@@ -94,7 +99,7 @@ describe("the recommended starting chain", () => {
 
   it.each(MODEL_ROLES)("only recommends models that exist in the catalogue for %s", (role) => {
     for (const id of recommendedChain(role)) {
-      expect(findCatalogueModel(id), `${role} -> ${id}`).toBeDefined();
+      expect(modelLabel(role, id), `${role} -> ${id}`).toBeDefined();
     }
   });
 
@@ -103,6 +108,10 @@ describe("the recommended starting chain", () => {
       const chain = recommendedChain(role);
       expect(new Set(chain).size, role).toBe(chain.length);
     }
+  });
+
+  it("is every decision model, in the catalogue's own order, for a decision purpose", () => {
+    expect(recommendedChain("decision")).toEqual(DECISION_MODELS.map((model) => model.id));
   });
 
   it("matches the top of that purpose's ranking", () => {

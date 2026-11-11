@@ -11,7 +11,6 @@ import type { ParsedMail } from "~/support/inbound/types";
 import { SupportInboxService } from "./support-inbox.server";
 import { SupportService } from "./support.server";
 import { SupportTriageService } from "./support-triage.server";
-import type { SpamVerdict } from "~/support/triage/types";
 
 const DOMAIN = "vip.firesio.app";
 const HAIR = String.fromCodePoint(0x200a);
@@ -23,7 +22,7 @@ const run = <T>(fn: () => Promise<T>) => runWithRequestContext(env, fn);
  * Ids are long enough to be a plausible ticket id: the reply address carries
  * one, and production ids are uuids, not the 6-character `test-1` default.
  */
-function build(options: { verdict?: SpamVerdict | null; withinRateLimit?: boolean } = {}) {
+function build(options: { spamScore?: number | null; withinRateLimit?: boolean } = {}) {
   const testIds = sequentialIds("conversation");
   // One clock that moves, so messages sort in the order they happened.
   let now = 1_000;
@@ -37,7 +36,7 @@ function build(options: { verdict?: SpamVerdict | null; withinRateLimit?: boolea
     triage: new SupportTriageService({
       blocked: triageRepo,
       withinRateLimit: async () => options.withinRateLimit ?? true,
-      classify: async () => options.verdict ?? null,
+      scoreSpam: async () => options.spamScore ?? null,
     }),
     quarantine: triageRepo,
     shops: { find: async () => null },
@@ -197,7 +196,7 @@ describe("a conversation, end to end", () => {
 
     it("holds a mail the model calls spam, then opens a conversation when staff say it is not", async () => {
       await run(async () => {
-        const { notifier, inbox, repo, triageRepo } = build({ verdict: "spam" });
+        const { notifier, inbox, repo, triageRepo } = build({ spamScore: 0.99 });
 
         const outcome = await inbox.receive(mail({ from: SPAMMER, subject: "Rank #1", text: "Buy links" }));
         expect(outcome).toEqual({ status: "quarantined", reason: "ai_spam" });
@@ -216,7 +215,7 @@ describe("a conversation, end to end", () => {
 
     it("refuses a blocked domain before any model is asked, and lets everyone else through", async () => {
       await run(async () => {
-        const { inbox, repo, triageRepo } = build({ verdict: "legit" });
+        const { inbox, repo, triageRepo } = build({ spamScore: 0.01 });
         await triageRepo.block({ pattern: "spam.example", createdBy: "staff@firesio.app", at: 1 });
 
         expect(await inbox.receive(mail({ from: SPAMMER }))).toEqual({ status: "quarantined", reason: "blocked_sender" });
@@ -227,14 +226,14 @@ describe("a conversation, end to end", () => {
 
     it("holds a sender who is over their allowance", async () => {
       await run(async () => {
-        const { inbox } = build({ verdict: "legit", withinRateLimit: false });
+        const { inbox } = build({ spamScore: 0.01, withinRateLimit: false });
         expect(await inbox.receive(mail({}))).toEqual({ status: "quarantined", reason: "flood" });
       });
     });
 
     it("opens the conversation when there is no model, so a customer is never lost to a missing one", async () => {
       await run(async () => {
-        const { inbox } = build({ verdict: null });
+        const { inbox } = build({ spamScore: null });
         expect(await inbox.receive(mail({}))).toMatchObject({ status: "opened" });
       });
     });
