@@ -24,7 +24,7 @@ export interface SupportRepository {
   findForStaff(ticketId: string): Promise<SupportThread | undefined>;
   listForShop(shop: string): Promise<SupportTicket[]>;
   listOpenForStaff(): Promise<SupportTicket[]>;
-  closeAsStaff(ticketId: string, at: number): Promise<boolean>;
+  closeAsStaff(ticketId: string, at: number, asksReview: boolean): Promise<boolean>;
   setCcEmails(shop: string, ticketId: string, ccEmails: readonly string[]): Promise<boolean>;
   markRead(shop: string, ticketId: string, side: "merchant" | "staff", at: number): Promise<void>;
   markReadAsStaff(ticketId: string, at: number): Promise<void>;

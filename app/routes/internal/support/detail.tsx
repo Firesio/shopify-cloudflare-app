@@ -144,7 +144,7 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   const form = await request.formData();
 
   if (String(form.get("intent")) === "close") {
-    await closeTicket(ticketId);
+    await closeTicket(ticketId, { asksReview: form.get("asksReview") === "on" });
     return { success: "closed" as const };
   }
 

@@ -14,6 +14,7 @@ const ticket = (over: Record<string, unknown> = {}) => ({
   status: "open",
   createdAt: Date.parse("2026-08-25T00:00:00.000Z"),
   ccEmails: [],
+  closedAsksReview: false,
   ...over,
 });
 
@@ -246,5 +247,32 @@ describe("asking the merchant for an app review", () => {
 
     expect(html).not.toContain("Review the app");
     expect(html).toContain("All fixed.");
+  });
+});
+
+describe("asking for a review as the ticket is closed", () => {
+  const closed = (closedAsksReview: boolean) => ok({ ticket: ticket({ status: "closed", closedAsksReview }), messages: [message()] });
+
+  it("puts the review button in the closed-ticket banner, in its action slot, when staff asked", async () => {
+    const html = await detail(Promise.resolve(closed(true)), "settled", "en", REVIEW_URL);
+
+    expect(html).toMatch(/<s-banner[^>]*heading="This ticket is closed\. Replying will reopen it\."[^>]*>.*We value your feedback.*<s-button slot="secondary-actions"[^>]*>Review the app<\/s-button><\/s-banner>/);
+    expect(html).not.toMatch(/<s-button[^>]*href=[^>]*>Review the app/);
+  });
+
+  it("leaves the banner as it was when staff did not ask, or the app has no listing", async () => {
+    for (const html of [
+      await detail(Promise.resolve(closed(false)), "settled", "en", REVIEW_URL),
+      await detail(Promise.resolve(closed(true)), "settled", "en", null),
+    ]) {
+      expect(html).toContain("This ticket is closed. Replying will reopen it.");
+      expect(html).not.toContain("Review the app");
+    }
+  });
+
+  it("shows no review button on a ticket that is open again, whatever it was closed with", async () => {
+    const html = await detail(Promise.resolve(ok({ ticket: ticket({ status: "open", closedAsksReview: true }), messages: [message()] })), "settled", "en", REVIEW_URL);
+
+    expect(html).not.toContain("Review the app");
   });
 });

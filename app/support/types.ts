@@ -17,6 +17,8 @@ export interface SupportTicket {
   readonly lastAuthor: SupportAuthor;
   readonly lastMessageAt: number;
   readonly closedAt: number | null;
+  /** Staff asked for an app review when they closed it; only meaningful while `closedAt` is set. */
+  readonly closedAsksReview: boolean;
   readonly merchantLastReadAt: number | null;
   readonly staffLastReadAt: number | null;
   readonly locale: string | null;

@@ -162,7 +162,7 @@ describe("SupportInboundRepo against D1", () => {
       const opened = await inbound.open(input("one@mail.example"));
       if (opened.status !== "written") throw new Error("expected written");
       const { ticketId } = opened.value;
-      await support.closeAsStaff(ticketId, 2_000);
+      await support.closeAsStaff(ticketId, 2_000, false);
       await inbound.append(ticketId, { externalId: "two@mail.example", senderName: "Jane", body: "Still broken.", at: 3_000 });
       const thread = await support.findForStaff(ticketId);
       expect(thread?.ticket.closedAt).toBeNull();
@@ -213,6 +213,27 @@ describe("SupportInboundRepo against D1", () => {
       // A relay conversation has no portal, so the App Store link is the one place the request can point.
       expect(sent[0]?.payload).toMatchObject({ body: "Yes.", reviewUrl: REVIEW_URL });
       expect(sent[1]?.payload).not.toHaveProperty("reviewUrl");
+    });
+  });
+
+  it("keeps the review request of a close only when the app has a listing to send them to", async () => {
+    await run(async () => {
+      const repo = new SupportRepo(testIds);
+      const asking = build().service;
+      const without = new SupportService({
+        repo, staff: { recipientsFor: async () => ({ emails: [], devices: [] }) }, clock: { now: () => 5_000 }, notifier: fakeNotifier(),
+        appUrl: `https://${DOMAIN}`, reviewUrl: null, mailDomain: DOMAIN, withinRateLimit: async () => true, signAttachment: async () => "token", log: () => {},
+      });
+      const open = (shop: string) => repo.open({ shop, shopName: "A", merchantEmail: "a@example.com", ccEmails: [], category: "question", subject: "Help", body: "Question", authorName: "A", locale: null, at: 1_000 });
+      const [first, second, third] = [await open("a.myshopify.com"), await open("b.myshopify.com"), await open("c.myshopify.com")];
+
+      await asking.closeAsStaff(first.id, { asksReview: true });
+      await asking.closeAsStaff(second.id);
+      await without.closeAsStaff(third.id, { asksReview: true });
+
+      expect((await repo.find("a.myshopify.com", first.id))?.ticket.closedAsksReview).toBe(true);
+      expect((await repo.find("b.myshopify.com", second.id))?.ticket.closedAsksReview).toBe(false);
+      expect((await repo.find("c.myshopify.com", third.id))?.ticket.closedAsksReview).toBe(false);
     });
   });
 });

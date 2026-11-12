@@ -75,6 +75,12 @@ export const supportTickets = sqliteTable(
     /** Null while the thread is live. Set when either side closes it. */
     closedAt: integer("closed_at"),
     /**
+     * Staff ticked "ask for an app review" when they closed it: the closed-ticket banner the merchant sees carries the
+     * review button. Written together with `closedAt` on every close, and only shown while the ticket is closed, so a
+     * reopened thread's old value never shows.
+     */
+    closedAsksReview: integer("closed_asks_review", { mode: "boolean" }).notNull().default(false),
+    /**
      * Read receipts as TIMESTAMPS, not booleans: unread is
      * `lastMessageAt > xLastReadAt`, which cannot drift out of step with the
      * messages the way a flag someone forgot to clear does. Null = never opened.

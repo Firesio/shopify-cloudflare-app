@@ -201,12 +201,28 @@ describe("SupportRepo", () => {
     });
   });
 
+  it("records whether staff asked for an app review as they closed the ticket, and a new close overwrites it", async () => {
+    await run(async () => {
+      const repo = new SupportRepo(testIds);
+      const ticket = await open(repo, { at: 1000 });
+      expect(defined(await repo.find(SHOP, ticket.id)).ticket.closedAsksReview).toBe(false);
+
+      await repo.closeAsStaff(ticket.id, 2000, true);
+      expect(defined(await repo.find(SHOP, ticket.id)).ticket.closedAsksReview).toBe(true);
+
+      await repo.closeAsStaff(ticket.id, 3000, false);
+      expect(defined(await repo.find(SHOP, ticket.id)).ticket.closedAsksReview).toBe(false);
+      // Another shop cannot read the ticket, so it cannot read the flag either.
+      expect(await repo.find("other.myshopify.com", ticket.id)).toBeUndefined();
+    });
+  });
+
   it("reopens a closed ticket when the merchant replies", async () => {
     // Otherwise a merchant answering "did that fix it?" is never seen again.
     await run(async () => {
       const repo = new SupportRepo(testIds);
       const ticket = await open(repo, { at: 1000 });
-      await repo.closeAsStaff(ticket.id, 2000);
+      await repo.closeAsStaff(ticket.id, 2000, false);
       expect(statusOf(defined(await repo.find(SHOP, ticket.id)).ticket)).toBe("closed");
 
       await repo.reply({
@@ -229,7 +245,7 @@ describe("SupportRepo", () => {
     await run(async () => {
       const repo = new SupportRepo(testIds);
       const ticket = await open(repo, { at: 1000 });
-      await repo.closeAsStaff(ticket.id, 2000);
+      await repo.closeAsStaff(ticket.id, 2000, false);
 
       await repo.reply({
         shop: SHOP,
@@ -262,7 +278,7 @@ describe("SupportRepo", () => {
       await open(repo, { shop: SHOP, subject: "older", at: 1000 });
       await open(repo, { shop: OTHER, subject: "newer", at: 2000 });
       const closed = await open(repo, { shop: SHOP, subject: "closed", at: 1500 });
-      await repo.closeAsStaff(closed.id, 1600);
+      await repo.closeAsStaff(closed.id, 1600, false);
 
       const queue = await repo.listOpenForStaff();
       expect(queue.map((t) => t.subject)).toEqual(["newer", "older"]);
@@ -455,7 +471,7 @@ describe("SupportRepo writes a message and its files as one unit", () => {
     await run(async () => {
       const repo = new SupportRepo(testIds);
       const ticket = await repo.open(input());
-      await repo.closeAsStaff(ticket.id, 1500);
+      await repo.closeAsStaff(ticket.id, 1500, false);
       await stage(repo, "up_a");
 
       const replied = defined(await repo.reply({ shop: SHOP, ticketId: ticket.id, author: "merchant", authorName: "Alpha Store", body: "More", at: 3000, uploads: [staged("up_a")] }));
@@ -488,7 +504,7 @@ describe("SupportRepo writes a message and its files as one unit", () => {
     await run(async () => {
       const repo = new SupportRepo(testIds);
       const ticket = await repo.open(input());
-      await repo.closeAsStaff(ticket.id, 1500);
+      await repo.closeAsStaff(ticket.id, 1500, false);
       await repo.attachMany([{ shop: SHOP, messageId: ticket.messageId, id: "up_dup", r2Key: "support/alpha/dup", filename: "dup.txt", contentType: "text/plain", sizeBytes: 1, at: 1 }]);
       await stage(repo, "up_dup");
 

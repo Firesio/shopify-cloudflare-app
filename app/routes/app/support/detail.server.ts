@@ -58,6 +58,7 @@ export async function readThread(shop: string, ticketId: string) {
       subject: thread.ticket.subject,
       category: thread.ticket.category,
       status: statusOf(thread.ticket),
+      closedAsksReview: thread.ticket.closedAsksReview,
       createdAt: thread.ticket.createdAt,
       ccEmails: thread.ticket.ccEmails,
     },

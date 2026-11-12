@@ -321,8 +321,10 @@ export class SupportService {
     return this.dependencies.repo.listOpenForStaff();
   }
 
-  closeAsStaff(ticketId: string): Promise<boolean> {
-    return this.dependencies.repo.closeAsStaff(ticketId, this.dependencies.clock.now());
+  closeAsStaff(ticketId: string, options: { readonly asksReview?: boolean } = {}): Promise<boolean> {
+    // Nothing to ask for without a listing to send them to: the banner would have no button.
+    const asksReview = (options.asksReview ?? false) && this.dependencies.reviewUrl !== null;
+    return this.dependencies.repo.closeAsStaff(ticketId, this.dependencies.clock.now(), asksReview);
   }
 
   setCcEmails(

@@ -98,19 +98,19 @@ function AiBox({ ticketId, draft, busy }: AiBoxProps) {
 }
 
 /**
- * Per message, not a setting: ticking it shows the merchant a review link under THIS reply only, and it starts off for the
- * next one. Controlled, because a Radix switch is not reset by the form's own reset.
+ * Per send, not a setting: it starts off for the next one. On "Send reply" the merchant sees a review button under THIS
+ * message; on "Close ticket" the closed-ticket banner carries it. Controlled, because a Radix switch is not reset by the
+ * form's own reset. The whole text is the label, so clicking it toggles the switch. Shopify forbids asking for positive
+ * reviews or offering anything for one: the merchant-facing wording is fixed and neutral, and there is no field to type it in.
  */
 function AskReviewField({ checked, onChange }: { readonly checked: boolean; readonly onChange: (checked: boolean) => void }) {
   return (
     <Field orientation="horizontal">
       <Switch id="asks-review" name="asksReview" checked={checked} onCheckedChange={onChange} />
-      <div className="flex flex-col gap-0.5">
-        <FieldLabel htmlFor="asks-review">Show an app review link under this reply</FieldLabel>
-        <FieldDescription>
-          The merchant sees a neutral &quot;App review&quot; link below this message. Keep the wording neutral: Shopify forbids asking for positive reviews or offering anything for one.
-        </FieldDescription>
-      </div>
+      <FieldLabel htmlFor="asks-review" className="flex-col items-start gap-0.5 font-normal">
+        <span className="font-medium">Ask for an app review</span>
+        <span className="text-sm text-muted-foreground">Adds a &quot;Review the app&quot; button to this reply, or to the closed-ticket banner when you close.</span>
+      </FieldLabel>
     </Field>
   );
 }
@@ -152,10 +152,9 @@ export function ReplyCard({ ticketId, isClosed }: { readonly ticketId: string; r
   const [seenAnswer, setSeenAnswer] = useState(actionData);
   if (actionData !== seenAnswer) {
     setSeenAnswer(actionData);
-    if (actionData?.success === "replied") {
-      setSentCount((count) => count + 1);
-      setAsksReview(false);
-    }
+    if (actionData?.success === "replied") setSentCount((count) => count + 1);
+    // Whatever was just sent or closed has used the switch up.
+    if (actionData?.success === "replied" || actionData?.success === "closed") setAsksReview(false);
   }
   // A sent reply empties the composer (text, attachments and the AI box).
   useEffect(() => {

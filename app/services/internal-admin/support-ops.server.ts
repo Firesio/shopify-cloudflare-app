@@ -335,10 +335,10 @@ export async function deleteStaffMessage(ticketId: string, messageId: string, co
 }
 
 /**
- * Close ticket as staff.
+ * Close ticket as staff. `asksReview`: the merchant's closed-ticket banner carries the app-review button.
  */
-export async function closeTicket(ticketId: string) {
-  return supportService().closeAsStaff(ticketId);
+export async function closeTicket(ticketId: string, options: { readonly asksReview?: boolean } = {}) {
+  return supportService().closeAsStaff(ticketId, options);
 }
 
 /**

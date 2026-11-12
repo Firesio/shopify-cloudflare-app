@@ -76,6 +76,13 @@ const ATTACHMENT_RENDERERS: Record<ThreadAttachment["kind"], (props: AttachmentR
   file: FileAttachment,
 };
 
+/** An app-review request: the neutral line, the button's label, and what pressing it does. */
+export interface ReviewLink {
+  readonly prompt: string;
+  readonly label: string;
+  readonly onRequest: () => void;
+}
+
 type ThreadProps = {
   /** The messages, or `"loading"` while the conversation is on its way: the same boxes, with skeletons in place of the words. */
   messages: readonly ThreadMessage[] | "loading";
@@ -85,7 +92,7 @@ type ThreadProps = {
   formatFileSize: (sizeBytes: number) => string;
   onMediaError?: () => void;
   /** What the review button says and does when pressed; without it (no App Store listing yet) no message shows one. */
-  reviewLink?: { readonly prompt: string; readonly label: string; readonly onRequest: () => void };
+  reviewLink?: ReviewLink;
 };
 
 function MessageAttachments({
@@ -145,7 +152,7 @@ function MessageBox({
       {message.attachments.length > 0 && <MessageAttachments attachments={message.attachments} {...rest} />}
 
       {message.asksReview && message.author === "staff" && reviewLink && (
-        <s-stack direction="inline" gap="small" alignItems="center">
+        <s-stack direction="block" gap="small" alignItems="start">
           <s-text color="subdued">{reviewLink.prompt}</s-text>
           <s-button icon="star" onClick={reviewLink.onRequest}>
             {reviewLink.label}

@@ -13,7 +13,7 @@ import { Deferred, FailedSection } from "~/components/admin/Deferred";
 import { supportErrorKey } from "~/support/error-keys";
 import { sameCcList } from "~/support/cc-list";
 import { readAttachmentLinks, readThread, runThreadAction } from "./detail.server";
-import { CcSaveBar, ConversationSection, DetailsAside, ErrorBanner, ReplySection, useCcSaveBarVisibility } from "./thread-parts";
+import { CcSaveBar, ConversationSection, DetailsAside, ErrorBanner, ReplySection, useCcSaveBarVisibility, useReviewLink } from "./thread-parts";
 import { useFreshLinks } from "./use-fresh-links";
 
 export const handle = { i18n: ["common", "admin"] };
@@ -67,6 +67,7 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 type ThreadData = NonNullable<Awaited<ReturnType<typeof readThread>>>;
 
 function LoadedThread({ ticket, messages, replyKey, reviewUrl }: ThreadData & { replyKey: string; reviewUrl: string | null }) {
+  const reviewLink = useReviewLink(reviewUrl);
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const { t } = useTranslation(["admin", "common"]);
@@ -105,13 +106,14 @@ function LoadedThread({ ticket, messages, replyKey, reviewUrl }: ThreadData & { 
 
         <ErrorBanner error={error} />
 
-        <ConversationSection messages={fresh.messages} onMediaError={fresh.onMediaError} reviewUrl={reviewUrl} />
+        <ConversationSection messages={fresh.messages} onMediaError={fresh.onMediaError} reviewLink={reviewLink} />
         {/* Keyed by the message count: a stored reply gives a fresh form (empty text, no staged files, a new key), while a
             failed one and a copy-list save keep everything typed. */}
         <ReplySection
           key={messages.length}
           ticketId={ticket.id}
           closed={ticket.status === "closed"}
+          closedReview={ticket.closedAsksReview ? reviewLink : undefined}
           submissionKey={replyKey}
           sending={busy && pendingIntent === "reply"}
           error={error}

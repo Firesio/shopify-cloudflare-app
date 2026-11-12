@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { AttachmentPicker } from "~/components/support/AttachmentPicker";
 import { pickerLabels } from "~/components/support/picker-labels";
 import { useLanguage } from "~/i18n/useLanguage";
+import type { ReviewLink } from "~/components/support/Thread";
 import { BODY_MAX } from "~/schemas/support";
 import { usePendingUploads } from "./use-pending-uploads";
 
@@ -12,6 +13,8 @@ export type ReplyFormProps = {
   ticketId: string;
   /** A closed ticket still takes a reply: it reopens the ticket. The form says so. */
   closed: boolean;
+  /** Present when staff asked for an app review as they closed the ticket: the closed-ticket banner carries the button. */
+  closedReview?: ReviewLink | undefined;
   /** Identifies THIS message: sending it twice (a double click, a retry) stores it once. */
   submissionKey: string;
   sending: boolean;
@@ -34,7 +37,7 @@ export type ReplyFormProps = {
  *
  * Verified by hand only: Polaris custom elements.
  */
-export function ReplyForm({ ticketId, closed, submissionKey, sending, error, replied, loading = false }: ReplyFormProps) {
+export function ReplyForm({ ticketId, closed, closedReview, submissionKey, sending, error, replied, loading = false }: ReplyFormProps) {
   const { t } = useTranslation(["admin", "common"]);
   const language = useLanguage();
   const uploads = usePendingUploads(ticketId);
@@ -68,7 +71,18 @@ export function ReplyForm({ ticketId, closed, submissionKey, sending, error, rep
       <input type="hidden" name="intent" value="reply" />
       <input type="hidden" name="submissionKey" value={submissionKey} />
       <s-stack direction="block" gap="base">
-        {closed && <s-banner tone="info" heading={t("support.thread.closedNotice")}></s-banner>}
+        {closed && (
+          <s-banner tone="info" heading={t("support.thread.closedNotice")}>
+            {closedReview && (
+              <>
+                <s-paragraph>{closedReview.prompt}</s-paragraph>
+                <s-button slot="secondary-actions" icon="star" onClick={closedReview.onRequest}>
+                  {closedReview.label}
+                </s-button>
+              </>
+            )}
+          </s-banner>
+        )}
 
         <s-text-area
           ref={body}

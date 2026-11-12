@@ -352,7 +352,7 @@ describe("replying", () => {
       const service = supportService();
       const repo = new SupportRepo(testIds);
       const created = await openTicket(service, shop);
-      await repo.closeAsStaff(created.id, 2_000);
+      await repo.closeAsStaff(created.id, 2_000, false);
 
       await service.replyAsStaff({ ticketId: created.id, staffName: "Sam", body: "Closing note" });
       const afterStaff = (await service.find(shop, created.id))?.ticket.closedAt;

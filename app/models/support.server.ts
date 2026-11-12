@@ -514,10 +514,10 @@ export class SupportRepo {
    * their own ticket — they either stop replying or say it is fixed, and
    * support decides the thread is done.
    */
-  async closeAsStaff(ticketId: string, at: number): Promise<boolean> {
+  async closeAsStaff(ticketId: string, at: number, asksReview: boolean): Promise<boolean> {
     const result = await getDb()
       .update(supportTickets)
-      .set({ closedAt: at })
+      .set({ closedAt: at, closedAsksReview: asksReview })
       .where(eq(supportTickets.id, ticketId))
       .returning({ id: supportTickets.id });
     return result.length > 0;

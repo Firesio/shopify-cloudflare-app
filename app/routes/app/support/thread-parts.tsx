@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { SkeletonBadge, SkeletonStatus, SkeletonText } from "~/components/admin/Skeleton";
 import { CcEmails, ccLabels } from "~/components/support/CcEmails";
-import { Thread, type ThreadMessage } from "~/components/support/Thread";
+import { Thread, type ReviewLink, type ThreadMessage } from "~/components/support/Thread";
 import { formatDate, formatDateTime } from "~/i18n/format";
 import { useLanguage } from "~/i18n/useLanguage";
 import { useTimeZone } from "~/i18n/useTimeZone";
@@ -23,6 +23,8 @@ export type TicketView = {
   readonly status: SupportStatus;
   readonly createdAt: number;
   readonly ccEmails: readonly string[];
+  /** Staff asked for an app review when they closed it: the closed-ticket banner carries the button. */
+  readonly closedAsksReview: boolean;
 };
 
 const CC_SAVE_BAR_ID = "thread-cc-save-bar";
@@ -79,12 +81,12 @@ type ConversationSectionProps = {
   /** The messages, or `"loading"`: the same section and boxes, with skeletons in place of the words. */
   messages: readonly ThreadMessage[] | "loading";
   onMediaError?: () => void;
-  /** The App Store review link, or null/absent while the app has no listing: then no message shows a review prompt. */
-  reviewUrl?: string | null;
+  /** The review button of a message that asks for one; absent while the app has no listing. */
+  reviewLink?: ReviewLink;
 };
 
 /** Carries the page's ONE loading announcement: the other sections that wait on the same thread stay silent. */
-export function ConversationSection({ messages, onMediaError, reviewUrl }: ConversationSectionProps) {
+export function ConversationSection({ messages, onMediaError, reviewLink }: ConversationSectionProps) {
   const { t } = useTranslation(["admin", "common"]);
   const language = useLanguage();
   const timeZone = useTimeZone();
@@ -96,11 +98,21 @@ export function ConversationSection({ messages, onMediaError, reviewUrl }: Conve
         formatFileSize={(sizeBytes) => formatFileSize(language, sizeBytes)}
         formatWhen={(at) => formatDateTime(language, at, timeZone)}
         onMediaError={onMediaError}
-        reviewLink={reviewUrl ? { prompt: t("support.thread.reviewPrompt"), label: t("support.thread.reviewAction"), onRequest: () => void askForReview(reviewUrl) } : undefined}
+        reviewLink={reviewLink}
       />
       {messages === "loading" ? <SkeletonStatus label={t("support.thread.loading")} /> : null}
     </s-section>
   );
+}
+
+/**
+ * The review button, in the merchant's language: what pressing it does is Shopify's modal, or the listing's review page when
+ * Shopify will not show one. Absent when the app has no listing to send them to.
+ */
+export function useReviewLink(reviewUrl: string | null): ReviewLink | undefined {
+  const { t } = useTranslation(["admin", "common"]);
+  if (reviewUrl === null) return undefined;
+  return { prompt: t("support.thread.reviewPrompt"), label: t("support.thread.reviewAction"), onRequest: () => void askForReview(reviewUrl) };
 }
 
 /** The reply composer in its section. While the ticket loads it is the same form, held still (see `ReplyForm`). */
