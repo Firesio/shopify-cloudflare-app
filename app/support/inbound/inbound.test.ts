@@ -5,7 +5,8 @@ import { buildThreadHeaders, referenceableMessageIds } from "./headers";
 import { stripQuotedReply } from "./quote";
 import { ticketIdFromAddress, ticketReplyAddress } from "./reply-address";
 import { detectMailSource } from "./sources";
-import { senderMayPost, threadLookupKeys } from "./thread-match";
+import { mayAppendTo, senderMayPost, threadLookupKeys } from "./thread-match";
+import { senderLabel } from "./sender-label";
 import { SUPPORT_SOURCES, toSupportSource, type ParsedMail } from "./types";
 
 const HAIR = String.fromCodePoint(0x200a);
@@ -226,5 +227,44 @@ describe("source delivery", () => {
     expect(replyRecipient(route)).toBe("josh@atelier-studios.com");
     expect(SOURCE_DELIVERY.shopify_relay.rootOrigin).toBe("outbound");
     expect(SOURCE_DELIVERY.email.rootOrigin).toBe("inbound");
+  });
+});
+
+describe("who may add to a thread", () => {
+  const thread = { id: "t-1", participants: ["jane@buyer.example"] };
+  const none = { ticketIds: [], messageIds: [] };
+
+  it("takes anyone who answered the thread's own reply address", () => {
+    expect(mayAppendTo(thread, { ticketIds: ["t-1"], messageIds: [] }, "bruce@buyer.example")).toBe(true);
+  });
+
+  it("takes a participant who only quotes a message id, and nobody else", () => {
+    const quoted = { ticketIds: [], messageIds: ["m1@mail.example"] };
+    expect(mayAppendTo(thread, quoted, "JANE@buyer.example")).toBe(true);
+    expect(mayAppendTo(thread, quoted, "stranger@evil.example")).toBe(false);
+    expect(mayAppendTo(thread, none, "stranger@evil.example")).toBe(false);
+  });
+
+  it("does not let another thread's reply address open this one", () => {
+    expect(mayAppendTo(thread, { ticketIds: ["t-2"], messageIds: [] }, "stranger@evil.example")).toBe(false);
+  });
+});
+
+describe("senderLabel", () => {
+  it("writes the name and the address", () => {
+    expect(senderLabel({ name: "Customer Service", address: "cs@buyer.example" })).toBe("Customer Service <cs@buyer.example>");
+  });
+
+  it("is the address alone when there is no name or the name is the address", () => {
+    expect(senderLabel({ name: "", address: "cs@buyer.example" })).toBe("cs@buyer.example");
+    expect(senderLabel({ name: "CS@buyer.example", address: "cs@buyer.example" })).toBe("cs@buyer.example");
+  });
+
+  it("cannot be made to show a different address through the display name", () => {
+    expect(senderLabel({ name: 'Boss <boss@evil.example>"\u202e', address: "cs@buyer.example" })).toBe("Boss boss@evil.example <cs@buyer.example>");
+  });
+
+  it("is cut to a sane length", () => {
+    expect(senderLabel({ name: "N".repeat(400), address: "cs@buyer.example" }).length).toBe(160);
   });
 });

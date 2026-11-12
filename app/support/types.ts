@@ -38,6 +38,8 @@ export interface SupportMessage {
   readonly body: string;
   readonly externalId: string | null;
   readonly mailId: string | null;
+  /** Staff asked the merchant, in this message, for an app review: the merchant sees a review link under it. */
+  readonly asksReview: boolean;
   readonly createdAt: number;
 }
 

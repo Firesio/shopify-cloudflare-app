@@ -23,14 +23,17 @@ const message = (over: Record<string, unknown> = {}) => ({
   authorName: "Acme",
   body: "Cannot pay",
   createdAt: 1,
+  asksReview: false,
   attachments: [],
   ...over,
 });
 
 const thread = { ticket: ticket(), messages: [message()] };
 
-const detail = (value: Promise<unknown>, stage: "pending" | "settled", locale: "en" | "es" = "en") =>
-  renderRoute({ path: "/app/support/t1", Component: SupportThreadPage, loaderData: { thread: value, replyKey: REPLY_KEY }, stage, locale });
+const REVIEW_URL = "https://apps.shopify.com/example#modal-show=WriteReviewModal";
+
+const detail = (value: Promise<unknown>, stage: "pending" | "settled", locale: "en" | "es" = "en", reviewUrl: string | null = null) =>
+  renderRoute({ path: "/app/support/t1", Component: SupportThreadPage, loaderData: { thread: value, replyKey: REPLY_KEY, reviewUrl }, stage, locale });
 
 const count = (html: string, pattern: string | RegExp) =>
   (html.match(typeof pattern === "string" ? new RegExp(`<${pattern}[\\s>]`, "g") : pattern) ?? []).length;
@@ -217,5 +220,29 @@ describe("the conversation", () => {
   it("formats the file size in the reader's language", async () => {
     const html = await detail(Promise.resolve(ok({ ticket: ticket(), messages: [message({ attachments: [{ id: "a", filename: "v.csv", contentType: "text/csv", url: "/u", sizeBytes: 1.5 * 1024 * 1024, kind: "file" }] })] })), "settled", "es");
     expect(html).toContain("1,5 MB");
+  });
+});
+
+describe("asking the merchant for an app review", () => {
+  const asked = { ticket: ticket(), messages: [message({ author: "staff", authorName: "Support", body: "All fixed.", asksReview: true })] };
+
+  it("shows the review link under the staff message that asked for it", async () => {
+    const html = await detail(Promise.resolve(ok(asked)), "settled", "en", REVIEW_URL);
+
+    expect(html).toMatch(/<s-button[^>]*href="https:\/\/apps\.shopify\.com\/example#modal-show=WriteReviewModal"[^>]*>Review the app<\/s-button>/);
+    expect(html.indexOf("All fixed.")).toBeLessThan(html.indexOf("Review the app"));
+  });
+
+  it("says it in the merchant's language", async () => {
+    const html = await detail(Promise.resolve(ok(asked)), "settled", "es", REVIEW_URL);
+
+    expect(html).toContain("Valorar la app");
+  });
+
+  it("shows nothing before the app has a listing, however the message was sent", async () => {
+    const html = await detail(Promise.resolve(ok(asked)), "settled", "en", null);
+
+    expect(html).not.toContain("Review the app");
+    expect(html).toContain("All fixed.");
   });
 });

@@ -31,3 +31,13 @@ export function installTarget(handle: string | undefined): InstallTarget {
   if (!HANDLE_PATTERN.test(trimmed)) return { kind: "manual", reason: "invalid" };
   return { kind: "appStore", url: `${APP_STORE_BASE}${trimmed}` };
 }
+
+/**
+ * The listing's "write a review" link: the listing URL with Shopify's deep link that opens the review modal
+ * (shopify.dev, "Manage app reviews in the Shopify App Store"). Null while there is no valid listing handle, so a
+ * review request is never a dead or foreign link.
+ */
+export function appReviewUrl(handle: string | undefined): string | null {
+  const target = installTarget(handle);
+  return target.kind === "appStore" ? `${target.url}#modal-show=WriteReviewModal` : null;
+}

@@ -7,7 +7,8 @@ import { alertStaff, type StaffAlertDependencies } from "~/services/support-staf
 import { isAutomatedMail } from "~/support/inbound/automated";
 import { PLAIN_EMAIL_SOURCE, detectMailSource, type MailSource } from "~/support/inbound/sources";
 import { stripQuotedReply } from "~/support/inbound/quote";
-import { normalizeMessageId, senderMayPost, threadLookupKeys } from "~/support/inbound/thread-match";
+import { mayAppendTo, normalizeMessageId, threadLookupKeys } from "~/support/inbound/thread-match";
+import { senderLabel } from "~/support/inbound/sender-label";
 import type { NormalizedInbound, ParsedMail } from "~/support/inbound/types";
 import type { SpamReason } from "~/support/triage/types";
 
@@ -112,7 +113,7 @@ export class SupportInboxService {
     const keys = threadLookupKeys(mail, mailDomain);
     if (keys.ticketIds.length === 0 && keys.messageIds.length === 0) return null;
     const threads = await repo.findThreads(keys);
-    const match = threads.find((thread) => senderMayPost(thread.participants, mail.from.address));
+    const match = threads.find((thread) => mayAppendTo(thread, keys, mail.from.address));
     return match ?? null;
   }
 
@@ -128,7 +129,7 @@ export class SupportInboxService {
     const at = this.dependencies.clock.now();
     const written = await this.dependencies.repo.append(thread.id, {
       externalId,
-      senderName: mail.from.name || mail.from.address,
+      senderName: senderLabel(mail.from),
       body,
       at,
     });

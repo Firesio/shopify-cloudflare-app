@@ -75,13 +75,14 @@ function registerReplyToTicket(server: McpServer, ctx: McpActorContext) {
     {
       title: "Reply to Support Ticket",
       description:
-        "Appends an official staff reply to the ticket thread AND sends the notification email to the merchant (including CC recipients). Can attach files via attachments or uploadIds.",
+        "Appends an official staff reply to the ticket thread AND sends the notification email to the merchant (including CC recipients). Can attach files via attachments or uploadIds. Set askForReview to true to show the merchant an app-review link under this reply (use neutral wording in the body; never ask for a positive review or offer anything for one).",
       inputSchema: {
         ticketId: z.string().min(1).describe("The support ticket ID"),
         body: z.string().min(1).max(10000).describe("The reply message body to send to the merchant"),
         staffName: z.string().optional().describe("Staff display name (default: 'Support Team')"),
         uploadIds: z.array(z.string()).optional().describe("Array of pre-uploaded attachment IDs"),
         attachments: z.array(ATTACHMENT_SCHEMA).optional().describe("Array of base64-encoded files to attach directly"),
+        askForReview: z.boolean().optional().describe("Show the merchant an 'App review' link under this reply in their support thread (default: false)"),
       },
       annotations: MUTATION,
     },
@@ -92,6 +93,7 @@ function registerReplyToTicket(server: McpServer, ctx: McpActorContext) {
         staffName: args.staffName ?? "Support Team",
         uploadIds: args.uploadIds ?? [],
         attachments: args.attachments ?? [],
+        asksReview: args.askForReview ?? false,
       });
       if (!result.ok) throw new Error(`Failed to reply: ticket '${args.ticketId}' not found`);
       return { success: true, ticketId: args.ticketId, messageId: result.value.messageId };

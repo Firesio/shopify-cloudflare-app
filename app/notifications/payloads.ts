@@ -75,6 +75,8 @@ export interface SupportStaffReplyPayload extends BasePayload {
   threadUrl?: string;
   /** The whole reply, for a reader who cannot open a portal. Absent: the excerpt is shown. */
   body?: string;
+  /** Staff asked for an app review in this reply: the App Store review link, shown under the text. Absent: no request. */
+  reviewUrl?: string;
   /**
    * The conversation's own sender (`support@<app domain>`). Absent: the app's
    * default sender is used, which is the notifications address when one is set.

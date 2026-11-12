@@ -8,13 +8,17 @@ const message = (over: Partial<ThreadMessage> = {}): ThreadMessage => ({
   authorName: "Store",
   body: "",
   createdAt: 1,
+  asksReview: false,
   attachments: [],
   ...over,
 });
 
-const render = (messages: ThreadMessage[] | "loading") =>
+const reviewLink = { url: "https://apps.shopify.com/example#modal-show=WriteReviewModal", prompt: "We value your feedback.", label: "Review the app" };
+
+const render = (messages: ThreadMessage[] | "loading", link?: typeof reviewLink) =>
   renderToStaticMarkup(
     <Thread
+      reviewLink={link}
       formatFileSize={(sizeBytes) => `${Math.max(1, Math.round(sizeBytes / 1024))} KB`}
       formatWhen={() => "now"}
       youLabel="You"
@@ -90,5 +94,28 @@ describe("Thread", () => {
     expect(loaded).toMatch(/^<s-stack direction="block" gap="base"><s-box background="subdued" border="base" borderRadius="base" padding="base"><s-stack direction="block" gap="small"><s-stack direction="inline" gap="small-300" alignItems="baseline">/);
     expect(loading).toMatch(/^<s-stack direction="block" gap="base"><s-box background="subdued" border="base" borderRadius="base" padding="base"><s-stack direction="block" gap="small"><s-stack direction="inline" gap="small-300" alignItems="baseline">/);
     expect(count(loaded, "s-box")).toBe(1);
+  });
+
+  it("shows the review link under a staff message that asks for one, and only there", () => {
+    const html = render(
+      [
+        message({ id: "asks", author: "staff", authorName: "Support", body: "Fixed.", asksReview: true }),
+        message({ id: "plain", author: "staff", authorName: "Support", body: "Anything else?" }),
+        message({ id: "theirs", author: "merchant", body: "Thanks", asksReview: true }),
+      ],
+      reviewLink,
+    );
+
+    expect(html.match(/Review the app/g)).toHaveLength(1);
+    expect(html).toContain('href="https://apps.shopify.com/example#modal-show=WriteReviewModal"');
+    expect(html).toContain('target="_blank"');
+    expect(html.indexOf("Fixed.")).toBeLessThan(html.indexOf("Review the app"));
+    expect(html.indexOf("Review the app")).toBeLessThan(html.indexOf("Anything else?"));
+  });
+
+  it("shows no review link when the app has no listing yet, even if the message asks", () => {
+    const html = render([message({ author: "staff", authorName: "Support", body: "Fixed.", asksReview: true })]);
+
+    expect(html).not.toContain("Review the app");
   });
 });

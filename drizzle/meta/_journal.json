@@ -281,6 +281,13 @@
       "when": 1794398588102,
       "tag": "0039_exotic_sunfire",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1794448987543,
+      "tag": "0040_old_logan",
+      "breakpoints": true
     }
   ]
 }

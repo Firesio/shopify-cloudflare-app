@@ -384,6 +384,8 @@ export type AdminKey =
   | "support.thread.pageHeading"
   | "support.thread.reply"
   | "support.thread.replyPlaceholder"
+  | "support.thread.reviewAction"
+  | "support.thread.reviewPrompt"
   | "support.thread.send"
   | "support.thread.sendAndReopen"
   | "support.thread.sending"
@@ -443,6 +445,8 @@ export type EmailKey =
   | "support.reply.footer"
   | "support.reply.greeting"
   | "support.reply.intro"
+  | "support.reply.reviewCta"
+  | "support.reply.reviewPrompt"
   | "support.reply.subject";
 export type PublicKey =
   | "landing.appStoreCta"

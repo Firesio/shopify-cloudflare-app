@@ -1,0 +1,1 @@
+ALTER TABLE `support_messages` ADD `asks_review` integer DEFAULT false NOT NULL;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { installTarget } from "./install-target";
+import { appReviewUrl, installTarget } from "./install-target";
 
 describe("installTarget", () => {
   it("is manual when no handle is configured", () => {
@@ -34,5 +34,17 @@ describe("installTarget", () => {
     ]) {
       expect(installTarget(bad), bad).toEqual({ kind: "manual", reason: "invalid" });
     }
+  });
+});
+
+describe("appReviewUrl", () => {
+  it("is the listing with Shopify's review-modal deep link", () => {
+    expect(appReviewUrl("my-app")).toBe("https://apps.shopify.com/my-app#modal-show=WriteReviewModal");
+  });
+
+  it("is null without a usable handle, so no dead or foreign link is ever shown", () => {
+    expect(appReviewUrl(undefined)).toBeNull();
+    expect(appReviewUrl("")).toBeNull();
+    expect(appReviewUrl("evil.com/phish")).toBeNull();
   });
 });

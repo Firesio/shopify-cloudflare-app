@@ -1,4 +1,5 @@
 import { WorkersAiGenerator, workersAiModelFactory } from "~/adapters/workers-ai.server";
+import { appReviewUrl } from "~/lib/install-target";
 import { WorkersAiDecider, workersAiRunner } from "~/adapters/workers-ai-decider.server";
 import { composeGates, type AiGate } from "~/ai/gate";
 import { dailyCallCap } from "~/ai/quota-gate";
@@ -68,6 +69,7 @@ export function supportService(): SupportService {
     clock: appRuntime().clock,
     notifier: queuedNotifier(),
     appUrl: env.SHOPIFY_APP_URL,
+    reviewUrl: appReviewUrl(env.SHOPIFY_APP_HANDLE),
     mailDomain: supportMailDomain(env.SHOPIFY_APP_URL, env.SUPPORT_MAIL_DOMAIN),
     withinRateLimit: async (shop) => env.SUPPORT_LIMITER ? (await env.SUPPORT_LIMITER.limit({ key: shop })).success : true,
     signAttachment: async (attachmentId, expiresAt) => signAttachmentToken({ secret: requireAttachmentTokenSecret(env), attachmentId, expiresAt }),

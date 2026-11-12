@@ -412,6 +412,7 @@ export class SupportRepo {
     authorName: string;
     body: string;
     at: number;
+    asksReview?: boolean;
   }): Promise<{ shop: string | null; messageId: string } | undefined> {
     const [ticket] = await getDb()
       .select({ shop: supportTickets.shop })
@@ -472,6 +473,7 @@ export class SupportRepo {
       authorName: string;
       body: string;
       at: number;
+      asksReview?: boolean;
       uploads?: readonly StagedUpload[];
     },
   ): Promise<string> {
@@ -488,6 +490,7 @@ export class SupportRepo {
         author: input.author,
         authorName: input.authorName,
         body: input.body,
+        asksReview: input.asksReview ?? false,
         createdAt: input.at,
       }),
       db

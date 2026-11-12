@@ -261,6 +261,7 @@ export async function getTicketThread(ticketId: string) {
         authorName: m.authorName,
         body: m.body,
         createdAt: m.createdAt,
+        asksReview: m.asksReview,
         attachments: msgAttachments.map((a) => ({
           id: a.id,
           filename: a.filename,
@@ -281,12 +282,15 @@ export async function replyToTicket({
   staffName = "Support Team",
   uploadIds = [],
   attachments = [],
+  asksReview = false,
 }: {
   ticketId: string;
   body: string;
   staffName?: string;
   uploadIds?: string[];
   attachments?: AttachmentInput[];
+  /** The merchant sees an app-review link under this reply. */
+  asksReview?: boolean;
 }, context: OpsContext = appContext()) {
   // Files are stored under a shop. Refuse BEFORE the reply is written, so a
   // conversation nobody owns yet never ends up with a reply minus its files.
@@ -299,6 +303,7 @@ export async function replyToTicket({
     ticketId,
     staffName,
     body,
+    asksReview,
   });
 
   if (result.ok && result.value.shop !== null) {

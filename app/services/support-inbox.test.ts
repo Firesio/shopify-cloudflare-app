@@ -127,7 +127,24 @@ describe("SupportInboxService", () => {
     expect(repo.threads).toHaveLength(1);
   });
 
-  it("never lets a stranger write into someone else's thread", async () => {
+  it("joins an answer to the thread's own reply address even from another mailbox, under the sender's name and address", async () => {
+    const { repo, service } = setup();
+    const opened = await service.receive(mail());
+    if (opened.status !== "opened") throw new Error("expected opened");
+    const answer = await service.receive(
+      mail({
+        messageId: "<x@colleague.example>",
+        from: { address: "bruce@buyer.example", name: "Customer Service" },
+        recipients: [`support+${opened.ticketId}@${DOMAIN}`],
+        text: "We use it for more than repairs.",
+      }),
+    );
+    expect(answer).toEqual({ status: "appended", ticketId: opened.ticketId });
+    expect(repo.threads).toHaveLength(1);
+    expect(repo.threads[0]?.messages.map((message) => message.senderName)).toEqual(["Jane", "Customer Service <bruce@buyer.example>"]);
+  });
+
+  it("never lets a stranger write into someone else's thread by quoting a message id", async () => {
     const { repo, service } = setup();
     const opened = await service.receive(mail());
     if (opened.status !== "opened") throw new Error("expected opened");
@@ -135,7 +152,8 @@ describe("SupportInboxService", () => {
       mail({
         messageId: "<x@evil.example>",
         from: { address: "stranger@evil.example", name: "X" },
-        recipients: [`support+${opened.ticketId}@${DOMAIN}`],
+        inReplyTo: "<m1@mail.example>",
+        references: ["<m1@mail.example>"],
         text: "Inject",
       }),
     );

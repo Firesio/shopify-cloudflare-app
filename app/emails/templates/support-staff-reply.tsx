@@ -1,6 +1,7 @@
 import type { AudienceText } from "~/i18n/audience";
 import type { UnitKeys } from "~/i18n/text-units";
 import type { SupportStaffReplyPayload } from "~/notifications/payloads";
+import { Link } from "react-email";
 import { Cta, EmailLayout, Muted, P } from "../layout";
 import { renderEmail, type RenderedEmail } from "../render";
 
@@ -39,6 +40,11 @@ export async function supportStaffReplyEmail(
       {paragraphs.map((paragraph, index) => (
         <P key={index}>{paragraph}</P>
       ))}
+      {p.reviewUrl ? (
+        <P>
+          {t("support.reply.reviewPrompt")} <Link href={p.reviewUrl}>{t("support.reply.reviewCta")}</Link>
+        </P>
+      ) : null}
       {p.threadUrl ? <Cta href={p.threadUrl} text={text}>{t("support.reply.cta")}</Cta> : null}
       <Muted>{t("support.reply.footer")}</Muted>
     </EmailLayout>,

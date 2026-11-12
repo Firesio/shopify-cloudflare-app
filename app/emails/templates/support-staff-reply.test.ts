@@ -42,4 +42,21 @@ describe("merchant support reply email", () => {
     expect(email.subject).toBe("Re: Question");
     expect(email.html).toContain("Question");
   });
+
+  it("asks for an app review under the reply, with the App Store link, only when the payload carries one", async () => {
+    const reviewUrl = "https://apps.shopify.com/example#modal-show=WriteReviewModal";
+    const asked = await supportStaffReplyEmail({ ...PAYLOAD, body: "All fixed.", reviewUrl }, await audienceTextOf("en", "email.support-reply"));
+    const plain = await supportStaffReplyEmail({ ...PAYLOAD, body: "All fixed." }, await audienceTextOf("en", "email.support-reply"));
+
+    expect(asked.html).toContain(`href="${reviewUrl}"`);
+    expect(asked.html).toContain("Review the app");
+    expect(asked.html.indexOf("All fixed.")).toBeLessThan(asked.html.indexOf("Review the app"));
+    expect(plain.html).not.toContain("Review the app");
+  });
+
+  it("asks in the merchant's language", async () => {
+    const email = await supportStaffReplyEmail({ ...PAYLOAD, reviewUrl: "https://apps.shopify.com/example#modal-show=WriteReviewModal" }, await audienceTextOf("es", "email.support-reply"));
+
+    expect(email.html).toContain("Valorar la app");
+  });
 });

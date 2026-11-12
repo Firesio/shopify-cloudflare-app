@@ -9,6 +9,8 @@
       "greeting": "Hello {{name}},",
       "intro": "{{staffName}} replied to your support ticket:",
       "cta": "Read and reply",
+      "reviewPrompt": "We value your feedback. Let us know how we're doing.",
+      "reviewCta": "Review the app",
       "footer": "Replying in the app keeps the whole conversation in one place, so whoever picks it up next has the history."
     }
   },

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/int
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "~/internal/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/internal/components/ui/select";
 import { Spinner } from "~/internal/components/ui/spinner";
+import { Switch } from "~/internal/components/ui/switch";
 import { Textarea } from "~/internal/components/ui/textarea";
 import { Sparkles } from "lucide-react";
 import { BODY_MAX } from "~/schemas/support";
@@ -96,6 +97,24 @@ function AiBox({ ticketId, draft, busy }: AiBoxProps) {
   );
 }
 
+/**
+ * Per message, not a setting: ticking it shows the merchant a review link under THIS reply only, and it starts off for the
+ * next one. Controlled, because a Radix switch is not reset by the form's own reset.
+ */
+function AskReviewField({ checked, onChange }: { readonly checked: boolean; readonly onChange: (checked: boolean) => void }) {
+  return (
+    <Field orientation="horizontal">
+      <Switch id="asks-review" name="asksReview" checked={checked} onCheckedChange={onChange} />
+      <div className="flex flex-col gap-0.5">
+        <FieldLabel htmlFor="asks-review">Show an app review link under this reply</FieldLabel>
+        <FieldDescription>
+          The merchant sees a neutral &quot;App review&quot; link below this message. Keep the wording neutral: Shopify forbids asking for positive reviews or offering anything for one.
+        </FieldDescription>
+      </div>
+    </Field>
+  );
+}
+
 function ReplyActions({ isClosed, pendingIntent, busy }: { readonly isClosed: boolean; readonly pendingIntent: unknown; readonly busy: boolean }) {
   const closing = busy && pendingIntent === "close";
   const sending = busy && !closing;
@@ -129,10 +148,14 @@ export function ReplyCard({ ticketId, isClosed }: { readonly ticketId: string; r
   // Bumped on each sent reply; it is the AI box's key, so its note and tone start over.
   // Derived while rendering (a new action answer), not in an effect.
   const [sentCount, setSentCount] = useState(0);
+  const [asksReview, setAsksReview] = useState(false);
   const [seenAnswer, setSeenAnswer] = useState(actionData);
   if (actionData !== seenAnswer) {
     setSeenAnswer(actionData);
-    if (actionData?.success === "replied") setSentCount((count) => count + 1);
+    if (actionData?.success === "replied") {
+      setSentCount((count) => count + 1);
+      setAsksReview(false);
+    }
   }
   // A sent reply empties the composer (text, attachments and the AI box).
   useEffect(() => {
@@ -167,6 +190,8 @@ export function ReplyCard({ ticketId, isClosed }: { readonly ticketId: string; r
             </Field>
 
             <InternalAttachmentPicker uploads={uploads} />
+
+            <AskReviewField checked={asksReview} onChange={setAsksReview} />
 
             {draft.error && <FieldError>{draft.error}</FieldError>}
 

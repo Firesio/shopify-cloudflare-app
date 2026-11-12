@@ -31,6 +31,7 @@ export async function action({ request }: ActionFunctionArgs) {
     ? bodyData.upload_ids.filter((id): id is string => typeof id === "string")
     : [];
   const attachments = parseInlineAttachments(bodyData.attachments);
+  const asksReview = bodyData.ask_for_review === true;
 
   if (!ticketId || !replyBody) {
     return apiError("invalid_request", "ticket_id and body are required fields", 400);
@@ -47,6 +48,7 @@ export async function action({ request }: ActionFunctionArgs) {
         staffName,
         uploadIds,
         attachments,
+        asksReview,
       });
     },
   );

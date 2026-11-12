@@ -227,6 +227,8 @@
       "send": "Enviar respuesta",
       "sending": "Enviando…",
       "closedNotice": "Este ticket está cerrado. Si respondes, se reabrirá.",
+      "reviewPrompt": "Valoramos tu opinión. Cuéntanos cómo lo estamos haciendo.",
+      "reviewAction": "Valorar la app",
       "sendAndReopen": "Enviar respuesta y reabrir",
       "details": "Detalles",
       "created": "Abierto",

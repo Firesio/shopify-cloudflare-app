@@ -4,6 +4,8 @@ import { data, useActionData, useLoaderData, useNavigation, useParams, useSearch
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { useTranslation } from "react-i18next";
 
+import { getEnv } from "~/request-context.server";
+import { appReviewUrl } from "~/lib/install-target";
 import { guardMember } from "~/admin/require-member.server";
 import { settle } from "~/admin/settle.server";
 import { useActionToast } from "~/admin/use-action-toast";
@@ -43,6 +45,8 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
     }),
     // Identifies the next reply sent from this load: sending it twice stores it once. A new load, a new key.
     replyKey: crypto.randomUUID(),
+    // Null until the app has a listing (`SHOPIFY_APP_HANDLE`): a message that asks for a review then shows nothing.
+    reviewUrl: appReviewUrl(getEnv().SHOPIFY_APP_HANDLE),
   };
 };
 
@@ -62,7 +66,7 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 
 type ThreadData = NonNullable<Awaited<ReturnType<typeof readThread>>>;
 
-function LoadedThread({ ticket, messages, replyKey }: ThreadData & { replyKey: string }) {
+function LoadedThread({ ticket, messages, replyKey, reviewUrl }: ThreadData & { replyKey: string; reviewUrl: string | null }) {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const { t } = useTranslation(["admin", "common"]);
@@ -101,7 +105,7 @@ function LoadedThread({ ticket, messages, replyKey }: ThreadData & { replyKey: s
 
         <ErrorBanner error={error} />
 
-        <ConversationSection messages={fresh.messages} onMediaError={fresh.onMediaError} />
+        <ConversationSection messages={fresh.messages} onMediaError={fresh.onMediaError} reviewUrl={reviewUrl} />
         {/* Keyed by the message count: a stored reply gives a fresh form (empty text, no staged files, a new key), while a
             failed one and a copy-list save keep everything typed. */}
         <ReplySection
@@ -160,8 +164,8 @@ export default function SupportThreadPage() {
   useCreatedToast();
 
   // The links-only answer is for the fetcher; this page never renders it.
-  const { thread: streamed, replyKey } = loaded;
-  if (streamed === undefined || replyKey === undefined) return loadFailed;
+  const { thread: streamed, replyKey, reviewUrl } = loaded;
+  if (streamed === undefined || replyKey === undefined || reviewUrl === undefined) return loadFailed;
 
   return (
     <Deferred
@@ -171,7 +175,7 @@ export default function SupportThreadPage() {
     >
       {(thread) =>
         thread ? (
-          <LoadedThread ticket={thread.ticket} messages={thread.messages} replyKey={replyKey} />
+          <LoadedThread ticket={thread.ticket} messages={thread.messages} replyKey={replyKey} reviewUrl={reviewUrl} />
         ) : (
           <ThreadFrame>
             <FailedSection heading={t("support.thread.notFoundHeading")} body={t("support.thread.notFoundBody")} />

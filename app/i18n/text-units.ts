@@ -29,6 +29,8 @@ export const TEXT_UNITS = {
     { namespace: "email", key: "support.reply.greeting" },
     { namespace: "email", key: "support.reply.intro" },
     { namespace: "email", key: "support.reply.cta" },
+    { namespace: "email", key: "support.reply.reviewPrompt" },
+    { namespace: "email", key: "support.reply.reviewCta" },
     { namespace: "email", key: "support.reply.footer" },
   ],
   "email.campaign": [

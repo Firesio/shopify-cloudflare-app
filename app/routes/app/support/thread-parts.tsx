@@ -78,10 +78,12 @@ type ConversationSectionProps = {
   /** The messages, or `"loading"`: the same section and boxes, with skeletons in place of the words. */
   messages: readonly ThreadMessage[] | "loading";
   onMediaError?: () => void;
+  /** The App Store review link, or null/absent while the app has no listing: then no message shows a review prompt. */
+  reviewUrl?: string | null;
 };
 
 /** Carries the page's ONE loading announcement: the other sections that wait on the same thread stay silent. */
-export function ConversationSection({ messages, onMediaError }: ConversationSectionProps) {
+export function ConversationSection({ messages, onMediaError, reviewUrl }: ConversationSectionProps) {
   const { t } = useTranslation(["admin", "common"]);
   const language = useLanguage();
   const timeZone = useTimeZone();
@@ -93,6 +95,7 @@ export function ConversationSection({ messages, onMediaError }: ConversationSect
         formatFileSize={(sizeBytes) => formatFileSize(language, sizeBytes)}
         formatWhen={(at) => formatDateTime(language, at, timeZone)}
         onMediaError={onMediaError}
+        reviewLink={reviewUrl ? { url: reviewUrl, prompt: t("support.thread.reviewPrompt"), label: t("support.thread.reviewAction") } : undefined}
       />
       {messages === "loading" ? <SkeletonStatus label={t("support.thread.loading")} /> : null}
     </s-section>

@@ -25,6 +25,7 @@ function threadMessages(service: SupportService, thread: Thread): Promise<Thread
       authorName: message.authorName,
       body: message.body,
       createdAt: message.createdAt,
+      asksReview: message.asksReview,
       attachments: await Promise.all(
         thread.attachments
           .filter((file) => file.messageId === message.id)

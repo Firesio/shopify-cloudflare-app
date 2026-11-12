@@ -49,6 +49,8 @@ function toThreadMessages(thread: StaffThread): ThreadMessage[] {
     authorName: message.authorName,
     body: message.body,
     createdAt: message.createdAt,
+    // The review link is the merchant's view; the console renders the thread without one.
+    asksReview: false,
     attachments: thread.attachments
       .filter((file) => file.messageId === message.id)
       .map((file) => ({
@@ -169,6 +171,7 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
     staffName: actor.name,
     body,
     uploadIds,
+    asksReview: form.get("asksReview") === "on",
   });
   if (!replied.ok) {
     const error = replied.reason === "attachments_need_shop"

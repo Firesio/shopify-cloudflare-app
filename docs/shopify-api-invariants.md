@@ -120,6 +120,17 @@ Verified against shopify.dev docs lookup on 2026-10-15 — [App Store requiremen
 |---|---|
 | **The manual shop-domain form stays, but only while there is no listing** (development, and the review period). `SHOPIFY_APP_HANDLE` (a `vars` entry, declared at the top level AND under `env.production` because named envs do not inherit) selects the flow: empty or malformed → manual form; a valid handle → App Store link, no form. `installTarget()` (`app/lib/install-target.ts`) is the single decision; the public layout loader runs it once and `useInstallTarget()` hands it to every CTA. A malformed handle degrades to the manual form and logs `install_target.invalid_handle`. | **Set `SHOPIFY_APP_HANDLE` in `env.production` before the submission that goes live**, or the production landing page keeps asking for a shop domain. `/auth/login` still accepts a request that carries a valid `?shop=` (the library sending an expired session back through login) and forwards it to Shopify's install page; that is not manual entry. Unverified: that a reviewer treats the unlisted-phase form as out of scope; it is hidden from review only by the handle being set. |
 
+## Asking a merchant for an app review (2026-11-12)
+
+Verified against shopify.dev docs lookup on 2026-11-12: [Manage app reviews in the Shopify App Store](https://shopify.dev/docs/apps/launch/marketing/manage-app-reviews), [App Bridge Reviews API](https://shopify.dev/docs/api/app-home/v2.0/apis/user-interface-and-interactions/reviews-api).
+
+| Finding (documented) | Design consequence |
+| --- | --- |
+| Appending `#modal-show=WriteReviewModal` to the app listing URL opens the review modal. | `appReviewUrl()` (`app/lib/install-target.ts`) builds it from `SHOPIFY_APP_HANDLE`; null while there is no valid handle, so a review request never renders a dead link. |
+| A request is allowed only with neutral language and no incentive; asking for positive reviews or rewarding one breaks Shopify's review policy and the Partner Program Agreement. Best practice: ask after a support interaction, never block a workflow, let the merchant decline. | The support reply's "show an app review link" switch is per reply (`support_messages.asks_review`), the link sits under that message and blocks nothing, and the copy is neutral. **Not built: a "don't ask again" for the merchant.** |
+| `shopify.reviews.request()` shows a modal only when rate limits and eligibility allow; a click that silently shows nothing makes the app look broken. | The link is used instead of the Reviews API for a button the merchant presses. |
+| Only merchants with the app installed (or uninstalled within 45 days) can review. | Unverified here: what a merchant sees when they follow the link from a dev store; dev-store reviews are not published. |
+
 ## Queue-first receiver, side effects and dead letters (2026-10-16)
 
 Looked up on 2026-10-16. Cloudflare pages were read directly; "implied" means the page suggests it without stating it.

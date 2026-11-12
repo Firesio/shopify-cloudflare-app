@@ -54,6 +54,7 @@ function build(options: { spamScore?: number | null; withinRateLimit?: boolean }
     clock,
     notifier,
     appUrl: `https://${DOMAIN}`,
+    reviewUrl: null,
     mailDomain: DOMAIN,
     withinRateLimit: async () => true,
     signAttachment: async () => "token",
@@ -172,22 +173,22 @@ describe("a conversation, end to end", () => {
     });
   });
 
-  it("keeps a stranger who guessed the reply address out of the thread", async () => {
+  it("joins an answer from another mailbox to the thread it was addressed to, labelled with who sent it", async () => {
     await run(async () => {
       const { inbox, repo } = build();
       const opened = await inbox.receive(mail({}));
       if (opened.status !== "opened") throw new Error("expected opened");
 
-      const forged = mail({
+      const answer = mail({
         messageId: "<evil-1@evil.example>",
-        from: { address: "stranger@evil.example", name: "X" },
+        from: { address: "colleague@buyer.example", name: "Customer Service" },
         recipients: [`support+${opened.ticketId}@${DOMAIN}`],
-        text: "Inject this.",
+        text: "Answering from the shared mailbox.",
       });
-      const outcome = await inbox.receive(forged);
-      expect(outcome.status).toBe("opened");
+      const outcome = await inbox.receive(answer);
+      expect(outcome).toEqual({ status: "appended", ticketId: opened.ticketId });
       const thread = await repo.findForStaff(opened.ticketId);
-      expect(thread?.messages).toHaveLength(1);
+      expect(thread?.messages.map((message) => message.authorName)).toEqual(["Jane", "Customer Service <colleague@buyer.example>"]);
     });
   });
 

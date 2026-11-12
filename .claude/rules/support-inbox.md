@@ -42,7 +42,8 @@ Read from the Cloudflare Email Service docs ([headers](https://developers.cloudf
 
 - `In-Reply-To` and `References` are on the allowlist and may be set. **`Message-ID` is platform-controlled and cannot be set** (`E_HEADER_NOT_ALLOWED`); a send is rejected whole if any header is not allowed.
 - So a reply's thread is found by **`support+<ticketId>@<app domain>`** (the Reply-To we set), not by a Message-ID we invent. `References` is built only from mail ids the customer's own mailbox has: `referenceableMessageIds` leaves out the opening message of a thread whose first mail was ours (the Shopify relay mail never reached the asker).
-- A message may be added to a thread only by someone already in it (`senderMayPost`): the `+id` address is guessable once seen. Anyone else becomes a NEW unassigned conversation, never a line in someone else's thread.
+- A mail **addressed to a thread's own `support+<id>@`** joins that thread whoever sent it (`mayAppendTo`): the id is a random UUID only people who received our mail have seen, and the person who answers is often another mailbox of the same business (2026-11-12: a relay conversation was split in two because the reply came from a different address than the asker's). Its author is stored as the sender's own `Name <address>` (`senderLabel`), never the merchant's or shop's name, so staff can see who wrote it.
+- A mail that only **quotes a message id** (`In-Reply-To`, `References`) joins the thread only from someone already in it (`senderMayPost`): those ids travel in every copy and forward. Anyone else becomes a NEW unassigned conversation. **We cannot match an answer by the id of a mail WE sent**: `support_messages.mail_id` is never written (unverified that `send()` returns the header Message-ID), so only the customer's own ids are matchable.
 
 ## Data
 
@@ -98,6 +99,7 @@ Trying the mail path locally with no deploy, and what is still unverified (subad
 ## The merchant's side (in the admin, `/app/support`)
 
 - **A message or ticket and its attachments are written as ONE unit**, and a resend must not duplicate it: the upload ids are validated before any write, the attachments are claimed against the id of the message just stored (never "the last message"), and the form carries a submission key so a retry returns the existing record. Cross-shop ids are refused.
+- **A staff reply can ask for an app review** (`support_messages.asks_review`, the console's reply switch, `reply_to_ticket`'s `askForReview`, the REST reply's `ask_for_review`). The merchant sees a link under THAT message only, built by `appReviewUrl()`; no listing handle, no link. Wording stays neutral: no asking for positive reviews, nothing offered for one (`docs/shopify-api-invariants.md`).
 - **A reply to a closed ticket reopens it**, so the composer is always shown and says so.
 - **Uploads** stream to R2 one file at a time (never through the form's own multipart body). The allowlist and limits are constants shared by the picker and the server; submit is disabled while a file is uploading; every failure names its file and reason. File names keep Unicode letters and are sent with `filename*` (RFC 8187); control and bidi characters are stripped.
 - Attachment links are signed and expire in an hour: a failed image or video asks the loader for fresh links once, instead of reloading the page and losing the draft.

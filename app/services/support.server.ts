@@ -34,6 +34,8 @@ export interface SupportServiceDependencies {
   readonly clock: Clock;
   readonly notifier: Notifier;
   readonly appUrl: string;
+  /** The App Store review link (`appReviewUrl`), or null while the app has no listing: then no mail carries a review request. */
+  readonly reviewUrl: string | null;
   /** The domain support mail lives on; null where it cannot receive mail (local dev). */
   readonly mailDomain: string | null;
   readonly withinRateLimit: (shop: string) => Promise<boolean>;
@@ -159,7 +161,7 @@ export class SupportService {
     });
 
     const thread = await this.dependencies.repo.findForStaff(created.id);
-    if (thread) await this.notifyCustomer(thread, input.staffName, input.body, created.messageId);
+    if (thread) await this.notifyCustomer(thread, input.staffName, input.body, created.messageId, false);
 
     return ok({ ...created, shop: input.shop });
   }
@@ -213,17 +215,20 @@ export class SupportService {
     ticketId: string;
     staffName: string;
     body: string;
+    /** Show the merchant a review link under this reply. */
+    asksReview?: boolean;
   }): Promise<Result<{ shop: string | null; messageId: string }, "not_found">> {
     const replied = await this.dependencies.repo.replyAsStaff({
       ticketId: input.ticketId,
       authorName: input.staffName,
       body: input.body,
       at: this.dependencies.clock.now(),
+      asksReview: input.asksReview ?? false,
     });
     if (!replied) return err("not_found");
 
     const thread = await this.dependencies.repo.findForStaff(input.ticketId);
-    if (thread) await this.notifyCustomer(thread, input.staffName, input.body, replied.messageId);
+    if (thread) await this.notifyCustomer(thread, input.staffName, input.body, replied.messageId, input.asksReview ?? false);
 
     return ok(replied);
   }
@@ -254,6 +259,7 @@ export class SupportService {
     staffName: string,
     body: string,
     messageId: string,
+    asksReview: boolean,
   ): Promise<void> {
     const { ticket, messages } = thread;
     const route = { source: ticket.source, replyAddress: ticket.replyAddress, merchantEmail: ticket.merchantEmail };
@@ -283,6 +289,9 @@ export class SupportService {
         ...(hasPortal
           ? { threadUrl: threadUrls(this.dependencies.appUrl, ticket.id).merchant }
           : { body }),
+        // The same neutral request the merchant sees under the message in the app. The App Store link works for every
+        // source, the ones with no portal included; no listing, no request.
+        ...(asksReview && this.dependencies.reviewUrl !== null ? { reviewUrl: this.dependencies.reviewUrl } : {}),
         // The conversation speaks as support@ and is answered at support+<id>@,
         // both on the app's own domain.
         ...(mailDomain === null ? {} : { from: supportAddress(mailDomain), replyTo: ticketReplyAddress(mailDomain, ticket.id) }),

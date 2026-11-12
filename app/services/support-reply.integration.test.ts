@@ -9,6 +9,7 @@ import { SupportInboundRepo } from "~/models/support-inbound.server";
 import { SupportService } from "./support.server";
 
 const DOMAIN = "vip.firesio.app";
+const REVIEW_URL = "https://apps.shopify.com/example#modal-show=WriteReviewModal";
 setupTestDatabase();
 const run = <T>(fn: () => Promise<T>) => runWithRequestContext(env, fn);
 
@@ -20,6 +21,7 @@ function build() {
     clock: { now: () => 5_000 },
     notifier,
     appUrl: `https://${DOMAIN}`,
+    reviewUrl: REVIEW_URL,
     mailDomain: DOMAIN,
     withinRateLimit: async () => true,
     signAttachment: async () => "token",
@@ -166,6 +168,51 @@ describe("SupportInboundRepo against D1", () => {
       expect(thread?.ticket.closedAt).toBeNull();
       expect(thread?.ticket.lastAuthor).toBe("merchant");
       expect(thread?.messages).toHaveLength(2);
+    });
+  });
+
+  it("stores the review request on that staff reply only, and a plain reply does not carry it", async () => {
+    await run(async () => {
+      const { service } = build();
+      const repo = new SupportRepo(testIds);
+      const opened = await repo.open({
+        shop: "a.myshopify.com", shopName: "A", merchantEmail: "a@example.com", ccEmails: [], category: "question",
+        subject: "Help", body: "Question", authorName: "A", locale: null, at: 1_000,
+      });
+
+      const asked = await service.replyAsStaff({ ticketId: opened.id, staffName: "Sam", body: "Fixed.", asksReview: true });
+      const plain = await service.replyAsStaff({ ticketId: opened.id, staffName: "Sam", body: "Anything else?" });
+      if (!asked.ok || !plain.ok) throw new Error("expected both replies to be stored");
+
+      const messages = (await repo.find("a.myshopify.com", opened.id))?.messages ?? [];
+      const flag = (id: string) => messages.find((message) => message.id === id)?.asksReview;
+      expect(flag(asked.value.messageId)).toBe(true);
+      expect(flag(plain.value.messageId)).toBe(false);
+      expect(messages.find((message) => message.author === "merchant")?.asksReview).toBe(false);
+      // Shop-scoped as ever: another shop cannot read the thread, so it cannot see the flag either.
+      expect(await repo.find("b.myshopify.com", opened.id)).toBeUndefined();
+    });
+  });
+
+  it("puts the review request in the mail only for a reply that asked, and only with a listing", async () => {
+    await run(async () => {
+      const { notifier, service, inbound } = build();
+      const opened = await inbound.open({
+        externalId: "relay-review@shopify.com", source: "shopify_relay", shop: null, shopName: "Dev Playground",
+        replyAddress: "josh@atelier-studios.com", senderName: "Josh", subject: "Dev Playground has a question",
+        body: "Can photos be uploaded?", category: "question", at: 1_000,
+      });
+      if (opened.status !== "written") throw new Error("expected written");
+      const { ticketId } = opened.value;
+
+      await service.replyAsStaff({ ticketId, staffName: "Sam", body: "Yes.", asksReview: true });
+      await service.replyAsStaff({ ticketId, staffName: "Sam", body: "Anything else?" });
+
+      const sent = notifier.forEvent("support_staff_reply");
+      expect(sent).toHaveLength(2);
+      // A relay conversation has no portal, so the App Store link is the one place the request can point.
+      expect(sent[0]?.payload).toMatchObject({ body: "Yes.", reviewUrl: REVIEW_URL });
+      expect(sent[1]?.payload).not.toHaveProperty("reviewUrl");
     });
   });
 });

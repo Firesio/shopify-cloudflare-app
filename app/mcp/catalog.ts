@@ -108,7 +108,7 @@ export const TOOL_CATALOG: {
         domain: "Support Ticket Operations",
         scope: "mcp:tickets:write",
         isMutation: true,
-        summary: "Post staff reply and email the merchant automatically.",
+        summary: "Post staff reply and email the merchant automatically; optionally show an app-review link under it.",
       },
       {
         name: "edit_ticket_message",

@@ -9,6 +9,8 @@
       "greeting": "Hola {{name}}:",
       "intro": "{{staffName}} ha respondido a tu ticket de soporte:",
       "cta": "Leer y responder",
+      "reviewPrompt": "Valoramos tu opinión. Cuéntanos cómo lo estamos haciendo.",
+      "reviewCta": "Valorar la app",
       "footer": "Responder en la app mantiene toda la conversación en un mismo sitio, para que quien la retome después tenga el historial."
     }
   },

@@ -161,6 +161,11 @@ export const supportMessages = sqliteTable(
     externalId: text("external_id"),
     /** The id Email Service returned for the mail we sent for this message. */
     mailId: text("mail_id"),
+    /**
+     * Staff ticked "ask for an app review" on this reply: the merchant sees a review link under THIS message. A flag of
+     * the message (not the ticket) because it is a question put once, in one place, and a later reply must not repeat it.
+     */
+    asksReview: integer("asks_review", { mode: "boolean" }).notNull().default(false),
     createdAt: integer("created_at").notNull(),
   },
   (table) => [

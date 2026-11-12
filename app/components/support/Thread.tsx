@@ -16,6 +16,8 @@ export interface ThreadMessage {
   authorName: string;
   body: string;
   createdAt: number;
+  /** Staff asked for an app review in this message: the box ends with a review link (when `reviewLink` is given). */
+  asksReview: boolean;
   attachments: {
     id: string;
     filename: string;
@@ -82,6 +84,8 @@ type ThreadProps = {
   formatWhen: (at: number) => string;
   formatFileSize: (sizeBytes: number) => string;
   onMediaError?: () => void;
+  /** Where the review link goes and what it says; without it (no App Store listing yet) no message shows one. */
+  reviewLink?: { readonly url: string; readonly prompt: string; readonly label: string };
 };
 
 function MessageAttachments({
@@ -124,6 +128,7 @@ function MessageBox({
   message,
   youLabel,
   formatWhen,
+  reviewLink,
   ...rest
 }: Omit<ThreadProps, "messages"> & { message: ThreadMessage }) {
   const mine = message.author === "merchant";
@@ -138,6 +143,15 @@ function MessageBox({
       ))}
 
       {message.attachments.length > 0 && <MessageAttachments attachments={message.attachments} {...rest} />}
+
+      {message.asksReview && message.author === "staff" && reviewLink && (
+        <s-stack direction="inline" gap="small" alignItems="center">
+          <s-text color="subdued">{reviewLink.prompt}</s-text>
+          <s-button href={reviewLink.url} target="_blank" icon="star">
+            {reviewLink.label}
+          </s-button>
+        </s-stack>
+      )}
     </MessageFrame>
   );
 }
