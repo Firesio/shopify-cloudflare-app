@@ -13,7 +13,7 @@ const message = (over: Partial<ThreadMessage> = {}): ThreadMessage => ({
   ...over,
 });
 
-const reviewLink = { url: "https://apps.shopify.com/example#modal-show=WriteReviewModal", prompt: "We value your feedback.", label: "Review the app" };
+const reviewLink = { prompt: "We value your feedback.", label: "Review the app", onRequest: () => undefined };
 
 const render = (messages: ThreadMessage[] | "loading", link?: typeof reviewLink) =>
   renderToStaticMarkup(
@@ -107,8 +107,9 @@ describe("Thread", () => {
     );
 
     expect(html.match(/Review the app/g)).toHaveLength(1);
-    expect(html).toContain('href="https://apps.shopify.com/example#modal-show=WriteReviewModal"');
-    expect(html).toContain('target="_blank"');
+    // A button that asks Shopify for its modal, not a link out of the admin.
+    expect(html).toMatch(/<s-button[^>]*>Review the app<\/s-button>/);
+    expect(html).not.toMatch(/<s-button[^>]*href=[^>]*>Review the app/);
     expect(html.indexOf("Fixed.")).toBeLessThan(html.indexOf("Review the app"));
     expect(html.indexOf("Review the app")).toBeLessThan(html.indexOf("Anything else?"));
   });

@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode, type RefObject } from "react";
+import { askForReview } from "~/admin/request-review";
 import { Form } from "react-router";
 import { useTranslation } from "react-i18next";
 
@@ -95,7 +96,7 @@ export function ConversationSection({ messages, onMediaError, reviewUrl }: Conve
         formatFileSize={(sizeBytes) => formatFileSize(language, sizeBytes)}
         formatWhen={(at) => formatDateTime(language, at, timeZone)}
         onMediaError={onMediaError}
-        reviewLink={reviewUrl ? { url: reviewUrl, prompt: t("support.thread.reviewPrompt"), label: t("support.thread.reviewAction") } : undefined}
+        reviewLink={reviewUrl ? { prompt: t("support.thread.reviewPrompt"), label: t("support.thread.reviewAction"), onRequest: () => void askForReview(reviewUrl) } : undefined}
       />
       {messages === "loading" ? <SkeletonStatus label={t("support.thread.loading")} /> : null}
     </s-section>

@@ -229,7 +229,9 @@ describe("asking the merchant for an app review", () => {
   it("shows the review link under the staff message that asked for it", async () => {
     const html = await detail(Promise.resolve(ok(asked)), "settled", "en", REVIEW_URL);
 
-    expect(html).toMatch(/<s-button[^>]*href="https:\/\/apps\.shopify\.com\/example#modal-show=WriteReviewModal"[^>]*>Review the app<\/s-button>/);
+    // A button (it asks Shopify for its review modal when pressed), not a link out of the admin.
+    expect(html).toMatch(/<s-button[^>]*>Review the app<\/s-button>/);
+    expect(html).not.toMatch(/<s-button[^>]*href=[^>]*>Review the app/);
     expect(html.indexOf("All fixed.")).toBeLessThan(html.indexOf("Review the app"));
   });
 

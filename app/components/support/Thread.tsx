@@ -84,8 +84,8 @@ type ThreadProps = {
   formatWhen: (at: number) => string;
   formatFileSize: (sizeBytes: number) => string;
   onMediaError?: () => void;
-  /** Where the review link goes and what it says; without it (no App Store listing yet) no message shows one. */
-  reviewLink?: { readonly url: string; readonly prompt: string; readonly label: string };
+  /** What the review button says and does when pressed; without it (no App Store listing yet) no message shows one. */
+  reviewLink?: { readonly prompt: string; readonly label: string; readonly onRequest: () => void };
 };
 
 function MessageAttachments({
@@ -147,7 +147,7 @@ function MessageBox({
       {message.asksReview && message.author === "staff" && reviewLink && (
         <s-stack direction="inline" gap="small" alignItems="center">
           <s-text color="subdued">{reviewLink.prompt}</s-text>
-          <s-button href={reviewLink.url} target="_blank" icon="star">
+          <s-button icon="star" onClick={reviewLink.onRequest}>
             {reviewLink.label}
           </s-button>
         </s-stack>
