@@ -12,7 +12,7 @@ import { services } from "~/wiring/services";
  * Secrets: the current one, and `SHOPIFY_API_SECRET_PREVIOUS` for the hour a rotation takes (set it by `wrangler secret put`
  * for that window only and remove it after: it is deliberately not declared in `wrangler.jsonc`).
  */
-export async function action({ request }: ActionFunctionArgs): Promise<Response> {
+export async function action({ request }: Pick<ActionFunctionArgs, "request">): Promise<Response> {
   const previous = "SHOPIFY_API_SECRET_PREVIOUS" in env ? env.SHOPIFY_API_SECRET_PREVIOUS : undefined;
   const verified = await verifyWebhook(request, webhookSecrets(env.SHOPIFY_API_SECRET, previous));
   if (!verified.ok) return webhookRejectionResponse(verified.error);

@@ -23,7 +23,8 @@ const [workersFiles, unitFiles] = collectTests("app")
   .reduce<[string[], string[]]>(
     ([inWorkers, inNode], file) => {
       const source = readFileSync(file, "utf8");
-      const needsWorkerd = source.includes("cloudflare:test") || source.includes("cloudflare:workers") || source.includes("applyD1Migrations");
+      // Routes and wiring import the composition root, which reads `env` from cloudflare:workers.
+      const needsWorkerd = file.startsWith("app/routes/") || file.startsWith("app/wiring/") || source.includes("cloudflare:test") || source.includes("cloudflare:workers") || source.includes("applyD1Migrations");
       return needsWorkerd ? [[...inWorkers, file], inNode] : [inWorkers, [...inNode, file]];
     },
     [[], []],

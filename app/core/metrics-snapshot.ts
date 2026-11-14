@@ -45,7 +45,7 @@ export async function sendDailySnapshot(deps: SnapshotDeps, now: number): Promis
     deps.log({ event: "metrics.collect_failed", day, reason: values.reason });
     return "failed";
   }
-  const sent = await deps.portal.metricsSnapshot({ day, catalogue: METRICS, values: values.value }, { eventId: `metrics:${day}`, occurredAt: new Date(now) });
+  const sent = await deps.portal.metricsSnapshot({ day, catalogue: METRICS, values: values.value }, { eventId: `metrics_${day}`, occurredAt: new Date(now) });
   if (!sent.ok) deps.log({ event: "metrics.send_failed", day, reason: sent.reason });
   return sent.ok ? "sent" : "failed";
 }

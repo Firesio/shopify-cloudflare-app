@@ -8,6 +8,9 @@ export interface LifecycleDeps {
   readonly log: (entry: Readonly<Record<string, unknown>>) => void;
 }
 
+/** The contract allows letters, digits, `_` and `-` in an event id: a shop domain's dots become underscores (a domain never has one, so the mapping is one to one). */
+export const idPart = (value: string): string => value.replace(/[^A-Za-z0-9_-]/g, "_");
+
 export const accountOf = (shop: string): AccountRef => ({ kind: "shopify_shop", id: shop });
 
 /** What a shop that just got a session is: nothing on record, an uninstalled one coming back, or a renewal of the same token. */
@@ -21,7 +24,7 @@ export function installKindOf(existing: { readonly relationshipStatus: string | 
 async function eventFor(deps: LifecycleDeps, kind: InstallKind, shop: string, at: number): Promise<PortalMessage | null> {
   if (kind === "renewal") return null;
   const build = kind === "installed" ? deps.portal.build.shopInstalled : deps.portal.build.shopReinstalled;
-  const eventId = kind === "installed" ? `install:${shop}` : `reinstall:${shop}:${at}`;
+  const eventId = kind === "installed" ? `install_${idPart(shop)}` : `reinstall_${idPart(shop)}_${at}`;
   const built = await build(accountOf(shop), { eventId, occurredAt: new Date(at) });
   if (!built.ok) {
     // A bug in our code, never the merchant's problem: the install itself goes ahead.
@@ -44,7 +47,7 @@ export async function recordInstall(deps: LifecycleDeps, shop: string, at: numbe
 
 /** The uninstall webhook: the row and the `shop.uninstalled` event in one batch, only when the uninstall was applied. */
 export async function recordUninstall(deps: LifecycleDeps, input: { readonly shop: string; readonly webhookId: string; readonly occurredAt: number }): Promise<"applied" | "stale" | "unknown_shop"> {
-  const built = await deps.portal.build.shopUninstalled(accountOf(input.shop), undefined, { eventId: `uninstall:${input.webhookId}`, occurredAt: new Date(input.occurredAt) });
+  const built = await deps.portal.build.shopUninstalled(accountOf(input.shop), undefined, { eventId: `uninstall_${idPart(input.webhookId)}`, occurredAt: new Date(input.occurredAt) });
   if (!built.ok) deps.log({ event: "portal.event_invalid", type: "shop.uninstalled", reason: built.reason });
   return deps.shops.recordUninstall({ shop: input.shop, occurredAt: input.occurredAt, event: built.ok ? built.value : null });
 }

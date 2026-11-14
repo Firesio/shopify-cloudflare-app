@@ -2,7 +2,7 @@ import type { Emitter } from "@firesio/portal-client";
 import type { SubscriptionStatus as ContractStatus } from "@firesio/portal-contract";
 import type { Billing, SubscriptionStatus } from "@firesio/plans/billing";
 import { phaseFor } from "@firesio/plans/billing";
-import { accountOf } from "../shops/lifecycle";
+import { accountOf, idPart } from "../shops/lifecycle";
 import { PLANS } from "../plans";
 
 export interface RefreshDeps {
@@ -35,7 +35,7 @@ export async function refreshSubscription(deps: RefreshDeps, shop: { readonly do
   const sent = await deps.portal.subscriptionChanged(
     accountOf(shop.domain),
     { planId: result.effective.planHandle, status: contractStatus(status), ...(plan.monthly.amount > 0 ? { price: plan.monthly } : {}), ...(result.effective.source === "grant" ? { granted: true } : {}) },
-    { eventId: `subscription:${shop.domain}:${result.subscription?.appliedOccurredAt ?? at}:${result.subscription?.appliedExternalId ?? "none"}`, occurredAt: new Date(at) },
+    { eventId: `subscription_${idPart(shop.domain)}_${result.subscription?.appliedOccurredAt ?? at}_${idPart(result.subscription?.appliedExternalId ?? "none")}`, occurredAt: new Date(at) },
   );
   if (!sent.ok) deps.log({ event: "portal.event_failed", type: "subscription.changed", reason: sent.reason });
   return "changed";

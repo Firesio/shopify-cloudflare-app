@@ -60,7 +60,7 @@ function complianceDeps(deps: WebhookDeps): ComplianceDeps {
         { name: "sessions", run: (shop) => deleteSessions(new KVSessionStorage(env.SESSION, runtime.now), shop) },
       ],
       commit: async (shop, tombstone) => {
-        const event = await deps.portal.build.accountRedacted(accountOf(shop), { eventId: `redacted:${tombstone.shopHash}`, occurredAt: new Date(tombstone.redactedAt) });
+        const event = await deps.portal.build.accountRedacted(accountOf(shop), { eventId: `redacted_${tombstone.shopHash}`, occurredAt: new Date(tombstone.redactedAt) });
         const deletes = SHOP_SCOPED_DELETES.map((sql) => env.DB.prepare(sql).bind(shop));
         const redacted = event.ok ? [enqueueStatement(env.DB, event.value, new Date(tombstone.redactedAt))] : [];
         if (!event.ok) deps.log({ event: "portal.event_invalid", type: "account.redacted", reason: event.reason });
