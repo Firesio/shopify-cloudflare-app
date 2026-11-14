@@ -1,16 +1,8 @@
-// Test-only bindings.
-//
-// @cloudflare/vitest-plugin types `env` from "cloudflare:test" as
-// `Cloudflare.Env` — the open interface that `wrangler types` generates into
-// worker-configuration.d.ts — so extra bindings injected by vitest.config.ts
-// are declared by augmenting that namespace. (The older `ProvidedEnv`
-// augmentation is gone as of pool-workers 0.22.)
+// Test-only bindings: `@cloudflare/vitest-plugin` types `env` from "cloudflare:test" as `Cloudflare.Env`, so the extra bindings
+// vitest.config.ts injects are declared by augmenting that namespace.
 declare namespace Cloudflare {
   interface Env {
     /** The ./drizzle migrations, serialized by vitest.config.ts. */
     TEST_MIGRATIONS: string;
-    TEST_CLEANUP_MIGRATIONS: string;
-    /** app/styles/public/_tokens.scss as source text — see emails/tokens.test.ts. */
-    TEST_PUBLIC_TOKENS_SCSS: string;
   }
 }

@@ -1,1 +1,0 @@
-ALTER TABLE `support_tickets` ADD `locale` text;

@@ -2,344 +2,152 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "shopify-cloudflare-app",
   "main": "./workers/app.ts",
+  // Do not raise to 2026-11-17 or later without testing: the new module registry becomes the default.
   "compatibility_date": "2026-10-06",
-  // nodejs_compat: the Shopify libraries reach for a few Node built-ins, and
-  // app/request-context.server.ts uses node:async_hooks (AsyncLocalStorage).
+  // nodejs_compat: the Shopify libraries reach for a few Node built-ins.
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "./build/client",
-    // Bound so the Worker can serve a static asset in-process
-    // (env.ASSETS.fetch) without a network self-fetch, which would re-enter
-    // this Worker and loop.
+    // Bound so the Worker can serve a static asset in-process (env.ASSETS.fetch) without a network self-fetch.
     "binding": "ASSETS"
   },
-  // enabled + an explicit head_sampling_rate (1 = every request, the default,
-  // written out so lowering it is a visible decision). redact_query_string:
-  // an embedded request carries `id_token` and `hmac` in its query string, and
-  // the platform's own invocation logs would otherwise record the full URL.
-  "observability": {
-    "enabled": true,
-    "head_sampling_rate": 1,
-    "redact_query_string": true
-  },
+  // redact_query_string: an embedded request carries `id_token` and `hmac` in its query string.
+  "observability": { "enabled": true, "head_sampling_rate": 1, "redact_query_string": true },
 
-  // Local development: reconcile Partner history every five minutes.
-  // Production keeps the lower-frequency schedule declared below.
-  // Every tick here runs everything: only the exact hourly probe cron (UNINSTALL_PROBE_CRON) is probe-only.
+  // BINDINGS ARE NOT INHERITED by a named environment: every binding below is declared again under `env.production`
+  // (main, compatibility_*, assets and the `$schema` are inherited). `app/test/wrangler-bindings.test.ts` compares the two
+  // lists by binding name, so a binding added to one and forgotten in the other fails `npm run verify`.
+  //
+  // The top level is for Miniflare only (`npm run dev`, vitest): it simulates each binding by NAME and ignores the ids.
+  // Never run a `--remote` command against it.
+
+  // Every tick drains the portal outbox and, in development, also runs the daily work (core/cron.ts).
   "triggers": { "crons": ["*/5 * * * *"] },
 
-  // Authenticated Shopify webhooks are acknowledged only after their durable
-  // inbox row and Queue handoff succeed. The DLQ preserves exhausted work for
-  // operator inspection instead of silently losing lifecycle changes.
   "queues": {
     "producers": [
+      // Verified webhooks, one durable message each (the request writes nothing to D1).
       { "binding": "WEBHOOK_QUEUE", "queue": "shopify-webhooks" },
-      // Email is enqueued, never sent inside the request: the request returns
-      // fast and a transient provider failure retries instead of being lost.
-      { "binding": "NOTIFICATION_QUEUE", "queue": "notifications" },
-      // An announcement to many merchants is sent one page at a time, each page a message that schedules the next
-      // (app/services/campaigns/pump-campaign.ts). Its own queue so a campaign's pacing and retries never share a
-      // line with a password reset or a support reply.
-      { "binding": "CAMPAIGN_QUEUE", "queue": "campaigns" }
+      // Events for the portal (docs/architecture.md section 4). The outbox drains into it. The DLQ
+      // (portal-events-dlq) is the portal's CONSUMER side: nothing to declare here.
+      { "binding": "PORTAL_EVENTS", "queue": "portal-events" }
     ],
     "consumers": [
-      {
-        "queue": "shopify-webhooks",
-        "max_retries": 8,
-        "dead_letter_queue": "shopify-webhooks-dlq"
-      },
-      {
-        "queue": "notifications",
-        "max_retries": 8,
-        "dead_letter_queue": "notifications-dlq"
-      },
-      {
-        "queue": "campaigns",
-        "max_retries": 8,
-        "dead_letter_queue": "campaigns-dlq"
-      }
+      { "queue": "shopify-webhooks", "max_retries": 8, "dead_letter_queue": "shopify-webhooks-dlq" }
     ]
   },
 
-  // ─────────────────────────── LOCAL DEV + TESTS ───────────────────────────
-  // This top-level config is for Miniflare (`npm run dev`, vitest) only.
-  // Miniflare simulates each binding by its NAME and ignores the ids below, so
-  // they are placeholders. Production has its own real resources under
-  // `env.production` — never run a `--remote` command against this env.
-
-  // Shopify session storage — see app/session-storage.server.ts.
+  // SESSION: Shopify sessions. PORTAL_BLOCKLIST: the portal's blocklist and kill switch (READ ONLY here; the id is the
+  // portal's namespace, a placeholder locally).
   "kv_namespaces": [
-    { "binding": "SESSION", "id": "0000000000000000000000000000000d" }
+    { "binding": "SESSION", "id": "0000000000000000000000000000000d" },
+    { "binding": "PORTAL_BLOCKLIST", "id": "0000000000000000000000000000000e" }
   ],
 
-  // Transactional email (password resets, notifications) — env.EMAIL.send().
-  // Local development is simulated. Production explicitly enables the sender;
-  // a template must never create external email while a developer is exploring.
   "send_email": [{ "name": "EMAIL" }],
 
-  // All app state. Migrations are generated by drizzle-kit into ./drizzle.
+  // All app state. Migrations are generated by drizzle-kit into ./drizzle (the libraries' /d1 schemas are in drizzle.config.ts).
   "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "app-db",
-      "database_id": "00000000-0000-0000-0000-000000000000",
-      "migrations_dir": "drizzle"
-    }
+    { "binding": "DB", "database_name": "app-db", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "drizzle" }
   ],
 
-  // Support-ticket attachments — screenshots and screen recordings.
-  //
-  // WHY R2 IS NOW IN SCOPE (@rules/cloudflare.md asks for the reason in the
-  // same change): blobs finally exist. A merchant reporting "the button does
-  // nothing" is answerable in one round trip with a screen recording and
-  // unanswerable without one, and a 100 MB video is not a D1 row. Nothing else
-  // in the app stores blobs, so this bucket is scoped to that one job.
-  //
-  // Uploads are STREAMED (request.body → bucket.put) rather than buffered
-  // through request.formData(): a 100 MB multipart body would sit in a 128 MB
-  // isolate. See app/routes/resources/support-upload.tsx.
-  "r2_buckets": [
-    { "binding": "UPLOADS", "bucket_name": "app-support-uploads" }
-  ],
+  // Support ticket attachments (screenshots, recordings), streamed to R2.
+  "r2_buckets": [{ "binding": "UPLOADS", "bucket_name": "app-support-uploads" }],
 
-  // Workers AI — text generation for support-reply drafting. A binding, so
-  // there is no API key to store or leak, and it bills on this account.
-  // See @rules/cloudflare.md for the written reason this is in scope.
-  //
-  // NOT simulated by Miniflare: `npm run dev` reaches the real service, and
-  // tests have no binding at all, which the adapter reports as `not_configured`
-  // rather than failing obscurely.
-  // `remote: true` states what is already the case (an AI binding always reaches the real service) and silences wrangler's
-  // "AI bindings always access remote resources" warning, which otherwise printed on every dev start and every test run.
-  // It does not open a session by itself: the Vite plugin (vite.config.ts) and the test pool both set remoteBindings
-  // false unless DEV_REMOTE_BINDINGS=1.
+  // Workers AI (the support spam check). Not simulated by Miniflare; `remote: true` states what is already the case.
   "ai": { "binding": "AI", "remote": true },
 
-  // Ticket creation and uploads are merchant-triggered writes that cost us
-  // database rows, storage and staff attention, so they are the two endpoints
-  // worth a limiter. Config-only binding, and it FAILS OPEN when absent — a
-  // missing limiter must never be the reason a merchant cannot report a bug.
+  // Rate Limiting bindings (docs/architecture.md section 6.4): one per purpose, named <PURPOSE>_LIMITER. A binding that
+  // is absent or errors DENIES (the anti-abuse path fails closed).
   "ratelimits": [
-    {
-      "name": "SUPPORT_LIMITER",
-      "namespace_id": "1001",
-      // 10 writes per minute per shop: far above real use, far below a flood.
-      "simple": { "limit": 10, "period": 60 }
-    },
-    {
-      "name": "LOGIN_LIMITER",
-      "namespace_id": "1002",
-      "simple": { "limit": 5, "period": 60 }
-    },
-    {
-      "name": "SUPPORT_FORM_LIMITER",
-      "namespace_id": "1004",
-      // The public support form has no shop to key on, so it is limited per client IP.
-      "simple": { "limit": 5, "period": 60 }
-    },
-    {
-      "name": "SUPPORT_MAIL_LIMITER",
-      "namespace_id": "1005",
-      // Inbound support mail has no shop either, so it is limited per sender address (for the Shopify relay, the
-      // asker in Reply-To, never the relay's own no-reply sender). A person writes a few mails a minute at most.
-      "simple": { "limit": 5, "period": 60 }
-    },
-    {
-      "name": "RESET_LIMITER",
-      "namespace_id": "1003",
-      "simple": { "limit": 3, "period": 60 }
-    }
+    { "name": "SUPPORT_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
+    { "name": "SUPPORT_FORM_LIMITER", "namespace_id": "1004", "simple": { "limit": 5, "period": 60 } },
+    { "name": "SUPPORT_MAIL_LIMITER", "namespace_id": "1005", "simple": { "limit": 5, "period": 60 } }
   ],
 
-  // Secret NAMES, declared rather than inferred. Values never live here.
-  //
-  // Without this, `wrangler types` infers the secret half of `Env` from
-  // `.dev.vars` — which is gitignored, so on a fresh clone or a CI runner these
-  // three vanish from the generated `Env` and the app stops compiling
-  // (`Property 'SHOPIFY_API_SECRET' does not exist on type 'Env'`). Declaring
-  // them "replaces .dev.vars/.env/process.env inference for type generation"
-  // and warns in local dev when one is missing.
-  //
-  // It also removes the trap in the workaround: copying the template with blank
-  // values makes `SHOPIFY_API_SECRET=` a DEFINED empty string, which shadows the
-  // real one `shopify app dev` injects — and the app then fails at the first
-  // request with "Missing values for: apiSecretKey", nowhere near the cause.
+  // Secret NAMES, declared rather than inferred (values never live here): so `wrangler types` does not depend on .dev.vars.
   "secrets": {
-    "required": [
-      "SHOPIFY_API_SECRET",
-      "SHOP_CUSTOM_DOMAIN",
-      "INTERNAL_SESSION_SECRET",
-      "SHOPIFY_PARTNER_API_TOKEN",
-      "ATTACHMENT_TOKEN_SECRET",
-      "STAFF_MFA_KEY"
-    ]
+    "required": ["SHOPIFY_API_SECRET", "SHOP_CUSTOM_DOMAIN", "ATTACHMENT_TOKEN_SECRET", "EVENT_HASH_SECRET", "PARTNER_API_TOKEN"]
   },
 
-  // Non-secret vars. SHOPIFY_API_KEY is the public client_id — `shopify app
-  // dev` injects the real one (plus the live tunnel URL) via vite.config.ts,
-  // overriding these local fallbacks. Secrets go in .dev.vars locally and
-  // `wrangler secret put` remotely.
+  // Non-secret vars. SHOPIFY_API_KEY is the public client_id; `shopify app dev` injects the real one (vite.config.ts).
   "vars": {
     "SHOPIFY_API_KEY": "",
     "SCOPES": "",
     "SHOPIFY_APP_URL": "http://localhost:3000",
-    // The App Store listing handle (apps.shopify.com/<handle>). Empty until the app
-    // has a public listing: the landing page then shows the shop-domain install
-    // form. Once set, every Install button points at the listing instead and no
-    // form asks for a shop domain (App Store requirement 2.3.1).
+    // The App Store listing handle (apps.shopify.com/<handle>); empty until the app has a listing.
     "SHOPIFY_APP_HANDLE": "",
-    // Must be an address on a domain onboarded to Email Sending. Empty means
-    // email is disabled and sendEmail() reports notConfigured.
+    // An address on a domain onboarded to Email Sending. Empty = email disabled.
     "EMAIL_FROM": "",
     "EMAIL_FROM_NAME": "",
-    // Optional. The domain support mail lives on, when it is not the host of
-    // SHOPIFY_APP_URL. Leave empty in production (the app URL is used). Set it in
-    // .dev.vars to try `support+<id>@` replies locally, where the app URL is a tunnel.
+    // Where a merchant's support activity is announced (one address; staff routing belongs to the portal). Empty = nobody.
+    "STAFF_ALERT_EMAIL": "",
+    // The domain support mail lives on when it is not the host of SHOPIFY_APP_URL.
     "SUPPORT_MAIL_DOMAIN": "",
-    // Public support form bot check (Cloudflare Turnstile). The site key is public;
-    // empty turns the check off (local development only). Production needs both
-    // this and the secret: `wrangler secret put TURNSTILE_SECRET_KEY --env production`.
+    // Cloudflare Turnstile on the public support form; empty = check off (local development only).
     "TURNSTILE_SITE_KEY": "",
-    // Local dev slot only: wrangler loads just the names declared here from
-    // .dev.vars. Never declared under env.production (it is a secret there).
     "TURNSTILE_SECRET_KEY": "",
-    // Optional. Set it to an AI Gateway id and every Workers AI call gains
-    // caching, cost tracking and request logs for free. Empty = straight to
-    // Workers AI.
+    // Optional AI Gateway id; empty = straight to Workers AI.
     "AI_GATEWAY_ID": "",
-    "SHOPIFY_PARTNER_APP_ID": "",
-    "SHOPIFY_PARTNER_ORGANIZATION_ID": "",
-    "SHOPIFY_PARTNER_API_VERSION": "2026-07",
-    // Web push (staff browsers). The PUBLIC half of the VAPID key pair, base64url: browsers need it to subscribe. Empty
-    // = push disabled. The private half is the secret VAPID_PRIVATE_KEY, deliberately NOT in `secrets.required` (a
-    // missing required secret fails the deploy and push is optional); generate both with `npm run push:keys`.
-    "VAPID_PUBLIC_KEY": "",
-    // LOCAL DEV ONLY: an empty slot so `.dev.vars` can supply the private half. Wrangler loads only declared names from
-    // `.dev.vars` once a `secrets` block exists, and an optional secret cannot be declared in `secrets.required`.
-    // Never put a value here. Production does not declare it (the env.production block below has no such var): there it
-    // is a real secret set with `wrangler secret put VAPID_PRIVATE_KEY --env production`.
-    "VAPID_PRIVATE_KEY": ""
+    // The key id of the HMAC every app and the portal share (EVENT_HASH_SECRET is the secret half).
+    "EVENT_HASH_KEY_ID": "",
+    // Partner API (Managed Pricing reads): the organization and app ids; PARTNER_API_TOKEN is the secret.
+    "PARTNER_ORG_ID": "",
+    "PARTNER_APP_ID": ""
   },
 
   // ─────────────────────────── PRODUCTION ───────────────────────────
-  // `wrangler deploy --env production` (npm run cf:deploy). Wrangler
-  // environments do NOT inherit bindings/vars/triggers/routes from the top
-  // level, so every one is re-declared here in full. (main, compatibility_date,
-  // compatibility_flags and assets ARE inherited.)
+  // `wrangler deploy --env production`. Every binding is re-declared in full.
   "env": {
     "production": {
-      "observability": {
-        "enabled": true,
-        "head_sampling_rate": 1,
-        "redact_query_string": true
-      },
+      "observability": { "enabled": true, "head_sampling_rate": 1, "redact_query_string": true },
+      // Daily (the snapshot, the prune) and every minute (the outbox drain only).
+      "triggers": { "crons": ["30 3 * * *", "* * * * *"] },
       "queues": {
         "producers": [
           { "binding": "WEBHOOK_QUEUE", "queue": "shopify-webhooks-prod" },
-          { "binding": "NOTIFICATION_QUEUE", "queue": "notifications-prod" },
-          { "binding": "CAMPAIGN_QUEUE", "queue": "campaigns-prod" }
+          { "binding": "PORTAL_EVENTS", "queue": "portal-events-prod" }
         ],
         "consumers": [
-          {
-            "queue": "shopify-webhooks-prod",
-            "max_retries": 8,
-            "dead_letter_queue": "shopify-webhooks-dlq-prod"
-          },
-          {
-            "queue": "notifications-prod",
-            "max_retries": 8,
-            "dead_letter_queue": "notifications-dlq-prod"
-          },
-          {
-            "queue": "campaigns-prod",
-            "max_retries": 8,
-            "dead_letter_queue": "campaigns-dlq-prod"
-          }
+          { "queue": "shopify-webhooks-prod", "max_retries": 8, "dead_letter_queue": "shopify-webhooks-dlq-prod" }
         ]
       },
       "kv_namespaces": [
-        // Replace with the real id: `wrangler kv namespace create SESSION`
-        { "binding": "SESSION", "id": "REPLACE_ME" }
+        // Replace with the real ids: `wrangler kv namespace create SESSION`; PORTAL_BLOCKLIST is the portal's blocklist-prod namespace.
+        { "binding": "SESSION", "id": "REPLACE_ME" },
+        { "binding": "PORTAL_BLOCKLIST", "id": "REPLACE_ME" }
       ],
       "send_email": [{ "name": "EMAIL" }],
-      // Re-declared, not inherited. Create it with:
-      // `wrangler r2 bucket create app-support-uploads-prod`
-      "r2_buckets": [
-        { "binding": "UPLOADS", "bucket_name": "app-support-uploads-prod" }
+      "d1_databases": [
+        { "binding": "DB", "database_name": "app-db-prod", "database_id": "REPLACE_ME", "migrations_dir": "drizzle" }
       ],
-      // Re-declared, never inherited (@rules/cloudflare.md).
+      "r2_buckets": [{ "binding": "UPLOADS", "bucket_name": "app-support-uploads-prod" }],
       "ai": { "binding": "AI" },
       "ratelimits": [
-        {
-          "name": "SUPPORT_LIMITER",
-          "namespace_id": "1001",
-          "simple": { "limit": 10, "period": 60 }
-        },
-        {
-          "name": "LOGIN_LIMITER",
-          "namespace_id": "1002",
-          "simple": { "limit": 5, "period": 60 }
-        },
-        {
-          "name": "SUPPORT_FORM_LIMITER",
-          "namespace_id": "1004",
-          "simple": { "limit": 5, "period": 60 }
-        },
-        {
-          "name": "SUPPORT_MAIL_LIMITER",
-          "namespace_id": "1005",
-          "simple": { "limit": 5, "period": 60 }
-        },
-        {
-          "name": "RESET_LIMITER",
-          "namespace_id": "1003",
-          "simple": { "limit": 3, "period": 60 }
-        }
+        { "name": "SUPPORT_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
+        { "name": "SUPPORT_FORM_LIMITER", "namespace_id": "1004", "simple": { "limit": 5, "period": 60 } },
+        { "name": "SUPPORT_MAIL_LIMITER", "namespace_id": "1005", "simple": { "limit": 5, "period": 60 } }
       ],
-      // Re-declared, never inherited. Daily: full maintenance + probe. Hourly: probe only (app/domain/cron-schedule.ts).
-      // 40 probes/tick x 24 ticks = 960 shops/day; see docs/shopify-api-invariants.md.
-      "triggers": { "crons": ["30 3 * * *", "0 * * * *"] },
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "app-db-prod",
-          // Replace with the real id: `wrangler d1 create app-db-prod`
-          "database_id": "REPLACE_ME",
-          "migrations_dir": "drizzle"
-        }
-      ],
-      // NOT inherited from the top level — the schema is explicit that `secrets`
-      // "must be specified in every named environment". Omit it here and
-      // production types itself from inference again.
+      // `secrets` must be specified in every named environment.
       "secrets": {
-        "required": [
-          "SHOPIFY_API_SECRET",
-          "SHOP_CUSTOM_DOMAIN",
-          "INTERNAL_SESSION_SECRET",
-          "SHOPIFY_PARTNER_API_TOKEN",
-          "ATTACHMENT_TOKEN_SECRET",
-          "STAFF_MFA_KEY"
-        ]
+        "required": ["SHOPIFY_API_SECRET", "SHOP_CUSTOM_DOMAIN", "ATTACHMENT_TOKEN_SECRET", "EVENT_HASH_SECRET", "PARTNER_API_TOKEN"]
       },
       "vars": {
         // The production client_id, from shopify.app.toml.
         "SHOPIFY_API_KEY": "",
         "SCOPES": "",
-        // Your production URL — must match application_url in shopify.app.toml.
+        // Must match application_url in shopify.app.toml.
         "SHOPIFY_APP_URL": "https://example.com",
-        // Set to the listing handle once the app is live on the App Store.
         "SHOPIFY_APP_HANDLE": "",
         "EMAIL_FROM": "",
         "EMAIL_FROM_NAME": "",
+        "STAFF_ALERT_EMAIL": "",
         "SUPPORT_MAIL_DOMAIN": "",
         "TURNSTILE_SITE_KEY": "",
-        "SHOPIFY_PARTNER_APP_ID": "",
-        "SHOPIFY_PARTNER_ORGANIZATION_ID": "",
-        "SHOPIFY_PARTNER_API_VERSION": "2026-07",
         "AI_GATEWAY_ID": "",
-        // Public VAPID key (see the top-level note). Set it from `npm run push:keys`; the private half is
-        // `wrangler secret put VAPID_PRIVATE_KEY --env production`.
-        "VAPID_PUBLIC_KEY": ""
+        "EVENT_HASH_KEY_ID": "",
+        "PARTNER_ORG_ID": "",
+        "PARTNER_APP_ID": ""
       }
     }
   }

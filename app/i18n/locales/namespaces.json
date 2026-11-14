@@ -1,6 +1,0 @@
-{
-  "admin": "browser",
-  "common": "browser",
-  "email": "server",
-  "public": "browser"
-}

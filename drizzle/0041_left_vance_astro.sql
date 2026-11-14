@@ -1,1 +1,0 @@
-ALTER TABLE `support_tickets` ADD `closed_asks_review` integer DEFAULT false NOT NULL;

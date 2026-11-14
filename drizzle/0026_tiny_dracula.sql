@@ -1,1 +1,0 @@
-ALTER TABLE `shops` ADD `time_zone` text;

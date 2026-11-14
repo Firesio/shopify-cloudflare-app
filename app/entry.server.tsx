@@ -1,97 +1,46 @@
+import { onPromiseSettled } from "@firesio/core";
+import { isbot } from "isbot";
 import { renderToReadableStream } from "react-dom/server";
 import { ServerRouter, type EntryContext } from "react-router";
-import { isbot } from "isbot";
-import { createInstance } from "i18next";
-import { I18nextProvider, initReactI18next } from "react-i18next";
-
-import { createShopify } from "~/shopify.server";
-import { getEnv } from "~/request-context.server";
-import { bootstrapScriptFor } from "~/i18n/bootstrap.server";
-import { getLanguage } from "~/i18n/i18n.server";
-import { routeNamespaces } from "~/i18n/route-namespaces";
-import { i18nOptions } from "~/i18n/options";
-import { onPromiseSettled } from "~/lib/promise-settlement";
-import { renderErrorLog } from "~/lib/render-error";
-import { applySecurityHeaders } from "~/security/response-headers";
-import { describeRequestError } from "~/observability/request-error";
+import { describeRequestError } from "~/components/request-error";
+import { renderErrorLog } from "~/core/render-error";
+import { applySecurityHeaders } from "~/core/response-headers";
+import { shopify } from "~/wiring/shopify";
 
 export const streamTimeout = 5000;
 
 /**
- * React Router's server-side error hook. Logs only what `describeRequestError` returns, so unmatched-path 404s and
- * aborted requests do not bury real failures, and a request's query string (id_token, hmac) is never logged.
+ * React Router's server-side error hook. Logs only what `describeRequestError` returns, so unmatched-path 404s and aborted
+ * requests do not bury real failures, and a request's query string (id_token, hmac) is never logged.
  */
 export function handleError(error: unknown, { request }: { request: Request }): void {
   const log = describeRequestError(error, request);
   if (log !== null) console.error(JSON.stringify(log));
 }
 
-/**
- * Workers entry. The Node template used `renderToPipeableStream` +
- * `node:stream`; workerd has neither, so this uses the Web Streams renderer.
- *
- * A FRESH i18next instance is created per request. A shared module-level one
- * would leak the previous request's locale into this one — an isolate serves
- * many shops, and a Spanish merchant's page could render in English or vice
- * versa (@rules/core.md: no mutable module state).
- */
-export default async function handleRequest(
-  request: Request,
-  responseStatusCode: number,
-  responseHeaders: Headers,
-  reactRouterContext: EntryContext,
-) {
-  // Sets the embedded-app CSP (frame-ancestors for the shop + Shopify admin).
-  createShopify(getEnv()).addDocumentResponseHeaders(request, responseHeaders);
+/** Workers entry: the Web Streams renderer (workerd has neither `renderToPipeableStream` nor `node:stream`). */
+export default async function handleRequest(request: Request, responseStatusCode: number, responseHeaders: Headers, reactRouterContext: EntryContext) {
+  // Sets the embedded-app CSP (frame-ancestors for the shop and Shopify admin), then the app's own headers.
+  shopify().addDocumentResponseHeaders(request, responseHeaders);
   applySecurityHeaders(request, responseHeaders);
-
-  const language = await getLanguage(request);
-  // Only the namespaces the matched routes actually declare, so a public page does not ship the admin strings.
-  const namespaces = routeNamespaces(reactRouterContext);
-  const instance = createInstance();
-
-  await instance.use(initReactI18next).init({
-    ...i18nOptions,
-    lng: language,
-    ns: [...namespaces],
-  });
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), streamTimeout + 1000);
-
   let didError = false;
-  const stream = await renderToReadableStream(
-    <I18nextProvider i18n={instance}>
-      <ServerRouter context={reactRouterContext} url={request.url} />
-    </I18nextProvider>,
-    {
-      // The language and text the browser needs to hydrate, in the page itself: no request to make, none to fail.
-      bootstrapScriptContent: bootstrapScriptFor(language, namespaces),
-      signal: controller.signal,
-      onError(error: unknown) {
-        didError = true;
-        const log = renderErrorLog(error, {
-          aborted: controller.signal.aborted,
-          pathname: new URL(request.url).pathname,
-          timeoutMs: streamTimeout + 1000,
-        });
-        if (log.kind === "timeout") console.error(log.line);
-        else console.error(log.error);
-      },
+  const stream = await renderToReadableStream(<ServerRouter context={reactRouterContext} url={request.url} />, {
+    signal: controller.signal,
+    onError(error: unknown) {
+      didError = true;
+      const log = renderErrorLog(error, { aborted: controller.signal.aborted, pathname: new URL(request.url).pathname, timeoutMs: streamTimeout + 1000 });
+      if (log.kind === "timeout") console.error(log.line);
+      else console.error(log.error);
     },
-  );
+  });
 
-  // Bots need the whole document (SEO / link unfurling); browsers get the shell
-  // as soon as it is ready.
-  if (isbot(request.headers.get("user-agent") ?? "")) {
-    await stream.allReady;
-  }
-
+  // Bots need the whole document (SEO, link unfurling); browsers get the shell as soon as it is ready.
+  if (isbot(request.headers.get("user-agent") ?? "")) await stream.allReady;
   onPromiseSettled(stream.allReady, () => clearTimeout(timeout));
 
   responseHeaders.set("Content-Type", "text/html");
-  return new Response(stream, {
-    headers: responseHeaders,
-    status: didError ? 500 : responseStatusCode,
-  });
+  return new Response(stream, { headers: responseHeaders, status: didError ? 500 : responseStatusCode });
 }

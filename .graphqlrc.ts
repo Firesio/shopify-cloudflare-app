@@ -1,5 +1,5 @@
 import fs from "fs";
-import { apiVersion } from "./app/shopify-api-version";
+import { apiVersion } from "./app/core/api-version";
 import { shopifyApiProject, ApiType } from "@shopify/api-codegen-preset";
 import type { IGraphQLConfig } from "graphql-config";
 

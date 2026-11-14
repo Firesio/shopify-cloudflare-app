@@ -1,115 +1,42 @@
-import { Link, redirect } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { useTranslation } from "react-i18next";
-import { identity } from "~/identity";
-import { audienceTextForRequest } from "~/wiring/audience.server";
-import { useLanguage } from "~/i18n/useLanguage";
-import { formatMoney } from "~/money";
-import { FEATURED_PLAN_HANDLE, PLANS } from "~/billing/plans";
-import { paths } from "~/urls";
-import { useInstallTarget } from "./install-button";
+import { redirect, useLoaderData } from "react-router";
+import { installTarget } from "~/core/install-target";
+import { identity } from "~/core/identity";
+import { services } from "~/wiring/services";
 
-export const handle = { i18n: ["common", "public"] };
-
-/**
- * Titles and meta descriptions are rendered on the server before React runs, so
- * they cannot use the `useTranslation` hook — the loader translates them with
- * the audience text (`audienceTextForRequest`) and passes the result through.
- */
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
-  // Shopify sends merchants here with ?shop=… when they open the app from the
-  // admin. Hand them straight to the embedded app instead of the landing page.
-  if (url.searchParams.get("shop")) {
-    throw redirect(`/app?${url.searchParams.toString()}`);
-  }
-
-  const text = await audienceTextForRequest(request, "public.landing");
-  const t = text.fixedT("public");
-  return {
-    title: `${identity.name} — ${t("landing.heading")}`,
-    description: t("landing.lead"),
-  };
+  // Shopify sends merchants here with ?shop=... when they open the app from the admin: straight to the embedded app.
+  if (url.searchParams.get("shop")) throw redirect(`/app?${url.searchParams.toString()}`);
+  return { install: installTarget(services().env.SHOPIFY_APP_HANDLE) };
 };
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => [
-  { title: data?.title ?? "" },
-  { name: "description", content: data?.description ?? "" },
-];
-
-const FEATURE_KEYS = ["one", "two", "three"] as const;
+export const meta: MetaFunction = () => [{ title: identity.name }, { name: "description", content: "TODO: one sentence about what the app does." }];
 
 /**
- * Two different ways in. Listed on the App Store: one link out to the listing,
- * with no field for a shop domain (Shopify forbids asking for it). Not listed
- * yet: the shop-domain form that starts OAuth directly.
+ * Two ways in. Listed on the App Store: one link out to the listing, no field for a shop domain (Shopify forbids asking for it).
+ * Not listed yet: the shop-domain form that starts OAuth directly. Placeholder copy: a derived app writes its own.
  */
-function InstallCall() {
-  const { t } = useTranslation("public");
-  const target = useInstallTarget();
-
-  if (target.kind === "appStore") {
-    return (
-      <a href={target.url} className="btn btn--primary" rel="noopener">
-        {t("landing.appStoreCta")}
-      </a>
-    );
-  }
-
-  return (
-    <form action={paths.login()} method="get" className="stack form--narrow">
-      <div className="field">
-        <label className="field__label" htmlFor="shop">{t("landing.storeUrlLabel")}</label>
-        <input className="field__input" id="shop" name="shop" type="text" required placeholder={t("landing.storeUrlPlaceholder")} autoComplete="url" inputMode="url" />
-      </div>
-      <button type="submit" className="btn btn--primary">{t("landing.installCta")}</button>
-    </form>
-  );
-}
-
 export default function Landing() {
-  const { t } = useTranslation("public");
-  const language = useLanguage();
-
+  const { install } = useLoaderData<typeof loader>();
   return (
-    <>
-      <section className="section">
-        <div className="container stack--lg center">
-          <p className="eyebrow">{t("landing.eyebrow")}</p>
-          <h1>{t("landing.heading")}</h1>
-          <p className="lead">{t("landing.lead")}</p>
-          <InstallCall />
-          <Link to="/pricing" className="btn btn--secondary">{t("landing.pricingCta")}</Link>
-        </div>
-      </section>
-
-      <section className="section section--subtle">
-        <div className="container stack--lg">
-          <h2 className="center">{t("landing.featuresHeading")}</h2>
-          <div className="grid">
-            {FEATURE_KEYS.map((key) => (
-              <article key={key} className="card stack">
-                <h3>{t(`landing.features.${key}.title`)}</h3>
-                <p className="muted">{t(`landing.features.${key}.body`)}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="section">
-        <div className="container stack--lg center">
-          <h2>{t("landing.pricingTeaser.heading")}</h2>
-          <p className="lead">
-            {t("landing.pricingTeaser.body", {
-              price: formatMoney(language, PLANS[FEATURED_PLAN_HANDLE].priceMonthly),
-            })}
-          </p>
-          <Link to="/pricing" className="btn btn--secondary">
-            {t("landing.pricingTeaser.cta")}
-          </Link>
-        </div>
-      </section>
-    </>
+    <section className="section">
+      <div className="container stack--lg center">
+        <p className="eyebrow">TODO: category</p>
+        <h1>TODO: what your app does, in one line</h1>
+        <p className="lead">TODO: the follow-up sentence: who it is for and why it matters.</p>
+        {install.kind === "appStore" ? (
+          <a href={install.url} className="btn btn--primary" rel="noopener">Install from the Shopify App Store</a>
+        ) : (
+          <form action="/auth/login" method="get" className="stack form--narrow">
+            <div className="field">
+              <label className="field__label" htmlFor="shop">Enter your Shopify store URL</label>
+              <input className="field__input" id="shop" name="shop" type="text" required placeholder="your-store.myshopify.com" autoComplete="url" inputMode="url" />
+            </div>
+            <button type="submit" className="btn btn--primary">Install on Shopify</button>
+          </form>
+        )}
+      </div>
+    </section>
   );
 }

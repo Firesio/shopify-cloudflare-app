@@ -1,11 +1,11 @@
-import { parseInboundMail } from "../app/adapters/inbound-mail.server";
-import type { ReceiveOutcome } from "../app/services/support-inbox.server";
-import type { ParsedMail } from "../app/support/inbound/types";
+import type { ParsedMail, ReceiveOutcome } from "@firesio/support";
 
 /** Larger than any real conversation mail; beyond it the sender is told so. */
 export const INBOUND_MAX_BYTES = 10 * 1024 * 1024;
 
 export interface InboundEmailDependencies {
+  /** Parse the raw message (`adapters/inbound-mail.ts`, handed in by the composition root); null for one with no usable sender. */
+  readonly parse: (envelope: { readonly to: string; readonly raw: ReadableStream<Uint8Array> }) => Promise<ParsedMail | null>;
   readonly receive: (mail: ParsedMail) => Promise<ReceiveOutcome>;
   readonly log: (entry: { readonly event: string; readonly status: string }) => void;
 }
@@ -27,7 +27,7 @@ export async function handleInboundEmail(message: ForwardableEmailMessage, depen
   }
 
   try {
-    const mail = await parseInboundMail({
+    const mail = await dependencies.parse({
       to: message.to,
       raw: message.raw,
     });

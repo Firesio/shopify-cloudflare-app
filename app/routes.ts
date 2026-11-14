@@ -1,148 +1,35 @@
-import {
-  type RouteConfig,
-  route,
-  index,
-  layout,
-  prefix,
-} from "@react-router/dev/routes";
+import { index, layout, prefix, route, type RouteConfig } from "@react-router/dev/routes";
 
 /**
- * Explicit route config, NOT flat file-name routing.
- *
- * The URL structure lives here, and the file tree mirrors it — `/legal/privacy`
- * is `routes/public/legal/privacy.tsx`, not `routes/legal.privacy.tsx`. With
- * dozens of routes, a flat directory of dot-separated names stops being
- * readable, and you cannot tell a layout from a leaf. See @rules/core.md.
- *
- * One surface per top-level group. Add a route to the group it belongs to; if it
- * fits none of them, that is a sign it is a new surface, so add a new group and
- * its own folder.
+ * Explicit route config, NOT flat file-name routing: the URL structure lives here and the file tree mirrors it.
+ * One surface per top-level group. The merchant pages of `@firesio/app-ui` are two-line files under `routes/app/`
+ * that re-export a library route module.
  */
 export default [
-  // ── Public surface ────────────────────────────────────────────────────────
-  // Marketing, legal, and support. No authentication: the App Store listing
-  // links straight to /legal/privacy and a reviewer must reach it uninstalled.
-  // The layout owns the SCSS, header, and footer.
-  layout("routes/public/_layout.tsx", [
+  // Public surface: marketing, legal, support. No authentication (the App Store listing links straight to /legal/privacy).
+  layout("routes/public/layout.tsx", [
     index("routes/public/landing.tsx"),
-    route("pricing", "routes/public/pricing.tsx"),
     route("support", "routes/public/support.tsx"),
-    route("unsubscribe/:token", "routes/public/unsubscribe.tsx"),
-    ...prefix("legal", [
-      route("privacy", "routes/public/legal/privacy.tsx"),
-      route("terms", "routes/public/legal/terms.tsx"),
-    ]),
+    ...prefix("legal", [route("privacy", "routes/public/legal/privacy.tsx"), route("terms", "routes/public/legal/terms.tsx")]),
   ]),
 
-  // ── Embedded Shopify admin ────────────────────────────────────────────────
-  // Everything under /app runs inside the Shopify admin iframe. The layout
-  // authenticates and provides App Bridge + Polaris web components.
-  route("app", "routes/app/_layout.tsx", [
+  // Embedded Shopify admin: everything under /app runs inside the Shopify admin iframe.
+  route("app", "routes/app/layout.tsx", [
     index("routes/app/home.tsx"),
-    route("billing", "routes/app/billing.tsx"),
-    // Who from the store can use the app, and what they may do. Needs `members:manage`; one page for the team, one for a person.
-    route("members", "routes/app/members/index.tsx"),
-    route("members/:memberId", "routes/app/members/detail.tsx"),
-    route("support", "routes/app/support/index.tsx"),
+    route("support", "routes/app/support/list.tsx"),
     route("support/new", "routes/app/support/new.tsx"),
-    route("support/:ticketId", "routes/app/support/detail.tsx"),
+    route("support/:ticketId", "routes/app/support/thread.tsx"),
+    route("members", "routes/app/members/team.tsx"),
+    route("members/:memberId", "routes/app/members/member.tsx"),
+    route("no-access", "routes/app/members/no-access.tsx"),
+    route("plans", "routes/app/plans.tsx"),
   ]),
 
-  // ── OAuth ─────────────────────────────────────────────────────────────────
-  // Paths are fixed by `authPathPrefix: "/auth"` in app/shopify.server.ts and by
-  // the redirect_urls in shopify.app*.toml — do not rename them.
-  ...prefix("auth", [
-    route("login", "routes/auth/login.tsx"),
-    // Splat: /auth, /auth/callback and the rest are handled by the library.
-    route("*", "routes/auth/callback.tsx"),
-  ]),
+  // OAuth: paths fixed by `authPathPrefix: "/auth"` and the redirect_urls in shopify.app*.toml. Do not rename.
+  ...prefix("auth", [route("login", "routes/auth/login.tsx"), route("*", "routes/auth/callback.tsx")]),
 
-  // ── Internal staff console ────────────────────────────────────────────────
-  // Not merchant-facing: this is the team's console for operating the app.
-  // Login and logout sit OUTSIDE the layout — the layout's loader requires a
-  // signed-in user, so a login page inside it would redirect to itself.
-  // The install manifest must be fetchable without a session, so it is outside the layout too.
-  route("internal/manifest.webmanifest", "routes/internal/manifest.webmanifest.ts"),
-  route("internal/login", "routes/internal/login.tsx"),
-  // The second sign-in step, for staff with two-step verification on. Outside the layout: not signed in yet.
-  route("internal/login/mfa", "routes/internal/login/mfa.tsx"),
-  route("internal/logout", "routes/internal/logout.tsx"),
-  // Self-service recovery, also outside the layout: nobody is signed in yet.
-  route("internal/forgot-password", "routes/internal/forgot-password.tsx"),
-  // The token is IN THE PATH, so this page must never be indexed — it sets
-  // robots noindex. It is also why the token is single-use and short-lived.
-  route("internal/reset-password/:token", "routes/internal/reset-password.tsx"),
-  layout("routes/internal/_layout.tsx", [
-    // /internal redirects to the dashboard.
-    route("internal", "routes/internal/index.tsx"),
-    route("internal/dashboard", "routes/internal/dashboard.tsx"),
-    route("internal/admins", "routes/internal/admins/index.tsx"),
-    // Resetting someone else's password is its own page, not a dialog: the field
-    // must exist without JavaScript.
-    route("internal/admins/:adminId/reset", "routes/internal/admins/reset.tsx"),
-    route("internal/campaigns", "routes/internal/campaigns/index.tsx"),
-    route("internal/campaigns/new", "routes/internal/campaigns/new.tsx"),
-    route("internal/campaigns/:campaignId", "routes/internal/campaigns/detail.tsx"),
-    route("internal/subscriptions", "routes/internal/subscriptions.tsx"),
-    route("internal/ai", "routes/internal/ai.tsx"),
-    route("internal/support", "routes/internal/support/index.tsx"),
-    route("internal/support/new", "routes/internal/support/new.tsx"),
-    route("internal/support/spam", "routes/internal/support/spam.tsx"),
-    route("internal/support/:ticketId", "routes/internal/support/detail.tsx"),
-    route("internal/shops", "routes/internal/shops/index.tsx"),
-    route("internal/shops/:shop", "routes/internal/shops/detail.tsx"),
-    route("internal/mcp", "routes/internal/mcp.tsx"),
-    route("internal/profile", "routes/internal/profile.tsx"),
-    route("internal/notifications", "routes/internal/notifications.tsx"),
-  ]),
+  // Webhooks: URIs must match the subscriptions in BOTH shopify.app.toml files. One receiver for every topic.
+  route("webhooks/*", "routes/webhooks/receive.ts"),
 
-  // ── MCP & Automation Surface ──────────────────────────────────────────────
-  // RFC 9728 & RFC 8414 discovery
-  route(".well-known/oauth-protected-resource", "routes/.well-known/oauth-protected-resource.ts"),
-  route(".well-known/oauth-authorization-server", "routes/.well-known/oauth-authorization-server.ts"),
-
-  // Streamable HTTP JSON-RPC MCP Server
-  route("api/mcp", "routes/api/mcp.ts"),
-
-  // OAuth 2.0 PKCE Endpoints
-  route("api/oauth/register", "routes/api/oauth/register.ts"),
-  route("api/oauth/authorize", "routes/api/oauth/authorize.tsx"),
-  route("api/oauth/token", "routes/api/oauth/token.ts"),
-  route("api/oauth/revoke", "routes/api/oauth/revoke.ts"),
-
-  // Reusable REST APIs (/api/v1/*)
-  ...prefix("api/v1", [
-    route("metrics/revenue", "routes/api/v1/metrics/revenue.ts"),
-    route("metrics/churn", "routes/api/v1/metrics/churn.ts"),
-    route("health", "routes/api/v1/health.ts"),
-    route("shops/recent", "routes/api/v1/shops/recent.ts"),
-    route("shops", "routes/api/v1/shops/index.ts"),
-    route("shops/detail", "routes/api/v1/shops/detail.ts"),
-    route("webhooks/failures", "routes/api/v1/webhooks/failures.ts"),
-    route("tickets", "routes/api/v1/tickets/index.ts"),
-    route("tickets/detail", "routes/api/v1/tickets/detail.ts"),
-    route("tickets/reply", "routes/api/v1/tickets/reply.ts"),
-    route("tickets/message", "routes/api/v1/tickets/message.ts"),
-    route("support/upload", "routes/api/v1/support/upload.ts"),
-    route("audit", "routes/api/v1/audit.ts"),
-  ]),
-
-  // ── Resource routes ────────────────────────────────────────────────────────
-  // Action-only endpoints with no UI of their own.
-  route("locale", "routes/resources/locale.tsx"),
-  // One file at a time, streamed to R2 — never through the reply form's own
-  // multipart body. See the route for why.
-  route("support/upload", "routes/resources/support-upload.tsx"),
-  route("support/file/:id", "routes/resources/support-file.tsx"),
-  // Streams a drafted reply into the staff console's composer.
-  route("internal/ai/draft", "routes/resources/ai-draft.tsx"),
-
-  // ── Webhooks ──────────────────────────────────────────────────────────────
-  // URIs must match the subscriptions in BOTH shopify.app.toml files.
-  ...prefix("webhooks", [
-    route("app/uninstalled", "routes/webhooks/app/uninstalled.tsx"),
-    route("app/scopes_update", "routes/webhooks/app/scopes-update.tsx"),
-    // All three mandatory compliance topics share this endpoint.
-    route("compliance", "routes/webhooks/compliance.tsx"),
-  ]),
+  route("healthz", "routes/healthz.ts"),
 ] satisfies RouteConfig;

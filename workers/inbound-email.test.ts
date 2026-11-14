@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { parseInboundMail } from "../app/adapters/inbound-mail";
 import { handleInboundEmail, INBOUND_MAX_BYTES } from "./inbound-email";
-import type { ReceiveOutcome } from "../app/services/support-inbox.server";
-import type { ParsedMail } from "../app/support/inbound/types";
+import type { ParsedMail, ReceiveOutcome } from "@firesio/support";
 
 const HAIR = String.fromCodePoint(0x200a);
 
@@ -24,19 +24,33 @@ const RELAY = raw(
   `Dev Playground=E2=80=8A\r\n( https://dev-playground-3getbhj4.myshopify.com )\r\nsent you a message. See it below.\r\n\r\nHi, can he upload photos?\r\n\r\nReply directly to josh.johnson@atelier-studios.com\r\n`,
 );
 
+/** A received message with only what the handler uses; `reply` and `forward` are never called. */
+class FakeMessage implements ForwardableEmailMessage {
+  readonly from = "no-reply@shopify.com";
+  readonly to = "support+abcd1234-ef56@vip.firesio.app";
+  readonly headers = new Headers();
+  readonly rejected: string[] = [];
+  readonly raw: ReadableStream<Uint8Array>;
+  constructor(
+    text: string,
+    readonly rawSize: number,
+  ) {
+    this.raw = new Response(text).body ?? new ReadableStream<Uint8Array>();
+  }
+  setReject(reason: string): void {
+    this.rejected.push(reason);
+  }
+  async forward(): Promise<EmailSendResult> {
+    return { messageId: "" };
+  }
+  async reply(): Promise<EmailSendResult> {
+    return { messageId: "" };
+  }
+}
+
 function messageOf(text: string, over: { rawSize?: number } = {}) {
-  const rejected: string[] = [];
-  const message = {
-    from: "no-reply@shopify.com",
-    to: "support+abcd1234-ef56@vip.firesio.app",
-    rawSize: over.rawSize ?? text.length,
-    raw: new Response(text).body ?? new ReadableStream<Uint8Array>(),
-    headers: new Headers(),
-    setReject: (reason: string) => { rejected.push(reason); },
-    forward: async () => ({ messageId: "" }),
-    reply: async () => ({ messageId: "" }),
-  } satisfies Partial<ForwardableEmailMessage>;
-  return { message: message as unknown as ForwardableEmailMessage, rejected };
+  const message = new FakeMessage(text, over.rawSize ?? text.length);
+  return { message, rejected: message.rejected };
 }
 
 function deps(over: { receive?: (mail: ParsedMail) => Promise<ReceiveOutcome> } = {}) {
@@ -46,6 +60,7 @@ function deps(over: { receive?: (mail: ParsedMail) => Promise<ReceiveOutcome> } 
     received,
     logs,
     dependencies: {
+      parse: parseInboundMail,
       receive: over.receive ?? (async (mail: ParsedMail) => { received.push(mail); return { status: "duplicate" } as const; }),
       log: (entry: { event: string; status: string }) => { logs.push(entry.status); },
     },

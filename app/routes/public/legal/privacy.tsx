@@ -1,82 +1,17 @@
-import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { useTranslation } from "react-i18next";
-import { audienceTextForRequest } from "~/wiring/audience.server";
-import { useLanguage } from "~/i18n/useLanguage";
-import { formatDate } from "~/i18n/format";
-import { UTC } from "~/i18n/time-zone";
-import { identity } from "~/identity";
-import { useSupportEmail } from "../support-email";
+import type { MetaFunction } from "react-router";
+import { identity } from "~/core/identity";
 
-export const handle = { i18n: ["common", "public"] };
+export const meta: MetaFunction = () => [{ title: `Privacy policy - ${identity.name}` }];
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const text = await audienceTextForRequest(request, "public.privacy");
-  const t = text.fixedT("public");
-  return {
-    title: `${t("legal.privacy.heading")} · ${identity.name}`,
-  };
-};
-
-export const meta: MetaFunction<typeof loader> = ({ data }) => [
-  { title: data?.title ?? "" },
-];
-
-/**
- * REQUIRED by the Shopify App Store: every listing must link to a public privacy
- * policy. https://shopify.dev/docs/apps/launch/privacy-requirements
- *
- * Put this URL in the "Privacy policy" field of your app submission.
- */
-const SECTION_KEYS = [
-  "collect",
-  "why",
-  "share",
-  "storage",
-  "security",
-  "rights",
-  "contactUs",
-  "changes",
-] as const;
-
-export default function PrivacyPolicy() {
-  const { t } = useTranslation("public");
-  const language = useLanguage();
-  const supportEmail = useSupportEmail();
-
-  // A date is formatted, never printed raw: 1/2/2026 means different days in
-  // different locales.
-  const updated = Number.isNaN(Date.parse(identity.legal.effectiveDate))
-    ? identity.legal.effectiveDate
-    : formatDate(language, new Date(identity.legal.effectiveDate), UTC, { dateStyle: "long" });
-
+/** Placeholder text a derived app replaces with its own policy (`docs/LEGAL_TEMPLATE.md`). */
+export default function Privacy() {
   return (
     <section className="section">
       <div className="prose stack">
-        <h1>{t("legal.privacy.heading")}</h1>
-        <p className="muted">{t("legal.lastUpdated", { date: updated })}</p>
-
-        <p className="notice notice--warning">{t("legal.privacy.warning")}</p>
-
-        <p>{t("legal.privacy.intro", { company: identity.companyName })}</p>
-
-        {SECTION_KEYS.map((key) => (
-          <section key={key}>
-            <h2>{t(`legal.privacy.sections.${key}.heading`)}</h2>
-            <p>{t(`legal.privacy.sections.${key}.body`)}</p>
-          </section>
-        ))}
-
-        <div className="card stack">
-          <p>
-            <strong>{t("legal.privacy.contact")}</strong>
-            <br />
-            {identity.companyName}
-            <br />
-            {identity.legal.address}
-            <br />
-            <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
-          </p>
-        </div>
+        <h1>Privacy policy</h1>
+        <p className="notice notice--warning">Placeholder. Replace with the policy your lawyer approved before submitting the app for review.</p>
+        <p>TODO: who {identity.companyName} is, what data {identity.name} stores about a store and its team, why, for how long, who it is shared with, and how a merchant asks for its deletion.</p>
+        <p>Effective {identity.legal.effectiveDate}. {identity.legal.address}.</p>
       </div>
     </section>
   );

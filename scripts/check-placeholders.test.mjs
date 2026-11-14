@@ -4,37 +4,40 @@ import { launchWarnings, validateLaunchContract } from "./check-placeholders.mjs
 
 function validFiles() {
   const production = {
-    kv_namespaces: [{ binding: "SESSION", id: "0123456789abcdef0123456789abcdef" }],
+    kv_namespaces: [
+      { binding: "SESSION", id: "0123456789abcdef0123456789abcdef" },
+      { binding: "PORTAL_BLOCKLIST", id: "fedcba9876543210fedcba9876543210" },
+    ],
     d1_databases: [{ binding: "DB", database_id: "11111111-2222-3333-4444-555555555555" }],
     vars: {
       SHOPIFY_API_KEY: "client-key",
       SHOPIFY_APP_URL: "https://app.example.org",
-      SHOPIFY_PARTNER_APP_ID: "gid://shopify/App/1",
-      SHOPIFY_PARTNER_ORGANIZATION_ID: "1234567",
-      SHOPIFY_PARTNER_API_VERSION: "2026-07",
+      PARTNER_APP_ID: "123456",
+      PARTNER_ORG_ID: "1234567",
+      EVENT_HASH_KEY_ID: "firesio-1",
       AI_GATEWAY_ID: "",
       TURNSTILE_SITE_KEY: "0x4AAAAAAAexample",
     },
-    secrets: { required: ["SHOPIFY_PARTNER_API_TOKEN", "ATTACHMENT_TOKEN_SECRET", "STAFF_MFA_KEY"] },
+    secrets: { required: ["PARTNER_API_TOKEN", "ATTACHMENT_TOKEN_SECRET", "EVENT_HASH_SECRET"] },
     r2_buckets: [{ binding: "UPLOADS", bucket_name: "uploads" }],
     send_email: [{ name: "EMAIL" }],
     ai: { binding: "AI" },
-    queues: { producers: [{ binding: "WEBHOOK_QUEUE", queue: "queue" }], consumers: [{ queue: "queue", max_retries: 5, dead_letter_queue: "queue-dlq" }] },
-    ratelimits: [{ name: "SUPPORT_LIMITER" }, { name: "SUPPORT_MAIL_LIMITER" }, { name: "LOGIN_LIMITER" }, { name: "RESET_LIMITER" }],
-    triggers: { crons: ["30 3 * * *", "0 * * * *"] },
+    queues: {
+      producers: [{ binding: "WEBHOOK_QUEUE", queue: "queue" }, { binding: "PORTAL_EVENTS", queue: "portal-events-prod" }],
+      consumers: [{ queue: "queue", max_retries: 5, dead_letter_queue: "queue-dlq" }],
+    },
+    ratelimits: [{ name: "SUPPORT_LIMITER" }, { name: "SUPPORT_FORM_LIMITER" }, { name: "SUPPORT_MAIL_LIMITER" }],
+    triggers: { crons: ["30 3 * * *", "* * * * *"] },
   };
   return {
-    wrangler: {
-      ...structuredClone(production),
-      env: { production },
-    },
+    wrangler: { ...structuredClone(production), env: { production } },
     productionToml: 'client_id = "client-key"\napplication_url = "https://app.example.org"\n[webhooks]\napi_version = "2026-10"\n[access_scopes]\nscopes = ""\n[auth]\nredirect_urls = [ "https://app.example.org/auth/callback" ]',
     developmentToml: 'client_id = "dev-key"\napplication_url = "https://dev.example.org"\n[webhooks]\napi_version = "2026-10"\n[access_scopes]\nscopes = ""\n[auth]\nredirect_urls = [ "https://dev.example.org/auth/callback" ]',
-    legal: 'export const APP_NAME = "Useful App";\nexport const COMPANY_NAME = "Example LLC";\nexport const CONTACT_EMAIL = "privacy@example.org";\nexport const COMPANY_ADDRESS = "1 Main Street";\nexport const LAST_UPDATED = "2026-09-01";',
-    identity: 'name: "Useful App", companyName: "Example LLC", supportEmail: "support@example.org", address: "1 Main Street", effectiveDate: "2026-09-01"',
-    plans: 'handle: "free"\nhandle: "pro"',
-    publicCopy: '{"pricing":"Clear pricing","support":"Email support@example.org","privacy":"We process merchant data."}',
-    commonCopy: [{ path: "app/i18n/locales/en/common.json", source: '{"plans":{"free":{"features":{"0":"Up to 100 orders"}}},"tagline":"Sell more"}' }],
+    legal: 'export const x = "Our policy";',
+    identity: 'slug: "useful-app", name: "Useful App", companyName: "Example LLC", supportEmail: "support@example.org", address: "1 Main Street", effectiveDate: "2026-09-01"',
+    plans: 'name: "Free"\nname: "Pro"',
+    publicCopy: "Clear support. Email support@example.org.",
+    routeSources: [{ path: "app/routes/app/home.tsx", source: "export default function Home() { return null; }" }],
   };
 }
 
@@ -42,214 +45,82 @@ test("accepts populated production config while allowing local fixture values", 
   assert.deepEqual(validateLaunchContract(validFiles()), []);
 });
 
-test("refuses a plan feature or tagline that is still template copy, in any language", () => {
-  const files = validFiles();
-  files.commonCopy = [
-    ...files.commonCopy,
-    { path: "app/i18n/locales/es/common.json", source: '{"plans":{"pro":{"features":{"0":"TODO: primera ventaja del plan de pago"}}}}' },
-  ];
-  const issues = validateLaunchContract(files);
-  assert.equal(issues.length, 1);
-  assert.match(issues[0], /app\/i18n\/locales\/es\/common\.json contains TODO/);
+test("refuses a plan table, public page or home page that is still template copy", () => {
+  const plans = validateLaunchContract({ ...validFiles(), plans: 'name: "TODO:FREE"' });
+  assert.match(plans[0], /plans\.ts still has placeholder/);
+  const pages = validateLaunchContract({ ...validFiles(), publicCopy: "TODO: what your app does" });
+  assert.match(pages[0], /public pages/);
+  const home = validateLaunchContract({ ...validFiles(), routeSources: [{ path: "app/routes/app/home.tsx", source: "<p>TODO: replace</p>" }] });
+  assert.match(home[0], /app\/routes\/app\/home\.tsx is still the template's placeholder page/);
 });
 
-test("requires the hourly uninstall-probe cron and a daily cron in production", () => {
-  const files = validFiles();
-  files.wrangler.env.production.triggers = { crons: ["30 3 * * *"] };
-  assert.match(validateLaunchContract(files).join("\n"), /hourly uninstall-probe cron/);
-  files.wrangler.env.production.triggers = { crons: ["0 * * * *"] };
-  assert.match(validateLaunchContract(files).join("\n"), /daily maintenance cron/);
-  delete files.wrangler.env.production.triggers;
-  assert.match(validateLaunchContract(files).join("\n"), /hourly uninstall-probe cron/);
-});
-
-test("rejects a webhook API version that is not the template release", () => {
-  const files = validFiles();
-  files.productionToml = files.productionToml.replace('api_version = "2026-10"', 'api_version = "2026-07"');
-  const issues = validateLaunchContract(files).join("\n");
-  assert.match(issues, /webhook API version/i);
-});
-
-test("rejects missing Partner organization and API version", () => {
-  const files = validFiles();
-  delete files.wrangler.env.production.vars.SHOPIFY_PARTNER_ORGANIZATION_ID;
-  files.wrangler.env.production.vars.SHOPIFY_PARTNER_API_VERSION = "";
-  const issues = validateLaunchContract(files).join("\n");
-  assert.match(issues, /SHOPIFY_PARTNER_ORGANIZATION_ID/);
-  assert.match(issues, /SHOPIFY_PARTNER_API_VERSION/);
-});
-
-test("requires the Partner pricing/history app ID to use the Shopify App GID namespace", () => {
-  const files = validFiles();
-  files.wrangler.env.production.vars.SHOPIFY_PARTNER_APP_ID = "gid://partners/App/1";
-  const issues = validateLaunchContract(files).join("\n");
-  assert.match(issues, /SHOPIFY_PARTNER_APP_ID.*gid:\/\/shopify\/App/);
-});
-
-test("rejects a client ID, installation ID, or unqualified app ID as Partner app ID", () => {
-  for (const value of ["c0a58386cf12f142409e63d22589b9d9", "gid://shopify/AppInstallation/1", "1"]) {
-    const files = validFiles();
-    files.wrangler.env.production.vars.SHOPIFY_PARTNER_APP_ID = value;
-    const issues = validateLaunchContract(files).join("\n");
-    assert.match(issues, /SHOPIFY_PARTNER_APP_ID.*gid:\/\/shopify\/App/);
-  }
+test("requires both the drain cron and the daily cron in production", () => {
+  const noDrain = validFiles();
+  noDrain.wrangler.env.production.triggers = { crons: ["30 3 * * *"] };
+  assert.match(validateLaunchContract(noDrain).join("\n"), /drain cron/);
+  const noDaily = validFiles();
+  noDaily.wrangler.env.production.triggers = { crons: ["* * * * *"] };
+  assert.match(validateLaunchContract(noDaily).join("\n"), /daily cron/);
 });
 
 test("reports an absent production binding by its exact key", () => {
   const files = validFiles();
-  delete files.wrangler.env.production.r2_buckets;
-  const issues = validateLaunchContract(files).join("\n");
-  assert.match(issues, /production binding UPLOADS/);
+  files.wrangler.env.production.queues.producers = [{ binding: "WEBHOOK_QUEUE", queue: "queue" }];
+  assert.ok(validateLaunchContract(files).includes("production binding PORTAL_EVENTS is missing"));
 });
 
-test("rejects a top-level var omitted from production", () => {
+test("rejects a top-level var omitted from production, and a missing secret", () => {
   const files = validFiles();
-  files.wrangler.vars.FUTURE_REQUIRED_VAR = "configured";
-  const issues = validateLaunchContract(files).join("\n");
-  assert.match(issues, /production var FUTURE_REQUIRED_VAR/i);
+  files.wrangler.vars = { ...files.wrangler.vars, STAFF_ALERT_EMAIL: "" };
+  assert.ok(validateLaunchContract(files).includes("production var STAFF_ALERT_EMAIL is missing"));
+  const secret = validFiles();
+  secret.wrangler.env.production.secrets = { required: ["PARTNER_API_TOKEN", "ATTACHMENT_TOKEN_SECRET"] };
+  assert.ok(validateLaunchContract(secret).includes("EVENT_HASH_SECRET secret is not declared"));
 });
 
 test("rejects production config without a webhook queue consumer", () => {
   const files = validFiles();
   files.wrangler.env.production.queues.consumers = [];
-  const issues = validateLaunchContract(files).join("\n");
-  assert.match(issues, /WEBHOOK_QUEUE consumer/i);
+  assert.ok(validateLaunchContract(files).some((issue) => /consumer/.test(issue)));
 });
 
 test("rejects every launch placeholder and redirect drift", () => {
   const files = validFiles();
-  files.wrangler.env.production.kv_namespaces[0].id = "REPLACE_ME";
-  files.wrangler.env.production.vars.SHOPIFY_API_KEY = "";
-  files.wrangler.env.production.vars.SHOPIFY_APP_URL = "https://example.com";
-  files.wrangler.env.production.vars.SHOPIFY_PARTNER_APP_ID = "";
-  files.productionToml = 'client_id = ""\napplication_url = "https://different.example.com"\nscopes = "write_products"\nredirect_urls = [ "https://wrong.example.com/auth/callback" ]';
-  files.developmentToml = files.developmentToml.replace('scopes = ""', 'scopes = "read_products"');
-  files.legal = 'export const APP_NAME = "TODO: App";';
-  files.plans = 'handle: "todo-pro"';
-  files.publicCopy = '{"pricing":"TODO","support":"TODO","privacy":"TODO"}';
-
-  const issues = validateLaunchContract(files).join("\n");
-  for (const expected of [
-    "Cloudflare production binding",
-    "SHOPIFY_API_KEY",
-    "SHOPIFY_APP_URL",
-    "SHOPIFY_PARTNER_APP_ID",
-    "shopify.app.toml client_id",
-    "redirect_urls",
-    "scope drift",
-    "unused scope write_products",
-    "legal identity/contact/date",
-    "Managed Pricing plan handle",
-    "public pricing/support/privacy copy",
-  ]) assert.match(issues, new RegExp(expected));
-});
-
-test("rejects placeholders in the dedicated identity source", () => {
-  const files = validFiles();
-  files.identity = 'effectiveDate: "2026-09-01"\nname: "TODO: replace"';
-  const issues = validateLaunchContract(files).join("\n");
-  assert.match(issues, /legal identity\/contact\/date/);
-});
-
-for (const field of ["name", "companyName", "supportEmail", "address"]) {
-  test(`rejects missing identity ${field}`, () => {
-    const files = validFiles();
-    files.identity = files.identity.replace(new RegExp(`${field}: "[^"]*"`), `${field}: ""`);
-    assert.match(validateLaunchContract(files).join("\n"), /legal identity\/contact\/date/);
-  });
-}
-
-test("rejects an impossible policy date", () => {
-  const files = validFiles();
-  files.identity = files.identity.replace("2026-09-01", "2026-02-30");
-  assert.match(validateLaunchContract(files).join("\n"), /legal identity\/contact\/date/);
-});
-
-test("rejects a Partner API version that is not the template's Partner release", () => {
-  const files = validFiles();
-  files.wrangler.env.production.vars.SHOPIFY_PARTNER_API_VERSION = "2026-10";
-  assert.match(validateLaunchContract(files).join("\n"), /SHOPIFY_PARTNER_API_VERSION must be 2026-07/);
-});
-
-test("rejects a production app URL that is not https", () => {
-  const files = validFiles();
-  files.wrangler.env.production.vars.SHOPIFY_APP_URL = "http://app.example.org";
-  files.productionToml = files.productionToml.replaceAll("https://app.example.org", "http://app.example.org");
-  const issues = validateLaunchContract(files).join("\n");
-  assert.match(issues, /SHOPIFY_APP_URL must be an https:\/\/ URL/);
-  assert.match(issues, /application_url must be an https:\/\/ URL/);
-});
-
-test("rejects a route that still renders the sample dashboard, and only that route", () => {
-  const files = validFiles();
-  files.routeSources = [
-    { path: "app/routes/app/home.tsx", source: 'import { SampleDashboard } from "~/components/dashboard/SampleDashboard";' },
-    { path: "app/routes/app/billing.tsx", source: 'import { PerformanceSection } from "~/components/dashboard/DashboardSections";' },
-  ];
+  files.wrangler.env.production.vars.PARTNER_ORG_ID = "";
+  files.wrangler.env.production.vars.EVENT_HASH_KEY_ID = "REPLACE_ME";
+  files.productionToml = files.productionToml.replace("https://app.example.org/auth/callback", "https://elsewhere.example.org/auth/callback");
   const issues = validateLaunchContract(files);
-  assert.equal(issues.length, 1);
-  assert.match(issues[0], /^app\/routes\/app\/home\.tsx renders the sample dashboard/);
+  assert.ok(issues.includes("PARTNER_ORG_ID is missing or placeholder"));
+  assert.ok(issues.includes("EVENT_HASH_KEY_ID is missing or placeholder"));
+  assert.ok(issues.includes("shopify.app.toml redirect_urls drift from application_url"));
 });
 
-test("rejects a route that still renders the template setup guide, and only that route", () => {
-  const files = validFiles();
-  files.routeSources = [
-    { path: "app/routes/app/home.tsx", source: 'import { SetupGuide } from "~/components/dashboard/SetupGuide";' },
-    { path: "app/routes/app/billing.tsx", source: 'import { GuideStep } from "~/components/dashboard/GuideStep";' },
-  ];
-  const issues = validateLaunchContract(files);
-  assert.equal(issues.length, 1);
-  assert.match(issues[0], /^app\/routes\/app\/home\.tsx renders the template setup guide/);
+test("rejects placeholders in the dedicated identity source and an impossible policy date", () => {
+  assert.ok(validateLaunchContract({ ...validFiles(), identity: 'slug: "my-app", name: "TODO: Your App Name", companyName: "Firesio", supportEmail: "a@b.org", address: "x", effectiveDate: "2026-09-01"' }).some((issue) => /identity/.test(issue)));
+  assert.ok(validateLaunchContract({ ...validFiles(), identity: validFiles().identity.replace("2026-09-01", "2026-02-31") }).some((issue) => /effective date/.test(issue)));
 });
 
-test("reports both when one route renders the sample dashboard and the setup guide", () => {
+test("rejects a webhook API version that is not the template release, and a production app URL that is not https", () => {
   const files = validFiles();
-  files.routeSources = [
-    {
-      path: "app/routes/app/home.tsx",
-      source: 'import { SampleDashboard } from "~/components/dashboard/SampleDashboard";\nimport { SetupGuide } from "~/components/dashboard/SetupGuide";',
-    },
-  ];
-  assert.equal(validateLaunchContract(files).length, 2);
-});
-
-test("does not require production to re-declare the local-only VAPID_PRIVATE_KEY var", () => {
-  const files = validFiles();
-  files.wrangler.vars.VAPID_PRIVATE_KEY = "";
-  assert.deepEqual(validateLaunchContract(files), []);
-  files.wrangler.vars.SOMETHING_ELSE = "x";
-  assert.match(validateLaunchContract(files).join("\n"), /production var SOMETHING_ELSE is missing/);
+  files.productionToml = files.productionToml.replace("2026-10", "2026-04");
+  assert.ok(validateLaunchContract(files).some((issue) => /webhook API version/.test(issue)));
+  const http = validFiles();
+  http.wrangler.env.production.vars.SHOPIFY_APP_URL = "http://app.example.org";
+  assert.ok(validateLaunchContract(http).includes("SHOPIFY_APP_URL must be an https:// URL"));
 });
 
 test("does not require production to re-declare the local-only TURNSTILE_SECRET_KEY slot", () => {
   const files = validFiles();
-  files.wrangler.vars.TURNSTILE_SECRET_KEY = "";
+  files.wrangler.vars = { ...files.wrangler.vars, TURNSTILE_SECRET_KEY: "" };
   assert.deepEqual(validateLaunchContract(files), []);
 });
 
-test("warns, without blocking, when the support form has no bot check configured", () => {
+test("warns, without blocking, when the support form has no bot check configured or the App Store handle is empty", () => {
   const files = validFiles();
-  files.wrangler.env.production.vars.SHOPIFY_APP_HANDLE = "my-app";
-  assert.deepEqual(launchWarnings(files), []);
-  files.wrangler.env.production.vars.TURNSTILE_SITE_KEY = "  ";
-  assert.match(launchWarnings(files).join("\n"), /TURNSTILE_SITE_KEY is empty/);
-  assert.deepEqual(validateLaunchContract(files), []);
-});
-
-test("warns, without blocking, when the App Store handle is empty or malformed", () => {
-  const files = validFiles();
-  assert.match(launchWarnings(files).join("\n"), /SHOPIFY_APP_HANDLE is empty/);
-  files.wrangler.env.production.vars.SHOPIFY_APP_HANDLE = "  ";
-  assert.match(launchWarnings(files).join("\n"), /SHOPIFY_APP_HANDLE is empty/);
-  files.wrangler.env.production.vars.SHOPIFY_APP_HANDLE = "My App";
-  assert.match(launchWarnings(files).join("\n"), /not a valid App Store handle/);
-  files.wrangler.env.production.vars.SHOPIFY_APP_HANDLE = "my-app";
-  assert.deepEqual(launchWarnings(files), []);
-  assert.deepEqual(validateLaunchContract(files), []);
-});
-
-test("requires the staff MFA key to be a declared production secret", () => {
-  const files = validFiles();
-  files.wrangler.env.production.secrets.required = ["SHOPIFY_PARTNER_API_TOKEN", "ATTACHMENT_TOKEN_SECRET"];
-  assert.match(validateLaunchContract(files).join("\n"), /STAFF_MFA_KEY secret is not declared/);
+  files.wrangler.env.production.vars.TURNSTILE_SITE_KEY = "";
+  files.wrangler.env.production.vars.SHOPIFY_APP_HANDLE = "";
+  const warnings = launchWarnings(files);
+  assert.ok(warnings.some((warning) => /TURNSTILE_SITE_KEY/.test(warning)));
+  assert.ok(warnings.some((warning) => /SHOPIFY_APP_HANDLE is empty/.test(warning)));
+  assert.deepEqual(validateLaunchContract(files).filter((issue) => /TURNSTILE|HANDLE/.test(issue)), []);
 });

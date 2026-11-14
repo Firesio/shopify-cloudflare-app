@@ -1,82 +1,48 @@
-import {
-  createRequestHandler,
-  createContext,
-  RouterContextProvider,
-} from "react-router";
-import { runWithRequestContext } from "../app/request-context.server";
-import { sweepPlanFor } from "../app/domain/cron-schedule";
-import { runScheduledSweeps } from "../app/services/scheduled.server";
-import { scheduledDependencies, supportInboxService, webhookQueueDependencies } from "../app/wiring.server";
+import { createContext, createRequestHandler, RouterContextProvider } from "react-router";
+import { runScheduled } from "../app/core/scheduled";
+import { consumeWebhooks } from "../app/core/webhooks/consume";
+import { createServices } from "../app/wiring/services";
+import { consumeDeps, scheduledDeps } from "../app/wiring/scheduled";
 import { handleInboundEmail } from "./inbound-email";
-import { handleWebhookQueueBatch } from "../app/services/webhook-queue";
-import { handleNotificationBatch } from "../app/services/notification-queue";
-import { notificationConsumerDependencies } from "../app/wiring/notifications.server";
-import { handleCampaignBatch } from "../app/services/campaign-queue";
-import { campaignConsumerDependencies } from "../app/wiring/campaigns.server";
-import { queueKind } from "../app/lib/queue-names";
+
+export { AdminApi } from "./admin-api";
 
 /**
- * With `future.v8_middleware`, a loader/action's `context` is a
- * RouterContextProvider. We expose the Cloudflare env + ctx through a typed
- * context key for React-Router-idiomatic access, AND wrap the request in
- * AsyncLocalStorage so server code can read env via `getEnv()` without
- * threading `context` everywhere.
- *
- * Read the key inside a loader with `context.get(cloudflareContext)`.
+ * With `future.v8_middleware` a loader's `context` is a RouterContextProvider. The route modules of `@firesio/app-ui` read
+ * their deps from it (set by the /app layout's middleware); server code reads `env` from `cloudflare:workers`.
  */
-export const cloudflareContext = createContext<{
-  env: Env;
-  ctx: ExecutionContext;
-}>();
+export const cloudflareContext = createContext<{ env: Env; ctx: ExecutionContext }>();
 
-const requestHandler = createRequestHandler(
-  () => import("virtual:react-router/server-build"),
-  import.meta.env.MODE,
-);
+const requestHandler = createRequestHandler(() => import("virtual:react-router/server-build"), import.meta.env.MODE);
+
+/** The queues this Worker consumes: the verified Shopify webhooks, in both environments. */
+const WEBHOOK_QUEUES: readonly string[] = ["shopify-webhooks", "shopify-webhooks-prod"];
 
 export default {
   fetch(request, env, ctx) {
-    return runWithRequestContext(env, () => {
-      const context = new RouterContextProvider();
-      context.set(cloudflareContext, { env, ctx });
-      return requestHandler(request, context);
-    }, ctx);
+    const context = new RouterContextProvider();
+    context.set(cloudflareContext, { env, ctx });
+    return requestHandler(request, context);
   },
 
-  /** Cron work shares the request context used by HTTP routes. */
+  /** Cron: drain the portal outbox every tick; the daily snapshot and prune on the daily one (`core/cron.ts`). */
   async scheduled(controller, env) {
-    await runWithRequestContext(env, () => runScheduledSweeps(Date.now(), scheduledDependencies(), sweepPlanFor(controller.cron)));
+    await runScheduled(scheduledDeps(createServices(env)), controller.cron);
   },
 
   /** Email Routing delivers mail sent to the app's support addresses. */
   async email(message, env) {
-    await runWithRequestContext(env, () =>
-      handleInboundEmail(message, {
-        receive: (mail) => supportInboxService().receive(mail),
-        log: (entry) => console.log(JSON.stringify(entry)),
-      }),
-    );
+    const s = createServices(env);
+    await handleInboundEmail(message, { parse: s.parseMail, receive: (mail) => s.inbox.receive(mail), log: (entry) => s.log(entry) });
   },
 
   async queue(batch, env) {
-    const kind = queueKind(batch.queue);
-    if (kind === "unknown") {
-      // Real work addressed to a consumer we do not have. Acking would delete it
-      // silently; retrying keeps it until the queue's DLQ takes it.
+    if (!WEBHOOK_QUEUES.includes(batch.queue)) {
+      // Real work addressed to a consumer we do not have: acking would delete it silently, retrying keeps it until the DLQ takes it.
       console.error(JSON.stringify({ event: "queue.unknown", queue: batch.queue, messages: batch.messages.length }));
       batch.retryAll({ delaySeconds: 60 });
       return;
     }
-    await runWithRequestContext(env, async () => {
-      if (kind === "notification") {
-        await handleNotificationBatch(batch, notificationConsumerDependencies());
-        return;
-      }
-      if (kind === "campaign") {
-        await handleCampaignBatch(batch, campaignConsumerDependencies());
-        return;
-      }
-      await handleWebhookQueueBatch(batch, webhookQueueDependencies());
-    });
+    await consumeWebhooks(consumeDeps(createServices(env)), batch);
   },
 } satisfies ExportedHandler<Env>;

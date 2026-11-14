@@ -3,6 +3,7 @@ import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
+import { boundariesConfig } from "./eslint.boundaries.js";
 
 export default tseslint.config(
   {
@@ -22,6 +23,8 @@ export default tseslint.config(
       "drizzle/**",
       "extensions/**",
       "app/types/**",
+      // The libraries ship TypeScript source, so node_modules holds .ts files: never lint what we do not own.
+      "tools/**/node_modules/**",
       "worker-configuration.d.ts",
     ],
   },
@@ -31,14 +34,6 @@ export default tseslint.config(
   // `configs["recommended-latest"]` is still eslintrc-shaped (plugins as an
   // array), which ESLint 10 rejects.
   reactHooks.configs.flat["recommended-latest"],
-  {
-    // `react-hooks/incompatible-library` warns that React Compiler will skip memoizing a component that calls a library
-    // whose functions it cannot memoize safely. This app does not use React Compiler, so the warning has nothing to
-    // protect; the one place it fires is the console's DataTable (`useReactTable`). Scoped to that file, not global:
-    // any other component that trips the rule is a real signal. Turn it back on here if the compiler is ever adopted.
-    files: ["app/internal/components/data-table.tsx"],
-    rules: { "react-hooks/incompatible-library": "off" },
-  },
   {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
@@ -71,7 +66,7 @@ export default tseslint.config(
         {
           name: "process",
           message:
-            "No process.env in the Workers runtime — use getEnv() from ~/request-context.server.",
+            "No process.env in the Workers runtime: use `env` from cloudflare:workers.",
         },
       ],
     },
@@ -121,31 +116,42 @@ export default tseslint.config(
     },
   },
   {
-    files: ["app/**/*.{ts,tsx}"],
-    ignores: ["app/models/**", "app/wiring.server.ts", "app/wiring/**", "app/**/*.test.{ts,tsx}"],
+    // Size caps for everything we write (docs/architecture.md section 9): a file at most 400 lines, a function at most 40.
+    files: ["app/**/*.{ts,tsx}", "workers/**/*.ts", "tools/**/*.ts"],
     rules: {
-      "no-restricted-imports": [
+      "max-lines": ["error", { max: 400, skipBlankLines: true, skipComments: true }],
+      "max-lines-per-function": ["error", { max: 40, skipBlankLines: true, skipComments: true }],
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/ban-ts-comment": "error",
+      "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
+      "@typescript-eslint/consistent-type-imports": "error",
+    },
+  },
+  {
+    // Time, ids and randomness come from the composition root (app/wiring), so tests can fix them and core never sees a hidden
+    // clock. A Date from a value (`new Date(ms)`) is fine; reading "now" is not.
+    files: ["app/**/*.{ts,tsx}", "workers/**/*.ts"],
+    ignores: ["app/wiring/**", "app/test/**", "**/*.test.{ts,tsx}"],
+    rules: {
+      "no-restricted-properties": [
         "error",
-        {
-          patterns: [
-            {
-              group: [
-                "~/models/*",
-                "~/models/**",
-                "../models/*",
-                "../models/**",
-                "../../models/*",
-                "../../models/**",
-                "../../../models/*",
-                "../../../models/**",
-                "../../../../models/*",
-                "../../../../models/**",
-              ],
-              message: "Repository adapters are constructed only in the composition root (~/wiring.server).",
-            },
-          ],
-        },
+        { object: "Date", property: "now", message: "Take the time from services (app/wiring)." },
+        { object: "crypto", property: "randomUUID", message: "Take ids from services (app/wiring)." },
+        { object: "Math", property: "random", message: "Take randomness from services (app/wiring)." },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        { selector: "NewExpression[callee.name='Date'][arguments.length=0]", message: "Take the time from services (app/wiring)." },
       ],
     },
   },
+  {
+    // core is pure: no framework, no I/O.
+    files: ["app/core/**/*.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { paths: [{ name: "react-router", message: "core/ has no framework imports." }, { name: "react", message: "core/ has no framework imports." }] }],
+      "no-restricted-globals": ["error", { name: "fetch", message: "core/ takes I/O as arguments; do not call fetch." }],
+    },
+  },
+  boundariesConfig,
 );

@@ -17,12 +17,7 @@ import { dirname, join } from "node:path";
 
 /** Anything that looks like "fill this in". */
 const PLACEHOLDER = /REPLACE|CHANGE_?ME|TODO|XXXX|your-?(domain|account)/i;
-const SHOPIFY_APP_GID = /^gid:\/\/shopify\/App\/[^/]+$/;
-/** The template's invented dashboard (App Store 1.1.4: no fabricated store data). */
-const SAMPLE_DASHBOARD_IMPORT = /components\/dashboard\/SampleDashboard\b/;
-/** The template's invented setup steps and progress (same rule: no fabricated state shown to a merchant). */
-const SAMPLE_SETUP_GUIDE_IMPORT = /components\/dashboard\/SetupGuide\b/;
-/** Same rule as HANDLE_PATTERN in app/lib/install-target.ts (this script cannot import TypeScript). */
+/** Same rule as HANDLE_PATTERN in app/core/install-target.ts (this script cannot import TypeScript). */
 const APP_HANDLE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
 function isHttpsUrl(value) {
@@ -142,7 +137,7 @@ const BINDING_SECTIONS = [
   ["workflows", "binding"],
 ];
 
-function bindingKeys(config) {
+export function bindingKeys(config) {
   return new Set(BINDING_SECTIONS.flatMap(([section, nested, key]) => {
     const entries = key ? config[section]?.[nested] : config[section];
     if (Array.isArray(entries)) return entries.map((entry) => entry[key ?? nested]).filter(Boolean);
@@ -152,12 +147,11 @@ function bindingKeys(config) {
 }
 
 /**
- * Top-level vars that production must NOT re-declare. VAPID_PRIVATE_KEY and
- * TURNSTILE_SECRET_KEY are empty slots so wrangler loads them from .dev.vars
- * locally; in production they are secrets, and a var of the same name would
- * shadow them (.claude/rules/web-push.md, .claude/rules/support-inbox.md).
+ * Top-level vars that production must NOT re-declare. TURNSTILE_SECRET_KEY is an empty slot so wrangler loads them from .dev.vars
+ * locally; in production it is a secret, and a var of the same name would
+ * shadow it.
  */
-const LOCAL_ONLY_VARS = new Set(["VAPID_PRIVATE_KEY", "TURNSTILE_SECRET_KEY"]);
+const LOCAL_ONLY_VARS = new Set(["TURNSTILE_SECRET_KEY"]);
 
 function parityIssues(base, production) {
   const issues = [];
@@ -206,25 +200,19 @@ export function validateLaunchContract(files) {
   if (findPlaceholders(production).length > 0) issues.push("Cloudflare production binding contains placeholder values");
 
   const vars = production.vars ?? {};
-  for (const key of ["SHOPIFY_API_KEY", "SHOPIFY_APP_URL", "SHOPIFY_PARTNER_APP_ID", "SHOPIFY_PARTNER_ORGANIZATION_ID", "SHOPIFY_PARTNER_API_VERSION"]) {
+  for (const key of ["SHOPIFY_API_KEY", "SHOPIFY_APP_URL", "PARTNER_APP_ID", "PARTNER_ORG_ID", "EVENT_HASH_KEY_ID"]) {
     if (!vars[key] || PLACEHOLDER.test(vars[key]) || vars[key] === "https://example.com") {
       issues.push(`${key} is missing or placeholder`);
     }
   }
-  if (typeof vars.SHOPIFY_PARTNER_APP_ID === "string" && vars.SHOPIFY_PARTNER_APP_ID && !SHOPIFY_APP_GID.test(vars.SHOPIFY_PARTNER_APP_ID)) {
-    issues.push("SHOPIFY_PARTNER_APP_ID must be a Shopify App GID in the form gid://shopify/App/<id>");
-  }
-  if (!(production.secrets?.required ?? []).includes("SHOPIFY_PARTNER_API_TOKEN")) {
-    issues.push("SHOPIFY_PARTNER_API_TOKEN secret is not declared");
-  }
-  for (const secret of ["ATTACHMENT_TOKEN_SECRET", "STAFF_MFA_KEY"]) {
+  for (const secret of ["PARTNER_API_TOKEN", "ATTACHMENT_TOKEN_SECRET", "EVENT_HASH_SECRET"]) {
     if (!(production.secrets?.required ?? []).includes(secret)) issues.push(`${secret} secret is not declared`);
   }
 
   const requiredBindings = [
-    ["SESSION", "kv_namespaces"], ["DB", "d1_databases"], ["UPLOADS", "r2_buckets"],
-    ["EMAIL", "send_email"], ["AI", "ai"], ["WEBHOOK_QUEUE", "queues"],
-    ["SUPPORT_LIMITER", "ratelimits"], ["SUPPORT_MAIL_LIMITER", "ratelimits"], ["LOGIN_LIMITER", "ratelimits"], ["RESET_LIMITER", "ratelimits"],
+    ["SESSION", "kv_namespaces"], ["PORTAL_BLOCKLIST", "kv_namespaces"], ["DB", "d1_databases"], ["UPLOADS", "r2_buckets"],
+    ["EMAIL", "send_email"], ["AI", "ai"], ["WEBHOOK_QUEUE", "queues"], ["PORTAL_EVENTS", "queues"],
+    ["SUPPORT_LIMITER", "ratelimits"], ["SUPPORT_FORM_LIMITER", "ratelimits"], ["SUPPORT_MAIL_LIMITER", "ratelimits"],
   ];
   for (const [binding, section] of requiredBindings) {
     const configured = section === "ai"
@@ -236,16 +224,16 @@ export function validateLaunchContract(files) {
           : production[section]?.some((entry) => entry.binding === binding || entry.name === binding);
     if (!configured) issues.push(`production binding ${binding} is missing`);
   }
+  // The portal consumes the events queue (and owns its DLQ); only the webhook queue has a consumer here.
   const webhookQueue = production.queues?.producers?.find((entry) => entry.binding === "WEBHOOK_QUEUE")?.queue;
   if (!webhookQueue || !production.queues?.consumers?.some((entry) => entry.queue === webhookQueue)) {
     issues.push("production WEBHOOK_QUEUE consumer is missing");
   }
-  // Named-env triggers are not inherited, and the hourly probe cron must match UNINSTALL_PROBE_CRON in
-  // app/domain/cron-schedule.ts (that file's test pins the literal). Without it uninstall reconciliation runs once a day.
+  // Named-env triggers are not inherited, and these two strings are decisions shared with app/core/cron.ts (its test pins them):
+  // without the drain-only cron the outbox is sent once a day, without the daily one the snapshot never runs.
   const crons = production.triggers?.crons ?? [];
-  if (!crons.includes("0 * * * *")) issues.push('production triggers.crons must include the hourly uninstall-probe cron "0 * * * *"');
-  if (crons.length < 2) issues.push("production triggers.crons must also keep a daily maintenance cron");
-  if (!("AI_GATEWAY_ID" in vars)) issues.push("AI_GATEWAY_ID production var is missing");
+  if (!crons.includes("* * * * *")) issues.push('production triggers.crons must include the outbox drain cron "* * * * *"');
+  if (!crons.includes("30 3 * * *")) issues.push('production triggers.crons must include the daily cron "30 3 * * *"');
 
   const clientId = tomlString(files.productionToml, "client_id");
   const appUrl = tomlString(files.productionToml, "application_url");
@@ -268,38 +256,23 @@ export function validateLaunchContract(files) {
   }
   const productionWebhookVersion = tomlSectionString(files.productionToml, "webhooks", "api_version");
   const developmentWebhookVersion = tomlSectionString(files.developmentToml, "webhooks", "api_version");
-  // Two tracks. The Admin API / webhook version is ONE decision (ApiVersion in
-  // app/shopify.server.ts and both tomls). The Partner API is versioned
-  // separately and its newest published version lags the Admin API.
+  // The Admin API / webhook version is ONE decision (app/core/api-version.ts and both tomls).
   const supportedWebhookVersion = "2026-10";
-  const supportedPartnerVersion = "2026-07";
   if (productionWebhookVersion !== supportedWebhookVersion || developmentWebhookVersion !== supportedWebhookVersion) {
     issues.push(`webhook API version must be ${supportedWebhookVersion} in both Shopify app configs`);
   }
-  if (vars.SHOPIFY_PARTNER_API_VERSION !== supportedPartnerVersion) {
-    issues.push(`SHOPIFY_PARTNER_API_VERSION must be ${supportedPartnerVersion}`);
-  }
   const identitySource = files.identity ?? "";
-  const requiredIdentity = ["name", "companyName", "supportEmail", "address"];
+  const requiredIdentity = ["slug", "name", "companyName", "supportEmail", "address"];
   const missingIdentity = requiredIdentity.some((field) => new RegExp(`${field}\\s*:\\s*"[^"\\n]+"`).test(identitySource) === false);
   const effectiveDate = identitySource.match(/effectiveDate\s*:\s*"(\d{4}-\d{2}-\d{2})"/)?.[1];
   const validDate = effectiveDate && !Number.isNaN(Date.parse(`${effectiveDate}T00:00:00Z`)) && new Date(`${effectiveDate}T00:00:00Z`).toISOString().startsWith(effectiveDate);
   if (PLACEHOLDER.test(files.legal) || PLACEHOLDER.test(identitySource) || missingIdentity || !validDate) {
     issues.push("legal identity/contact/date contains TODO or invalid effective date");
   }
-  if (PLACEHOLDER.test(files.plans)) issues.push("Managed Pricing plan handle contains placeholder");
-  if (PLACEHOLDER.test(files.publicCopy)) issues.push("public pricing/support/privacy copy contains TODO");
-  // common.json holds the plan feature lists (plans.*) and the tagline, in every language the app ships.
-  for (const { path, source } of files.commonCopy ?? []) {
-    if (PLACEHOLDER.test(source)) issues.push(`${path} contains TODO (plan features / tagline are template copy)`);
-  }
+  if (PLACEHOLDER.test(files.plans)) issues.push("app/core/plans.ts still has placeholder plan names, prices or limits");
+  if (PLACEHOLDER.test(files.publicCopy)) issues.push("the public pages (landing, support, privacy, terms) contain TODO");
   for (const { path, source } of files.routeSources ?? []) {
-    if (SAMPLE_DASHBOARD_IMPORT.test(source)) {
-      issues.push(`${path} renders the sample dashboard (invented store data); replace it with real data or an empty state`);
-    }
-    if (SAMPLE_SETUP_GUIDE_IMPORT.test(source)) {
-      issues.push(`${path} renders the template setup guide (invented steps and progress); drive it from the shop's real state or remove it`);
-    }
+    if (PLACEHOLDER.test(source)) issues.push(`${path} is still the template's placeholder page (it contains TODO): replace it with the app's own`);
   }
   return issues;
 }
@@ -308,7 +281,7 @@ export function validateLaunchContract(files) {
  * Not blocking, but worth reading before a release. An empty handle is right
  * until the app has a listing: the manual shop-domain form is then the only way
  * in. Once listed, App Store requirement 2.3.1 forbids that form, and the handle
- * is what removes it (app/lib/install-target.ts).
+ * is what removes it (app/core/install-target.ts).
  */
 export function launchWarnings(files) {
   const warnings = [];
@@ -329,17 +302,6 @@ export function launchWarnings(files) {
     );
   }
   return warnings;
-}
-
-/** Every language's `common.json`, as `{ path, source }` with repo-relative paths. */
-function readCommonCopy(repoRoot) {
-  const localesDir = "app/i18n/locales";
-  return readdirSync(join(repoRoot, localesDir), { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => {
-      const path = `${localesDir}/${entry.name}/common.json`;
-      return { path, source: readFileSync(join(repoRoot, path), "utf8") };
-    });
 }
 
 /** Every .ts/.tsx file under `dir`, as `{ path, source }` with repo-relative paths. */
@@ -390,12 +352,11 @@ function main() {
     wrangler: config,
     productionToml: readFileSync(join(repoRoot, "shopify.app.toml"), "utf8"),
     developmentToml: readFileSync(join(repoRoot, "shopify.app.dev.toml"), "utf8"),
-    legal: readFileSync(join(repoRoot, "app/legal/content.ts"), "utf8") + readFileSync(join(repoRoot, "app/identity.ts"), "utf8"),
-    identity: readFileSync(join(repoRoot, "app/identity.ts"), "utf8"),
-    plans: readFileSync(join(repoRoot, "app/billing/plans.ts"), "utf8"),
-    publicCopy: readFileSync(join(repoRoot, "app/i18n/locales/en/public.json"), "utf8"),
-    commonCopy: readCommonCopy(repoRoot),
-    routeSources: readSources(repoRoot, "app/routes"),
+    legal: readSources(repoRoot, "app/routes/public/legal").map(({ source }) => source).join("\n") + readFileSync(join(repoRoot, "app/core/identity.ts"), "utf8"),
+    identity: readFileSync(join(repoRoot, "app/core/identity.ts"), "utf8"),
+    plans: readFileSync(join(repoRoot, "app/core/plans.ts"), "utf8"),
+    publicCopy: ["landing", "support"].map((page) => readFileSync(join(repoRoot, `app/routes/public/${page}.tsx`), "utf8")).join("\n"),
+    routeSources: [{ path: "app/routes/app/home.tsx", source: readFileSync(join(repoRoot, "app/routes/app/home.tsx"), "utf8") }],
   };
   for (const warning of launchWarnings(files)) console.warn(`warning: ${warning}`);
   const issues = validateLaunchContract(files);

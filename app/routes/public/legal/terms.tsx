@@ -1,73 +1,17 @@
-import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { useTranslation } from "react-i18next";
-import { audienceTextForRequest } from "~/wiring/audience.server";
-import { useLanguage } from "~/i18n/useLanguage";
-import { formatDate } from "~/i18n/format";
-import { UTC } from "~/i18n/time-zone";
-import { identity } from "~/identity";
-import { useSupportEmail } from "../support-email";
+import type { MetaFunction } from "react-router";
+import { identity } from "~/core/identity";
 
-export const handle = { i18n: ["common", "public"] };
+export const meta: MetaFunction = () => [{ title: `Terms of service - ${identity.name}` }];
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const text = await audienceTextForRequest(request, "public.terms");
-  const t = text.fixedT("public");
-  return {
-    title: `${t("legal.terms.heading")} · ${identity.name}`,
-  };
-};
-
-export const meta: MetaFunction<typeof loader> = ({ data }) => [
-  { title: data?.title ?? "" },
-];
-
-const SECTION_KEYS = [
-  "agreement",
-  "service",
-  "fees",
-  "acceptableUse",
-  "availability",
-  "liability",
-  "termination",
-  "law",
-] as const;
-
-export default function TermsOfService() {
-  const { t } = useTranslation("public");
-  const language = useLanguage();
-  const supportEmail = useSupportEmail();
-
-  const updated = Number.isNaN(Date.parse(identity.legal.effectiveDate))
-    ? identity.legal.effectiveDate
-    : formatDate(language, new Date(identity.legal.effectiveDate), UTC, { dateStyle: "long" });
-
+/** Placeholder text a derived app replaces with its own terms (`docs/LEGAL_TEMPLATE.md`). */
+export default function Terms() {
   return (
     <section className="section">
       <div className="prose stack">
-        <h1>{t("legal.terms.heading")}</h1>
-        <p className="muted">{t("legal.lastUpdated", { date: updated })}</p>
-
-        <p className="notice notice--warning">{t("legal.terms.warning")}</p>
-
-        <p>
-          {t("legal.terms.intro", {
-            company: identity.companyName,
-          })}
-        </p>
-
-        {SECTION_KEYS.map((key) => (
-          <section key={key}>
-            <h2>{t(`legal.terms.sections.${key}.heading`)}</h2>
-            <p>{t(`legal.terms.sections.${key}.body`)}</p>
-          </section>
-        ))}
-
-        <div className="card stack">
-          <p>
-            {t("legal.terms.questions")}{" "}
-            <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
-          </p>
-        </div>
+        <h1>Terms of service</h1>
+        <p className="notice notice--warning">Placeholder. Replace with the terms your lawyer approved before submitting the app for review.</p>
+        <p>TODO: the agreement between {identity.companyName} and a merchant who installs {identity.name}.</p>
+        <p>Effective {identity.legal.effectiveDate}. {identity.legal.address}.</p>
       </div>
     </section>
   );

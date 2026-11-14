@@ -1,1 +1,0 @@
-ALTER TABLE `shops` ADD `dev_status_checked_at` integer;

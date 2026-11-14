@@ -1,6 +1,5 @@
 import { reactRouter } from "@react-router/dev/vite";
 import { cloudflare } from "@cloudflare/vite-plugin";
-import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 // `shopify app dev` passes the live tunnel URL as SHOPIFY_APP_URL (older CLIs:
@@ -58,39 +57,12 @@ export default defineConfig(({ command }) => ({
     ...(host !== "localhost" ? { allowedHosts: [host] } : {}),
     ...(process.env.PORT ? { port: Number(process.env.PORT) } : {}),
   },
-  // Browser (client environment) dependency pre-bundling.
-  //
-  // Vite only discovers a dependency when it first sees an import of it. Left to
-  // itself it finds the admin's (`react-i18next`, `zod`,
-  // `@shopify/shopify-app-react-router/react`, ...) and the console's
-  // (`radix-ui`, `recharts`, `lucide-react`, `sonner`) only when you first visit a
-  // route that imports them. Each discovery re-optimises, reloads the page, and
-  // leaves the browser holding dependency URLs with an outdated `?v=` hash that
-  // answer 504 — the slow, error-filled first navigation in dev. Listing every
-  // browser-side package here bundles them all before the first request.
-  // Add a package here when a client route starts importing a new one: the
-  // symptom is "new dependencies found ... reloading" in `DEBUG=vite:deps`.
-  // This does not touch the Worker (`ssr`) environment, which the Cloudflare
-  // plugin configures itself.
+  // Browser (client environment) dependency pre-bundling. Vite finds a dependency only when it first sees an import of it; each
+  // discovery re-optimises and reloads the page, leaving the browser holding URLs with an outdated `?v=` hash (504s on the first
+  // navigation in dev). List every browser-side package here, including the ones `@firesio/app-ui` brings. Add a package when a
+  // client route starts importing a new one: the symptom is "new dependencies found ... reloading" in `DEBUG=vite:deps`.
   optimizeDeps: {
-    include: [
-      "react",
-      "react-dom/client",
-      "react-router",
-      "react-router/dom",
-      "react-i18next",
-      "i18next",
-      "zod",
-      "radix-ui",
-      "sonner",
-      "class-variance-authority",
-      "clsx",
-      "tailwind-merge",
-      "recharts",
-      "lucide-react",
-      "@shopify/shopify-app-react-router/react",
-      "@shopify/app-bridge-types",
-    ],
+    include: ["react", "react-dom/client", "react-router", "react-router/dom", "zod", "@shopify/shopify-app-react-router/react", "@shopify/app-bridge-types"],
   },
   plugins: [
     // Runs the app in the Workers runtime (workerd) during dev, matching
@@ -111,10 +83,6 @@ export default defineConfig(({ command }) => ({
               : {}),
           }),
         ]),
-    // Tailwind only affects CSS that `@import "tailwindcss"` — which is only
-    // app/styles/internal/internal.tailwind.css, loaded by the /internal routes.
-    // The public SCSS and the Polaris admin are untouched.
-    tailwindcss(),
     reactRouter(),
   ],
   build: {

@@ -1,0 +1,48 @@
+const HSTS = "max-age=31536000; includeSubDomains";
+
+const PUBLIC_CSP = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "connect-src 'self'",
+  "font-src 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "img-src 'self' data:",
+  "object-src 'none'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self'",
+].join("; ");
+
+// The support form embeds Turnstile, which loads a script and a frame from Cloudflare.
+const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
+const SUPPORT_CSP = PUBLIC_CSP.replace("script-src 'self' 'unsafe-inline'", `script-src 'self' 'unsafe-inline' ${TURNSTILE_ORIGIN}`).concat(`; frame-src ${TURNSTILE_ORIGIN}`);
+
+function isPublicRoute(pathname: string) {
+  return (
+    pathname === "/" ||
+    pathname === "/support" ||
+    pathname === "/legal/privacy" ||
+    pathname === "/legal/terms"
+  );
+}
+
+export function applySecurityHeaders(
+  request: Request,
+  headers: Headers,
+): Headers {
+  const url = new URL(request.url);
+
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+
+  if (url.protocol === "https:") {
+    headers.set("Strict-Transport-Security", HSTS);
+  }
+
+  if (isPublicRoute(url.pathname)) {
+    headers.set("X-Frame-Options", "DENY");
+    headers.set("Content-Security-Policy", url.pathname === "/support" ? SUPPORT_CSP : PUBLIC_CSP);
+  }
+
+  return headers;
+}
