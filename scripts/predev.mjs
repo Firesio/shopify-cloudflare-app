@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-// Runs before `npm run dev`: local D1 migrations, the local admin seed, the local VAPID pair.
+// Runs before `npm run dev`: the local D1 migrations.
 //
-// Migrating and seeding each spawn wrangler (about 4 s and 3.5 s) and both are idempotent, so on a start where nothing
-// changed they only cost time. A stamp stored inside .wrangler/ (so wiping local state also wipes the stamp) records
-// the migration journal and seed script they last succeeded for; when both are unchanged they are skipped.
-// The VAPID step is 0.2 s and depends on .dev.vars, not on the database, so it always runs.
+// Migrating spawns wrangler (about 4 s) and is idempotent, so on a start where nothing changed it only costs time. A stamp
+// stored inside .wrangler/ (so wiping local state also wipes the stamp) records the migration journal it last succeeded for;
+// when it is unchanged the step is skipped.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -14,10 +13,10 @@ import { fileURLToPath } from "node:url";
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const stampPath = join(repoRoot, ".wrangler", "predev-stamp");
 
-/** What the database state depends on: the migration journal (the filenames are the applied key) and the seed. */
+/** What the database state depends on: the migration journal (the filenames are the applied key). */
 export function databaseFingerprint(root) {
   const hash = createHash("sha256");
-  for (const file of ["drizzle/meta/_journal.json", "scripts/seed-admin.mjs", "scripts/admin-query.mjs"]) {
+  for (const file of ["drizzle/meta/_journal.json"]) {
     hash.update(file);
     hash.update(readFileSync(join(root, file)));
   }
@@ -38,14 +37,12 @@ function main() {
   const fingerprint = databaseFingerprint(repoRoot);
   const stored = existsSync(stampPath) ? readFileSync(stampPath, "utf8") : undefined;
   if (isCurrent(stored, fingerprint)) {
-    console.log("Local database already migrated and seeded for these migrations; skipping.");
+    console.log("Local database already migrated for these migrations; skipping.");
   } else {
     npmRun("db:migrate:local");
-    npmRun("db:seed");
     mkdirSync(dirname(stampPath), { recursive: true });
     writeFileSync(stampPath, `${fingerprint}\n`);
   }
-  npmRun("push:seed-dev");
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) main();

@@ -1,16 +1,15 @@
 ---
 name: add-webhook-topic
-description: Subscribe to and handle a new Shopify webhook topic (handler, registry entry, route, both toml files, tests). Use when adding or changing a webhook topic or its consumer.
+description: Subscribe to and handle a new Shopify webhook topic (handler in the router, both toml files, tests). Use when adding or changing a webhook topic or its consumer.
 ---
 
 # Add a webhook topic
 
-Source of truth: `docs/webhooks.md` ("Adding a topic (class A)" and, for order/product volume, "Adding order/product topics"). Facts about Shopify delivery are in `docs/shopify-api-invariants.md` (see the `shopify-findings` skill). Look up the topic, its payload and its scope with the `shopify-plugin:*` skills before writing anything.
+Source of truth: `docs/webhooks.md`; Shopify delivery facts in `docs/shopify-api-invariants.md` (see the `shopify-findings` skill). Look up the topic, its payload and its scope with the `shopify-plugin:*` skills before writing anything.
 
-1. Handler `app/services/webhook-handlers/<topic>.ts` plus its entry in `webhookConsumer()`. The build fails until both exist.
-2. Add the topic to `WebhookTopic` and `WEBHOOK_TOPICS` in `app/domain/webhook-delivery-lifecycle.ts`: does it need a shop record, and what happens for an unknown shop (`run` or `defer`)?
-3. Route that ends in `enqueueVerifiedWebhook(...)`, an entry in `app/routes.ts` (webhooks group), and the subscription in **both** `shopify.app.toml` and `shopify.app.dev.toml` (same URI). Validate the payload with Zod at the route; answer 400 for a shape the handler cannot use.
-4. The request writes nothing to D1: verify HMAC, one queue message, 2xx.
-5. Tests: bad HMAC → 401; one queue message and **no D1 write in the request** (`captureWebhookQueue()` from `app/test/webhook-queue.ts`); the handler; and a **duplicate-delivery test proving exactly one effect** (`consumeWebhook`). Attempts and retries go through `webhookQueueDependencies()`.
-6. Personal data (orders, customers): needs a scope and protected-data access, and `customers/redact` + `shop/redact` must delete it. High-volume topics (class B) need their own queue; read the doc before choosing.
-7. `npm run verify`.
+1. **Subscribe** in **both** `shopify.app.toml` and `shopify.app.dev.toml` (same URI under `/webhooks/...`). `routes/webhooks/receive.ts` is the ONE receiver for every topic: it verifies the HMAC, puts one message on the queue, answers 2xx, and writes nothing. You add no route.
+2. **Handle** the topic in `webhookRouter` (`app/wiring/webhooks.ts`): a handler per topic, validated with `typedHandler(schema, ...)` from `@firesio/shopify` when it reads the payload. The use case itself lives in `app/core/` and takes ports. A topic with no handler is settled as `unsupported_topic`.
+3. **Ordering**: Shopify does not order webhooks. A topic that changes state stores `orderKey(...)` next to what it applied and asks `decideOrder` (`@firesio/shopify`), as the uninstall does with the shop's `relationship_occurred_at`.
+4. **Personal data** (orders, customers): needs a scope and protected-data access; set `customerData: { stores: true, dataRequest, redact }` in `complianceDeps`, send the receiver `includePayload: true`, and make `customers/redact` and `shop/redact` really erase it.
+5. **Tests**: the handler's effect, a **duplicate-delivery test proving exactly one effect** (`core/webhooks/consume.test.ts` is the pattern), and for a purge, a seeded row in `wiring/webhooks.test.ts`. The receiver's own test (bad HMAC is 401, no D1 write) already covers every topic.
+6. `npm run verify`.

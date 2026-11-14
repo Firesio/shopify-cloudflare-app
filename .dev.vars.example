@@ -1,96 +1,35 @@
-# Copy to `.dev.vars` (gitignored) and FILL IN — copying it blank is worse than
-# not having it at all. Read by the Cloudflare Vite plugin / `wrangler dev`.
+# Copy to `.dev.vars` (gitignored) and FILL IN: copying it blank is worse than not having it at all. Read by the Cloudflare Vite
+# plugin / `wrangler dev`.
 #
-# An empty `KEY=` line is a DEFINED empty string, not an absent value, so it
-# shadows whatever `shopify app dev` injects. That is why SHOPIFY_API_SECRET
-# below is commented out rather than left blank.
+# An empty `KEY=` line is a DEFINED empty string, not an absent value, so it shadows whatever `shopify app dev` injects. That is why
+# SHOPIFY_API_SECRET is not listed below: `npm run dev` injects it (with SHOPIFY_API_KEY, SCOPES and the tunnel URL).
 #
-# Secret NAMES are declared in wrangler.jsonc (`secrets.required`), so
-# `wrangler types` no longer needs this file to type `Env` — a fresh clone
-# compiles with no `.dev.vars` at all.
+# Secret NAMES are declared in wrangler.jsonc (`secrets.required`), so `wrangler types` does not need this file: a fresh clone compiles
+# with no `.dev.vars` at all.
 
-# Shopify app client secret — Dev Dashboard → your app → API access.
-# `npm run dev` (via the Shopify CLI) injects this automatically. Leave it
-# commented out: set to an empty string it breaks `npm run dev` with "Cannot
-# initialize Shopify API Library. Missing values for: apiSecretKey" — a failure
-# that appears at the first request, nowhere near the cause.
-# SHOPIFY_API_SECRET=
+# Signs the links of support attachments. Any long random string locally.
+ATTACHMENT_TOKEN_SECRET=dev-attachment-secret
 
-# Optional, ONLY while rotating the app's client secret: the PREVIOUS secret. Shopify says the webhook HMAC can take up
-# to an hour to start using a new secret, so webhooks are accepted if signed with either this or SHOPIFY_API_SECRET.
-# Not declared in wrangler.jsonc (wrangler has no optional secrets). In production:
-#   wrangler secret put SHOPIFY_API_SECRET_PREVIOUS --env production
-# and delete it once the hour has passed: a revoked secret that stays accepted lets anyone who holds it forge webhooks.
-# SHOPIFY_API_SECRET_PREVIOUS=
+# The HMAC key every app and the portal hash events with. Locally anything; production uses the shared secret and EVENT_HASH_KEY_ID.
+EVENT_HASH_SECRET=dev-event-hash-secret
 
-# Optional: Web Push to staff browsers (VAPID, RFC 8292). Push stays off until BOTH values are set; the app sends
-# nothing and the UI shows push as unavailable. Generate a pair with `npm run push:keys`.
-#   VAPID_PUBLIC_KEY   not a secret: a var in wrangler.jsonc (top level and env.production.vars). Browsers need it to
-#                      subscribe. Locally put it here so it overrides the empty value in wrangler.jsonc.
-#   VAPID_PRIVATE_KEY  a SECRET, never committed. Deliberately not in `secrets.required` (a missing required secret
-#                      fails the deploy and push is optional). In production:
-#                        wrangler secret put VAPID_PRIVATE_KEY --env production
-# The contact URI (`sub`) is SHOPIFY_APP_URL, so it must be https: with a plain http://localhost app URL push stays off.
-# VAPID_PUBLIC_KEY=
-# VAPID_PRIVATE_KEY=
+# Partner API token (reads this app's subscription). Empty = the subscription refresh reports `not_configured` and the shop stays on the
+# free plan. Needs PARTNER_ORG_ID and PARTNER_APP_ID (vars in wrangler.jsonc; the Partner Dashboard URL and the app overview).
+# PARTNER_API_TOKEN=
 
-# Optional: custom dev-store domain.
+# Optional: Cloudflare Turnstile secret for the public support form (the site key is TURNSTILE_SITE_KEY in wrangler.jsonc). Empty = check off.
+# TURNSTILE_SECRET_KEY=
+
+# Optional: custom shop domains Shopify may authenticate (a comma list is not supported: one domain).
 # SHOP_CUSTOM_DOMAIN=
 
-# Signs the internal console's session cookie (/internal). Any long random
-# string locally; in production use a real one:
-#   wrangler secret put INTERNAL_SESSION_SECRET --env production
-# The app REFUSES to serve /internal without it rather than signing with a
-# constant, which would make the session cookie forgeable.
-INTERNAL_SESSION_SECRET=dev-only-internal-session-secret-change-me
-
-# Signs support attachment URLs. Keep this independent from Shopify credentials.
-# Generate with: `openssl rand -hex 32`
-ATTACHMENT_TOKEN_SECRET=dev-only-attachment-token-secret-change-me
-
-# Encrypts staff two-step verification (TOTP) secrets at rest in D1. Without it
-# staff cannot turn MFA on, and anyone already enrolled cannot sign in (it fails
-# closed). Generate with `openssl rand -hex 32`; in production:
-#   wrangler secret put STAFF_MFA_KEY --env production
-# Changing it later makes every enrolled authenticator unreadable: an owner then
-# resets MFA for each person (Admins page), and they enroll again.
-STAFF_MFA_KEY=dev-only-staff-mfa-key-change-me
-
-# Try `support+<id>@` replies locally: the app URL is a tunnel that cannot receive
-# mail, so name the address domain to test with (the ticket id comes from the thread).
-# SUPPORT_MAIL_DOMAIN=vip.firesio.app
-
-# Public support form bot check (Cloudflare Turnstile). Leave TURNSTILE_SITE_KEY
-# empty in wrangler.jsonc and the check is skipped locally. For Cloudflare's published
-# test keys see https://developers.cloudflare.com/turnstile/troubleshooting/testing/
-TURNSTILE_SECRET_KEY=
-
-# Transactional email. The `send_email` binding is already declared, but nothing
-# sends until the domain is onboarded and EMAIL_FROM is set (in wrangler.jsonc
-# vars, per environment — it is not a secret):
+# Transactional email. The `send_email` binding is declared, but nothing sends until the domain is onboarded and EMAIL_FROM is set (in
+# wrangler.jsonc vars, per environment: it is not a secret):
 #   npx wrangler email sending enable yourdomain.com
-# The binding is `remote: true`, so a send during `npm run dev` goes through the
-# REAL service and needs `wrangler login`. Leave EMAIL_FROM empty and the
-# forgot-password page shows the reset link on screen instead of emailing it.
+# The binding is `remote: true`, so a send during `npm run dev` goes through the REAL service and needs `wrangler login`.
 
-# NOTE: never set SHOPIFY_APP_URL here — it would shadow the live tunnel URL
-# that `shopify app dev` injects.
+# NOTE: never set SHOPIFY_APP_URL here: it would shadow the live tunnel URL that `shopify app dev` injects.
 
-# Partner billing/history identity (configuration, not a secret). Obtain this
-# from an authenticated Admin currentAppInstallation query as app.id and keep
-# it aligned with the app selected by the Shopify CLI. Use the
-# gid://shopify/App/<id> namespace; do not derive it from SHOPIFY_API_KEY or use
-# gid://partners/App/... (that legacy namespace belongs to a different query).
-# SHOPIFY_PARTNER_APP_ID=
-# SHOPIFY_PARTNER_ORGANIZATION_ID=
-# SHOPIFY_PARTNER_API_VERSION=2026-07
-
-# The App Store listing handle (apps.shopify.com/<handle>). Leave it unset locally and
-# before the app is listed: the landing page then shows the shop-domain install form.
-# Setting it makes every Install button link to the listing and hides the form.
+# The App Store listing handle (apps.shopify.com/<handle>). Leave it unset locally and before the app is listed: the landing page then
+# shows the shop-domain install form. Setting it makes every Install button link to the listing and hides the form.
 # SHOPIFY_APP_HANDLE=
-
-# `npm run dev` injects SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SCOPES, and the
-# tunnel URL. It does not inject SHOPIFY_PARTNER_APP_ID, so set that value
-# explicitly for the selected development app. Production sets the same keys
-# under env.production.vars in wrangler.jsonc; secrets stay in Wrangler.

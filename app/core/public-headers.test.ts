@@ -19,13 +19,8 @@ describe("public/_headers", () => {
     expect(rule("/assets/*")).toContain("Cache-Control: public, max-age=31536000, immutable");
   });
 
-  it("never marks a stable URL immutable", () => {
-    for (const path of ["/internal-sw.js", "/illustrations/*", "/plan-cards/*"]) {
-      expect(rule(path).join("\n")).not.toContain("immutable");
-    }
-  });
-
-  it("keeps the service worker revalidating on every navigation", () => {
-    expect(rule("/internal-sw.js")).toContain("Cache-Control: no-cache");
+  it("marks nothing but the content-hashed bundles immutable", () => {
+    const immutable = headers.split("\n").filter((line) => line.includes("immutable"));
+    expect(immutable).toHaveLength(1);
   });
 });

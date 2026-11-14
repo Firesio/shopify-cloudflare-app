@@ -1,22 +1,16 @@
 ---
 name: add-db-table
-description: Add a D1 table or column with its model, migration and the tenant-purge inventory. Use when creating or changing anything under app/db/schema, app/models or drizzle/.
+description: Add a D1 table or column with its adapter, migration and the shop/redact purge entry. Use when creating or changing anything under app/adapters/db, an adapter or drizzle/.
 ---
 
 # Add a D1 table
 
-Rules: `.claude/rules/data.md` (shop-scoped, no N+1, forward-only migrations, Drizzle only) and `.claude/rules/money.md` (money columns). Read them first.
+Rules: `.claude/rules/data.md` (shop-scoped, raw SQL with bound values, no query per row, forward-only migrations). Read it first. If a library already has the table (`@firesio/*/d1`), use the library: do not add a second one.
 
-1. **Schema**: a file under `app/db/schema/<domain>.ts` (or a table in the existing domain file) and, for a new file, `export * from "./schema/<domain>"` in `app/db/schema.ts`.
-   - Shop-scoped tables carry a `shop` column and every index starts with it. Money is `money("name")` from `~/db/columns`, never `real()`.
-   - A table with a lifecycle (`status`) also needs its transitions declared as data (`.claude/rules/core.md`).
-2. **Migration**: `npm run db:generate`, then `npm run db:migrate:local`. Never hand-write or edit an applied migration; a removed column is two deploys.
-3. **Model**: `app/models/<name>.server.ts`, the only place that queries it. `shop` is the first parameter of every function; select only the columns needed; batch with `inArray`, never a query per row.
-4. **Tenant purge** (`shop/redact` must erase everything we hold for a shop). In `app/models/tenant-purge.server.ts`:
-   - a table with a `shop` column goes into `PURGED_SHOP_TABLES` **and** gets a `db.delete(...)` in the batch inside `deleteTenantRows`, children before `shops` (foreign keys are enforced on D1).
-     `assertTenantPurgeCoverage` makes the purge fail, and `app/models/tenant-purge.test.ts` fail, when a shop table is missing; update the expected list in that test.
-   - data keyed by something other than `shop` (a `scope` column, a checkpoint `name`) is **invisible to the guard**: add its delete by hand, as `notification_preferences` and `shopify_sync_checkpoints` do.
-   - a table with no `shop` column needs a written reason (see `admin_users`, `redacted_shops` in `.claude/rules/core.md`).
-   - if it stores files, their R2 keys must be returned by `prepareTenantPurge`.
-5. **Tests** (real local D1, no mocks): the model, **a test proving it cannot read another shop's row**, and any hot query's index (`EXPLAIN QUERY PLAN`, see `.claude/rules/merchant-speed.md`).
-6. Run the **full** suite: `npm run verify` (a migration breaks tests that never mention it).
+1. **Schema**: a table in `app/adapters/db/schema.ts`. Shop-scoped tables carry `shop` and every index starts with it. Money is an integer minor-unit column plus a currency column.
+2. **Migration**: `npm run db:generate`, **read the SQL**, then `npm run db:migrate:local`. Never hand-edit an applied migration; a removed column is two deploys.
+3. **Port and adapter**: the port in `app/core/<area>/ports.ts`, the adapter in `app/adapters/d1-<name>.ts` (raw SQL, every value bound, `shop` first). A write that belongs with a portal event goes in the same `db.batch` as `enqueueStatement(...)` (`adapters/d1-shops.ts`, `prepared` from `adapters/d1-batch.ts`). Compose it in `app/wiring/services.ts`.
+4. **`shop/redact`**: add `DELETE FROM <table> WHERE <shop column> = ?1` to `SHOP_SCOPED_DELETES` in `app/wiring/webhooks.ts`, and seed a row in your table in `app/wiring/webhooks.test.ts` so a purge that forgets it fails. A table with files also needs a `before` step in `complianceDeps`. A table without a shop column needs a written reason.
+5. **Metrics**: a number the portal should see is a metric: one line in `app/core/metrics.ts` and one collector in `core/metrics-snapshot.ts` (and a count in `adapters/d1-metrics.ts`).
+6. **Tests** (real local D1, no mocks): the adapter, **a test proving it cannot read another shop's row**. `setupTestDatabase()` at the top of the file.
+7. `npm run verify` (a migration breaks tests that never mention it).

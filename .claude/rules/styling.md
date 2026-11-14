@@ -6,43 +6,18 @@ paths:
   - "**/*.scss"
 ---
 
-# Styling the public pages
+# Styling: public pages and the admin
 
-## Three surfaces, three systems — never mix them
+Two surfaces, two systems, never mixed:
 
-| Surface | Styled with | Loaded by |
+| Surface | System | Loaded by |
 |---|---|---|
-| **Public** — landing, pricing, legal, support, errors | **SCSS** in `app/styles/public/` | `app/routes/public/_layout.tsx` `links()` |
-| **Embedded Shopify admin** (`/app/**`) | **Polaris web components** + App Bridge, plus ONE skeleton stylesheet (below) | `AppProvider`; the stylesheet by `app/routes/app/_layout.tsx` `links()` |
-| **Internal staff console** (`/internal/**`) | **Tailwind v4 + shadcn/ui (neutral)** | `app/routes/internal/_layout.tsx` and `login.tsx` `links()` |
+| **Public**: landing, legal, support | **SCSS** in `app/styles/public/` | `app/routes/public/layout.tsx` `links()` |
+| **Embedded Shopify admin** (`/app/**`) | **Polaris web components** + App Bridge, no CSS of our own | `AppProvider` (`components/EmbeddedProvider.tsx`) |
 
-`@rules/shopify-and-ui.md` bans hand-rolled CSS in the *merchant admin*, and that
-still holds: never style the embedded app yourself. This file governs the other
-two, which are not embedded and have no Polaris.
+The staff console and its Tailwind/shadcn styling left the template with the portal (step 13). `@rules/shopify-and-ui.md` bans hand-rolled CSS in the merchant admin: never style the embedded app yourself.
 
-**The one exception (OWNER DECISION, 2026-11-10):** `app/styles/admin/skeleton.css`, under 40 lines, animates the
-`[data-skeleton]` marker that `app/components/admin/Skeleton.tsx` puts on pending values, because the owner wants an animated
-skeleton and Polaris has none. It targets that attribute only (never an `s-*` tag), uses no colour of its own (a mask changes
-the alpha of what Polaris painted, so light and dark both follow), is static under `prefers-reduced-motion`, and is loaded by the
-`/app` layout's `links()` and nowhere else. `app/routes/surface-assets.test.ts` holds that. Anything else in the admin is still
-Polaris, with no CSS. See `polaris-app-home.md`, "Loading".
-
-Why three and not one: the merchant admin must look like Shopify, the public
-pages must be fast and brandable with no framework, and the staff console wants a
-component library so internal tooling is cheap to build. Mixing them would ship a
-CSS reset into the Polaris iframe.
-
-**Tailwind is confined to `/internal`.** It only affects CSS that
-`@import "tailwindcss"`, which is only
-`app/styles/internal/internal.tailwind.css`. Never add that import anywhere else,
-and never use a Tailwind utility class in a public or admin route. The internal
-stylesheet also uses `source(none)` with explicit `@source` globs — without them
-Tailwind resolves its scan base inconsistently for a `?url` import and silently
-generates no utilities.
-
-**A stylesheet is loaded by exactly one layout's `links()`, never by `root.tsx`.**
-That is what keeps the public reset out of the admin iframe. A global import
-would ship a CSS reset into Polaris and quietly break it.
+**A stylesheet is loaded by exactly one layout's `links()`, never by `root.tsx`.** That keeps the public reset out of the admin iframe: a global import would ship a CSS reset into Polaris and quietly break it.
 
 ## SCSS, not CSS
 

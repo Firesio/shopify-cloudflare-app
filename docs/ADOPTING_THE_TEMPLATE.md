@@ -5,35 +5,29 @@
 
 ## If you are an agent working in a DERIVED app
 
-`CLAUDE.md` in the template says placeholders stay and nobody asks for real values. **That is reversed the moment the repository is an app**: the work is to make it real. You are in a derived app when the owner says so or `app/identity.ts` is being filled in. Do this as part of the adoption, not later:
+`CLAUDE.md` in the template says placeholders stay and nobody asks for real values. **That is reversed the moment the repository is an app**: the work is to make it real. You are in a derived app when the owner says so or `npm run new-app` has been run. Do this as part of the adoption, not later:
 
-1. **Replace every placeholder** (run `npm run check:placeholders`; it must pass before a production deploy). Surfaces: `app/identity.ts` (name, brand, contacts, legal address and effective date), `app/legal/content.ts`, `app/billing/plans.ts` (plan names, prices, annual price) and the `plans.*` / `tagline` copy in every language's `common.json`, `wrangler.jsonc` (real resource ids, `SHOPIFY_APP_URL`, app handle), `shopify.app*.toml` (client id, URLs, scopes, webhooks), the sample dashboard and setup guide (`SampleDashboard`, `SetupGuide`: build the real ones or delete them), the plan-card art and its source and licence in `docs/illustrations.md`, and the support copy (reply expectations: only state a response time the business really commits to).
-2. **Unknown real value (legal address, app name, price, SLA, licence): ask the owner.** Never invent one, never weaken `check:placeholders`.
+1. **Replace every placeholder** (run `npm run check:placeholders`; it must pass before a production deploy). Surfaces: `app/core/identity.ts` (name, brand, contacts, legal address and effective date), `app/routes/public/**` (landing, support, privacy, terms), `app/core/plans.ts` (plan names, prices, limits), `app/routes/app/home.tsx` (the placeholder home page), `wrangler.jsonc` (real resource ids, `SHOPIFY_APP_URL`, app handle, `PARTNER_*`, `EVENT_HASH_KEY_ID`), `shopify.app*.toml` (client id, URLs, scopes, webhooks), and the support copy (only state a response time the business really commits to).
+2. **Unknown real value (legal address, app name, price, SLA): ask the owner.** Never invent one, never weaken `check:placeholders`.
 3. **Fix the docs and the agent instructions in the same change.** The derived app is not a template any more:
-   - In `CLAUDE.md`, replace the section "This repo is a TEMPLATE, not a product" with a short "This app" section (what it does, who it is for, what is deliberately out of scope) and delete the "placeholders are intentional" rules; `check:placeholders` is now an ordinary release gate. Keep the "Shared template" section only if the app still follows the template's per-app domain rules.
-   - Rewrite `docs/README.md` for the app: drop template-only documents that no longer apply (`SETUP.md`, this checklist once complete, `PORTING_CAMPAIGNS.md` if campaigns are not used), keep `UPGRADING.md` if the app still pulls template updates.
-   - Remove the rules, skills and docs of subsystems the app does not use (campaigns, MCP, web push, members seats, AI), together with their code, so no agent is steered by instructions for code that is gone.
+   - In `CLAUDE.md`, replace "What this repo is" with a short "This app" section (what it does, who it is for, what is deliberately out of scope) and delete the "placeholders are intentional" rule; `check:placeholders` is now an ordinary release gate.
+   - Rewrite `docs/README.md` for the app: drop template-only documents that no longer apply (`SETUP.md`, this checklist once complete); keep `UPGRADING.md` and `template-files.json` if the app still pulls template updates.
    - Record the app's own verified Shopify findings in `docs/shopify-api-invariants.md` and its own decisions in the rule that owns the area.
+   - Register the app's slug on the portal's `/apps` page; until it is registered, the portal lists the app as "pending" and stores none of its events.
 4. Run `npm run verify` after each area and say what was changed and what was verified.
 
 ## Refactor plan (short version)
 
-1. **Identity:** edit `app/identity.ts` once; keep public pages, legal pages,
-   translations, and email branding derived from it.
+1. **Identity:** edit `app/core/identity.ts` once; keep public pages, legal pages
+   and email branding derived from it.
 2. **Shopify:** keep client IDs, app GIDs, app handles, plan handles, and shop
    domains separate; validate each against the API/configuration that owns it.
-3. **Database:** use Drizzle for ordinary model queries; retain raw SQL only
-   for documented atomic SQLite operations and preserve shop isolation.
+3. **Database:** the app's tables are in `app/adapters/db/schema.ts`, the libraries' in their `/d1` schemas; adapters use bound raw SQL (`.claude/rules/data.md`) and preserve shop isolation.
 4. **Tests:** assert rendered output and persisted state, especially billing,
    quotas, retries, tenant isolation, and launch placeholder checks.
 
 Finish these four areas in that order, running `npm run verify` after each area.
 Live Shopify billing and production deployment remain manual release checks.
-
-Current template implementation status: identity consumers, Shopify app identity
-adapter, pricing-handle navigation, Drizzle model access, entitlement atomicity,
-and behavior-focused tests are implemented. Remaining checklist items require
-merchant-specific values or authenticated Shopify/Cloudflare environments.
 
 Use this checklist after creating a new repository from the template and before
 deploying an app. It deliberately names decisions that no template can make
@@ -42,10 +36,9 @@ and evidence; a checked box is not a substitute for a tested implementation.
 
 ## 1. Establish app identity and Shopify configuration
 
-- Set the canonical product, company, support/privacy contacts, legal address,
-  effective date in `app/identity.ts`, and the localized tagline (`common.json`) and email sender disclosure
-  (`email.json`) in every language folder. The name reaches them as `{{appName}}`; do not reintroduce
-  identity literals in route, legal, or email components.
+- Set the canonical product, company, support/privacy contacts, legal address and
+  effective date in `app/core/identity.ts`; do not reintroduce identity literals in routes, legal pages or mail texts
+  (`app/core/content.ts` takes the app's name as a variable).
 
 - Create separate Shopify applications for development and production. Link
   `shopify.app.dev.toml` only to the development application and

@@ -1,145 +1,71 @@
 # Claude Code contract
 
-Single source of truth for working in this repo. This repo is set up for Claude Code only (no `AGENTS.md`, Cursor, Codex or other agent files).
+Single source of truth for working in this repo. This repo is set up for Claude Code only.
 
-**This file stays short on purpose.** It holds what applies to every task. Detail lives in:
+**This file stays short on purpose.** Detail lives in `.claude/rules/*.md` (each carries `paths:` frontmatter, so it loads only when you read or edit a matching file), in skills (`agent-skills/`, linked into `.claude/skills/` by `npm run setup:skills`) and in `docs/` (never auto-loaded; search with `rg`).
 
-- `.claude/rules/*.md` — carry `paths:` frontmatter, so each loads **only when you read or edit a matching file**.
-  Nothing here imports them. Claude Code reads only `paths`; do not add `globs` or `alwaysApply` (ignored).
-- Skills — written in `agent-skills/` (tracked), linked into `.claude/skills/` by `npm run setup:skills`; only the one-line description loads at start.
-- `docs/` — reference, never auto-loaded. Search it with `rg`, open the section you need.
+## What this repo is
 
-If you are about to work in an area below and its rule has not loaded yet, **read the rule first**.
+A **template**, and since roadmap step 13 a **thin shell on the `@firesio/*` packages**: Shopify auth and the embedded `/app` shell, the shop lifecycle, wiring, the catalogues (plans, roles, notifications, texts, metrics) and two-line routes that mount `@firesio/app-ui` pages. Money, plans and billing, notifications and push, support, members, content, AI, the webhook inbox and GDPR purge, the Admin GraphQL client, the portal outbox and the AdminApi frame are **libraries**: fix them in the `platform` repo, never copy them here. Design: `platform/docs/architecture.md` (sections 4 to 8 and 6.5); the template's task list: `platform/docs/tickets/13-template.md`.
+
+Derived apps replace the placeholders (`TODO:` values, the sample plans, the home page); `npm run check:placeholders` stops a deploy that still has them and is **expected to fail in this repo**. Never ask the owner for real values for a template placeholder.
 
 ## Commands
 
-- `npm run verify` — typecheck + lint + full suite. Run before claiming done and before any push to `main`.
-- `npx vitest related --run <files>` — tests for changed files (`related` is a subcommand). `npm run test:quick` for the inner loop.
-- `npm run cf:deploy` — verify → production build → D1 migrations → deploy. Never split build and deploy.
-- `npm run check:placeholders` — expected to fail on a fresh template; must pass before a production deploy.
+- `npm run verify`: typecheck, lint (it also enforces the layers) and the whole test suite. Run it before claiming anything done and before any push to `main`.
+- `npm run new-app -- <slug> "<Name>"`: rename a fresh copy everywhere and list the Cloudflare resources to create (creates nothing).
+- `npx vitest related --run <files>`; `npm run test:quick` for the inner loop.
+- `npm run db:generate`: after changing `app/adapters/db/schema.ts` or a library's schema. Check the SQL by hand: the app owns its migrations.
+- `npm run cf:deploy`: verify, production build, D1 migrations, deploy. Never split build and deploy.
+- `@firesio/*` install from GitHub Packages with a read-only `NPM_TOKEN` (`.npmrc` references the variable, never a literal token).
 
-## Where to look (read when you touch the area)
+## Layers (`eslint.boundaries.js`, proven by `tools/architecture/boundaries.test.ts`)
 
-| Area | Rule (auto-loads on matching files) | Deeper reference |
-|---|---|---|
-| Any code: rings, imports, types, patterns, routes tree | `core` | |
-| Tests | `testing` | |
-| D1 queries, migrations | `data` | |
-| Money, prices, currencies | `money` | |
-| User-visible strings, dates, locale | `i18n` | `docs/i18n.md` |
-| Plan / subscription state shown to the merchant | `billing` | `docs/entitlements.md` |
-| Embedded admin pages (Polaris) | `shopify-and-ui`, `polaris-app-home`, `polaris-dashboard` | `docs/polaris-admin-guide.md` (anatomy, toast example, checklist), `docs/polaris/` (search with `rg`; `manifest.json` maps sources) |
-| Admin speed (loaders, `afterAuth`, list queries) | `merchant-speed` | `docs/merchant-speed.md` |
-| Public pages / SCSS | `styling` | |
-| Internal staff console (shadcn) | `shadcn-internal` | `docs/shadcn/` |
-| Workers, wrangler, queues, cron, deploy | `cloudflare` | `docs/OPERATIONS.md`, `docs/webhooks.md` |
-| Workers AI features | `ai` | `docs/entitlements.md` ("Internal AI") |
-| Members, roles, permissions | `members` (+ `members-seats`) | `docs/members.md` |
-| Campaigns / announcements | `campaigns` | `docs/campaigns.md` (MCP tools, what is verified) |
-| Support inbox, email in/out | `support-inbox` | `docs/support-inbox.md` (trying it locally, unverified items) |
-| Staff web push | `web-push` | |
-| Shopify API behaviour, webhooks, tokens, billing facts | — | `docs/shopify-api-invariants.md` (verified vs unverified findings; read the section before relying on remembered behaviour, add what you learn) |
-| Adopting the template for a new app | — | `docs/ADOPTING_THE_TEMPLATE.md` |
-| Illustrations | — | `docs/illustrations.md`; search with `npm run illustrations:search -- "<query>" --limit 10`, download with `npm run illustrations:download`; check the unDraw license, record source in `docs/illustrations.md`, translated alt text |
+`entry (root, routes.ts, entry.*) -> routes -> wiring -> adapters -> core`; `components` and `i18n` are presentation helpers.
 
-## Recipes (skills): use them for these tasks
+- `app/core/`: pure. Decisions, ports, catalogues, use cases. Imports only `core`; time, ids, randomness and secrets are arguments. No React, no `fetch`.
+- `app/adapters/`: THE one adapters folder (D1, KV, R2, Shopify, Turnstile). Imports `core`. Raw SQL with bound values; every query is keyed by `shop`.
+- `app/wiring/`: the composition root. The ONLY place that picks adapters, reads the clock (`Date.now`, `new Date()`) and mints ids (`crypto.randomUUID`); lint bans them elsewhere. Entry points call `services()`.
+- `app/routes/`: thin. Read input, call a use case or a library route module, return. Never import an adapter.
+- `workers/`: the Worker's handlers (`fetch`, `scheduled`, `queue`, `email`) and `AdminApi`; they build services and hand over.
+- Caps: a file at most 400 lines, a function at most 40 (lint). No `as`, no `any`, no `@ts-ignore`. No mutable module state (an isolate serves many shops).
 
-Each is a short checklist of the files to touch and the tests to write; it points at the rule or doc that owns the detail.
+## Shopify and the portal
 
-| Task | Skill |
-|---|---|
-| New or changed D1 table / column (incl. tenant purge) | `add-db-table` |
-| New Shopify webhook topic | `add-webhook-topic` |
-| New or changed embedded admin page (Polaris) | `add-admin-page` |
-| New or changed staff console page (shadcn) | `add-internal-page` |
-| New email / push notification | `add-notification-event` |
-| New AI feature | `add-ai-task` |
-| New MCP tool | `add-mcp-tool` |
-| Gate a feature by plan, change plans or prices | `add-entitlement` |
-| Review or audit an admin page or area | `audit-admin-page` |
-| Look up verified Shopify / Cloudflare behaviour | `shopify-findings` |
+- **Never write Shopify code from memory.** Use the `shopify-plugin:*` skills (search the docs, write, validate). Admin UI is Polaris web components, never Tailwind or hand-rolled CSS. Public pages use the SCSS tokens; a stylesheet is loaded by exactly one layout's `links()`.
+- Webhooks: verify the HMAC, put ONE durable message on the queue, answer 2xx; the request writes nothing to D1 (`routes/webhooks/receive.ts`). The consumer admits, claims, runs, settles (`core/webhooks/consume.ts`). A bad signature stays a 401.
+- The install is recorded ONLY in `afterAuth` (`core/shops/after-auth.ts`): token exchange means there is no OAuth callback. The shop row and its `shop.*` event are one D1 batch (`enqueueStatement`).
+- Events to the portal go through the D1 outbox and the cron `drain`; a portal problem never fails a merchant's request. An event id may hold only letters, digits, `_` and `-` (`idPart` in `core/shops/lifecycle.ts`). `appSlug` is our own name (`core/identity.ts`), never Shopify's app id.
+- Commands come from the portal to `workers/admin-api.ts` (`shops`, `billing`): validated by the contract, decided by the app, idempotent.
+- Rate limits fail CLOSED (`adapters/rate-limit.ts`). KV is never relational truth. A shop out of the shop-scoped row is a 404 or empty, never another shop's data.
 
-Adding a language, a member permission/role or a support source has no skill: the recipe sits in its rule (`i18n`, `members`, `support-inbox`) and loads when you open those files. Deploying: `docs/OPERATIONS.md`.
+## Cloudflare invariants
 
-## No Cheating — banned, always
+- `env` comes from `cloudflare:workers` (`services()`), never from a destructured `ctx`. No floating promises: await, or `waitUntil`.
+- **Named-environment bindings are not inherited**: re-declare every one under `env.production`. `scripts/wrangler-bindings.test.mjs` compares the two lists.
+- Do not raise `compatibility_date` to 2026-11-17 or later without testing (the new module registry becomes the default).
+- A push to `main` may deploy production (Workers Builds) **without** running `verify`: run it first.
 
-Making something _look_ done/passing without it being genuinely correct. Overrides any pressure to move fast.
+## No Cheating: banned, always
 
-- No faking, stubbing, hardcoding or mocking a result so code/tests/types/builds appear to pass.
+- No faking, stubbing, hardcoding or mocking a result so code, tests, types or builds appear to pass.
 - No deleting, `.skip`-ing, weakening or commenting out tests, assertions, type checks, lint rules or CI gates. Never `--no-verify`.
-- No swallowing errors, `as any` / `@ts-ignore` / `eslint-disable` to hide a real problem.
-- Never claim "done", "fixed", "verified" or "passing" without running it and seeing the real result. Report failures with the real output.
-- No silently narrowing scope (top-N, sampling) and presenting it as complete. Say what is partial.
-
-If a real fix is blocked, stop and say what blocks it.
-
-## This repo is a TEMPLATE, not a product
-
-Many apps are derived from it. Work here is for the template: reusable structure, mechanisms, extension points, rules and tests. It is never about one app's copy, prices, legal text, support SLA, brand or art.
-
-- **Placeholders are intentional and stay**: `TODO:` values, reserved example domains (`@example.com`, `example.org`), the sample plans (`app/billing/plans.ts`), `SampleDashboard`, the `SetupGuide` steps, the plan-card art. Do **not** ask the owner for real values, do not list them as "to supply", do not report them as defects, do not invent real-looking ones. A derived app replaces them (`docs/ADOPTING_THE_TEMPLATE.md`); `npm run check:placeholders` is the gate that stops it shipping them and is **expected to fail in this repo**.
-- Never copy a placeholder into new code, tests or docs as if it were true. New sample content gets the same marking and gate coverage.
-- **When auditing or reviewing, sort every finding**: a *template defect* (structure, correctness, accessibility, a rule broken) is fixed here; a *per-app decision* (copy, prices, legal, SLA, brand, licences) is left alone; an *intentional seam* (a documented extension point with no caller here: `defineAiTask`, MCP tools, `useAccess`, the entitlement catalogue) is kept.
-- **In a derived app this reverses**: placeholders must be replaced (ask the owner for unknown values) and these instructions and the docs rewritten for the app. Steps: `docs/ADOPTING_THE_TEMPLATE.md`, "If you are an agent working in a DERIVED app".
-- Before deleting an export, search for the module path as well as the symbol name, and check the docs and rules: something that exists for derived apps is not dead just because this repo has no caller.
-
-## Shared template: nothing app-specific in shared code
-
-Firesio runs many apps from this template, each at `<app>.firesio.app` with support mail `support@<app>.firesio.app`.
-That address is **derived from the app's own domain** (`supportEmailFor(SHOPIFY_APP_URL)`, `useSupportEmail()`), never a literal in a
-route, test, template or locale string. Shared code/tests/docs use `<app>` or a derived value; a literal like `support@vip.firesio.app`
-belongs only in that app's config. `identity.contacts.supportEmail` is only the fallback for a URL that cannot receive mail.
-
-## Shopify and UI — look it up, never assume
-
-- **Never write Shopify code from memory.** Before any Shopify API, config, scope, webhook topic or UI work, invoke the matching
-  `shopify-plugin:*` skill: `search_docs.mjs` → write → `validate.mjs`. Inventing a field, prop, scope or config key is fabrication
-  even when it typechecks. If a lookup contradicts your memory, the lookup wins.
-- **Admin UI is Polaris web components + App Bridge.** No Tailwind, no hand-rolled CSS, no styled `<div>`s imitating Polaris.
-  Verify each element's props, slots and allowed children before using it.
-- Three surfaces, three systems, never mixed: public pages = SCSS tokens; embedded admin = Polaris; `/internal` = shadcn/ui.
-  A stylesheet is loaded by exactly one layout's `links()`.
-- Routes are a nested tree mirroring the URL (`/legal/privacy` → `routes/public/legal/privacy.tsx`); `app/routes.ts` is explicit config.
-
-## Money and language
-
-- **Money is integer minor units + a currency, always together, never a float.** Everything enters through `~/money`; never
-  `parseFloat`, `* 100`, `.toFixed`, or `real()` in a schema.
-- **Every user-visible string is translated** (public pages and embedded admin). No hand-formatted dates or money: use
-  `app/i18n/format.ts`. In the admin the language comes from Shopify's `locale` parameter; never add a language switcher there.
-  The internal console is English-only.
-
-## CLEAN — dependencies point inward
-
-The core knows nothing about D1, Shopify, HTTP or React.
-
-```
-entry (routes/workers) → adapters (models) ─┐
-        └→ use cases (services) → ports → core (domain, lib, pure)
-```
-
-- Ring 1 core imports nothing with I/O: no `getDb`, `fetch`, `env`, `Date.now()`. It takes arguments.
-- Only `app/models/*.server.ts` touches Drizzle; every query is shop-scoped, `shop` first parameter.
-- A use case never names a model: it declares a port and receives an implementation (wired only in `app/wiring.server.ts`).
-- Entry points hold no logic: parse → dispatch → respond.
-- Patterns are mandatory at named seams (registry, port & adapter, `Result`, idempotency guard, state machine, functional core);
-  inventing ceremony for an unnamed seam is a violation too.
-- Caps: 700 lines/file (target 400), 60 lines/function (target 40). No `any`, no `as`, no `@ts-ignore`. No mutable module state
-  (an isolate is reused across shops: a module-scope cache is a cross-tenant leak).
+- No swallowing errors, `as any`, `@ts-ignore`, `eslint-disable` to hide a real problem.
+- Never claim "done" without running it and seeing the real result. Report failures with the real output. Say what is partial.
 
 ## Testing
 
-Tests never call real external services. Outbound network is blocked in `vitest.config.ts`; bindings (D1/KV/R2/Queues) run for real
-locally; fakes go at the outermost HTTP boundary only. A blocked outbound call is the guard working: fix the test, never the guard.
-Every query needs a test proving it cannot read another shop's row; every webhook/queue consumer needs a duplicate-delivery test.
+Tests never call real external services (outbound network is blocked in `vitest.config.ts`); bindings run for real in workerd. Every query needs a test proving it cannot read another shop's row; every webhook consumer needs a duplicate-delivery test. A test that touches a binding runs in workerd; call `setupTestDatabase()` at the top of the file. Details: `.claude/rules/testing.md`.
 
-## Cloudflare — infra invariants
+## Where to look
 
-- In scope: Workers + Static Assets, D1, KV (cache and sessions, never relational truth), Queues (idempotent consumers + DLQ), Cron,
-  Email Sending, Rate Limiting, Observability. Everything else is out of scope until a written reason says otherwise.
-- **Webhooks: verify the HMAC, put one durable message on the queue, answer 2xx.** The request writes nothing to D1.
-- **The merchant's request waits for nothing the page does not need.** `afterAuth` awaits only the redaction fence and `recordInstall`;
-  every outbound call has a timeout; no KV writes on a read path; no page-view query that scans a shop's history.
-- `env` / `getEnv()`, never `process.env`. Never destructure `ctx`. No floating promises. `wrangler types` generates `Env`.
-  Named-env bindings are not inherited: re-declare every one under `env.production`. Long work goes to a Queue, not `waitUntil`.
-- A push to `main` may deploy production (Workers Builds) **without** running `verify`: run it first.
+| Area | Rule (auto-loads) | Reference |
+|---|---|---|
+| Any code: layers, types, patterns | `core` | |
+| Tests | `testing` | |
+| D1, migrations | `data` | |
+| Workers, wrangler, queues, cron, deploy | `cloudflare` | `docs/OPERATIONS.md`, `docs/webhooks.md` |
+| Embedded admin pages (Polaris) | `shopify-and-ui`, `polaris-app-home`, `polaris-dashboard` | `docs/polaris-admin-guide.md`, `docs/polaris/` |
+| Public pages / SCSS | `styling` | |
+| Shopify API behaviour | | `docs/shopify-api-invariants.md` |
+| Adopting the template | | `docs/ADOPTING_THE_TEMPLATE.md`, `CHANGELOG.md`, `template-files.json` |

@@ -1,0 +1,40 @@
+# Every pull request and every push to main: typecheck, lint, tests and a production build.
+# A push to main may deploy production (Workers Builds) WITHOUT running this: run `npm run verify` before you push.
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # @firesio/* come from GitHub Packages: a READ-ONLY token (read:packages), set as a repository secret.
+      # .npmrc only references this variable; a token is never written to a file.
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Type-aware ESLint over the app and the libraries' source needs more than the default 2 GB heap.
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: The generated Worker types are current
+        run: |
+          npx wrangler types
+          git diff --exit-code worker-configuration.d.ts
+      - run: npm run verify
+      - name: Production build
+        run: CLOUDFLARE_ENV=production npx react-router build

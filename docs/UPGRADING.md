@@ -7,6 +7,24 @@ and marks the steps that are **risky for an app already in production**.
 
 ---
 
+## template-v1.0.0: the thin shell on the @firesio packages (roadmap step 13)
+
+A NEW BASELINE, not an increment. An app built on the earlier template does not merge this tag: it moves one feature at a time onto the
+libraries (roadmap step 14, repair first), keeping its tables (the libraries' schemas keep the template's table and column names, so most need no
+migration) and its own business rules. A NEW app starts here with `npm run new-app`.
+
+Taking a LATER tag into an app that started here: merge it; the `template` files in `template-files.json` come over unchanged, the `app` files are yours;
+read the tag's entry in `CHANGELOG.md` for anything to do besides the merge (a schema addition is a new migration you generate with `npm run db:generate`;
+a library bump is `npm install @firesio/<name>@<range>`). Run `npm run verify` before and after.
+
+What this tag removed from the earlier template, and where it went: money, billing and entitlements, notifications and Web Push, support, members, the text
+units, AI, the webhook inbox, the GDPR purge and the Admin client are libraries; the staff console, MCP, campaigns and the `api/v1` routes are the portal's
+job (or gone); the Partner-history sweep, the uninstall probe and the scope log were not carried (see the report that came with step 13).
+
+## Earlier template (history, newest first)
+
+The sections below describe the template before step 13. Their file paths no longer exist.
+
 ## 2026-10-23 Entitlements: typed keys, shop-local months, usage, adopt, batch reads, scheduled reconciler
 
 Commits `c04bd44` (scheduled reconciler) and `a091fc4` (the rest). Verified on this

@@ -1,77 +1,36 @@
 ---
 paths:
-  - "app/models/**/*.ts"
-  - "app/db/**/*.ts"
+  - "app/adapters/**/*.ts"
   - "drizzle/**"
+  - "drizzle.config.ts"
 ---
 
 # Data access
 
 D1 is a network hop per query and the app is multi-tenant. Both are binding.
 
+## Whose tables
+
+- **The app's own** (`app/adapters/db/schema.ts`): `shops`, `shop_subscriptions`, `shop_plan_grants`, `notification_preferences`.
+- **The libraries'** (`@firesio/*/d1`): the webhook inbox and tombstones, plan usage, support, members, content edits, push devices, AI, the portal outbox. Their schemas are listed in `drizzle.config.ts`; `npm run db:generate` sees all of them and writes ONE migration history in `./drizzle`. The app owns the migrations; a library never migrates anything.
+- Adding a table: add it to the schema file (or the library's schema to `drizzle.config.ts`), `npm run db:generate`, **read the SQL** (Drizzle cannot express a CHECK or WITHOUT ROWID: where the library publishes `...TableSql()`, the migration must match it, as `plan_usage` does), run the whole suite.
+
 ## Shop-scoped, always
 
-Every table carries `shop`. Every `where` includes it. Every model function takes
-`shop` as its **first explicit parameter** — `findById(shop, id)`, never
-`findById(id)`. An id from a form or URL is attacker-controlled.
+Every app table carries `shop` (or `scope`, `subject`, `account_id` where a library names it). Every query includes it; every adapter function takes it as its **first parameter**. An id from a form or URL is attacker-controlled. A query that can read or write another shop's row is a **security defect**, and a test proving it cannot is part of the feature (`app/adapters/*.test.ts`). `redacted_shops` is the one table without a shop: a hash and a time, nothing that identifies the shop. `shop/redact` deletes every shop-keyed table in ONE batch with the tombstone and the `account.redacted` outbox row (`wiring/webhooks.ts`, `SHOP_SCOPED_DELETES`): a new shop-keyed table goes in that list, and the test in `wiring/webhooks.test.ts` seeds a row in it.
 
-A query that can read or write another shop's row is a **security defect**.
-`@rules/testing.md` requires a test proving it cannot — part of the feature, not
-a follow-up.
+## Raw SQL, bound values (a decision, and why)
 
-**Two tables are not shop-scoped:** `admin_users` (our staff) and
-`redacted_shops` (the redaction tombstone: `shop_hash` + `redacted_at`, nothing
-that identifies the shop). The tombstone is written in the same D1 batch as the
-purge and read by every path that could recreate a shop (Partner history,
-webhook intake, sweeps); only the merchant's own reinstall (`afterAuth`) clears
-it. Its model is keyed by hash, so the cross-shop test proves one hash never
-suppresses another.
-
-## Never one query per row
-
-A query inside `.map()`, `for`, or `forEach` over rows you just fetched is a
-defect. Batch with `inArray(...)` and group in memory, **preserving the query's
-`ORDER BY`** so per-parent ordering matches.
-
-Cost scales with the largest merchant, not the fixture. In production the tell is
-`wallTimeMs` orders of magnitude above `cpuTimeMs` — that is round trips, not
-slow code.
+The adapters use `env.DB.prepare(sql).bind(...)`, the way the libraries' D1 adapters do. Why not Drizzle queries: a write that belongs with a portal event must sit in the SAME `D1.batch` as the library's `enqueueStatement`, which is a prepared statement; Drizzle batches cannot hold one. Rules that keep it safe: every value is bound (`?1`), never interpolated; a table or column name from code is a literal in the file; no query inside a loop over fetched rows (batch it); every guard and its write are ONE statement or ONE batch (the `ON CONFLICT ... DO UPDATE ... WHERE` of the subscription store), never a read followed by a write that assumes the read still holds.
 
 ## Migrations are forward-only
 
-Once applied to production, never edit, rename, or renumber a migration — a new
-one fixes a bad one. Migrations are generated (`npm run db:generate`), never
-hand-written, and the filename is the applied key. Adding a column is safe;
-removing one is two deploys (stop reading, then drop). Any change under
-`app/db/` or `drizzle/` runs the **full** suite: a migration breaks tests that
-never mention it.
+Once applied to production, never edit, rename or renumber a migration: a new one fixes a bad one. The template's `0000_baseline` is edited in place only until the first app deploys it (it is a new baseline: an app built on an earlier template migrates feature by feature, roadmap step 14). Adding a column is safe; removing one is two deploys (stop reading, then drop). A change under `drizzle/` or an adapter runs the **full** suite.
 
-## Money columns are INTEGER
+## Money
 
-`real()` is banned. D1 is SQLite, `REAL` is an IEEE-754 double, and SQLite has no
-fixed-point decimal type — so integer minor units is the only safe
-representation. Use `money("total")` from `~/db/columns`, which emits
-`total_amount INTEGER` + `total_currency TEXT`. Full contract: @rules/money.md.
+Integer minor units plus a currency, always together: `@firesio/money`. No `REAL` column for an amount.
 
 ## Failure boundaries
 
-Independent panels fail independently with a sensible empty value **and a logged
-event** — never `catch {}`, never a blank page from one bad query.
-
-**Degrade decoration. Never degrade correctness.** A count, a badge, or a
-secondary panel may fall back to an empty value. Anything the page cannot be
-correct without — an amount, a total, an entitlement, a status the merchant will
-act on — fails loudly instead of rendering a plausible wrong number.
-
-## Drizzle-only queries
-
-All application database reads and writes use schema-backed Drizzle builders
-(`select`, `insert`, `update`, `delete`, joins, predicates, aggregates, conflict
-clauses, and transactions). Raw SQL strings, `D1Database.prepare()`,
-`db.run(sql\`...\`)`, `sql.raw()`, and hand-written SQL are forbidden in
-`app/**/*.ts` production code. This rule applies to atomic guards and schema
-introspection too: model the operation with Drizzle transactions, conflict
-clauses, and typed schema metadata. Queries must remain bounded and indexed under
-heavy use: avoid per-row queries, select only required columns, constrain every
-query by tenant, and add/verify indexes for hot predicates. Never split a guard
-and its write into separate application-level queries.
+Independent panels fail independently with a sensible empty value **and a logged event**, never `catch {}`. **Degrade decoration, never correctness**: a badge may fall back to empty; an amount, an entitlement or a status the merchant acts on fails loudly.

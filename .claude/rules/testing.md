@@ -12,19 +12,17 @@ root cause before changing code for a bug or test failure.
 
 ## Test shape by layer
 
-The pure core is unit-tested exhaustively; anything crossing a boundary gets an
-integration test against **real local bindings**. Match the layer, not the file.
+Pure code is unit-tested exhaustively; anything crossing a boundary gets an integration test against **real local bindings**. A test that touches a binding (or a route, or the wiring) runs in workerd (`vitest.config.ts` decides by what it imports); a pure one runs in Node.
 
 | Layer | Test shape |
 |---|---|
-| **Pure core** (`app/domain/`, `app/lib/`) | No I/O → exhaustive unit tests. Every branch, every variant of a union, and the unknown/retired variant. Free to run, so there is no excuse for a gap. |
-| **Money and any arithmetic on it** | Integer minor units only. Cover zero, negative, rounding and cent boundaries, currency mismatch. A float appearing anywhere is a bug. |
-| **Models** (`app/models/`) | Integration against real local D1. Every query shop-scoped, and **a test proving a query cannot read another shop's row is required, not optional**. |
-| **Use cases** (`app/services/`) | Decisions tested with fake ports — no D1, no network. If a use case needs real bindings to test, a decision leaked into the wrong ring. |
-| **Webhook and queue consumers** | Integration. Always include a **duplicate-delivery test proving exactly one effect** — deliveries are at-least-once, so the replay test ships with the handler, not as a follow-up ticket. A webhook route is tested with `captureWebhookQueue()` (`app/test/webhook-queue.ts`): assert the message that reached the queue and that **no D1 row was written in the request**, then hand the message to `consumeWebhook`. Anything about attempts or retries goes through `webhookQueueDependencies()`, not a hand-built `consume`, or the test skips the wiring where an off-by-one hid. |
-| **Session storage / KV adapters** | Integration against real local KV. Cover expiry, absence, and the oversized-payload fallback. |
-| **Loading states** | A page with a streamed region has a render test that proves, for the pending state, that the static parts are present, there is exactly one `role=status`, and the structural counts (sections, cards, rows, columns, headings, buttons) equal the loaded state's. That is how "no layout shift" is held without a browser. |
-| **Routes / UI** | Test the server side — loaders, actions, intent handlers, payload builders. Polaris web components cannot be meaningfully unit-tested; verify those by hand and **say so honestly**. Never fake UI coverage by mocking the component tree. |
+| **core** (`app/core/`) | No I/O: exhaustive unit tests, every branch, every variant, the unknown one. Use cases that need a port are tested with the real D1 adapter through `createServices(env)`: the library's doubles prove the libraries, these tests prove the wiring. |
+| **adapters** (`app/adapters/`) | Integration against real local D1/KV/R2. Every query shop-scoped, and **a test proving it cannot read another shop's row is required**. |
+| **Webhook and queue consumers** | Integration, with a **duplicate-delivery test proving exactly one effect** (`core/webhooks/consume.test.ts`). The receiver is tested for what reached the queue and that **no D1 row was written in the request** (`routes/webhooks/receive.test.ts`). |
+| **Cron** | `core/scheduled.test.ts`: which steps run on which cron string, and that one failing step costs the others nothing. |
+| **Library pages** (`@firesio/app-ui`) | Tested in the library (loaders and actions against the real services). Here: the wiring of their deps (`wiring/app-ui.ts`) and the guard. Polaris web components are verified by hand; say so honestly. |
+| **Config** | `scripts/wrangler-bindings.test.mjs` (top level equals `env.production`), `scripts/template-manifest.test.mjs`, `scripts/check-placeholders.test.mjs`, `app/core/config.test.ts`. |
+| **Architecture** | `tools/architecture/boundaries.test.ts` probes the layers and the bans with real files. |
 
 ## A test must NEVER call a real external service
 
@@ -45,13 +43,12 @@ So, in this repo:
 - If a test ever needs a recipient address, use a domain you own. Never
   `@example.com`, `.test`, `.invalid`, or `.localhost` (RFC-2606 reserved → hard
   bounce), and never a stranger's real inbox.
-- **The guard has its own test** (`app/outbound-guard.test.ts`) to verify that
-  outbound requests are blocked.
+- A blocked call shows up as a 403 whose body says so: read it before changing anything.
 
 ## Real behavior, not mocks
 
 - Mock **only the outermost external HTTP boundary** — Shopify Admin GraphQL,
-  email. Everything below it (D1, KV, Queues, your own decisions and arithmetic)
+  the Partner API, email. Everything below it (D1, KV, Queues, your own decisions and arithmetic)
   runs for real.
 - **Never mock a model or service to assert call-args.** A test whose only
   assertion is `expect(mock).toHaveBeenCalledWith(...)` tests the

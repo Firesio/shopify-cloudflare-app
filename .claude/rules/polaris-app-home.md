@@ -7,11 +7,13 @@ paths:
 
 # Polaris App Home — building an embedded admin page
 
+> **Thin shell (step 13):** the skeleton primitives (`Skeleton.tsx`), `settle()`, `<Deferred>` and `skeleton.css` described below were NOT carried over: the pages of `@firesio/app-ui` await their loaders, and the home page is static. An app whose own page streams a region re-adds them (they are in this repo's history before `template-v1.0.0`) and keeps the rules below.
+
 An admin page is assembled from mechanisms Shopify already owns; each job has one owner. Anything built by hand in place of one looks almost right, behaves subtly differently and has no accessibility or responsive behaviour. Recipe: the `add-admin-page` skill. Full guide with the page anatomy, the toast example and the done-checklist: `docs/polaris-admin-guide.md`.
 
 ## Which Polaris
 
-Polaris 2 (`polaris-2.js`), named in ONE place, `app/admin/polaris.ts`, read by `shopifyApp({ polarisUrl })` and `EmbeddedProvider`. Never render `AppProvider` directly or add a Polaris script tag. `@shopify/polaris-types` is `^2.0.0`. Polaris 2 has `s-empty-state`, and `s-text` has `fontSize`/`fontWeight`/`fontVariantNumeric`. Custom CSS that copies Polaris colours or redraws a component pins it to the old look: remove it.
+Polaris 2 (`polaris-2.js`), named in ONE place, `app/core/polaris.ts`, read by `shopifyApp({ polarisUrl })` and `EmbeddedProvider`. Never render `AppProvider` directly or add a Polaris script tag. `@shopify/polaris-types` is `^2.0.0`. Polaris 2 has `s-empty-state`, and `s-text` has `fontSize`/`fontWeight`/`fontVariantNumeric`. Custom CSS that copies Polaris colours or redraws a component pins it to the old look: remove it.
 
 ## Look up before any markup
 
