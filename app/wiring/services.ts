@@ -10,6 +10,7 @@ import type { AfterAuthDeps } from "~/core/shops/after-auth";
 import type { LifecycleDeps } from "~/core/shops/lifecycle";
 import { createAi } from "./ai";
 import { billingServices } from "./billing";
+import { blocklistFor } from "./blocklist";
 import { memberServices } from "./members";
 import { createNotifierFor } from "./notifications";
 import { portalEmitter } from "./portal";
@@ -51,8 +52,9 @@ export function createServices(env: Env) {
   const runtime = systemRuntime();
   const base = foundations(env, runtime);
   const notifier = createNotifierFor(env, runtime);
+  const blocklist = blocklistFor(env);
   const ai = createAi(env, runtime);
-  const supportDeps = supportServices(env, runtime, { notifier: supportNotifier(env, notifier), ai });
+  const supportDeps = supportServices(env, runtime, { notifier: supportNotifier(env, notifier, blocklist), ai });
   const webhooks = webhookRouter({ env, runtime, portal: base.portal, lifecycle: base.lifecycle, support: supportDeps.support, log: jsonLog });
   return {
     env,
@@ -62,6 +64,7 @@ export function createServices(env: Env) {
     metrics: d1Metrics(env.DB),
     openTicketCount: d1OpenTicketCount(env.DB),
     notifier,
+    blocklist,
     ai,
     ...supportDeps,
     parseMail: parseInboundMail,

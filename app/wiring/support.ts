@@ -18,6 +18,7 @@ import {
 import { D1SupportInboundRepo, D1SupportRepo, D1SupportTriageRepo } from "@firesio/support/d1";
 import type { AiService } from "@firesio/ai";
 import { drizzle } from "drizzle-orm/d1";
+import type { Blocklist } from "~/core/blocklist";
 import { r2Attachments } from "~/adapters/r2-attachments";
 import { withinLimit } from "~/adapters/rate-limit";
 import { turnstile } from "~/adapters/turnstile";
@@ -59,7 +60,7 @@ function customerMailBuilder(env: Env, mail: CustomerMail) {
  * an empty value reports `skipped:no_address`). A customer reply is ONE message addressed and threaded by the library, so it
  * goes straight to the `EMAIL` binding: `notify`'s email channel has a fixed From, Reply-To and header set, not one per ticket.
  */
-export function supportNotifier(env: Env, notifier: Pick<Notifier<string, NotificationCatalogue>, "send">): SupportNotifier {
+export function supportNotifier(env: Env, notifier: Pick<Notifier<string, NotificationCatalogue>, "send">, blocklist: Blocklist): SupportNotifier {
   return {
     async alertStaff(alert: StaffAlert) {
       await notifier.send("", "support.merchant_activity" satisfies NotificationType, {
@@ -68,6 +69,11 @@ export function supportNotifier(env: Env, notifier: Pick<Notifier<string, Notifi
       });
     },
     async mailCustomer(mail: CustomerMail) {
+      // The portal's blocklist (scam mail): a blocked recipient or shop gets nothing, and an unreadable blocklist holds the mail back.
+      if (await blocklist.mailBlocked(mail.shop ?? "", mail.to)) {
+        jsonLog({ event: "support.notify_customer_failed", reason: "blocked" });
+        return;
+      }
       const builder = customerMailBuilder(env, mail);
       if (builder === null) return;
       await env.EMAIL.send(builder);

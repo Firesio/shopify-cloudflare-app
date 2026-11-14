@@ -8,6 +8,7 @@ import { PLANS } from "~/core/plans";
 import { localeOf } from "~/i18n/language";
 import { membersLabels, plansLabels, supportLabels } from "~/i18n/labels";
 import { admit, guardMember } from "./guard";
+import { supportAnnouncing } from "./support-events";
 import { services, type Services } from "./services";
 
 const UTC = "UTC";
@@ -25,7 +26,7 @@ export function pricingPlansUrl(shop: string, appHandle: string): string | null 
 
 function supportDeps(s: Services): SupportRouteDeps {
   return {
-    service: s.support,
+    service: supportAnnouncing(s.env, s.runtime, s.support),
     viewer: async (request) => {
       const { shop } = await guardMember(request, "app:view");
       const record = await s.shops.get(shop);

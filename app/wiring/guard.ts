@@ -58,7 +58,9 @@ export async function admit(request: Request): Promise<{ readonly auth: Authenti
 export async function guardMember(request: Request, permission: Permission): Promise<GuardedRequest> {
   const { auth, shop, access } = await admit(request);
   const record = await services().shops.get(shop);
-  if (record?.blockedAt !== null && record?.blockedAt !== undefined) throw data({ reason: "blocked" }, { status: 403 });
+  const blocked = record?.blockedAt !== null && record?.blockedAt !== undefined;
+  // Two ways to be blocked: the portal asked this app (AdminApi, the `shops.blocked_at` column), or the portal's KV kill switch says so.
+  if (blocked || (await services().blocklist.shopBlocked(shop))) throw data({ reason: "blocked" }, { status: 403 });
   if (!access.ok) throw redirect(`${NO_ACCESS}${new URL(request.url).search}`);
   if (!can(access.member, permission, MEMBERS)) throw data({ reason: "forbidden" }, { status: 403 });
   return { auth, shop, member: access.member };

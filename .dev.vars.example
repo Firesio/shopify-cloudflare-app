@@ -10,8 +10,8 @@
 # Signs the links of support attachments. Any long random string locally.
 ATTACHMENT_TOKEN_SECRET=dev-attachment-secret
 
-# The HMAC key every app and the portal hash events with. Locally anything; production uses the shared secret and EVENT_HASH_KEY_ID.
-EVENT_HASH_SECRET=dev-event-hash-secret
+# The HMAC key every app and the portal hash events with (at least 32 characters). Locally anything long enough; production uses the shared secret and EVENT_HASH_KEY_ID.
+EVENT_HASH_SECRET=dev-event-hash-secret-of-at-least-thirty-two-characters
 
 # Partner API token (reads this app's subscription). Empty = the subscription refresh reports `not_configured` and the shop stays on the
 # free plan. Needs PARTNER_ORG_ID and PARTNER_APP_ID (vars in wrangler.jsonc; the Partner Dashboard URL and the app overview).

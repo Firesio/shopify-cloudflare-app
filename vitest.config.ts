@@ -61,7 +61,7 @@ export default defineConfig({
                 SHOP_CUSTOM_DOMAIN: "example.myshopify.com",
                 SHOPIFY_APP_URL: "https://example.test",
                 ATTACHMENT_TOKEN_SECRET: "test-attachment-secret",
-                EVENT_HASH_SECRET: "test-event-hash-secret",
+                EVENT_HASH_SECRET: "test-event-hash-secret-of-at-least-thirty-two-characters",
                 EVENT_HASH_KEY_ID: "test-key",
                 PARTNER_API_TOKEN: "test-partner-token",
               },
