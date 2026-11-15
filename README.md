@@ -54,7 +54,8 @@ tools/         architecture tests; eslint.boundaries.js is the layer table
 
 The layers and the bans (no `as`, no `any`, no `Date.now` or `randomUUID` outside tests (the preset's runtime reads them), files at most 400 lines, functions at
 most 40) are enforced by `npm run lint`; `npm run verify` runs typecheck, lint and every test. CI (`.github/workflows/verify.yml`)
-runs it plus a production build on every pull request and push to `main`.
+runs it plus a production build only on a pull request that touches code, on a release tag `v*`, or by hand (to save
+Actions minutes); a push to `main` runs no CI, so run `npm run verify` before you push.
 
 ## What an app writes
 

@@ -1,11 +1,18 @@
-# Every pull request and every push to main: typecheck, lint, tests and a production build.
-# A push to main may deploy production (Workers Builds) WITHOUT running this: run `npm run verify` before you push.
+# Typecheck, lint, tests and a production build. To save Actions minutes it runs only on a pull request that touches
+# code (docs and Markdown alone do not trigger it), on a release tag `v*`, or by hand (Actions > verify > Run workflow).
+# A push to main does NOT run it, and may deploy production (Workers Builds): run `npm run verify` before you push.
 name: verify
 
 on:
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "agent-skills/**"
+      - ".claude/**"
   push:
-    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
