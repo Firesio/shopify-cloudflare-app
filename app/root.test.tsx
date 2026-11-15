@@ -8,10 +8,10 @@ import { ErrorBoundary } from "./root";
  * session-token page) is handed to the boundary of the shallowest route with a loader, which is this root: so it is the one that
  * must word the refusal and render the bounce page (`app/routes/app/layout.test.tsx` covers what a page's loader throws).
  */
-async function render(thrown: () => never): Promise<string> {
-  const routes: RouteObject[] = [{ id: "root", path: "/", ErrorBoundary, loader: thrown, Component: () => null }];
+async function render(thrown: () => never, path = "/"): Promise<string> {
+  const routes: RouteObject[] = [{ id: "root", path: "/*", ErrorBoundary, loader: thrown, Component: () => null }];
   const handler = createStaticHandler(routes);
-  const context = await handler.query(new Request("https://example.test/"));
+  const context = await handler.query(new Request(`https://example.test${path}`));
   if (context instanceof Response) throw new Error("the handler answered with a response, not a rendered context");
   return renderToString(<StaticRouterProvider router={createStaticRouter(handler.dataRoutes, context)} context={context} />);
 }
@@ -42,5 +42,13 @@ describe("the root ErrorBoundary", () => {
     expect(await render(() => {
       throw new Error("a crash");
     })).toContain("Something went wrong");
+  });
+
+  it("links back to the start on the public side, but not inside the admin, where a plain link would lose the session", async () => {
+    const notFound = () => {
+      throw data(null, { status: 404 });
+    };
+    expect(await render(notFound, "/nope")).toContain("Back to the start");
+    expect(await render(notFound, "/app/nope")).not.toContain("Back to the start");
   });
 });

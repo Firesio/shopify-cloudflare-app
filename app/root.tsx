@@ -1,4 +1,4 @@
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData } from "react-router";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, useLocation } from "react-router";
 import type { LoaderFunctionArgs, ShouldRevalidateFunction } from "react-router";
 import { directionOf, localeOf } from "@firesio/app";
 import { RootErrorBoundary } from "@firesio/app/ui/shell";
@@ -48,5 +48,7 @@ export default function App() {
  * error, and without it the merchant never gets past the token exchange).
  */
 export function ErrorBoundary() {
-  return <RootErrorBoundary showDetails={import.meta.env.MODE === "development"} />;
+  // Inside the admin (/app) a plain link loses the session's query and lands on the public page: the app's menu is the way back.
+  const embedded = useLocation().pathname.startsWith("/app");
+  return <RootErrorBoundary showDetails={import.meta.env.MODE === "development"} homeHref={embedded ? null : "/"} />;
 }
