@@ -1,11 +1,11 @@
-import { onPromiseSettled } from "@firesio/core";
+import { onPromiseSettled } from "@firesio/app/core";
 import { isbot } from "isbot";
 import { renderToReadableStream } from "react-dom/server";
 import { ServerRouter, type EntryContext } from "react-router";
 import { describeRequestError } from "~/components/request-error";
 import { renderErrorLog } from "~/core/render-error";
 import { applySecurityHeaders } from "~/core/response-headers";
-import { shopify } from "~/wiring/shopify";
+import { firesio } from "~/firesio.server";
 
 export const streamTimeout = 5000;
 
@@ -21,7 +21,7 @@ export function handleError(error: unknown, { request }: { request: Request }): 
 /** Workers entry: the Web Streams renderer (workerd has neither `renderToPipeableStream` nor `node:stream`). */
 export default async function handleRequest(request: Request, responseStatusCode: number, responseHeaders: Headers, reactRouterContext: EntryContext) {
   // Sets the embedded-app CSP (frame-ancestors for the shop and Shopify admin), then the app's own headers.
-  shopify().addDocumentResponseHeaders(request, responseHeaders);
+  firesio.shopify.addDocumentResponseHeaders(request, responseHeaders);
   applySecurityHeaders(request, responseHeaders);
 
   const controller = new AbortController();

@@ -1,23 +1,23 @@
-import { env } from "cloudflare:workers";
-import { toQueuedWebhook, verifyWebhook, webhookRejectionResponse, webhookSecrets } from "@firesio/shopify";
 import type { ActionFunctionArgs } from "react-router";
-import { services } from "~/wiring/services";
+import { firesio } from "~/firesio.server";
 
 /**
  * The receiver for every Shopify webhook (`/webhooks/app/uninstalled`, `/webhooks/compliance`; the URIs in both
- * shopify.app*.toml files): VERIFY the HMAC, put ONE durable message on the queue, answer 2xx within Shopify's 5 seconds, and
- * write nothing to D1. The 2xx means "this delivery will not be lost" (a failed send answers 5xx and Shopify retries). The
- * queue consumer (`workers/app.ts`) admits, claims, runs and settles it. An invalid HMAC must stay a 401: it is an app-review check.
+ * shopify.app*.toml files). For a topic the preset owns (the uninstall and the three GDPR ones: `firesio.handles`) the preset
+ * VERIFIES the HMAC itself from the raw request (an invalid one stays a 401: it is an app-review check; `SHOPIFY_API_SECRET_PREVIOUS`
+ * is accepted for the hour a rotation takes), puts ONE durable message on the queue and answers 2xx. Nothing is written to D1 in
+ * the request. `workers/app.ts` consumes the queue.
  *
- * Secrets: the current one, and `SHOPIFY_API_SECRET_PREVIOUS` for the hour a rotation takes (set it by `wrangler secret put`
- * for that window only and remove it after: it is deliberately not declared in `wrangler.jsonc`).
+ * NOT `firesio.shopify.authenticate.webhook` here: that call loads the offline session and refreshes it when it is near expiry,
+ * and a refresh that fails (the token of an uninstalled app) becomes a 500 for `app/uninstalled` itself
+ * (`docs/shopify-api-invariants.md`). A topic of the app's own that needs an Admin API session calls `authenticate.webhook`
+ * for that topic only, in its own branch below.
  */
 export async function action({ request }: Pick<ActionFunctionArgs, "request">): Promise<Response> {
-  const previous = "SHOPIFY_API_SECRET_PREVIOUS" in env ? env.SHOPIFY_API_SECRET_PREVIOUS : undefined;
-  const verified = await verifyWebhook(request, webhookSecrets(env.SHOPIFY_API_SECRET, previous));
-  if (!verified.ok) return webhookRejectionResponse(verified.error);
-  const s = services();
-  await env.WEBHOOK_QUEUE.send(await toQueuedWebhook(verified.value, { now: s.runtime.now() }));
+  const topic = request.headers.get("x-shopify-topic") ?? "";
+  if (firesio.handles(topic)) return firesio.webhook(request);
+  // A subscription in a shopify.app*.toml that nothing here handles: answer 2xx so Shopify does not retry it for days, and say so.
+  console.log(JSON.stringify({ event: "webhook.unhandled", topic: topic.slice(0, 64) }));
   return new Response(null, { status: 200 });
 }
 

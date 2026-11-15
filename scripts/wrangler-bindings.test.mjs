@@ -35,11 +35,11 @@ test("the portal events queue is a producer in both environments (its DLQ belong
   assert.equal(production.queues.producers.find((entry) => entry.binding === "PORTAL_EVENTS")?.queue, "portal-events-prod");
 });
 
-test("every production cron is one app/core/cron.ts knows, and development runs everything on one tick", () => {
-  const source = readFileSync(new URL("../app/core/cron.ts", import.meta.url), "utf8");
+test("every production cron is one the preset's worker/cron.ts knows, and development runs everything on one tick", () => {
+  const source = readFileSync(new URL("../node_modules/@firesio/app/src/preset/worker/cron.ts", import.meta.url), "utf8");
   const known = [...source.matchAll(/(?:DRAIN_ONLY_CRON|DAILY_CRON) = "([^"]+)"/g)].map((match) => match[1]);
   assert.deepEqual(sorted(known), sorted(["* * * * *", "30 3 * * *"]));
-  for (const cron of production.triggers.crons) assert.ok(known.includes(cron), `production cron "${cron}" is unknown to core/cron.ts`);
+  for (const cron of production.triggers.crons) assert.ok(known.includes(cron), `production cron "${cron}" is unknown to the preset (@firesio/app worker/cron.ts)`);
   for (const cron of top.triggers.crons) assert.ok(!known.includes(cron), `development cron "${cron}" would not run the daily work`);
 });
 

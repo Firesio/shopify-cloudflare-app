@@ -12,19 +12,19 @@ One law: **dependencies point inward.** The table is `eslint.boundaries.js`; `to
 
 | Element | Folder | Holds | May import |
 |---|---|---|---|
-| core | `app/core/` | Decisions, ports, catalogues (`PLANS`, `MEMBERS`, ...), use cases | core |
-| adapters | `app/adapters/` | D1, KV, R2, Shopify, Turnstile: implementations of core's ports | core, adapters |
-| wiring | `app/wiring/` | Composition root: picks adapters, reads the clock, mints ids | adapters, core, i18n |
+| core | `app/core/` | The app's declarations (`PLANS`, `MEMBERS`, identity) and pure helpers | core |
+| db | `app/db/` | The app's own Drizzle tables (the shared ones are `@firesio/app`'s) | db |
+| composition | `app/firesio.server.ts` | THE call of `createFiresio`: only what differs from the preset's defaults | core, db, i18n |
 | components | `app/components/` | Presentational React (props in, JSX out) | core, i18n |
-| i18n | `app/i18n/` | Language of a request, the label objects `@firesio/app-ui` takes | core |
-| routes | `app/routes/` | Read input, call a use case or a library route module, return | wiring, components, i18n, core |
-| entry | `root.tsx`, `routes.ts`, `entry.*` | Document and route table | routes, wiring, components, i18n, core |
-| workers | `workers/` | `fetch`, `scheduled`, `queue`, `email`, `AdminApi`: build services, hand over | wiring, core |
+| i18n | `app/i18n/` | Language of a request, the label objects the `@firesio/app/ui/*` pages take | core |
+| routes | `app/routes/` | Read input, call a use case or a library route module, return | composition, components, i18n, core, db |
+| entry | `root.tsx`, `routes.ts`, `entry.*` | Document and route table | routes, composition, components, i18n, core |
+| workers | `workers/` | `fetch`, then `scheduled`, `queue`, `email`, `AdminApi`: delegate to `firesio` | composition, core |
 
-- core takes time, ids, randomness and secrets as arguments: lint bans `Date.now`, `new Date()`, `Math.random`, `crypto.randomUUID` outside `app/wiring` (a Date made from a value, `new Date(ms)`, is fine) and bans `fetch` and React in core.
-- A use case declares a port (`ShopsPort`, `MetricsPort`) and receives an adapter; the adapter turns database errors into values where the caller must not fail. Entry points hold no logic.
-- The libraries are packages: import their public entries (`@firesio/x`, `/d1`, `/testing`), never their `src` paths. A rule or a feature that two apps need goes to the library (platform repo), not here.
-- **No mutable module state**: an isolate is reused across shops. The one cache (`shopify()` in `wiring/shopify.ts`) is a `WeakMap` keyed by `env`, holding nothing about a shop.
+- core takes time, ids, randomness and secrets as arguments: lint bans `Date.now`, `new Date()`, `Math.random`, `crypto.randomUUID` outside tests (the preset's runtime reads them; a Date made from a value, `new Date(ms)`, is fine) and bans `fetch` and React in core.
+- A use case of the app's own declares a port and receives an adapter built from `firesio.services()`; entry points hold no logic. The adapters of the shared tables are the preset's.
+- The libraries are packages: import their public entries (`@firesio/app`, `@firesio/app/plans`, `/d1`, `/testing`, ...), never their `src` paths (`drizzle.config.ts` and `scripts/wrangler-bindings.test.mjs` read two schema and cron files by path: that is the exception). A rule or a feature that two apps need goes to the library (platform repo), not here.
+- **No mutable module state**: an isolate is reused across shops. The preset's caches (`firesio.services`, `firesio.shopify`) are `WeakMap`s keyed by `env`, holding nothing about a shop; the app adds none.
 - Dead code is deleted. Tests sit beside their subject (`*.test.ts`); shared helpers in `app/test/`.
 - **Caps (lint): a file at most 400 lines, a function at most 40** (blank lines and comments not counted). A `describe` callback is a function: split it.
 - No `any`, no `as`, no `@ts-ignore`, no non-null `!`. Narrow with a type guard or a zod parse. If types resist, the design is wrong.
@@ -34,4 +34,4 @@ One law: **dependencies point inward.** The table is `eslint.boundaries.js`; `to
 
 ## Routes
 
-`app/routes.ts` is explicit config; the file tree mirrors the URL. One folder per surface: `public/`, `app/` (embedded admin), `auth/`, `webhooks/`. The merchant pages of `@firesio/app-ui` are two-line files under `routes/app/` that re-export a library route module (`export { default, loader, action } from "@firesio/app-ui/support/thread"`); the layout's `middleware` hands them their deps (`wiring/app-ui.ts`). To change a page, extend the library, do not copy it out.
+`app/routes.ts` is explicit config; the file tree mirrors the URL. One folder per surface: `public/`, `app/` (embedded admin), `auth/`, `webhooks/`. The merchant pages of `@firesio/app` are two-line files under `routes/app/` that re-export a library route module (`export { default, loader, action } from "@firesio/app/ui/support/thread"`); the layout's `middleware = [firesio.adminMiddleware]` authenticates, admits the member and hands them their deps. A loader of the app's own calls `firesio.from(context)` and `firesio.requirePermission(member, "...")`. To change a page, extend the library, do not copy it out.

@@ -22,7 +22,7 @@
    and email branding derived from it.
 2. **Shopify:** keep client IDs, app GIDs, app handles, plan handles, and shop
    domains separate; validate each against the API/configuration that owns it.
-3. **Database:** the app's tables are in `app/adapters/db/schema.ts`, the libraries' in their `/d1` schemas; adapters use bound raw SQL (`.claude/rules/data.md`) and preserve shop isolation.
+3. **Database:** the app's own tables are in `app/db/schema.ts` (passed to `createFiresio({ schema })`, so `shop/redact` erases every one that has a `shop` column), the shared ones are `@firesio/app`'s (`drizzle.config.ts` lists their schemas); queries are bound and preserve shop isolation (`.claude/rules/data.md`).
 4. **Tests:** assert rendered output and persisted state, especially billing,
    quotas, retries, tenant isolation, and launch placeholder checks.
 
@@ -38,7 +38,7 @@ and evidence; a checked box is not a substitute for a tested implementation.
 
 - Set the canonical product, company, support/privacy contacts, legal address and
   effective date in `app/core/identity.ts`; do not reintroduce identity literals in routes, legal pages or mail texts
-  (`app/core/content.ts` takes the app's name as a variable).
+  (the preset's mail texts take the app's name as a variable: `identity.name` in `app/firesio.server.ts`; to word them differently pass `content` and `notifications` there).
 
 - Create separate Shopify applications for development and production. Link
   `shopify.app.dev.toml` only to the development application and

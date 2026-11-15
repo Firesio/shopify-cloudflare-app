@@ -21,13 +21,13 @@ needs it; do not scaffold one speculatively.
 | **KV** | Shopify sessions + hot read cache | Eventually consistent — never the source of relational truth. Shop-scoped keys, invalidate at the write site |
 | **Queues** | Webhook → pipeline handoff | At-least-once ⇒ idempotent consumers, backoff that spans an outage (not a minute), and a **dead-letter queue**. A webhook route answers 2xx only after ONE `queue.send` and writes nothing to D1 first (`docs/webhooks.md`) |
 | **Queues (portal events)** | `PORTAL_EVENTS` producer: the outbox drains into the portal's queue | Written reason: docs/architecture.md section 4. Producer only; the portal's consumer owns the dead-letter queue (`portal-events-dlq`). Both environments name different queues (`portal-events`, `portal-events-prod`) |
-| **Cron Triggers** | Outbox drain (every tick) and the daily snapshot and prune | One `scheduled` handler; `core/cron.ts` says what each cron string runs; each step guards its own errors so one failure never costs the others their tick |
+| **Cron Triggers** | Outbox drain (every tick) and the daily snapshot and prune | One `scheduled` handler (`firesio.scheduled`); the preset's `worker/cron.ts` says what each cron string runs (`scripts/wrangler-bindings.test.mjs` pins it); each step guards its own errors so one failure never costs the others their tick |
 | **Email Sending** | Customer replies and staff alerts | Verified sender domain from `vars`; failures are logged by event name and never lose a ticket |
-| **Rate Limiting** | Support writes, the public form, inbound mail | Config-only binding, **fails closed** (`adapters/rate-limit.ts`), docs/architecture.md section 6.4 |
-| **Email Routing + Email Workers** | Mail sent to the app's support addresses to the Worker's `email` handler | Receiving only. `workers/inbound-email.ts` is the entry; the decisions are `@firesio/support`'s |
-| **Turnstile** | Bot check on the public support form | Verified server-side (`adapters/turnstile.ts`). The site key is a `var`; the secret is a Worker secret |
+| **Rate Limiting** | Support writes, the public form, inbound mail | Config-only binding, **fails closed** (the preset's `adapters/rate-limit.ts`), docs/architecture.md section 6.4 |
+| **Email Routing + Email Workers** | Mail sent to the app's support addresses to the Worker's `email` handler | Receiving only. `firesio.email` (the Worker's `email` handler) is the entry; the decisions are `@firesio/app/support`'s |
+| **Turnstile** | Bot check on the public support form | Verified server-side (the preset's `adapters/turnstile.ts`). The site key is a `var`; the secret is a Worker secret |
 | **Observability** | Logs | `enabled: true` + `head_sampling_rate`, structured JSON |
-| **Workers AI** | The support spam check (a decision model) | Binding only. Every call goes through `@firesio/ai`'s `AiService`, is metered into `ai_runs`, names a ROLE rather than a model, and is never on the correctness path (no answer opens the conversation) |
+| **Workers AI** | The support spam check (a decision model) | Binding only. Every call goes through `@firesio/app/ai`'s `AiService`, is metered into `ai_runs`, names a ROLE rather than a model, and is never on the correctness path (no answer opens the conversation) |
 | **KV (portal blocklist)** | `PORTAL_BLOCKLIST`: the portal's blocklist and kill switch | READ-ONLY here, through `createBlocklistReader` (fail closed on anything on the mail path); the portal writes it |
 
 **Everything else is out of scope until a written reason says otherwise** —
@@ -90,9 +90,9 @@ Two calls that recur and deserve a recorded answer rather than a reflex:
   `ctx.waitUntil()`. `@typescript-eslint/no-floating-promises` is the gate.
 - **No module-level mutable state** — an isolate is reused across shops
   (`@rules/core.md`).
-- **`env` from `cloudflare:workers` (`services()`), never `process.env`** — workerd does not populate it. A handler that is handed `env` (`scheduled`, `queue`, `email`, the AdminApi) builds `createServices(env)`.
+- **`env` from `cloudflare:workers` (`firesio.services()`), never `process.env`** — workerd does not populate it. A handler that is handed `env` (`scheduled`, `queue`, `email`, the AdminApi) passes it on (`firesio.queue(batch, env)`); the preset builds the services once per `env`.
 - **`crypto.getRandomValues()` / `crypto.randomUUID()`, never `Math.random()`**
-  for anything security-bearing. Webhook HMACs are verified by `@firesio/shopify` (`crypto.subtle.verify`, constant time) — never `===`.
+  for anything security-bearing. Webhook HMACs are verified by Shopify's `authenticate.webhook` (and by `@firesio/app/shopify` when the preset is handed a raw request); both compare in constant time — never `===`.
 - **No `passThroughOnException`.** Explicit `try/catch` and a structured error
   response.
 

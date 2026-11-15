@@ -1,10 +1,11 @@
-import { CONTACT_TRAP_FIELD, parseContactForm, type ContactField, type ContactFieldError } from "@firesio/support";
+import { env } from "cloudflare:workers";
+import { CONTACT_TRAP_FIELD, parseContactForm, type ContactField, type ContactFieldError } from "@firesio/app/support";
 import type { ActionFunctionArgs } from "react-router";
 import { Form, useActionData, useLoaderData, useNavigation } from "react-router";
 import { identity } from "~/core/identity";
-import { services } from "~/wiring/services";
+import { firesio } from "~/firesio.server";
 
-export const loader = () => ({ turnstileSiteKey: services().env.TURNSTILE_SITE_KEY });
+export const loader = () => ({ turnstileSiteKey: env.TURNSTILE_SITE_KEY });
 
 const FAILURES: Readonly<Record<string, string>> = {
   rate_limited: "You have sent several messages in a short time. Try again in a minute.",
@@ -21,7 +22,10 @@ export async function action({ request }: ActionFunctionArgs) {
   if (parsed.kind === "trap") return { sent: true as const };
   if (parsed.kind === "invalid") return { errors: parsed.errors, values: parsed.values };
   const token = form.get("cf-turnstile-response");
-  const result = await services().contact.submit(parsed.input, { ip: request.headers.get("CF-Connecting-IP"), turnstileToken: typeof token === "string" ? token : null });
+  const { contact } = firesio.services();
+  // Support is switched off for this app (`support: false` in firesio.server.ts): there is nobody to read the message.
+  if (contact === null) return { failure: "unavailable" };
+  const result = await contact.submit(parsed.input, { ip: request.headers.get("CF-Connecting-IP"), turnstileToken: typeof token === "string" ? token : null });
   return result.ok ? { sent: true as const } : { failure: result.reason };
 }
 

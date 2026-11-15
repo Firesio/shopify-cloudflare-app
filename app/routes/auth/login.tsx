@@ -5,8 +5,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { Form, redirect, useActionData, useLoaderData } from "react-router";
 import { EmbeddedProvider } from "~/components/EmbeddedProvider";
 import { installTarget } from "~/core/install-target";
-import { services } from "~/wiring/services";
-import { shopify } from "~/wiring/shopify";
+import { firesio } from "~/firesio.server";
 
 const MESSAGES = { missingShop: "Enter your store address.", invalidShop: "Enter a valid store address, like your-store.myshopify.com." } as const;
 
@@ -22,20 +21,20 @@ function errorOf(errors: LoginError | undefined): string | undefined {
  * carry a shop (the library sending an expired session back through login) still reaches `login()`, which redirects into OAuth.
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { env } = services();
+  const { env } = firesio.services();
   const target = installTarget(env.SHOPIFY_APP_HANDLE);
   if (target.kind === "appStore" && !new URL(request.url).searchParams.has("shop")) throw redirect(target.url);
-  const error = errorOf(await shopify(env).login(request));
+  const error = errorOf(await firesio.shopify.login(request));
   if (target.kind === "appStore") throw redirect(target.url);
   return { error, apiKey: env.SHOPIFY_API_KEY };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { env } = services();
+  const { env } = firesio.services();
   // The form is not shown once the app is listed, so a POST here is not a merchant installing: send it where installing starts.
   const target = installTarget(env.SHOPIFY_APP_HANDLE);
   if (target.kind === "appStore") throw redirect(target.url);
-  return { error: errorOf(await shopify(env).login(request)), apiKey: env.SHOPIFY_API_KEY };
+  return { error: errorOf(await firesio.shopify.login(request)), apiKey: env.SHOPIFY_API_KEY };
 };
 
 export default function Login() {

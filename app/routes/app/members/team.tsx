@@ -1,2 +1,2 @@
-// The page, its loader and its action are @firesio/app-ui's; the deps come from the /app layout middleware.
-export { default, loader, action } from "@firesio/app-ui/members/team";
+// The page, its loader and its action are @firesio/app's (ui); the deps come from the /app layout middleware (firesio.adminMiddleware).
+export { default, loader, action } from "@firesio/app/ui/members/team";

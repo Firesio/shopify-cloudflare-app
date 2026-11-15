@@ -1,16 +1,16 @@
 ---
 name: add-db-table
-description: Add a D1 table or column with its adapter, migration and the shop/redact purge entry. Use when creating or changing anything under app/adapters/db, an adapter or drizzle/.
+description: Add a D1 table or column with its migration and check the shop/redact purge covers it. Use when creating or changing anything under app/db, a query of the app's own or drizzle/.
 ---
 
 # Add a D1 table
 
-Rules: `.claude/rules/data.md` (shop-scoped, raw SQL with bound values, no query per row, forward-only migrations). Read it first. If a library already has the table (`@firesio/*/d1`), use the library: do not add a second one.
+Rules: `.claude/rules/data.md` (shop-scoped, bound values, no query per row, forward-only migrations). Read it first. If `@firesio/app` already has the table (`@firesio/app/*/d1`, `@firesio/app/preset/d1`), use that: do not add a second one.
 
-1. **Schema**: a table in `app/adapters/db/schema.ts`. Shop-scoped tables carry `shop` and every index starts with it. Money is an integer minor-unit column plus a currency column.
+1. **Schema**: a table in `app/db/schema.ts` (`app/firesio.server.ts` hands that module to the preset as `schema`). Shop-scoped tables carry `shop` and every index starts with it. Money is an integer minor-unit column plus a currency column.
 2. **Migration**: `npm run db:generate`, **read the SQL**, then `npm run db:migrate:local`. Never hand-edit an applied migration; a removed column is two deploys.
-3. **Port and adapter**: the port in `app/core/<area>/ports.ts`, the adapter in `app/adapters/d1-<name>.ts` (raw SQL, every value bound, `shop` first). A write that belongs with a portal event goes in the same `db.batch` as `enqueueStatement(...)` (`adapters/d1-shops.ts`, `prepared` from `adapters/d1-batch.ts`). Compose it in `app/wiring/services.ts`.
-4. **`shop/redact`**: add `DELETE FROM <table> WHERE <shop column> = ?1` to `SHOP_SCOPED_DELETES` in `app/wiring/webhooks.ts`, and seed a row in your table in `app/wiring/webhooks.test.ts` so a purge that forgets it fails. A table with files also needs a `before` step in `complianceDeps`. A table without a shop column needs a written reason.
-5. **Metrics**: a number the portal should see is a metric: one line in `app/core/metrics.ts` and one collector in `core/metrics-snapshot.ts` (and a count in `adapters/d1-metrics.ts`).
-6. **Tests** (real local D1, no mocks): the adapter, **a test proving it cannot read another shop's row**. `setupTestDatabase()` at the top of the file.
+3. **Queries**: in `app/core/<area>/` behind a port, or in the loader of the page that needs them (`const { shop, services } = firesio.from(context)`, then `drizzle(services.env.DB)`), always filtered by `shop`. A write that belongs with a portal event goes in the SAME `db.batch` as the event's outbox statement, built from `services.portal` (the preset exposes `services.shops`, `billing`, `usage`, `portal`, `support`, ... ; the app's own tables are the app's to query).
+4. **`shop/redact`**: nothing to list: the preset erases every table of `app/db/schema.ts` that has a column named `shop`. A table keyed by another column goes in `purge: { shopScoped: [{ table, column }] }`; one that must survive a redaction goes in `purge.keep`, with the legal reason in a comment; a table with files in R2 needs the app's own step (the preset erases only its own). A table without a shop column needs a written reason.
+5. **Metrics**: a number the portal should see is a metric: a catalogue entry and a collector in `createFiresio({ metrics: { catalogue, collectors } })`.
+6. **Tests** (real local D1, no mocks): the query, **a test proving it cannot read another shop's row**, and one that a purge removes the table's rows. `setupTestDatabase()` at the top of the file.
 7. `npm run verify` (a migration breaks tests that never mention it).

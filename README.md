@@ -1,13 +1,15 @@
 # Shopify Cloudflare App Template
 
-The shell every Firesio Shopify app starts from, on **Cloudflare Workers** (React Router 7, D1, KV, R2, Queues, Cron, Email) and the
-**`@firesio/*` packages**. The template keeps what is Shopify's and the app's own (auth, the embedded `/app` shell, the shop
-lifecycle, the wiring, the catalogues of plans, roles, notifications and texts, two-line routes); everything that two apps would
-copy (money, plans and billing, notifications and push, support, members, content, AI, the webhook inbox and GDPR purge, the Admin
-GraphQL client, the portal outbox) is a library. Design: `platform/docs/architecture.md` (sections 4 to 8, 6.5).
+The shell every Firesio Shopify app starts from, on **Cloudflare Workers** (React Router 7, D1, KV, R2, Queues, Cron, Email) and **`@firesio/app`**, one package with a preset
+(`createFiresio`). The template is the minimal app of `platform/docs/architecture.md` section 6.6: one config file
+(`app/firesio.server.ts`), `routes.ts` written by hand, a Worker entry of a few lines, one-line routes that mount the pages of
+`@firesio/app/ui/*`, and what is Shopify's and the app's own (auth routes, the embedded `/app` shell, the public pages, the plans
+and roles). Everything that two apps would copy (money, plans and billing, notifications and push, support, members, content, AI,
+the webhook inbox and GDPR purge, the Admin GraphQL client, the portal outbox, the guard, the Worker's handlers and the AdminApi)
+is the preset's. Design: `platform/docs/architecture.md` (sections 4 to 8, 6.5, 6.6).
 
 Staff operate the app from the **portal**, not from the app: there is no staff console here. The app sends the portal events (install,
-uninstall, plan changes, redactions, a daily snapshot) through a D1 outbox, and answers its commands through `workers/admin-api.ts`.
+uninstall, plan changes, redactions, a daily snapshot) through a D1 outbox, and answers its commands through the `AdminApi` entrypoint the preset provides (`export const AdminApi = firesio.AdminApi` in `workers/app.ts`).
 
 ## Stack
 
@@ -15,8 +17,8 @@ uninstall, plan changes, redactions, a daily snapshot) through a D1 outbox, and 
 |---|---|
 | Runtime | Workers + Static Assets, React Router 7 (SSR, `future.v8_middleware`), Vite 8 |
 | Shopify | `@shopify/shopify-app-react-router` (token exchange, App Store distribution), Polaris web components, App Bridge |
-| Data | D1 (Drizzle schema, the libraries' `/d1` schemas in one migration history), KV (sessions), R2 (attachments) |
-| Libraries | `@firesio/core`, `money`, `plans` (+ `/billing`), `shopify`, `support`, `members`, `notify`, `content`, `ai`, `portal-client`, `portal-contract`, `app-ui` |
+| Data | D1 (Drizzle: the preset's and the libraries' `/d1` schemas plus the app's own, in one migration history), KV (sessions), R2 (attachments) |
+| Libraries | `@firesio/app` (the preset at the root; subpaths `core`, `money`, `plans`, `shopify`, `support`, `members`, `notify`, `content`, `ai`, `portal-client`, `ui/*`) and `@firesio/portal-contract` |
 | Tests | Vitest 5 in workerd with real D1/KV/R2/Queues, Node for pure code, `node --test` for scripts |
 
 ## Start a new app
@@ -24,7 +26,7 @@ uninstall, plan changes, redactions, a daily snapshot) through a D1 outbox, and 
 ```bash
 gh repo create my-new-app --template khoinguyen12200/shopify-cloudflare-app --private --clone
 cd my-new-app
-export NPM_TOKEN=...            # a read-only (read:packages) token for the @firesio packages; .npmrc only references it
+export NPM_TOKEN=...            # a read-only (read:packages) token for the @firesio packages (`@firesio/app`, `@firesio/portal-contract`); .npmrc only references it
 npm install
 npm run new-app -- repair-service-ops "Repair Service Ops"   # renames everything, lists the Cloudflare resources to create
 cp .dev.vars.example .dev.vars   # then fill it in
@@ -40,25 +42,28 @@ DLQ, secrets, the portal registration). `npm run check:placeholders` fails until
 
 ```
 app/
-  core/        pure: decisions, ports, catalogues (PLANS, MEMBERS, NOTIFICATIONS, CONTENT, METRICS), use cases
-  adapters/    THE adapters folder: D1, KV session, R2, Shopify, Turnstile, Workers AI
-  wiring/      the composition root (services.ts): picks adapters, reads the clock, mints ids
-  routes/      thin: app/ (embedded; two-line files mounting @firesio/app-ui), public/, auth/, webhooks/, healthz
+  firesio.server.ts  THE glue: `createFiresio({ identity, plans, members, schema, ... })`, only what differs from the preset's defaults
+  core/        the app's own declarations (identity, PLANS, MEMBERS) and pure helpers (install target, security headers, error logs)
+  db/          the app's own Drizzle tables (none yet; the shared ones are the preset's)
+  routes/      thin: app/ (embedded; `middleware = [firesio.adminMiddleware]`, one-line files mounting @firesio/app/ui/*), public/, auth/, webhooks/, healthz
   components/  presentational React; i18n/ the language of a request and the label objects the library pages take
-workers/       app.ts (fetch, scheduled, queue, email), admin-api.ts (the portal's commands), inbound-email.ts
+workers/       app.ts: fetch, then `firesio.queue`, `firesio.scheduled`, `firesio.email` and `AdminApi = firesio.AdminApi`
 drizzle/       the app's migrations (one baseline; the libraries' tables included)
 tools/         architecture tests; eslint.boundaries.js is the layer table
 ```
 
-The layers and the bans (no `as`, no `any`, no `Date.now` or `randomUUID` outside `app/wiring`, files at most 400 lines, functions at
+The layers and the bans (no `as`, no `any`, no `Date.now` or `randomUUID` outside tests (the preset's runtime reads them), files at most 400 lines, functions at
 most 40) are enforced by `npm run lint`; `npm run verify` runs typecheck, lint and every test. CI (`.github/workflows/verify.yml`)
 runs it plus a production build on every pull request and push to `main`.
 
 ## What an app writes
 
-Plans (`app/core/plans.ts`), roles and permissions (`members.ts`), notification types and texts (`notifications.ts`, `content.ts`),
-metrics (`metrics.ts`), the words of the library pages (`app/i18n/labels.ts`), its own pages, and the identity (`identity.ts`). Everything
-else is a library call: see each package's README in the platform repo.
+Plans (`app/core/plans.ts`), roles and permissions (`members.ts`), the identity (`identity.ts`), the names of the plans page's
+entitlement keys and any other words of the library pages (`app/i18n/labels.ts`), its own pages and tables (`app/db/schema.ts`), and
+the options of `createFiresio` in `app/firesio.server.ts` that differ from the defaults: `content` and `notifications` (the
+preset sends the support mails with its own English texts), `metrics` (your own keys next to the standard ones), `meters`, `ai`,
+`support` (`false` leaves support out), `purge` and `customerData` for tables and customer data of its own. Everything else is the
+preset's: see `node_modules/@firesio/app/src/preset/README.md` (every option, its default and the bindings it reads).
 
 ## Two Shopify apps: dev and prod
 

@@ -1,4 +1,4 @@
-import { services } from "~/wiring/services";
+import { firesio } from "~/firesio.server";
 
 /**
  * A public liveness and readiness probe: no session, no data about any shop. 200 with `{ ok: true }` when the Worker runs and
@@ -7,7 +7,7 @@ import { services } from "~/wiring/services";
 export async function loader(): Promise<Response> {
   const headers = { "Cache-Control": "no-store", "Content-Type": "application/json" };
   try {
-    await services().env.DB.prepare("SELECT 1").first();
+    await firesio.services().env.DB.prepare("SELECT 1").first();
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
   } catch {
     return new Response(JSON.stringify({ ok: false }), { status: 503, headers });

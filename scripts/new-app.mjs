@@ -50,7 +50,8 @@ export function renames(slug, name) {
     ...withResources("package.json"),
     ...withResources("scripts/ci-release.mjs"),
     ...withResources("scripts/migrate.mjs"),
-    ...withResources("workers/app.ts"),
+    // The webhook queues the Worker consumes are named ONCE, where the preset is configured (`webhookQueues`).
+    ...withResources("app/firesio.server.ts"),
     ...withResources("docs/OPERATIONS.md"),
     ...withResources("docs/webhooks.md"),
     replace("shopify.web.toml", `name = "shopify-cloudflare-app"`, `name = "${slug}"`),

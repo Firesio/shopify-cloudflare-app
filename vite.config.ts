@@ -59,7 +59,7 @@ export default defineConfig(({ command }) => ({
   },
   // Browser (client environment) dependency pre-bundling. Vite finds a dependency only when it first sees an import of it; each
   // discovery re-optimises and reloads the page, leaving the browser holding URLs with an outdated `?v=` hash (504s on the first
-  // navigation in dev). List every browser-side package here, including the ones `@firesio/app-ui` brings. Add a package when a
+  // navigation in dev). List every browser-side package here, including the ones `@firesio/app` (its `ui/*` pages) brings. Add a package when a
   // client route starts importing a new one: the symptom is "new dependencies found ... reloading" in `DEBUG=vite:deps`.
   optimizeDeps: {
     include: ["react", "react-dom/client", "react-router", "react-router/dom", "zod", "@shopify/shopify-app-react-router/react", "@shopify/app-bridge-types"],
@@ -93,11 +93,11 @@ export default defineConfig(({ command }) => ({
   // the code logs `error.name` and compares class names.
   environments: {
     ssr: {
-      // @firesio/app-ui is TypeScript source whose route modules share context objects (`membersContext`, `plansContext`,
-      // `supportContext`) with the wiring that fills them. Pre-bundled per entry, each entry got its own copy of those objects
-      // and every page died with "No value found for context" in `react-router dev` (found in a real dev store). Excluded, the
-      // modules load once from source.
-      optimizeDeps: { exclude: ["@firesio/app-ui"] },
+      // @firesio/app is TypeScript source whose route modules (`ui/*`) share context objects (`membersContext`, `plansContext`,
+      // `supportContext`) with the preset's middleware that fills them. Pre-bundled per entry, each entry gets its own copy of
+      // those objects and every page dies with "No value found for context" in `react-router dev` (found in a real dev store,
+      // when the pages were a separate package). Excluded, the modules load once from source.
+      optimizeDeps: { exclude: ["@firesio/app"] },
       build: {
         rolldownOptions: {
           output: { minify: { compress: { keepNames: { function: true, class: true } }, mangle: { keepNames: { function: true, class: true } } } },

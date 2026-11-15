@@ -2,13 +2,13 @@ import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { redirect, useLoaderData } from "react-router";
 import { installTarget } from "~/core/install-target";
 import { identity } from "~/core/identity";
-import { services } from "~/wiring/services";
+import { firesio } from "~/firesio.server";
 
 export const loader = ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
   // Shopify sends merchants here with ?shop=... when they open the app from the admin: straight to the embedded app.
   if (url.searchParams.get("shop")) throw redirect(`/app?${url.searchParams.toString()}`);
-  return { install: installTarget(services().env.SHOPIFY_APP_HANDLE) };
+  return { install: installTarget(firesio.services().env.SHOPIFY_APP_HANDLE) };
 };
 
 export const meta: MetaFunction = () => [{ title: identity.name }, { name: "description", content: "TODO: one sentence about what the app does." }];

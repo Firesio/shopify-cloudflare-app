@@ -1,8 +1,8 @@
-import { money } from "@firesio/money";
-import { definePlans, limit, unlimited } from "@firesio/plans";
+import { money } from "@firesio/app/money";
+import { definePlans, limit, unlimited } from "@firesio/app/plans";
 
 /**
- * THE ONE PLACE plans are defined (`@firesio/plans`). The plan handle is the Shopify Managed Pricing handle and the key
+ * THE ONE PLACE plans are defined (`@firesio/app/plans`). The plan handle is the Shopify Managed Pricing handle and the key
  * that joins Shopify's subscription to this table; Shopify's Partner Dashboard keeps the real price. Cheapest first.
  * Every plan declares every entitlement key (a key one plan forgets does not compile).
  *

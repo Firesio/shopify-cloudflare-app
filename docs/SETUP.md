@@ -1,7 +1,6 @@
 # New App Setup
 
-Use this checklist after creating a repository from the template. The template is a thin shell: Shopify auth, the embedded shell, the shop
-lifecycle, wiring and the catalogues. The rest is the `@firesio/*` packages (installed from GitHub Packages with a read-only `NPM_TOKEN`).
+Use this checklist after creating a repository from the template. The template is the minimal app on the `@firesio/app` preset: Shopify auth routes, the embedded shell, the public pages, the catalogues of plans and roles and ONE config file (`app/firesio.server.ts`). The rest is `@firesio/app` and `@firesio/portal-contract` (installed from GitHub Packages with a read-only `NPM_TOKEN`).
 
 ## Local development
 
@@ -15,12 +14,11 @@ npm run db:migrate:local
 npm run dev
 ```
 
-Fill local secrets in `.dev.vars`; never commit it. Add feature code under `app/core` (decisions and use cases), `app/adapters`
-(its tables) and `app/routes`, following the layers (`.claude/rules/core.md`).
+Fill local secrets in `.dev.vars`; never commit it. Add feature code under `app/core` (decisions and use cases), `app/db` (its tables) and `app/routes` (loaders call `firesio.from(context)`), following the layers (`.claude/rules/core.md`); what the preset can already do (support, members, plans, metrics, content, notifications) is an option of `createFiresio`, not new code.
 
 ## App identity
 
-`app/core/identity.ts` (slug, name, legal), `app/core/plans.ts`, `app/i18n/labels.ts`, and both Shopify TOML files. The slug is the `appSlug` on every
+`app/core/identity.ts` (slug, name, legal), `app/core/plans.ts`, `app/i18n/labels.ts`, the `webhookQueues` names in `app/firesio.server.ts` (`npm run new-app` renames them with the Worker's resources), and both Shopify TOML files. The slug is the `appSlug` on every
 event: register the same slug on the portal's `/apps` page. Keep dev and production apps separate and review the diff after `config:link`.
 
 ## Production

@@ -128,20 +128,20 @@ export default tseslint.config(
     },
   },
   {
-    // Time, ids and randomness come from the composition root (app/wiring), so tests can fix them and core never sees a hidden
-    // clock. A Date from a value (`new Date(ms)`) is fine; reading "now" is not.
+    // Time, ids and randomness come from the preset's composition root (`firesio.services().runtime`), so tests can fix them and
+    // core never sees a hidden clock. A Date from a value (`new Date(ms)`) is fine; reading "now" is not.
     files: ["app/**/*.{ts,tsx}", "workers/**/*.ts"],
-    ignores: ["app/wiring/**", "app/test/**", "**/*.test.{ts,tsx}"],
+    ignores: ["app/test/**", "**/*.test.{ts,tsx}"],
     rules: {
       "no-restricted-properties": [
         "error",
-        { object: "Date", property: "now", message: "Take the time from services (app/wiring)." },
-        { object: "crypto", property: "randomUUID", message: "Take ids from services (app/wiring)." },
-        { object: "Math", property: "random", message: "Take randomness from services (app/wiring)." },
+        { object: "Date", property: "now", message: "Take the time from firesio.services().runtime." },
+        { object: "crypto", property: "randomUUID", message: "Take ids from firesio.services().runtime." },
+        { object: "Math", property: "random", message: "Take randomness as an argument (firesio.services().runtime for ids)." },
       ],
       "no-restricted-syntax": [
         "error",
-        { selector: "NewExpression[callee.name='Date'][arguments.length=0]", message: "Take the time from services (app/wiring)." },
+        { selector: "NewExpression[callee.name='Date'][arguments.length=0]", message: "Take the time from firesio.services().runtime." },
       ],
     },
   },

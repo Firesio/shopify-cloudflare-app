@@ -2,8 +2,8 @@ import type { LinksFunction } from "react-router";
 import { Link, Outlet, useLoaderData } from "react-router";
 import { installTarget } from "~/core/install-target";
 import { identity } from "~/core/identity";
-import { services } from "~/wiring/services";
-import { supportMailDomain } from "@firesio/support";
+import { supportMailDomain } from "@firesio/app/support";
+import { firesio } from "~/firesio.server";
 // The public stylesheet is loaded HERE, by this layout's links(), so it ships only while a public route is matched. It must
 // never reach the embedded admin, whose Polaris web components bring their own styling.
 import publicStyles from "~/styles/public/public.scss?url";
@@ -15,7 +15,7 @@ export const links: LinksFunction = () => [{ rel: "stylesheet", href: publicStyl
  * shop-domain form when it is not), and the one contact address, derived from this app's own domain so shared code never names an app.
  */
 export const loader = () => {
-  const { env } = services();
+  const { env } = firesio.services();
   const domain = supportMailDomain(env.SHOPIFY_APP_URL, env.SUPPORT_MAIL_DOMAIN);
   return { install: installTarget(env.SHOPIFY_APP_HANDLE), supportEmail: domain === null ? identity.contacts.supportEmail : `support@${domain}` };
 };

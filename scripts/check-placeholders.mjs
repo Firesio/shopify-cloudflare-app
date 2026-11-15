@@ -229,7 +229,7 @@ export function validateLaunchContract(files) {
   if (!webhookQueue || !production.queues?.consumers?.some((entry) => entry.queue === webhookQueue)) {
     issues.push("production WEBHOOK_QUEUE consumer is missing");
   }
-  // Named-env triggers are not inherited, and these two strings are decisions shared with app/core/cron.ts (its test pins them):
+  // Named-env triggers are not inherited, and these two strings are decisions shared with the preset (`@firesio/app`, preset/worker/cron.ts; scripts/wrangler-bindings.test.mjs pins them):
   // without the drain-only cron the outbox is sent once a day, without the daily one the snapshot never runs.
   const crons = production.triggers?.crons ?? [];
   if (!crons.includes("* * * * *")) issues.push('production triggers.crons must include the outbox drain cron "* * * * *"');

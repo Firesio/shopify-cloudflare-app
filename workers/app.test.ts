@@ -1,8 +1,7 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { recordInstall } from "../app/core/shops/lifecycle";
+import { firesio } from "../app/firesio.server";
 import { setupTestDatabase } from "../app/test/database";
-import { createServices } from "../app/wiring/services";
 import worker from "./app";
 
 setupTestDatabase();
@@ -21,6 +20,14 @@ describe("the Worker's queue handler", () => {
   });
 });
 
+/** A shop installed the way `afterAuth` records it: the shop row and its `shop.installed` event (one D1 batch), the event waiting in the outbox. */
+async function installShop(shop: string, at: number): Promise<void> {
+  const { shops, portal } = firesio.services(env);
+  const built = await portal.build.shopInstalled({ kind: "shopify_shop", id: shop }, { eventId: `install_${shop.replace(/[^A-Za-z0-9_-]/g, "_")}`, occurredAt: new Date(at) });
+  if (!built.ok) throw new Error(`the install event is invalid: ${built.reason}`);
+  await shops.recordInstall({ shop, at, event: built.value });
+}
+
 describe("the Worker's scheduled handler", () => {
   async function pendingOutbox(): Promise<number> {
     const row = await env.DB.prepare(`SELECT COUNT(*) AS n FROM portal_outbox WHERE status = 'pending'`).first();
@@ -28,7 +35,7 @@ describe("the Worker's scheduled handler", () => {
   }
 
   it("drains the outbox into the portal's queue on every tick, the drain-only one included", async () => {
-    await recordInstall(createServices(env).lifecycle, "cron-one.myshopify.com", 1_700_000_000_000);
+    await installShop("cron-one.myshopify.com", 1_700_000_000_000);
     expect(await pendingOutbox()).toBe(1);
     await worker.scheduled?.(controller("* * * * *"), env);
     expect(await pendingOutbox()).toBe(0);

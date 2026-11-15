@@ -6,15 +6,17 @@ import boundaries from "eslint-plugin-boundaries";
  * (`no-unknown-files`), so a new top-level folder cannot slip past the table. `tools/architecture/boundaries.test.ts` proves the
  * resolver is active (the plugin otherwise ignores unresolved imports silently).
  *
- *   entry (root, routes.ts, entry.*) -> routes -> wiring -> adapters -> core
+ *   entry (root, routes.ts, entry.*) -> routes -> composition (app/firesio.server.ts) -> core, db, i18n
  *                                         components, i18n: presentation helpers; core: pure, imports nothing of the app.
+ *
+ * The services, the adapters and the guard are `@firesio/app`'s (the preset), so the app has no wiring and no adapters folder:
+ * `app/firesio.server.ts` is the ONE file that calls `createFiresio`, and everything else reaches the services through it.
  */
 const ROOT = `${import.meta.dirname}/`;
 
 const elements = [
   { type: "core", pattern: "app/core", partialMatch: false },
-  { type: "adapters", pattern: "app/adapters", partialMatch: false },
-  { type: "wiring", pattern: "app/wiring", partialMatch: false },
+  { type: "db", pattern: "app/db", partialMatch: false },
   { type: "components", pattern: "app/components", partialMatch: false },
   { type: "i18n", pattern: "app/i18n", partialMatch: false },
   { type: "routes", pattern: "app/routes", partialMatch: false },
@@ -24,28 +26,37 @@ const elements = [
 ];
 
 const ENTRY = "entry";
+// `app/firesio.server.ts`: a single file, so it is a file category (`boundaries/files`), not a folder element.
+const COMPOSITION = "composition";
 const to = (...types) => ({ to: { element: { types } } });
+const toComposition = { to: { file: { categories: [COMPOSITION] } } };
 const allow = (fromType, ...types) => ({ from: { element: { type: fromType } }, allow: to(...types) });
+const allowComposition = (fromType) => ({ from: { element: { type: fromType } }, allow: toComposition });
+const fromFile = (category, allowed) => ({ from: { file: { categories: category } }, allow: allowed });
 
 const policies = [
-  // Third-party packages (and the @firesio libraries, which are packages here) are a separate concern.
+  // Third-party packages (and `@firesio/app`, which is a package here) are a separate concern.
   { allow: { to: { module: { origin: ["external", "core"] } } } },
   // Tests may reach what they test plus the shared test support.
-  { from: { file: { categories: "test" } }, allow: to("core", "adapters", "wiring", "components", "i18n", "routes", "test-support", "workers") },
+  fromFile("test", to("core", "db", "components", "i18n", "routes", "test-support", "workers")),
+  fromFile("test", toComposition),
   // core is pure: it imports only itself. Time, ids and secrets come in as arguments.
   allow("core", "core"),
+  allow("db", "db"),
   allow("i18n", "i18n", "core"),
-  // Adapters implement the ports core declares; they never reach upward.
-  allow("adapters", "adapters", "core"),
   allow("components", "components", "i18n", "core"),
-  // Only the composition root (wiring) chooses adapters.
-  allow("wiring", "wiring", "adapters", "core", "i18n"),
-  // Routes read input, call a use case, return the result: they get services from wiring, never an adapter.
-  allow("routes", "routes", "components", "i18n", "core", "wiring"),
+  // The one file that calls `createFiresio`: it names the app's own values (plans, members, identity, schema, labels).
+  fromFile(COMPOSITION, to("core", "db", "i18n")),
+  // Routes read input, call a use case, return the result: they get the services from `firesio`, never build them.
+  allow("routes", "routes", "components", "i18n", "core", "db"),
+  allowComposition("routes"),
   // root.tsx, routes.ts, entry.client.tsx, entry.server.tsx.
-  { from: { file: { categories: ENTRY } }, allow: to("routes", "components", "i18n", "core", "wiring") },
-  allow("workers", "workers", "wiring", "core"),
-  allow("test-support", "test-support", "core", "adapters", "wiring", "i18n"),
+  fromFile(ENTRY, to("routes", "components", "i18n", "core")),
+  fromFile(ENTRY, toComposition),
+  allow("workers", "workers", "core"),
+  allowComposition("workers"),
+  allow("test-support", "test-support", "core", "i18n"),
+  allowComposition("test-support"),
   allow("tools", "tools"),
 ];
 
@@ -59,6 +70,7 @@ export const boundariesConfig = {
     "boundaries/files": [
       { pattern: "**/*.test.{ts,tsx}", category: "test" },
       { pattern: "app/{root.tsx,routes.ts,entry.client.tsx,entry.server.tsx}", category: ENTRY },
+      { pattern: "app/firesio.server.ts", category: COMPOSITION },
     ],
     "boundaries/ignore": ["**/worker-configuration.d.ts", "app/**/+types/**", "app/globals.d.ts"],
   },

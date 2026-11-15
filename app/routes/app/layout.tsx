@@ -1,38 +1,38 @@
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import { grantsOf } from "@firesio/members";
-import type { HeadersFunction, LoaderFunctionArgs, MiddlewareFunction, ShouldRevalidateFunction } from "react-router";
+import { grantsOf } from "@firesio/app/members";
+import type { HeadersFunction, LoaderFunctionArgs, ShouldRevalidateFunction } from "react-router";
 import { isRouteErrorResponse, Outlet, useLoaderData, useRouteError } from "react-router";
 import { AppNav } from "~/components/AppNav";
 import { EmbeddedProvider } from "~/components/EmbeddedProvider";
-import { MEMBERS } from "~/core/members";
 import { thrownResponseHtml } from "~/components/thrown-response";
-import { admit } from "~/wiring/guard";
-import { provideAppUi } from "~/wiring/app-ui";
-import { services } from "~/wiring/services";
-
-/** Hands the page modules of `@firesio/app-ui` their deps through the router context (`future.v8_middleware`). */
-export const middleware: MiddlewareFunction[] = [
-  ({ context }, next) => {
-    provideAppUi(context);
-    return next();
-  },
-];
+import { MEMBERS } from "~/core/members";
+import { firesio } from "~/firesio.server";
 
 /**
- * Shopify proves who is asking and the members library decides whether that person may be here. A person kept out is a PAGE
- * (`/app/no-access`, which says why and who to ask), so this loader lets that one path through and sends everyone else on
- * to the guard of their own page. The page's own permission is checked by that page's loader: this layout hides what a member
- * cannot use, but only to be kind.
+ * One middleware guards all of /app: Shopify proves who is asking (`authenticate.admin`), the members library decides whether that
+ * person may be here, a blocked shop is turned away, and the page modules of `@firesio/app/ui/*` get their deps through the router
+ * context (`future.v8_middleware`). A person kept out is a PAGE (`/app/no-access`, which says why and who to ask), so the middleware
+ * lets that one path through and sends everyone else on to it. The page's own permission is checked by that page's loader.
  */
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { access } = await admit(request);
-  const permissions = access.ok ? grantsOf(access.member, MEMBERS) : [];
-  return { apiKey: services().env.SHOPIFY_API_KEY, permissions: [...permissions] };
+export const middleware = [firesio.adminMiddleware];
+
+/**
+ * This layout hides what a member cannot use, but only to be kind. On the kept-out page there is no member, and `from` answers
+ * with the redirect to that very page: that is "no permissions", not an error.
+ */
+export const loader = ({ context }: LoaderFunctionArgs) => {
+  try {
+    const { member, services } = firesio.from(context);
+    return { apiKey: services.env.SHOPIFY_API_KEY, permissions: [...grantsOf(member, MEMBERS)] };
+  } catch (thrown) {
+    if (!(thrown instanceof Response)) throw thrown;
+    return { apiKey: firesio.services().env.SHOPIFY_API_KEY, permissions: [] };
+  }
 };
 
 /**
  * This shell's data is fixed for the lifetime of the embedded session, so client-side navigation between /app pages does not
- * re-run it. Safe for auth: every page loader and action runs `guardMember` itself.
+ * re-run it. Safe for auth: the middleware runs on every request to /app, and every page loader and action checks its own permission.
  */
 export const shouldRevalidate: ShouldRevalidateFunction = ({ formMethod, defaultShouldRevalidate }) => (formMethod ? defaultShouldRevalidate : false);
 

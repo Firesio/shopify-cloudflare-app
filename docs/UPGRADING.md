@@ -7,7 +7,7 @@ and marks the steps that are **risky for an app already in production**.
 
 ---
 
-## template-v1.0.0: the thin shell on the @firesio packages (roadmap step 13)
+## template-v1.0.0: the minimal app on `@firesio/app` (roadmap step 13, ticket 17)
 
 A NEW BASELINE, not an increment. An app built on the earlier template does not merge this tag: it moves one feature at a time onto the
 libraries (roadmap step 14, repair first), keeping its tables (the libraries' schemas keep the template's table and column names, so most need no
@@ -15,10 +15,10 @@ migration) and its own business rules. A NEW app starts here with `npm run new-a
 
 Taking a LATER tag into an app that started here: merge it; the `template` files in `template-files.json` come over unchanged, the `app` files are yours;
 read the tag's entry in `CHANGELOG.md` for anything to do besides the merge (a schema addition is a new migration you generate with `npm run db:generate`;
-a library bump is `npm install @firesio/<name>@<range>`). Run `npm run verify` before and after.
+a package bump is `npm install @firesio/app@<range>`). Run `npm run verify` before and after.
 
 What this tag removed from the earlier template, and where it went: money, billing and entitlements, notifications and Web Push, support, members, the text
-units, AI, the webhook inbox, the GDPR purge and the Admin client are libraries; the staff console, MCP, campaigns and the `api/v1` routes are the portal's
+units, AI, the webhook inbox, the GDPR purge, the Admin client, the guard, the Worker's handlers and the AdminApi are `@firesio/app` (the preset at its root, one subpath per library); the staff console, MCP, campaigns and the `api/v1` routes are the portal's
 job (or gone); the Partner-history sweep, the uninstall probe and the scope log were not carried (see the report that came with step 13).
 
 ## Earlier template (history, newest first)

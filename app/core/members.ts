@@ -1,7 +1,7 @@
-import { defineMembers, type Member, type MembersConfig } from "@firesio/members";
+import { defineMembers, type Member, type MembersConfig } from "@firesio/app/members";
 
 /**
- * THE ONE PLACE an app decides how its members work (`@firesio/members`): the permissions, the roles (most privileged
+ * THE ONE PLACE an app decides how its members work (`@firesio/app/members`): the permissions, the roles (most privileged
  * first: that order is the hierarchy) and the policies. Role and permission names are inferred from this, so a typo
  * elsewhere does not compile. `memberConfigProblems(MEMBERS)` is held to none by a test.
  */

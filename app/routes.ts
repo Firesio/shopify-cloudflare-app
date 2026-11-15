@@ -2,7 +2,7 @@ import { index, layout, prefix, route, type RouteConfig } from "@react-router/de
 
 /**
  * Explicit route config, NOT flat file-name routing: the URL structure lives here and the file tree mirrors it.
- * One surface per top-level group. The merchant pages of `@firesio/app-ui` are two-line files under `routes/app/`
+ * One surface per top-level group. The merchant pages of `@firesio/app` (`ui/*`) are two-line files under `routes/app/`
  * that re-export a library route module.
  */
 export default [

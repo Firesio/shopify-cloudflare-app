@@ -12,15 +12,15 @@ root cause before changing code for a bug or test failure.
 
 ## Test shape by layer
 
-Pure code is unit-tested exhaustively; anything crossing a boundary gets an integration test against **real local bindings**. A test that touches a binding (or a route, or the wiring) runs in workerd (`vitest.config.ts` decides by what it imports); a pure one runs in Node.
+Pure code is unit-tested exhaustively; anything crossing a boundary gets an integration test against **real local bindings**. A test that touches a binding (or a route, or `firesio.server.ts`) runs in workerd (`vitest.config.ts` decides by what it imports); a pure one runs in Node.
 
 | Layer | Test shape |
 |---|---|
-| **core** (`app/core/`) | No I/O: exhaustive unit tests, every branch, every variant, the unknown one. Use cases that need a port are tested with the real D1 adapter through `createServices(env)`: the library's doubles prove the libraries, these tests prove the wiring. |
-| **adapters** (`app/adapters/`) | Integration against real local D1/KV/R2. Every query shop-scoped, and **a test proving it cannot read another shop's row is required**. |
-| **Webhook and queue consumers** | Integration, with a **duplicate-delivery test proving exactly one effect** (`core/webhooks/consume.test.ts`). The receiver is tested for what reached the queue and that **no D1 row was written in the request** (`routes/webhooks/receive.test.ts`). |
-| **Cron** | `core/scheduled.test.ts`: which steps run on which cron string, and that one failing step costs the others nothing. |
-| **Library pages** (`@firesio/app-ui`) | Tested in the library (loaders and actions against the real services). Here: the wiring of their deps (`wiring/app-ui.ts`) and the guard. Polaris web components are verified by hand; say so honestly. |
+| **core** (`app/core/`) | No I/O: exhaustive unit tests, every branch, every variant, the unknown one. Code that needs a port is tested with the real services through `firesio.services(env)`: the preset's own tests prove the preset, these tests prove the app's configuration of it (`app/firesio.server.test.ts`). |
+| **the app's own tables and queries** (`app/db/`) | Integration against real local D1/KV/R2. Every query shop-scoped, and **a test proving it cannot read another shop's row is required**. |
+| **Webhook and queue consumers** | The consumer, the duplicate-delivery test and the GDPR purge are the preset's (tested in the platform repo). Here: the receiver answers what Shopify's `authenticate.webhook` and `firesio.handles` decide (`routes/webhooks/receive.test.ts`), and a topic of the app's own has a test of its own with a **duplicate-delivery test proving exactly one effect**. |
+| **Cron and the Worker's handlers** | `workers/app.test.ts`: the outbox drains on every tick, the daily snapshot only on the daily one, and a batch for an unknown queue is retried, never acknowledged. |
+| **Library pages** (`@firesio/app/ui/*`) | Tested in the library (loaders and actions against the real services). Here: the middleware that wires their deps (`firesio.adminMiddleware`, tested in the preset) and, for a loader of the app's own, its permission. Polaris web components are verified by hand; say so honestly. |
 | **Config** | `scripts/wrangler-bindings.test.mjs` (top level equals `env.production`), `scripts/template-manifest.test.mjs`, `scripts/check-placeholders.test.mjs`, `app/core/config.test.ts`. |
 | **Architecture** | `tools/architecture/boundaries.test.ts` probes the layers and the bans with real files. |
 

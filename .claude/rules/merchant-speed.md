@@ -1,17 +1,17 @@
 ---
 paths:
   - "app/routes/app/**"
-  - "app/wiring/**"
-  - "app/adapters/**"
+  - "app/firesio.server.ts"
+  - "app/db/**"
 ---
 
 # Merchant speed
 
-> **Thin shell (step 13):** the skeleton primitives (`Skeleton.tsx`), `settle()`, `<Deferred>` and `skeleton.css` described below were NOT carried over: the pages of `@firesio/app-ui` await their loaders, and the home page is static. An app whose own page streams a region re-adds them (they are in this repo's history before `template-v1.0.0`) and keeps the rules below.
+> **Thin shell (step 13):** the skeleton primitives (`Skeleton.tsx`), `settle()`, `<Deferred>` and `skeleton.css` described below were NOT carried over: the pages of `@firesio/app` (`ui/*`) await their loaders, and the home page is static. An app whose own page streams a region re-adds them (they are in this repo's history before `template-v1.0.0`) and keeps the rules below.
 
 The merchant's first paint must not wait for anything the page does not need. Full reasoning, the measuring table and
 the audit that produced these rules: `docs/merchant-speed.md`. Read it before changing a loader, `afterAuth`, the
-entitlement wiring or a list query.
+entitlement wiring (`firesio.server.ts`) or a list query.
 
 ## Never
 

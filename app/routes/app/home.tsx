@@ -1,20 +1,21 @@
-import { grantsOf } from "@firesio/members";
 import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
+import { grantsOf } from "@firesio/app/members";
 import { identity } from "~/core/identity";
 import { MEMBERS } from "~/core/members";
 import { PLANS } from "~/core/plans";
-import { guardMember } from "~/wiring/guard";
-import { effectivePlanOf } from "~/wiring/guard";
+import { firesio } from "~/firesio.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { shop, member } = await guardMember(request, "app:view");
-  return { shop, plan: PLANS[await effectivePlanOf(shop)].name, permissions: [...grantsOf(member, MEMBERS)] };
+export const loader = async ({ context }: LoaderFunctionArgs) => {
+  const { shop, member, services } = firesio.from(context);
+  firesio.requirePermission(member, "app:view");
+  const effective = await services.billing.effectivePlan(shop);
+  return { shop, plan: PLANS[effective.ok ? effective.effective.planHandle : "free"].name, permissions: [...grantsOf(member, MEMBERS)] };
 };
 
 /**
  * The home page of the embedded app: a placeholder a derived app replaces (`docs/ADOPTING_THE_TEMPLATE.md`). Polaris web
- * components only; the words are plain English for now (the pages of `@firesio/app-ui` take their words as label objects).
+ * components only; the words are plain English for now (the pages of `@firesio/app/ui/*` take their words as label objects).
  */
 export default function Home() {
   const { shop, plan, permissions } = useLoaderData<typeof loader>();

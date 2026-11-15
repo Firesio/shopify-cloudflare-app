@@ -21,7 +21,7 @@
   // The top level is for Miniflare only (`npm run dev`, vitest): it simulates each binding by NAME and ignores the ids.
   // Never run a `--remote` command against it.
 
-  // Every tick drains the portal outbox and, in development, also runs the daily work (core/cron.ts).
+  // Every tick drains the portal outbox and, in development, also runs the daily work (the preset's worker/cron.ts).
   "triggers": { "crons": ["*/5 * * * *"] },
 
   "queues": {

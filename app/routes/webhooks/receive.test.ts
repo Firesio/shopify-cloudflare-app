@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { signedWebhookRequest } from "@firesio/shopify/testing";
+import { signedWebhookRequest } from "@firesio/app/shopify/testing";
 import { describe, expect, it } from "vitest";
 import { setupTestDatabase } from "~/test/database";
 import { action, loader } from "./receive";
@@ -29,5 +29,15 @@ describe("the webhook receiver", () => {
   it("refuses a delivery for a host that is not a shop", async () => {
     const request = await signedWebhookRequest({ url: "https://example.test/webhooks/compliance", topic: "shop/redact", shop: "evil.example.com", payload: {}, secret: SECRET });
     expect((await action({ request })).status).toBeGreaterThanOrEqual(400);
+  });
+
+  it("answers 2xx for a topic the preset does not own (the app's own code is where it would be handled)", async () => {
+    const response = await action({ request: await signed({ topic: "orders/create", url: "https://example.test/webhooks/orders/create" }) });
+    expect(response.status).toBe(200);
+  });
+
+  it("refuses a delivery signed with a secret that is neither the current one nor SHOPIFY_API_SECRET_PREVIOUS", async () => {
+    const request = await signedWebhookRequest({ url: "https://example.test/webhooks/app/uninstalled", topic: "app/uninstalled", shop: SHOP, payload: { id: 1 }, secret: "an-old-secret" });
+    expect((await action({ request })).status).toBe(401);
   });
 });

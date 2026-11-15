@@ -55,31 +55,30 @@ async function boundaryFindings(relativePath: string, code: string): Promise<Fin
   return [...unresolvedImports(path, code), ...findings];
 }
 
-const SHOPS = `import type { ShopsPort } from "~/core/shops/ports";`;
-const D1_SHOPS = `import { d1Shops } from "~/adapters/d1-shops";`;
-const SERVICES = `import { services } from "~/wiring/services";`;
+const CORE = `import { PLANS } from "~/core/plans";`;
+const DB = `import * as schema from "~/db/schema";`;
+const LABELS = `import { ENTITLEMENT_LABELS } from "~/i18n/labels";`;
+const FIRESIO = `import { firesio } from "~/firesio.server";`;
 
 /** Imports the table must refuse: [label, probe file, code]. */
 const REFUSED: readonly (readonly [string, string, string])[] = [
-  ["core → adapters", "app/core/probe.ts", D1_SHOPS],
-  ["core → wiring", "app/core/probe.ts", SERVICES],
-  ["adapters → wiring", "app/adapters/probe.ts", SERVICES],
-  ["adapters → components", "app/adapters/probe.ts", `import { EmbeddedProvider } from "~/components/EmbeddedProvider";`],
-  ["route → an adapter", "app/routes/probe.ts", D1_SHOPS],
-  ["components → wiring", "app/components/probe.ts", SERVICES],
-  ["i18n → wiring", "app/i18n/probe.ts", SERVICES],
-  ["worker → an adapter", "workers/probe.ts", D1_SHOPS],
+  ["core → the composition file", "app/core/probe.ts", FIRESIO],
+  ["core → db", "app/core/probe.ts", DB],
+  ["db → core", "app/db/probe.ts", CORE],
+  ["i18n → the composition file", "app/i18n/probe.ts", FIRESIO],
+  ["components → the composition file", "app/components/probe.ts", FIRESIO],
+  ["components → db", "app/components/probe.ts", DB],
+  ["worker → db", "workers/probe.ts", DB],
   ["route → test support", "app/routes/probe.ts", `import { setupTestDatabase } from "~/test/database";`],
 ];
 
 /** Imports the table must allow: [label, probe file, code]. */
 const ALLOWED: readonly (readonly [string, string, string])[] = [
-  ["core → core", "app/core/probe.ts", SHOPS],
-  ["adapters → core", "app/adapters/probe.ts", SHOPS],
-  ["wiring → adapters and core", "app/wiring/probe.ts", `${D1_SHOPS}\n${SHOPS}`],
-  ["route → wiring, core and components", "app/routes/probe.ts", `${SERVICES}\n${SHOPS}\nimport { AppNav } from "~/components/AppNav";`],
-  ["worker → wiring and core", "workers/probe.ts", `${SERVICES}\n${SHOPS}`],
-  ["a test → what it tests and the test support", "app/core/probe.test.ts", `${D1_SHOPS}\nimport { setupTestDatabase } from "~/test/database";`],
+  ["core → core", "app/core/probe.ts", CORE],
+  ["i18n → core", "app/i18n/probe.ts", CORE],
+  ["a route → the composition file, core, db and components", "app/routes/probe.ts", `${FIRESIO}\n${CORE}\n${DB}\nimport { AppNav } from "~/components/AppNav";`],
+  ["worker → the composition file and core", "workers/probe.ts", `${FIRESIO}\n${CORE}`],
+  ["a test → what it tests and the test support", "app/core/probe.test.ts", `${FIRESIO}\n${LABELS}\nimport { setupTestDatabase } from "~/test/database";`],
 ];
 
 describe("architecture boundaries", () => {
@@ -108,12 +107,15 @@ describe("the bans", () => {
     ["new Date()", "const at = new Date();"],
     ["crypto.randomUUID", "const id = crypto.randomUUID();"],
     ["Math.random", "const n = Math.random();"],
-  ])("refuses %s outside the composition root", async (_label, code) => {
-    expect((await ban("app/core/probe.ts", `export const used = () => { ${code} return 1; };`, "no-restricted-")).length).toBeGreaterThan(0);
+  ])("refuses %s in the app's own code (the preset's runtime is the one place that reads them)", async (_label, code) => {
+    const used = `export const used = () => { ${code} return 1; };`;
+    for (const path of ["app/core/probe.ts", "app/routes/probe.ts", "workers/probe.ts"]) {
+      expect((await ban(path, used, "no-restricted-")).length, path).toBeGreaterThan(0);
+    }
   });
 
-  it("allows them in app/wiring, and a Date made from a value anywhere", async () => {
-    expect(await ban("app/wiring/probe.ts", "export const now = () => Date.now();", "no-restricted-")).toEqual([]);
+  it("allows them in a test, and a Date made from a value anywhere", async () => {
+    expect(await ban("app/core/probe.test.ts", "export const now = () => Date.now();", "no-restricted-")).toEqual([]);
     expect(await ban("app/core/probe.ts", "export const at = (ms: number) => new Date(ms);", "no-restricted-")).toEqual([]);
   });
 

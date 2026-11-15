@@ -6,7 +6,6 @@ paths:
   - "app/shopify*"
   - "app/routes/app/**"
   - "app/routes/webhooks/**"
-  - "app/adapters/shopify*"
 ---
 
 # Shopify APIs and admin UI
