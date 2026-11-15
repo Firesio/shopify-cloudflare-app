@@ -93,6 +93,11 @@ export default defineConfig(({ command }) => ({
   // the code logs `error.name` and compares class names.
   environments: {
     ssr: {
+      // @firesio/app-ui is TypeScript source whose route modules share context objects (`membersContext`, `plansContext`,
+      // `supportContext`) with the wiring that fills them. Pre-bundled per entry, each entry got its own copy of those objects
+      // and every page died with "No value found for context" in `react-router dev` (found in a real dev store). Excluded, the
+      // modules load once from source.
+      optimizeDeps: { exclude: ["@firesio/app-ui"] },
       build: {
         rolldownOptions: {
           output: { minify: { compress: { keepNames: { function: true, class: true } }, mangle: { keepNames: { function: true, class: true } } } },
