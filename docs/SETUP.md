@@ -18,7 +18,7 @@ Fill local secrets in `.dev.vars`; never commit it. Add feature code under `app/
 
 ## App identity
 
-`app/core/identity.ts` (slug, name, legal), `app/core/plans.ts`, `app/i18n/labels.ts`, the `webhookQueues` names in `app/firesio.server.ts` (`npm run new-app` renames them with the Worker's resources), and both Shopify TOML files. The slug is the `appSlug` on every
+`app/core/identity.ts` (slug, name, legal), `app/core/plans.ts`, `app/i18n/labels.ts`, the webhook queue names in `wrangler.jsonc` (`npm run new-app` renames them with the Worker's resources; the preset derives the queues it consumes from the slug, so `app/firesio.server.ts` names none), and both Shopify TOML files. The slug is the `appSlug` on every
 event: register the same slug on the portal's `/apps` page. Keep dev and production apps separate and review the diff after `config:link`.
 
 ## Production

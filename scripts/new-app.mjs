@@ -31,13 +31,13 @@ function replace(file, from, to) {
 
 /**
  * Every place the template names itself, as data: the file and what to put there. The resource names are the template's
- * defaults (`app-db`, `shopify-webhooks`, ...): they become `<slug>-db`, `<slug>-webhooks`, ... (queue, bucket and database
+ * defaults (`app-db`, `my-app-webhooks`, ...): they become `<slug>-db`, `<slug>-webhooks`, ... (queue, bucket and database
  * names are per account, so two apps must not share one). `portal-events` is shared with the portal and is NEVER renamed.
  */
 export function renames(slug, name) {
   const resources = [
     [/\bapp-support-uploads\b/g, `${slug}-support-uploads`],
-    [/\bshopify-webhooks\b/g, `${slug}-webhooks`],
+    [/\bmy-app-webhooks\b/g, `${slug}-webhooks`],
     [/\bapp-db\b/g, `${slug}-db`],
   ];
   const withResources = (file) => resources.map(([from, to]) => replace(file, from, to));
@@ -50,8 +50,6 @@ export function renames(slug, name) {
     ...withResources("package.json"),
     ...withResources("scripts/ci-release.mjs"),
     ...withResources("scripts/migrate.mjs"),
-    // The webhook queues the Worker consumes are named ONCE, where the preset is configured (`webhookQueues`).
-    ...withResources("app/firesio.server.ts"),
     ...withResources("docs/OPERATIONS.md"),
     ...withResources("docs/webhooks.md"),
     replace("shopify.web.toml", `name = "shopify-cloudflare-app"`, `name = "${slug}"`),

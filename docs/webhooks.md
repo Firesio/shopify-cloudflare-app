@@ -5,7 +5,7 @@ So the receiver does one thing and the consumer the rest. The mechanics (HMAC, t
 this page is how the template uses them.
 
 ```
-Shopify ──POST──▶ routes/webhooks/receive.ts ──one message──▶ queue shopify-webhooks ──▶ workers/app.ts queue()
+Shopify ──POST──▶ routes/webhooks/receive.ts ──one message──▶ queue my-app-webhooks ──▶ workers/app.ts queue()
   401 on a bad HMAC; 2xx after the send         (writes nothing to D1)     DLQ after 8 retries       firesio.queue (preset worker/consume.ts)
                                                                                                       └ processWebhook: admit, claim, route, settle
 ```

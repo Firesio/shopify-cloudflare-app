@@ -152,8 +152,8 @@ use the application flow and secret-name listing instead.
 
 ## Webhook DLQ investigation and replay
 
-The deployment declares `shopify-webhooks-prod` with
-`shopify-webhooks-dlq-prod` as its dead-letter queue. Wrangler can report queue
+The deployment declares `my-app-webhooks-prod` with
+`my-app-webhooks-dlq-prod` as its dead-letter queue. Wrangler can report queue
 metadata and attach or remove a consumer, but it does not offer a generic
 command to inspect individual messages or replay selected messages. Treat the
 payload as potentially sensitive and use the Cloudflare dashboard, approved log
@@ -161,15 +161,15 @@ access, and the webhook delivery record for diagnosis.
 
 ```bash
 # operator-run: inspect backlog and consumer configuration
-npx wrangler queues info shopify-webhooks-dlq-prod
-npx wrangler queues consumer list shopify-webhooks-dlq-prod
+npx wrangler queues info my-app-webhooks-dlq-prod
+npx wrangler queues consumer list my-app-webhooks-dlq-prod
 
 # operator-run, changes delivery: attach an approved replay Worker temporarily
-npx wrangler queues consumer add shopify-webhooks-dlq-prod <replay-worker-name> \
+npx wrangler queues consumer add my-app-webhooks-dlq-prod <replay-worker-name> \
   --batch-size 1 --max-concurrency 1
 
 # operator-run, changes delivery: remove that temporary consumer after the replay window
-npx wrangler queues consumer remove shopify-webhooks-dlq-prod <replay-worker-name>
+npx wrangler queues consumer remove my-app-webhooks-dlq-prod <replay-worker-name>
 ```
 
 A message in the DLQ carries `shop`, the webhook id and an `intake` (topic, ids,

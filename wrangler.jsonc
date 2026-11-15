@@ -27,13 +27,13 @@
   "queues": {
     "producers": [
       // Verified webhooks, one durable message each (the request writes nothing to D1).
-      { "binding": "WEBHOOK_QUEUE", "queue": "shopify-webhooks" },
+      { "binding": "WEBHOOK_QUEUE", "queue": "my-app-webhooks" },
       // Events for the portal (docs/architecture.md section 4). The outbox drains into it. The DLQ
       // (portal-events-dlq) is the portal's CONSUMER side: nothing to declare here.
       { "binding": "PORTAL_EVENTS", "queue": "portal-events" }
     ],
     "consumers": [
-      { "queue": "shopify-webhooks", "max_retries": 8, "dead_letter_queue": "shopify-webhooks-dlq" }
+      { "queue": "my-app-webhooks", "max_retries": 8, "dead_letter_queue": "my-app-webhooks-dlq" }
     ]
   },
 
@@ -105,11 +105,11 @@
       "triggers": { "crons": ["30 3 * * *", "* * * * *"] },
       "queues": {
         "producers": [
-          { "binding": "WEBHOOK_QUEUE", "queue": "shopify-webhooks-prod" },
+          { "binding": "WEBHOOK_QUEUE", "queue": "my-app-webhooks-prod" },
           { "binding": "PORTAL_EVENTS", "queue": "portal-events-prod" }
         ],
         "consumers": [
-          { "queue": "shopify-webhooks-prod", "max_retries": 8, "dead_letter_queue": "shopify-webhooks-dlq-prod" }
+          { "queue": "my-app-webhooks-prod", "max_retries": 8, "dead_letter_queue": "my-app-webhooks-dlq-prod" }
         ]
       },
       "kv_namespaces": [

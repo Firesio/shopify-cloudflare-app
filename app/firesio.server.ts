@@ -21,8 +21,6 @@ export const firesio = createFiresio({
   // (the open-ticket meter is the preset's own).
   labels: { entitlements: ENTITLEMENT_LABELS },
   meters: [{ key: "mail.daily_max", source: { kind: "counter", counter: "mail.daily", period: "day" } }],
-  // The queues `wrangler.jsonc` consumes (the preset's default is these two names; `npm run new-app` renames them with the app's).
-  webhookQueues: ["shopify-webhooks", "shopify-webhooks-prod"],
   // One decision with `api_version` in both `shopify.app*.toml`, and one Polaris release for the preload header and `AppProvider`.
   shopify: { apiVersion, polarisUrl: POLARIS_URL },
 });
