@@ -3,14 +3,26 @@ import { createServer } from "node:net";
 export const DEFAULT_GRAPHIQL_PORT = 3457;
 export const DEFAULT_LOCALHOST_PORT = 9293;
 
-function canListen(port) {
+function canListenOn(host, port) {
   return new Promise((resolve, reject) => {
     const server = createServer();
-    server.once("error", reject);
-    server.listen({ host: "127.0.0.1", port }, () => {
+    server.once("error", (error) => {
+      // A machine without IPv6 cannot be holding the port on ::1.
+      if (host === "::1" && error?.code === "EADDRNOTAVAIL") resolve(true);
+      else reject(error);
+    });
+    server.listen({ host, port }, () => {
       server.close((error) => (error ? reject(error) : resolve(true)));
     });
   });
+}
+
+// "localhost" may resolve to either loopback: another dev server (e.g. a second `shopify app dev`) often holds a port on ::1
+// only, which a 127.0.0.1 probe does not see, and the Shopify CLI then refuses the port. Free means free on both.
+async function canListen(port) {
+  await canListenOn("127.0.0.1", port);
+  await canListenOn("::1", port);
+  return true;
 }
 
 export async function findAvailablePort(preferred = DEFAULT_LOCALHOST_PORT, attempts = 100) {

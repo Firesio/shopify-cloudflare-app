@@ -38,6 +38,13 @@ describe("applySecurityHeaders", () => {
     expect(headers.get("Content-Security-Policy")).toContain("frame-ancestors 'none'");
   });
 
+  it("lets the landing's install form follow the OAuth redirect to Shopify", () => {
+    const csp = headerValue("/", "Content-Security-Policy") ?? "";
+    const formAction = csp.split("; ").find((directive) => directive.startsWith("form-action"));
+
+    expect(formAction).toBe("form-action 'self' https://admin.shopify.com https://*.myshopify.com");
+  });
+
 });
 
 describe("applySecurityHeaders scoping", () => {

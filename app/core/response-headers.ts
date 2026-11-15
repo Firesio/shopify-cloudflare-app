@@ -5,7 +5,9 @@ const PUBLIC_CSP = [
   "base-uri 'self'",
   "connect-src 'self'",
   "font-src 'self'",
-  "form-action 'self'",
+  // The landing's install form posts to /auth/login, which redirects to Shopify's OAuth install page. Browsers apply
+  // form-action to every redirect of a form submission, so 'self' alone blocks the install.
+  "form-action 'self' https://admin.shopify.com https://*.myshopify.com",
   "frame-ancestors 'none'",
   "img-src 'self' data:",
   "object-src 'none'",
