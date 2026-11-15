@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { bindingKeys, configForEnv, stripJsonComments } from "./check-placeholders.mjs";
+import { productionRouteIssues, queueNameIssues, slugOf } from "./launch-config-checks.mjs";
 
 const config = JSON.parse(stripJsonComments(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8")));
 const top = configForEnv(config, "top-level");
@@ -28,6 +29,25 @@ test("the two environments name different queues, and each queue consumer has a 
   for (const env of [top, production]) {
     for (const consumer of env.queues.consumers) assert.ok(consumer.dead_letter_queue, `${consumer.queue} has no dead-letter queue`);
   }
+});
+
+test("the webhook queues are named after the slug in app/core/identity.ts, in both environments", () => {
+  const slug = slugOf(readFileSync(new URL("../app/core/identity.ts", import.meta.url), "utf8"));
+  assert.ok(slug);
+  assert.deepEqual(queueNameIssues(config, slug), []);
+  assert.deepEqual(top.queues.producers.find((entry) => entry.binding === "WEBHOOK_QUEUE"), { binding: "WEBHOOK_QUEUE", queue: `${slug}-webhooks` });
+  assert.deepEqual(top.queues.consumers.map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-webhooks`, `${slug}-webhooks-dlq`]]);
+  assert.deepEqual(production.queues.producers.find((entry) => entry.binding === "WEBHOOK_QUEUE"), { binding: "WEBHOOK_QUEUE", queue: `${slug}-webhooks-prod` });
+  assert.deepEqual(production.queues.consumers.map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-webhooks-prod`, `${slug}-webhooks-dlq-prod`]]);
+});
+
+test("production is on one custom domain only: no workers.dev, no preview URLs (and the top level is not)", () => {
+  assert.deepEqual(productionRouteIssues({ ...production, routes: [{ pattern: "example.com", custom_domain: true }] }), []);
+  assert.deepEqual(production.routes, [{ pattern: "REPLACE_ME", custom_domain: true }]);
+  assert.equal(production.workers_dev, false);
+  assert.equal(production.preview_urls, false);
+  // The top level is Miniflare's: it takes no route.
+  assert.equal(top.routes, undefined);
 });
 
 test("the portal events queue is a producer in both environments (its DLQ belongs to the portal's consumer)", () => {

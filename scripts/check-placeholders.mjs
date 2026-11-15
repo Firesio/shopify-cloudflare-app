@@ -14,9 +14,12 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
+import { PLACEHOLDER, buildFlagIssues, productionRouteIssues, queueNameIssues, slugOf, webhookSubscriptionIssues } from "./launch-config-checks.mjs";
+import { tomlSectionString, tomlString, tomlStrings } from "./toml-lite.mjs";
+import { configForEnv, stripJsonComments } from "./wrangler-config.mjs";
 
-/** Anything that looks like "fill this in". */
-const PLACEHOLDER = /REPLACE|CHANGE_?ME|TODO|XXXX|your-?(domain|account)/i;
+export { configForEnv, stripJsonComments };
+
 /** Same rule as HANDLE_PATTERN in app/core/install-target.ts (this script cannot import TypeScript). */
 const APP_HANDLE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
@@ -26,66 +29,6 @@ function isHttpsUrl(value) {
   } catch {
     return false;
   }
-}
-
-/**
- * Strip JSONC comments so the config can be parsed as JSON.
- *
- * String-aware: a `//` inside a value (a URL) must survive, and an escaped quote
- * must not end the string early. A naive regex over the whole file eats both.
- */
-export function stripJsonComments(text) {
-  let out = "";
-  let inString = false;
-  let inLine = false;
-  let inBlock = false;
-
-  for (let i = 0; i < text.length; i += 1) {
-    const ch = text[i];
-    const next = text[i + 1];
-
-    if (inLine) {
-      if (ch === "\n") {
-        inLine = false;
-        out += ch;
-      }
-      continue;
-    }
-    if (inBlock) {
-      if (ch === "*" && next === "/") {
-        inBlock = false;
-        i += 1;
-      }
-      continue;
-    }
-    if (inString) {
-      out += ch;
-      if (ch === "\\") {
-        out += next ?? "";
-        i += 1;
-      } else if (ch === '"') {
-        inString = false;
-      }
-      continue;
-    }
-    if (ch === '"') {
-      inString = true;
-      out += ch;
-      continue;
-    }
-    if (ch === "/" && next === "/") {
-      inLine = true;
-      i += 1;
-      continue;
-    }
-    if (ch === "/" && next === "*") {
-      inBlock = true;
-      i += 1;
-      continue;
-    }
-    out += ch;
-  }
-  return out;
 }
 
 /**
@@ -108,15 +51,6 @@ export function findPlaceholders(value, path = "") {
     );
   }
   return [];
-}
-
-/** The config for one environment: named envs inherit nothing, so no merging. */
-export function configForEnv(config, envName) {
-  if (!envName || envName === "top-level") {
-    const { env: _env, ...base } = config;
-    return base;
-  }
-  return config.env?.[envName];
 }
 
 const BINDING_SECTIONS = [
@@ -171,25 +105,6 @@ function parityIssues(base, production) {
     issues.push(`production queue consumer configuration is missing (${baseConsumers.length} required)`);
   }
   return issues;
-}
-
-function tomlString(text, key) {
-  return text.match(new RegExp(`^${key}\\s*=\\s*"([^"]*)"`, "m"))?.[1] ?? "";
-}
-
-function tomlStrings(text, key) {
-  const value = text.match(new RegExp(`^${key}\\s*=\\s*\\[([^\\]]*)\\]`, "m"))?.[1] ?? "";
-  return [...value.matchAll(/"([^"]*)"/g)].map((match) => match[1]);
-}
-
-function tomlSectionString(text, section, key) {
-  const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const header = new RegExp(`^\\[${escaped}\\]\\s*$`, "m").exec(text);
-  if (!header || header.index === undefined) return "";
-  const rest = text.slice(header.index + header[0].length);
-  const nextSection = rest.search(/^\[/m);
-  const body = nextSection < 0 ? rest : rest.slice(0, nextSection);
-  return tomlString(body, key);
 }
 
 /** A scopes string as the set Shopify treats it as: order and spacing do not matter. */
@@ -289,6 +204,10 @@ export function validateLaunchContract(files) {
 
   issues.push(...scopeIssues(files, production));
   issues.push(...webhookVersionIssues(files));
+  issues.push(...webhookSubscriptionIssues(files.productionToml, files.developmentToml));
+  issues.push(...buildFlagIssues(files.productionToml, files.developmentToml));
+  issues.push(...productionRouteIssues(production));
+  issues.push(...queueNameIssues(files.wrangler, slugOf(files.identity)));
   const identitySource = files.identity ?? "";
   const requiredIdentity = ["slug", "name", "companyName", "supportEmail", "address"];
   const missingIdentity = requiredIdentity.some((field) => new RegExp(`${field}\\s*:\\s*"[^"\\n]+"`).test(identitySource) === false);

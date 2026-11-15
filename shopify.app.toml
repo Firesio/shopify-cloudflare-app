@@ -16,6 +16,8 @@ embedded = true
 # Production's URL is fixed; never let `shopify app dev` rewrite it. Dev runs
 # against shopify.app.dev.toml, which keeps that true.
 automatically_update_urls_on_dev = false
+# `shopify app deploy` (scripts/ci-release.mjs) ships this file's config (scopes, webhooks) with the app.
+include_config_on_deploy = true
 
 [webhooks]
 api_version = "2026-10"

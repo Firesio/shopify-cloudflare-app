@@ -103,6 +103,12 @@
   // `wrangler deploy --env production`. Every binding is re-declared in full.
   "env": {
     "production": {
+      // The app answers on ONE custom domain, the host of SHOPIFY_APP_URL: no workers.dev address and no preview URLs
+      // (each would be a second public origin for the same Worker, outside the domain's WAF and rate rules).
+      // Replace the pattern with that host; `npm run check:placeholders` refuses REPLACE_ME and a host that is not SHOPIFY_APP_URL's.
+      "routes": [{ "pattern": "REPLACE_ME", "custom_domain": true }],
+      "workers_dev": false,
+      "preview_urls": false,
       "observability": { "enabled": true, "head_sampling_rate": 1, "redact_query_string": true },
       // Daily (the snapshot, the prune) and every minute (the outbox drain only).
       "triggers": { "crons": ["30 3 * * *", "* * * * *"] },

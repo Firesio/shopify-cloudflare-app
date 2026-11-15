@@ -2,7 +2,10 @@
 // Apply D1 migrations, retrying transient Cloudflare API errors.
 //
 //   node scripts/migrate.mjs --local
-//   node scripts/migrate.mjs --remote --env production --database app-db-prod
+//   node scripts/migrate.mjs --remote --env production
+//
+// The database is the one wrangler.jsonc names for the environment (`d1_databases[0].database_name`, under `env.<name>` or at
+// the top level for --local); `--database <name>` overrides it.
 //
 // WHY NOT A BARE `wrangler d1 migrations apply`:
 // it intermittently fails with a 5xx "internal error" while querying migration
@@ -17,6 +20,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { databaseName, readWranglerConfig } from "./wrangler-config.mjs";
 
 const MAX_ATTEMPTS = 4;
 /** Backoff between attempts. Short: a deploy is waiting on this. */
@@ -31,9 +35,9 @@ function flag(name, fallback) {
   return argv[i].includes("=") ? argv[i].split("=").slice(1).join("=") : argv[i + 1];
 }
 
-const database = flag("database", "app-db");
 const remote = argv.includes("--remote");
 const envName = flag("env");
+const database = flag("database", undefined) ?? databaseName(readWranglerConfig(repoRoot), envName);
 
 const args = ["d1", "migrations", "apply", database];
 args.push(remote ? "--remote" : "--local");

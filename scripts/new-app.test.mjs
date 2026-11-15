@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { databaseName, stripJsonComments } from "./wrangler-config.mjs";
 import { applyRenames, inputProblem, portalRegistration, renames, resourcesFor } from "./new-app.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -40,17 +41,20 @@ test("renames the slug, the display name and every resource name in one run", ()
   const wrangler = read(root, "wrangler.jsonc");
   assert.match(wrangler, /"name": "repair-ops"/);
   for (const name of ["repair-ops-db", "repair-ops-db-prod", "repair-ops-support-uploads", "repair-ops-webhooks", "repair-ops-webhooks-dlq-prod"]) assert.ok(wrangler.includes(`"${name}"`), name);
-  assert.match(read(root, "package.json"), /--database repair-ops-db-prod/);
+  // The migration scripts read the database names from wrangler.jsonc: nothing else names them.
+  assert.equal(databaseName(JSON.parse(stripJsonComments(wrangler)), "production"), "repair-ops-db-prod");
+  assert.equal(databaseName(JSON.parse(stripJsonComments(wrangler)), ""), "repair-ops-db");
+  assert.doesNotMatch(read(root, "package.json"), /--database/);
   // The preset derives the consumed queues from identity.slug: the config names no queue, and the script does not edit it.
   assert.doesNotMatch(readFileSync(join(repo, "app/firesio.server.ts"), "utf8"), /webhookQueues|-webhooks/);
   assert.match(read(root, "shopify.app.toml"), /name = "Repair Ops"/);
-  assert.ok(changed.includes("scripts/ci-release.mjs"));
+  assert.ok(!changed.includes("scripts/ci-release.mjs"));
 });
 
 test("leaves nothing of the template's names behind in the files it edits", () => {
   const root = scratch();
   applyRenames(root, "repair-ops", "Repair Ops");
-  for (const file of ["wrangler.jsonc", "package.json", "scripts/ci-release.mjs", "scripts/migrate.mjs", "shopify.web.toml", "shopify.app.toml", "app/core/identity.ts"]) {
+  for (const file of ["wrangler.jsonc", "package.json", "shopify.web.toml", "shopify.app.toml", "app/core/identity.ts"]) {
     const text = read(root, file);
     assert.doesNotMatch(text, /shopify-cloudflare-app|"app-db|app-support-uploads|"my-app-webhooks|TODO: Your App Name|"my-app"/, file);
   }

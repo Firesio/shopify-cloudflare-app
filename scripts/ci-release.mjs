@@ -5,7 +5,9 @@
  * Workers Builds runs exactly two things: the build command, then the deploy
  * command (`npx wrangler deploy`). Nothing in between.
  *
- *   1. D1 migrations: applied BEFORE the worker deploys, so code can never
+ *   0. `npm run check:placeholders`: a production config that still holds a placeholder (or a route, queue or webhook that
+ *      drifted) stops the build before anything is applied.
+ *   1. D1 migrations (the production database named by wrangler.jsonc env.production): applied BEFORE the worker deploys, so code can never
  *      land ahead of its schema. Runs via scripts/migrate.mjs which retries
  *      transient Cloudflare API 5xx errors. Fails the build on fatal error
  *      so prod keeps serving the old working worker.
@@ -16,13 +18,20 @@
  * on a laptop is untouched and can never reach the production database.
  */
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import { touchesShopifyConfig } from "./ci-release/shopify-config-paths.mjs";
 
 if (!process.env.WORKERS_CI) process.exit(0);
 
 const run = (cmd, args, env = process.env) =>
   execFileSync(cmd, args, { stdio: "inherit", env });
+
+// ── 0. The launch contract (fatal) ──────────────────────────────────────────
+try {
+  run("node", ["scripts/check-placeholders.mjs", "production"]);
+} catch {
+  console.error("✖ the production launch contract is not met (see above) — aborting before any migration.");
+  process.exit(1);
+}
 
 // ── 1. D1 migrations (fatal on failure) ─────────────────────────────────────
 console.log("▶ applying D1 migrations to production (remote)…");
@@ -33,7 +42,7 @@ const migrationEnv = process.env.D1_MIGRATIONS_API_TOKEN
 try {
   run(
     "node",
-    ["scripts/migrate.mjs", "--remote", "--env", "production", "--database", "app-db-prod"],
+    ["scripts/migrate.mjs", "--remote", "--env", "production"],
     migrationEnv,
   );
   console.log("✓ migrations applied");
@@ -48,14 +57,6 @@ if (!process.env.SHOPIFY_APP_AUTOMATION_TOKEN) {
 } else if (!touchesShopifyConfig()) {
   console.log("• no changes to shopify.app.toml or extensions/ — skipping Shopify app deploy.");
 } else {
-  const automationToken = process.env.SHOPIFY_APP_AUTOMATION_TOKEN;
-  const tokenFingerprint = createHash("sha256")
-    .update(automationToken)
-    .digest("hex")
-    .slice(0, 12);
-  console.log(
-    `• Shopify automation token: length=${automationToken.length} sha256=${tokenFingerprint}`,
-  );
   console.log("▶ deploying Shopify app config + extensions…");
   try {
     // The pinned `@shopify/cli` devDependency, through the same wrapper as every other Shopify command (never `@latest`: a
