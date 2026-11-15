@@ -10,19 +10,11 @@ export default tseslint.config(
     ignores: [
       // Claude config — not our source.
       ".claude/**",
-      // Skills written for coding agents (markdown, templates, a python script): instructions, not app source.
-      "agent-skills/**",
-      // Where coding-agent tooling installs skills (third-party instructions, templates, vendored scripts): same kind as the line above.
-      ".agents/**",
-      // Throwaway design explorations (static pages with vendored three.js): prototypes, not app source.
-      "docs/explorations/**",
-      ".shopify-home/**",
       "build/**",
       ".react-router/**",
       "node_modules/**",
       "drizzle/**",
       "extensions/**",
-      "app/types/**",
       // The libraries ship TypeScript source, so node_modules holds .ts files: never lint what we do not own.
       "tools/**/node_modules/**",
       "worker-configuration.d.ts",
@@ -58,9 +50,8 @@ export default tseslint.config(
           ignoreRestSiblings: true,
         },
       ],
-      // The Workers runtime has no `process`; app code must read config from
-      // the `env` binding via getEnv(). Config files (below) are exempt —
-      // they run in Node under Vite/the CLI.
+      // The Workers runtime has no `process`; app code reads config from `env` (`cloudflare:workers`, through
+      // `firesio.services()`). Config files (below) are exempt — they run in Node under Vite/the CLI.
       "no-restricted-globals": [
         "error",
         {
@@ -76,7 +67,6 @@ export default tseslint.config(
     files: [
       "*.config.ts",
       "*.config.js",
-      ".graphqlrc.ts",
       "react-router.config.ts",
       "scripts/**/*.mjs",
     ],
@@ -104,15 +94,6 @@ export default tseslint.config(
           ignoreRestSiblings: true,
         },
       ],
-    },
-  },
-  {
-    // Static files served as-is (no build step), such as the staff console's
-    // push service worker: a worker global scope, not a window and not Node.
-    files: ["public/**/*.js"],
-    languageOptions: {
-      sourceType: "script",
-      globals: { ...globals.serviceworker },
     },
   },
   {

@@ -29,11 +29,6 @@ pnpm-lock.yaml
 .env
 .env.*
 
-# Prisma local dev database
-/prisma/dev.sqlite
-/prisma/dev.sqlite-journal
-database.sqlite
-
 # Shopify CLI local state
 .shopify/*
 .shopify.lock
@@ -43,18 +38,9 @@ database.sqlite
 .DS_Store
 *.log
 
-# Leftover from when scripts/shopify.mjs isolated the CLI login; no longer created
-.shopify-home/
-
 # NOTE: worker-configuration.d.ts IS committed on purpose — a fresh fork has to
 # typecheck before anyone has run `npm run cf-typegen`. Regenerate it after
 # every wrangler.jsonc change.
 
-# GraphQL codegen output
-app/types/
-
 # wrangler check startup output
 *.cpuprofile
-
-# Agent skills installed on a developer machine; each person keeps their own.
-.claude/skills/

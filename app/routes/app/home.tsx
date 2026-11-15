@@ -1,8 +1,7 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { useLoaderData } from "react-router";
-import { grantsOf } from "@firesio/app/members";
+import type { loader as layoutLoader } from "./layout";
+import { useLoaderData, useRouteLoaderData } from "react-router";
 import { identity } from "~/core/identity";
-import { MEMBERS } from "~/core/members";
 import { PLANS } from "~/core/plans";
 import { firesio } from "~/firesio.server";
 
@@ -10,7 +9,7 @@ export const loader = async ({ context }: LoaderFunctionArgs) => {
   const { shop, member, services } = firesio.from(context);
   firesio.requirePermission(member, "app:view");
   const effective = await services.billing.effectivePlan(shop);
-  return { shop, plan: PLANS[effective.ok ? effective.effective.planHandle : "free"].name, permissions: [...grantsOf(member, MEMBERS)] };
+  return { shop, plan: PLANS[effective.ok ? effective.effective.planHandle : "free"].name };
 };
 
 /**
@@ -18,7 +17,9 @@ export const loader = async ({ context }: LoaderFunctionArgs) => {
  * components only; the words are plain English for now (the pages of `@firesio/app/ui/*` take their words as label objects).
  */
 export default function Home() {
-  const { shop, plan, permissions } = useLoaderData<typeof loader>();
+  const { shop, plan } = useLoaderData<typeof loader>();
+  // What the member holds is computed once, by the layout's loader (it also decides the menu): never again per page.
+  const permissions = useRouteLoaderData<typeof layoutLoader>("routes/app/layout")?.permissions ?? [];
   return (
     <s-page heading={identity.name}>
       <s-banner tone="info" heading="Placeholder">

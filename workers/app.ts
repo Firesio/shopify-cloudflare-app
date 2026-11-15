@@ -1,4 +1,5 @@
 import { createRequestHandler, RouterContextProvider } from "react-router";
+import { withSecurityHeaders } from "../app/core/response-headers";
 import { firesio } from "../app/firesio.server";
 
 /**
@@ -9,8 +10,9 @@ import { firesio } from "../app/firesio.server";
 const requestHandler = createRequestHandler(() => import("virtual:react-router/server-build"), import.meta.env.MODE);
 
 export default {
-  fetch(request) {
-    return requestHandler(request, new RouterContextProvider());
+  /** Every response, whatever produced it, leaves with the security headers (`app/core/response-headers.ts`). */
+  async fetch(request) {
+    return withSecurityHeaders(request, await requestHandler(request, new RouterContextProvider()));
   },
 
   /** Cron: drain the portal outbox every tick; the daily snapshot and prune on the daily one. */

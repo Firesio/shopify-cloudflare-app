@@ -4,6 +4,6 @@ webhooks_path = "/webhooks/app/uninstalled"
 
 [commands]
 # What `shopify app dev` runs. React Router + @cloudflare/vite-plugin run the
-# app in workerd, so dev matches production. (No Prisma: sessions are in KV —
-# see app/session-storage.server.ts.)
+# app in workerd, so dev matches production. (Sessions are in the SESSION KV
+# namespace, the preset's KVSessionStorage.)
 dev = "react-router dev"

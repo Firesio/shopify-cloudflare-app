@@ -1,10 +1,11 @@
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { grantsOf } from "@firesio/app/members";
-import type { HeadersFunction, LoaderFunctionArgs, ShouldRevalidateFunction } from "react-router";
-import { isRouteErrorResponse, Outlet, useLoaderData, useRouteError } from "react-router";
+import type { HeadersFunction, LoaderFunctionArgs, MiddlewareFunction, ShouldRevalidateFunction } from "react-router";
+import { isRouteErrorResponse, Outlet, redirect, useLoaderData, useRouteError } from "react-router";
 import { AppNav } from "~/components/AppNav";
 import { EmbeddedProvider } from "~/components/EmbeddedProvider";
 import { thrownResponseHtml } from "~/components/thrown-response";
+import { opensAppWithoutShop } from "~/core/embedded-entry";
 import { MEMBERS } from "~/core/members";
 import { firesio } from "~/firesio.server";
 
@@ -14,7 +15,14 @@ import { firesio } from "~/firesio.server";
  * context (`future.v8_middleware`). A person kept out is a PAGE (`/app/no-access`, which says why and who to ask), so the middleware
  * lets that one path through and sends everyone else on to it. The page's own permission is checked by that page's loader.
  */
-export const middleware = [firesio.adminMiddleware];
+export const middleware: MiddlewareFunction[] = [
+  // The address typed by hand has no shop to authenticate: the landing page, not a blank App Bridge page or a bare 410.
+  ({ request }, next) => {
+    if (opensAppWithoutShop(request)) throw redirect("/");
+    return next();
+  },
+  firesio.adminMiddleware,
+];
 
 /**
  * This layout hides what a member cannot use, but only to be kind. On the kept-out page there is no member (`maybeFrom` answers
@@ -46,6 +54,11 @@ export default function AppLayout() {
  * screen is the App Bridge "bounce" page (a session token on its way): rendered from `thrownResponseHtml`, because Shopify's
  * own `boundary.error` compares a class name a minified bundle renames, and the merchant saw "Something went wrong".
  * A 403 from the guard (a blocked shop, a page the member may not open) is explained, not shown as a failure.
+ *
+ * Which boundary gets what: an error a page's loader or action throws (a 403 from `requirePermission`) lands here. One the
+ * /app MIDDLEWARE throws (a blocked shop, App Bridge's session-token page) never does: the router gives a middleware's error to
+ * the boundary of the shallowest route with a loader, which is the root (`app/root.tsx`), so the root renders those too
+ * (`app/components/failure.ts`). This one keeps the Polaris look for what a page throws.
  */
 export function ErrorBoundary() {
   const error = useRouteError();

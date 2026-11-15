@@ -165,7 +165,7 @@ and evidence; a checked box is not a substitute for a tested implementation.
   A Worker rollback never reverses a data migration.
 - Choose CI/CD identity, protected environments, review approvals, audit logs,
   artifact retention, and dependency-update policy. `.github/workflows/verify.yml` runs `npm run verify` and a production
-  build on pull requests that touch code, on `v*` tags and by hand; Workers Builds (if you connect it) deploys `main` without it.
+  build on pull requests that touch code, on `template-v*` tags (change `tags:` in `verify.yml` to your own release tag pattern) and by hand; Workers Builds (if you connect it) deploys `main` without it.
   Automation is organization-specific; do not copy an unreviewed workflow from another app.
 - Follow the incident and release procedures in [the operations runbook](OPERATIONS.md).
 

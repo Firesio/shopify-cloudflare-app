@@ -20,7 +20,7 @@ The embedded app runs **Polaris 2** (`polaris-2.js`, the stable channel: the new
 Shopify admin and follows whichever admin theme the merchant uses). It is named in ONE place, `app/core/polaris.ts`, and
 read by both `shopifyApp({ polarisUrl })` (the preload `Link` header) and `EmbeddedProvider` (the script tag): never render
 `AppProvider` directly and never add a Polaris script tag of your own. `@shopify/polaris-types` is `^2.0.0`: keep it
-the same major as the script (nothing checks it). The mirror in `docs/polaris/` is Polaris 2 too.
+the same major as the script (nothing checks it).
 
 What Polaris 2 changes for markup: `s-text` has `fontSize` and `fontWeight` and `fontVariantNumeric` (so a price needs no
 CSS), and there is an `s-empty-state` component (the old empty-state composition is gone). Custom CSS that copies Polaris

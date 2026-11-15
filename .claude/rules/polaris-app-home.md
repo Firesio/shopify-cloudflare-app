@@ -16,8 +16,8 @@ Polaris 2 (`polaris-2.js`), named in ONE place, `app/core/polaris.ts`, passed to
 ## Look up before any markup
 
 1. **What exists**: `node_modules/@shopify/polaris-types/dist/custom-elements.json` is the authority for tag names, attributes and named slots in THIS install (62 `s-*` elements). A tag not in it is not available.
-2. **The pattern**: pick the published template first (`Details`, `Index`, `Settings`, `Homepage`) from `docs/polaris/patterns/templates/`, then the compositions (index table, metrics card, resource list, setup guide, callout card). The template fixes columns, action placement and saving.
-3. **Each element you have not verified this session**: attributes and accepted values, exact slot names (an unknown slot is not honoured), what may nest inside it and what it expects as parent. Read `docs/polaris/web-components/…` for the prose and examples (the Shopify docs search strips code samples; fetch the reference page for markup).
+2. **The pattern**: pick the published template first (`Details`, `Index`, `Settings`, `Homepage`) from the Shopify docs (the Shopify docs through the `shopify-plugin:shopify-polaris-app-home` skill (its `scripts/search_docs.mjs`) or the Shopify dev MCP (`.mcp.json`)), then the compositions (index table, metrics card, resource list, setup guide, callout card). The template fixes columns, action placement and saving.
+3. **Each element you have not verified this session**: attributes and accepted values, exact slot names (an unknown slot is not honoured), what may nest inside it and what it expects as parent. Read the component's reference page for the prose and examples (the docs search strips code samples; fetch the reference page for markup).
 4. **Validate** with `validate_component_codeblocks` or the skill's `validate.mjs` before calling the page written.
 
 ## Which mechanism owns which job

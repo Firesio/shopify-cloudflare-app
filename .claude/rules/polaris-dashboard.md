@@ -6,14 +6,10 @@ paths:
 
 # Polaris dashboard pages
 
-Before changing a dashboard, read the matching template and composition examples
-in `docs/polaris/patterns/templates/homepage.md` and
-`docs/polaris/patterns/compositions/`: use the Homepage template for a merchant
+Before changing a dashboard, look up the Homepage template and the compositions in the Shopify docs through the `shopify-plugin:shopify-polaris-app-home` skill (its `scripts/search_docs.mjs`) or the Shopify dev MCP (`.mcp.json`): use the Homepage template for a merchant
 landing screen, Metrics card for the first summary row, and Index table for a
-manageable collection. Search the component reference under
-`docs/polaris/web-components/` for every element used. The live Shopify lookup and the installed
-`@shopify/polaris-types` manifest remain authoritative when the checked-in guide
-and the package differ.
+manageable collection. Look up every element used. The installed
+`@shopify/polaris-types` manifest remains authoritative when the docs and the package differ.
 
 Use `<s-page inlineSize="large">` for dashboards and keep each
 `<s-section>` as a direct child of the page. Put responsive columns in

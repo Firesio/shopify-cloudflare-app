@@ -17,9 +17,8 @@
     "strict": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    // Zero-cost strictness: the codebase already satisfies all four. Not on
-    // yet (existing violations): noUncheckedIndexedAccess (15) and
-    // exactOptionalPropertyTypes (69) — see docs/UPGRADING.md.
+    // Zero-cost strictness the codebase already satisfies. Not turned on (never tried here): noUncheckedIndexedAccess and
+    // exactOptionalPropertyTypes.
     "verbatimModuleSyntax": true,
     "noImplicitOverride": true,
     "noImplicitReturns": true,

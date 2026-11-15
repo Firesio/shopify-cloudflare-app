@@ -1,9 +1,11 @@
+import type { Permission } from "~/core/members";
+
 /**
  * The embedded app's navigation menu. A link the person cannot open is not offered; each page checks the permission itself,
- * so hiding is only courtesy.
+ * so hiding is only courtesy. The permissions are the app's own (`app/core/members.ts`), so a typo here does not compile.
  */
-export function AppNav({ permissions }: { readonly permissions: readonly string[] }) {
-  const can = (permission: string) => permissions.includes(permission);
+export function AppNav({ permissions }: { readonly permissions: readonly Permission[] }) {
+  const can = (permission: Permission) => permissions.includes(permission);
   return (
     <s-app-nav>
       <s-link href="/app" rel="home">Home</s-link>

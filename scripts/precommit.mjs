@@ -4,8 +4,9 @@
 //   - lint: only the staged JS/TS files (ESLint's own cache makes a re-run of unchanged files near free)
 //   - typecheck: only when a TypeScript file or a file that shapes the types is staged, and incremental
 //     (`tsc --incremental`: about 0.5 s when nothing changed, a few seconds to ~13 s when a widely imported file did)
-// A docs-only commit therefore costs nothing. The full typecheck, lint and test suite is `npm run verify`, and CI runs it
-// on every push to main and every pull request, so nothing unchecked reaches a shared branch.
+// A docs-only commit therefore costs nothing. The full typecheck, lint and test suite is `npm run verify`; CI
+// (.github/workflows/verify.yml) runs it only on a pull request that touches code, on a release tag or by hand, never on a push
+// to main, so run it yourself before pushing.
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

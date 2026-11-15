@@ -97,6 +97,12 @@ describe("a delivery that is not for the Worker's consumer", () => {
   });
 });
 
+describe("the Worker's queue handler", () => {
+  it("retries, never acknowledges, a batch addressed to a consumer this Worker does not have", async () => {
+    expect(await deliver("some-other-queue", [{ anything: true }])).toEqual({ acked: [], retried: [], retriedAll: 1 });
+  });
+});
+
 const ERASED = ["shops", "support_tickets", "support_messages", "shop_plan_grants"] as const;
 
 /** A shop with rows in several tables: its install, a ticket with its message and a plan gift. */

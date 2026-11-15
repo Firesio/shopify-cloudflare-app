@@ -1,6 +1,7 @@
 import { CONTACT_TRAP_FIELD, parseContactForm, type ContactField, type ContactFieldError } from "@firesio/app/support";
 import type { ActionFunctionArgs } from "react-router";
 import { Form, useActionData, useLoaderData, useNavigation } from "react-router";
+import { formBodyRefusal } from "~/core/body-limit";
 import { identity } from "~/core/identity";
 import { firesio } from "~/firesio.server";
 
@@ -14,8 +15,14 @@ const FAILURES: Readonly<Record<string, string>> = {
 
 const FIELD_ERRORS: Record<ContactFieldError, string> = { required: "This field is required.", too_long: "This is too long.", email: "Enter a valid email address.", shop: "Use a store address like your-store.myshopify.com." };
 
+/** The most a contact form may weigh. `request.formData()` buffers the whole body, so the announced length is checked first. */
+const MAX_FORM_BYTES = 64 * 1024;
+const REFUSALS = { 400: "Bad request", 411: "Length required", 413: "Payload too large" } as const;
+
 /** Parse at the edge, then the library decides: the trap, the limiter, Turnstile, the inbox. A filled trap looks like success. */
 export async function action({ request }: ActionFunctionArgs) {
+  const refusal = formBodyRefusal(request.headers, MAX_FORM_BYTES);
+  if (refusal !== null) throw new Response(REFUSALS[refusal], { status: refusal });
   const form = await request.formData();
   const parsed = parseContactForm(form);
   if (parsed.kind === "trap") return { sent: true as const };

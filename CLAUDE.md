@@ -66,7 +66,7 @@ Tests never call real external services (outbound network is blocked in `vitest.
 | Tests | `testing` | |
 | D1, migrations | `data` | |
 | Workers, wrangler, queues, cron, deploy | `cloudflare` | `docs/OPERATIONS.md`, `docs/webhooks.md` |
-| Embedded admin pages (Polaris) | `shopify-and-ui`, `polaris-app-home`, `polaris-dashboard` | `docs/polaris-admin-guide.md`, `docs/polaris/` |
+| Embedded admin pages (Polaris) | `shopify-and-ui`, `polaris-app-home`, `polaris-dashboard` | `docs/polaris-admin-guide.md` |
 | Public pages / SCSS | `styling` | |
 | Shopify API behaviour | | `docs/shopify-api-invariants.md` |
 | Adopting the template | | `docs/ADOPTING_THE_TEMPLATE.md`, `CHANGELOG.md`, `template-files.json` |

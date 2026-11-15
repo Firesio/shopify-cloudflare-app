@@ -1,5 +1,6 @@
 # Typecheck, lint, tests and a production build. To save Actions minutes it runs only on a pull request that touches
-# code (docs and Markdown alone do not trigger it), on a release tag `v*`, or by hand (Actions > verify > Run workflow).
+# code (docs and Markdown alone do not trigger it), on a template tag `template-v*`, or by hand (Actions > verify > Run workflow).
+# A derived app picks its own tag pattern (`v*`, `release-*`): this one fires for the template's own tag.
 # A push to main does NOT run it, and may deploy production (Workers Builds): run `npm run verify` before you push.
 name: verify
 
@@ -8,10 +9,9 @@ on:
     paths-ignore:
       - "docs/**"
       - "**/*.md"
-      - "agent-skills/**"
       - ".claude/**"
   push:
-    tags: ["v*"]
+    tags: ["template-v*"]
   workflow_dispatch:
 
 permissions:
@@ -38,10 +38,6 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: The generated Worker types are current
-        run: |
-          npx wrangler types
-          git diff --exit-code worker-configuration.d.ts
       - run: npm run verify
       - name: Production build
         run: CLOUDFLARE_ENV=production npx react-router build

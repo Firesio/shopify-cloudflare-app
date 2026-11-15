@@ -17,22 +17,23 @@ function collectTests(dir: string): string[] {
   });
 }
 
-// A test that touches a binding runs in workerd; a pure one runs in Node. `workers/` holds the Worker entry's own tests.
-// `*.e2e.test.ts` boots the REAL Worker entry (`workers/app.ts`) in its own project and calls it through `exports`.
-const [workersAndE2eFiles, unitFiles] = collectTests("app")
-  .concat(collectTests("workers"), collectTests("tools/architecture"))
-  .reduce<[string[], string[]]>(
-    ([inWorkers, inNode], file) => {
-      const source = readFileSync(file, "utf8");
-      // Routes import the composition file (`firesio.server.ts`), whose services read `env` from cloudflare:workers.
-      const needsWorkerd = file.startsWith("app/routes/") || source.includes("cloudflare:test") || source.includes("cloudflare:workers") || source.includes("applyD1Migrations");
-      return needsWorkerd ? [[...inWorkers, file], inNode] : [inWorkers, [...inNode, file]];
-    },
-    [[], []],
-  );
+// WHICH PROJECT A TEST RUNS IN IS ITS FILE NAME, never what it imports:
+//   *.e2e.test.ts(x)     boots the REAL Worker entry (`workers/app.ts`) in its own project and calls it through `exports`.
+//   *.workerd.test.ts(x) runs in workerd and imports the code it exercises directly (bindings, D1, the composition file). A
+//                        test under `app/routes/` (it imports `firesio.server.ts`, which reads `env`) or `workers/` is one too.
+//   *.test.ts(x)         everything else: pure code, in Node.
+// A Node test that imports `cloudflare:*` would fail at import with an obscure message: the guard below says which file to rename.
+const E2E = /\.e2e\.test\.tsx?$/;
+const WORKERD = /\.workerd\.test\.tsx?$/;
+const inWorkerdFolder = (file: string) => file.startsWith("app/routes/") || file.startsWith("workers/");
 
-const e2eFiles = workersAndE2eFiles.filter((file) => file.endsWith(".e2e.test.ts"));
-const workersFiles = workersAndE2eFiles.filter((file) => !file.endsWith(".e2e.test.ts"));
+const allTests = collectTests("app").concat(collectTests("workers"), collectTests("tools/architecture"));
+const e2eFiles = allTests.filter((file) => E2E.test(file));
+const workersFiles = allTests.filter((file) => !E2E.test(file) && (WORKERD.test(file) || inWorkerdFolder(file)));
+const unitFiles = allTests.filter((file) => !E2E.test(file) && !WORKERD.test(file) && !inWorkerdFolder(file));
+for (const file of unitFiles) {
+  if (readFileSync(file, "utf8").includes("cloudflare:")) throw new Error(`${file} imports cloudflare:* but runs in Node: rename it to ${file.replace(/\.test\.(tsx?)$/, ".workerd.test.$1")}`);
+}
 
 /** The wrangler name of this Worker: a test-only service binding that names it reaches the Worker under test itself. */
 const WORKER_NAME = /^\s*"name":\s*"([^"]+)"/m.exec(readFileSync(path.join(import.meta.dirname, "wrangler.jsonc"), "utf8"))?.[1];

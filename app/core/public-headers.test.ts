@@ -19,6 +19,10 @@ describe("public/_headers", () => {
     expect(rule("/assets/*")).toContain("Cache-Control: public, max-age=31536000, immutable");
   });
 
+  it("tells the browser not to sniff the bundles either (the Worker's own headers do not reach a static asset)", () => {
+    expect(rule("/assets/*")).toContain("X-Content-Type-Options: nosniff");
+  });
+
   it("marks nothing but the content-hashed bundles immutable", () => {
     const immutable = headers.split("\n").filter((line) => line.includes("immutable"));
     expect(immutable).toHaveLength(1);

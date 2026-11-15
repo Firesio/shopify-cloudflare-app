@@ -1,6 +1,11 @@
-import type { ServerBuild } from "react-router";
+import type { MiddlewareFunction, ServerBuild } from "react-router";
 import * as entryModule from "~/entry.server";
 import * as root from "~/root";
+import * as appHome from "~/routes/app/home";
+import * as appLayout from "~/routes/app/layout";
+import * as callback from "~/routes/auth/callback";
+import * as landing from "~/routes/public/landing";
+import * as support from "~/routes/public/support";
 import * as healthz from "~/routes/healthz";
 import * as receive from "~/routes/webhooks/receive";
 
@@ -8,18 +13,70 @@ import * as receive from "~/routes/webhooks/receive";
 const noComponent = () => null;
 
 /**
+ * A route's `middleware` array as the server build types it. The preset's `adminMiddleware` is typed `MiddlewareFunction<unknown>`,
+ * which the build's `MiddlewareFunction<Response>` does not accept; each function is called as it is and only its result is
+ * narrowed (a `Response`, or nothing: what the router reads from a middleware).
+ */
+const asResponseMiddleware = (middleware: readonly MiddlewareFunction[] | undefined): MiddlewareFunction<Response>[] | undefined =>
+  middleware?.map((fn) => async (args, next) => {
+    const result = await fn(args, next);
+    return result instanceof Response ? result : undefined;
+  });
+
+type ServerRoute = NonNullable<ServerBuild["routes"][string]>;
+type ManifestRoute = ServerBuild["assets"]["routes"][string];
+type Spec = { readonly id: string; readonly parentId?: string; readonly path?: string; readonly index?: true; readonly module: ServerRoute["module"] };
+
+/** One route twice: the server's route (its module) and the manifest entry the document renderer reads (what the module exports). */
+function define(spec: Spec): { readonly route: ServerRoute; readonly manifest: NonNullable<ManifestRoute> } {
+  const { module } = spec;
+  const place = { id: spec.id, ...(spec.parentId === undefined ? {} : { parentId: spec.parentId }), ...(spec.path === undefined ? {} : { path: spec.path }), ...(spec.index === undefined ? {} : { index: spec.index }) };
+  return {
+    route: { ...place, module },
+    manifest: {
+      ...place,
+      module: `/assets/${spec.id}.js`,
+      imports: [],
+      hasAction: "action" in module,
+      hasLoader: "loader" in module,
+      hasClientAction: false,
+      hasClientLoader: false,
+      hasClientMiddleware: false,
+      hasErrorBoundary: "ErrorBoundary" in module,
+      clientActionModule: undefined,
+      clientLoaderModule: undefined,
+      clientMiddlewareModule: undefined,
+      hydrateFallbackModule: undefined,
+    },
+  };
+}
+
+/**
  * What `virtual:react-router/server-build` is in the end-to-end tests (`vitest.config.ts` aliases it here), so the REAL
  * `workers/app.ts` boots under workerd without the React Router Vite plugin. The routes are the app's own route modules, the
- * entry is its own `entry.server.tsx`; only the manifest is narrowed to the two routes the tests call (`/healthz` and the
- * webhook receiver), with the ids, parents and paths `app/routes.ts` gives them.
+ * entry is its own `entry.server.tsx`; only the route table is narrowed to the routes the tests call (the webhook receiver,
+ * `/healthz`, the landing and support pages, `/auth/*` and `/app`), with the ids, parents and paths `app/routes.ts` gives them (the
+ * public layout excepted: it imports a stylesheet, so those pages are mounted on the root).
  */
+const defined = [
+  define({ id: "root", path: "", module: root }),
+  define({ id: "routes/webhooks/receive", parentId: "root", path: "webhooks/*", module: { ...receive, default: noComponent } }),
+  define({ id: "routes/app/layout", parentId: "root", path: "app", module: { ...appLayout, middleware: asResponseMiddleware(appLayout.middleware) } }),
+  define({ id: "routes/app/home", parentId: "routes/app/layout", index: true, module: appHome }),
+  define({ id: "routes/auth/callback", parentId: "root", path: "auth/*", module: { ...callback, default: noComponent } }),
+  define({ id: "routes/public/landing", parentId: "root", index: true, module: landing }),
+  define({ id: "routes/public/support", parentId: "root", path: "support", module: support }),
+  define({ id: "routes/healthz", parentId: "root", path: "healthz", module: { ...healthz, default: noComponent } }),
+];
+
 export const entry: ServerBuild["entry"] = { module: entryModule };
-export const routes: ServerBuild["routes"] = {
-  root: { id: "root", path: "", module: root },
-  "routes/webhooks/receive": { id: "routes/webhooks/receive", parentId: "root", path: "webhooks/*", module: { ...receive, default: noComponent } },
-  "routes/healthz": { id: "routes/healthz", parentId: "root", path: "healthz", module: { ...healthz, default: noComponent } },
+export const routes: ServerBuild["routes"] = Object.fromEntries(defined.map(({ route }) => [route.id, route]));
+export const assets: ServerBuild["assets"] = {
+  url: "/assets/manifest.js",
+  version: "test",
+  entry: { imports: [], module: "/assets/entry.client.js" },
+  routes: Object.fromEntries(defined.map(({ manifest }) => [manifest.id, manifest])),
 };
-export const assets: ServerBuild["assets"] = { url: "/assets/manifest.js", version: "test", entry: { imports: [], module: "/assets/entry.client.js" }, routes: {} };
 export const basename: ServerBuild["basename"] = "/";
 export const publicPath: ServerBuild["publicPath"] = "/";
 export const assetsBuildDirectory: ServerBuild["assetsBuildDirectory"] = "build/client";

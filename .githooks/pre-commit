@@ -5,7 +5,7 @@
 #
 # Tests are NOT here on purpose: the full suite takes about 40 s (real workerd, real D1, SSR renders), and a hook that
 # slow gets bypassed with --no-verify, at which point it protects nothing. `npm run verify` runs everything. CI
-# (.github/workflows/verify.yml) runs it only on a pull request that touches code, on a `v*` tag or by hand, so a push to main
+# (.github/workflows/verify.yml) runs it only on a pull request that touches code, on a `template-v*` tag (a derived app picks its own) or by hand, so a push to main
 # runs no CI: run it yourself before pushing (Cloudflare Workers Builds deploys main without running it).
 #
 # Never bypass this with --no-verify; fix what it reports.

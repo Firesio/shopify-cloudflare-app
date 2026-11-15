@@ -1,4 +1,4 @@
-import { defineMembers, type Member, type MembersConfig } from "@firesio/app/members";
+import { defineMembers } from "@firesio/app/members";
 
 /**
  * THE ONE PLACE an app decides how its members work (`@firesio/app/members`): the permissions, the roles (most privileged
@@ -31,8 +31,3 @@ export const MEMBERS = defineMembers({
   seatOverage: { policy: "never_remove" },
   customPermissions: { enabled: false, alsoProtected: [] },
 });
-
-type MemberOf<C> = C extends MembersConfig<infer R, infer P> ? Member<R, P> : never;
-
-/** A member as this app's `defineMembers` types it: its own role and permission names, so a typo does not compile. */
-export type AppMember = MemberOf<typeof MEMBERS>;

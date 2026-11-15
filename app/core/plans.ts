@@ -28,5 +28,3 @@ export const PLANS = definePlans({
     entitlements: { "tickets.max": unlimited, "members.max": unlimited },
   },
 });
-
-export type PlanHandle = keyof typeof PLANS;

@@ -15,7 +15,7 @@ export default {
     // Opt into ALL v8 behaviours now: v8-ready, and silences the dev
     // Future-Flag warnings. v8_middleware makes loader/action `context` a
     // RouterContextProvider — workers/app.ts provides one, and app code reads
-    // env via getEnv() (AsyncLocalStorage) rather than threading `context`.
+    // env from `cloudflare:workers` (through `firesio.services()`).
     v8_middleware: true,
     v8_splitRouteModules: true,
     v8_passThroughRequests: true,

@@ -6,9 +6,8 @@
     "node": ">=24.15"
   },
   "scripts": {
-    "prepare": "git config core.hooksPath .githooks && node scripts/setup-skills.mjs --soft",
-    "setup:skills": "node scripts/setup-skills.mjs",
-    "verify": "npm run typecheck && npm run lint && npm test",
+    "prepare": "git config core.hooksPath .githooks",
+    "verify": "npm run cf-typegen:check && npm run typecheck && npm run lint && npm test",
     "precommit": "node scripts/precommit.mjs",
     "dev": "node scripts/shopify.mjs app dev --config dev",
     "predev": "node scripts/predev.mjs",
@@ -16,14 +15,15 @@
     "preview": "npm run build && vite preview",
     "typecheck": "react-router typegen && tsc --noEmit",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
-    "test": "node --test scripts/localhost-port.test.mjs scripts/ci-release/shopify-config-paths.test.mjs scripts/check-placeholders.test.mjs scripts/predev.test.mjs scripts/precommit.test.mjs scripts/dev-env.test.mjs scripts/setup-skills.test.mjs scripts/wrangler-bindings.test.mjs scripts/new-app.test.mjs scripts/template-manifest.test.mjs && vitest run",
+    "test": "node --test \"scripts/**/*.test.mjs\" && vitest run",
     "test:watch": "vitest",
     "test:quick": "vitest run --changed",
     "cf-typegen": "wrangler types",
+    "cf-typegen:check": "wrangler types --check",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "node scripts/migrate.mjs --local",
     "db:migrate": "node scripts/migrate.mjs --remote --env production",
-    "cf:build": "npm run verify && CLOUDFLARE_ENV=production npm run build",
+    "cf:build": "npm run verify && npm run build",
     "cf:deploy": "npm run check:placeholders && npm run cf:build && npm run db:migrate && wrangler deploy -c build/server/wrangler.json",
     "shopify": "node scripts/shopify.mjs",
     "config:link:dev": "node scripts/shopify.mjs app config link --config dev",
@@ -34,15 +34,12 @@
     "deploy:dev": "node scripts/shopify.mjs app deploy --config dev",
     "deploy:prod": "node scripts/shopify.mjs app deploy --config shopify.app.toml",
     "env": "node scripts/shopify.mjs app env",
-    "graphql-codegen": "graphql-codegen",
     "check:placeholders": "node scripts/check-placeholders.mjs production",
-    "docs:polaris:sync": "node scripts/sync-polaris-docs.mjs",
     "new-app": "node scripts/new-app.mjs"
   },
   "dependencies": {
     "@firesio/app": "^0.3.0",
     "@firesio/portal-contract": "^0.3.0",
-    "@react-router/dev": "^7.18.4",
     "@shopify/shopify-api": "^15.0.1",
     "@shopify/shopify-app-react-router": "^3.0.2",
     "@shopify/shopify-app-session-storage": "^7.0.1",
@@ -58,7 +55,7 @@
     "@cloudflare/vite-plugin": "^1.63.1",
     "@cloudflare/vitest-plugin": "^1.4.0",
     "@eslint/js": "^10.0.1",
-    "@shopify/api-codegen-preset": "^3.0.0",
+    "@react-router/dev": "^7.18.4",
     "@shopify/app-bridge-types": "^0.7.2",
     "@shopify/cli": "4.9.0",
     "@shopify/polaris-types": "^2.0.0",
@@ -71,7 +68,6 @@
     "eslint-plugin-boundaries": "^7.4.3",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.13.0",
-    "graphql-config": "^5.1.8",
     "sass-embedded": "^1.105.1",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.1",
@@ -85,9 +81,6 @@
   "overrides": {
     "@esbuild-kit/core-utils": {
       "esbuild": "^0.25.12"
-    },
-    "@shopify/graphql-codegen": {
-      "lodash": "^4.18.1"
     },
     "undici": "^7.29.1"
   }

@@ -25,4 +25,3 @@ The design of the platform (events, commands, libraries, the portal) is `docs/ar
 
 ## Mirrors (generated, large)
 
-- `polaris/`: Shopify App Home reference (`npm run docs:polaris:sync`; start at `polaris/README.md`).

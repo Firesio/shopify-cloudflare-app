@@ -74,7 +74,7 @@ config with the repository's pinned Shopify CLI, only when the commits touched `
 build variables: `D1_MIGRATIONS_API_TOKEN` (a token that may edit D1, used for the migration step when the build's own token may not)
 and `SHOPIFY_APP_AUTOMATION_TOKEN` (without it the Shopify deploy is skipped). The build does **not** run `npm run verify`: run it
 (or `npm run cf:deploy`) before pushing to `main`; CI (`.github/workflows/verify.yml`) runs it only on a pull request that touches code,
-on a `v*` tag or by hand. Runtime secrets are not build variables; they stay on the Worker. Installing the private `@firesio`
+on a `template-v*` tag (a derived app picks its own pattern in `verify.yml`) or by hand. Runtime secrets are not build variables; they stay on the Worker. Installing the private `@firesio`
 packages in the build needs `NPM_TOKEN` as a build variable (a read-only `read:packages` token); that this works in Workers Builds is not
 yet verified, so check the first build.
 

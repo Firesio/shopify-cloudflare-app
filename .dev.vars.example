@@ -26,7 +26,8 @@ EVENT_HASH_SECRET=dev-event-hash-secret-of-at-least-thirty-two-characters
 # Transactional email. The `send_email` binding is declared, but nothing sends until the domain is onboarded and EMAIL_FROM is set (in
 # wrangler.jsonc vars, per environment: it is not a secret):
 #   npx wrangler email sending enable yourdomain.com
-# The binding is `remote: true`, so a send during `npm run dev` goes through the REAL service and needs `wrangler login`.
+# The binding is not `remote` in wrangler.jsonc, so a send during `npm run dev` (and in tests) is SIMULATED by Miniflare: nothing is delivered
+# and no `wrangler login` is needed. Only a deployed Worker sends real mail.
 
 # NOTE: never set SHOPIFY_APP_URL here: it would shadow the live tunnel URL that `shopify app dev` injects.
 
