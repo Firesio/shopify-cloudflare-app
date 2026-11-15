@@ -40,7 +40,7 @@
     "new-app": "node scripts/new-app.mjs"
   },
   "dependencies": {
-    "@firesio/app": "^0.1.0",
+    "@firesio/app": "^0.2.0",
     "@firesio/portal-contract": "^0.3.0",
     "@react-router/dev": "^7.18.4",
     "@shopify/shopify-api": "^15.0.1",
@@ -77,7 +77,6 @@
     "typescript-eslint": "^8.71.1",
     "vite": "^8.3.4",
     "vitest": "^5.0.3",
-    "workers-ai-provider": "^4.0.1",
     "wrangler": "^4.149.0"
   },
   "workspaces": [

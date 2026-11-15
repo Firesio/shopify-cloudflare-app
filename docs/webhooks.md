@@ -40,7 +40,7 @@ three compliance topics (`customers/data_request`, `customers/redact`, `shop/red
 
 ## Adding a topic
 
-See the `add-webhook-topic` skill: subscribe in both `shopify.app*.toml`, handle it in `routes/webhooks/receive.ts` (the preset owns only the uninstall and the GDPR topics), order it with `decideOrder` if it changes state, test the effect and a
+See the `add-webhook-topic` skill: subscribe in both `shopify.app*.toml`, add it to the `webhooks` option of `createFiresio` (the preset owns the uninstall and the GDPR topics; yours run through the same inbox and queue), order it with `decideOrder` if it changes state, test the effect and a
 duplicate delivery. High-volume topics (orders, products) need their own queue and DLQ so a flash sale never delays `shop/redact` or `app/uninstalled`.
 
 ## When it goes wrong

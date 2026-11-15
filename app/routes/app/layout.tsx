@@ -17,17 +17,12 @@ import { firesio } from "~/firesio.server";
 export const middleware = [firesio.adminMiddleware];
 
 /**
- * This layout hides what a member cannot use, but only to be kind. On the kept-out page there is no member, and `from` answers
- * with the redirect to that very page: that is "no permissions", not an error.
+ * This layout hides what a member cannot use, but only to be kind. On the kept-out page there is no member (`maybeFrom` answers
+ * `member: null`, where `from` would redirect to that very page): that is "no permissions", not an error.
  */
 export const loader = ({ context }: LoaderFunctionArgs) => {
-  try {
-    const { member, services } = firesio.from(context);
-    return { apiKey: services.env.SHOPIFY_API_KEY, permissions: [...grantsOf(member, MEMBERS)] };
-  } catch (thrown) {
-    if (!(thrown instanceof Response)) throw thrown;
-    return { apiKey: firesio.services().env.SHOPIFY_API_KEY, permissions: [] };
-  }
+  const { member, services } = firesio.maybeFrom(context);
+  return { apiKey: services.env.SHOPIFY_API_KEY, permissions: member === null ? [] : [...grantsOf(member, MEMBERS)] };
 };
 
 /**

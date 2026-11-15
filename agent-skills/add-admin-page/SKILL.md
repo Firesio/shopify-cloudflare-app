@@ -7,7 +7,7 @@ description: Build or change a page in the embedded Shopify admin (/app/**) with
 
 Rules (they load when you open `app/routes/app/**`): `polaris-app-home`, `polaris-dashboard`, `shopify-and-ui`. Polaris reference: `docs/polaris/` (search with `rg`).
 
-**First ask: is it a page the libraries already have?** Support, members, plans (and, once mounted, notifications and content) are `@firesio/app/ui/*` route modules: add a two-line file (`export { default, loader, action } from "@firesio/app/ui/<group>/<page>";`) and the route in `app/routes.ts`; `firesio.adminMiddleware` (the /app layout's) already hands them their deps, and the words come from the `labels` option of `createFiresio` (`app/i18n/labels.ts`). Notifications and content pages are not wired by the preset's middleware yet: mount them from the library with their own context. To change such a page, change the library (platform repo), not a copy here.
+**First ask: is it a page the libraries already have?** Support, members, plans (and, once mounted, notifications and content) are `@firesio/app/ui/*` route modules: add a two-line file (`export { default, loader, action } from "@firesio/app/ui/<group>/<page>";`) and the route in `app/routes.ts`; `firesio.adminMiddleware` (the /app layout's) already hands them their deps, and the words come from the `labels` option of `createFiresio` (`app/i18n/labels.ts`). The notifications and content pages are wired by the same middleware once the app declares `notifications` (a type of its own) or `content.catalogue` in `createFiresio`; mount them at `paths.content` and the like. To change such a page, change the library (platform repo), not a copy here.
 
 For the app's own page:
 

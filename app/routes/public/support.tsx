@@ -1,11 +1,10 @@
-import { env } from "cloudflare:workers";
 import { CONTACT_TRAP_FIELD, parseContactForm, type ContactField, type ContactFieldError } from "@firesio/app/support";
 import type { ActionFunctionArgs } from "react-router";
 import { Form, useActionData, useLoaderData, useNavigation } from "react-router";
 import { identity } from "~/core/identity";
 import { firesio } from "~/firesio.server";
 
-export const loader = () => ({ turnstileSiteKey: env.TURNSTILE_SITE_KEY });
+export const loader = () => ({ turnstileSiteKey: firesio.services().env.TURNSTILE_SITE_KEY });
 
 const FAILURES: Readonly<Record<string, string>> = {
   rate_limited: "You have sent several messages in a short time. Try again in a minute.",
