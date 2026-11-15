@@ -124,13 +124,13 @@ and evidence; a checked box is not a substitute for a tested implementation.
 ## 5. Provision production resources, secrets and the portal
 
 - Create the production resources `npm run new-app` listed: the D1 database, the `SESSION` KV namespace, the R2
-  bucket for support attachments, the webhook queue and its dead-letter queue; bind the portal's blocklist KV
+  bucket for support attachments, the webhook queue and its dead-letter queue (this Worker consumes both: they must exist before the first deploy); bind the portal's blocklist KV
   namespace (read only) as `PORTAL_BLOCKLIST`; give the three rate-limit bindings namespace ids that no other app on
   the account uses; set their production ids in `wrangler.jsonc` under `env.production`; then run
   `npm run cf-typegen`. The `portal-events` queue is the portal's and already exists: this app only produces to it.
 - Declare and provision every required secret: `SHOPIFY_API_SECRET`, `ATTACHMENT_TOKEN_SECRET`,
   `EVENT_HASH_SECRET` (the shared key; `EVENT_HASH_KEY_ID` is the var that names it) and `PARTNER_API_TOKEN`.
-  `TURNSTILE_SECRET_KEY` (with `TURNSTILE_SITE_KEY`), `SHOP_CUSTOM_DOMAIN` and `SHOPIFY_API_SECRET_PREVIOUS` are optional and not declared. Secrets are never app configuration values.
+  `TURNSTILE_SECRET_KEY` (with `TURNSTILE_SITE_KEY`), `SHOP_CUSTOM_DOMAIN`, `SHOPIFY_API_SECRET_PREVIOUS` and `SETTINGS_SECRET_KEY` (only for an app that uses `settings`) are optional and not declared. Secrets are never app configuration values.
 - Support mail: onboard the sending domain to Email Sending and set `EMAIL_FROM` and `EMAIL_FROM_NAME`
   (vars, in both environments) only after authorizing it; route `support@<your domain>` through Email Routing to
   this Worker (without `EMAIL_FROM` nothing is sent).

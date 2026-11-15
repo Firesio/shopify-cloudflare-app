@@ -14,7 +14,8 @@ export function slugOf(identitySource) {
 /**
  * The webhook queue names are derived from the slug (`@firesio/app` consumes `<slug>-webhooks` / `<slug>-webhooks-prod`: the preset's
  * `queue` handler refuses any other batch), so a queue that does not carry it is a webhook queue nobody consumes. The dead-letter
- * queues, when declared, follow the same pattern. `portal-events*` is the portal's and is never checked here.
+ * queues follow the same pattern and are consumed by the same Worker (the preset's `webhookDeadLetterQueues` records what landed
+ * there); a webhook queue without that consumer would let dead deliveries sit unread. `portal-events*` is the portal's and is never checked here.
  */
 export function queueNameIssues(wrangler, slug) {
   if (slug === null) return ["app/core/identity.ts has no slug: the webhook queue names cannot be checked"];
@@ -27,12 +28,12 @@ export function queueNameIssues(wrangler, slug) {
     const producer = env?.queues?.producers?.find((entry) => entry.binding === "WEBHOOK_QUEUE")?.queue;
     if (producer !== queue) issues.push(`wrangler.jsonc ${label}: the WEBHOOK_QUEUE producer must be "${queue}" (found ${JSON.stringify(producer ?? null)})`);
     const consumers = env?.queues?.consumers ?? [];
-    if (consumers.length !== 1 || consumers[0].queue !== queue) {
-      issues.push(`wrangler.jsonc ${label}: the only queue consumer must be "${queue}" (found ${JSON.stringify(consumers.map((entry) => entry.queue))})`);
+    const names = consumers.map((entry) => entry.queue);
+    if (names.length !== 2 || !names.includes(queue) || !names.includes(dlq)) {
+      issues.push(`wrangler.jsonc ${label}: the queue consumers must be "${queue}" and its dead-letter queue "${dlq}" (found ${JSON.stringify(consumers.map((entry) => entry.queue))})`);
     }
-    for (const consumer of consumers) {
-      if (consumer.dead_letter_queue !== undefined && consumer.dead_letter_queue !== dlq) issues.push(`wrangler.jsonc ${label}: the dead-letter queue of "${consumer.queue}" must be "${dlq}" (found "${consumer.dead_letter_queue}")`);
-    }
+    const main = consumers.find((entry) => entry.queue === queue);
+    if (main !== undefined && main.dead_letter_queue !== dlq) issues.push(`wrangler.jsonc ${label}: the dead-letter queue of "${queue}" must be "${dlq}" (found ${JSON.stringify(main.dead_letter_queue ?? null)})`);
   }
   return issues;
 }

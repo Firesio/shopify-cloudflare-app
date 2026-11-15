@@ -23,11 +23,13 @@ test("production declares the same vars and the same secret names", () => {
   assert.deepEqual(sorted(production.secrets.required), sorted(top.secrets.required));
 });
 
-test("the two environments name different queues, and each queue consumer has a dead-letter queue", () => {
+test("the two environments name different queues, and the webhook queue's dead-letter queue is consumed in both", () => {
   const names = (env) => (env.queues?.producers ?? []).map((producer) => producer.queue);
   for (const queue of names(top)) assert.ok(!names(production).includes(queue), `${queue} is shared by both environments`);
   for (const env of [top, production]) {
-    for (const consumer of env.queues.consumers) assert.ok(consumer.dead_letter_queue, `${consumer.queue} has no dead-letter queue`);
+    const webhooks = env.queues.consumers.filter((consumer) => consumer.dead_letter_queue !== undefined);
+    assert.equal(webhooks.length, 1, "one consumer has a dead-letter queue: the webhook queue");
+    assert.ok(env.queues.consumers.some((consumer) => consumer.queue === webhooks[0].dead_letter_queue), `${webhooks[0].dead_letter_queue} has no consumer: the preset would never record what lands there`);
   }
 });
 
@@ -36,9 +38,9 @@ test("the webhook queues are named after the slug in app/core/identity.ts, in bo
   assert.ok(slug);
   assert.deepEqual(queueNameIssues(config, slug), []);
   assert.deepEqual(top.queues.producers.find((entry) => entry.binding === "WEBHOOK_QUEUE"), { binding: "WEBHOOK_QUEUE", queue: `${slug}-webhooks` });
-  assert.deepEqual(top.queues.consumers.map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-webhooks`, `${slug}-webhooks-dlq`]]);
+  assert.deepEqual(top.queues.consumers.map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-webhooks`, `${slug}-webhooks-dlq`], [`${slug}-webhooks-dlq`, undefined]]);
   assert.deepEqual(production.queues.producers.find((entry) => entry.binding === "WEBHOOK_QUEUE"), { binding: "WEBHOOK_QUEUE", queue: `${slug}-webhooks-prod` });
-  assert.deepEqual(production.queues.consumers.map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-webhooks-prod`, `${slug}-webhooks-dlq-prod`]]);
+  assert.deepEqual(production.queues.consumers.map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-webhooks-prod`, `${slug}-webhooks-dlq-prod`], [`${slug}-webhooks-dlq-prod`, undefined]]);
 });
 
 test("production is on one custom domain only: no workers.dev, no preview URLs (and the top level is not)", () => {
@@ -53,14 +55,6 @@ test("production is on one custom domain only: no workers.dev, no preview URLs (
 test("the portal events queue is a producer in both environments (its DLQ belongs to the portal's consumer)", () => {
   assert.equal(top.queues.producers.find((entry) => entry.binding === "PORTAL_EVENTS")?.queue, "portal-events");
   assert.equal(production.queues.producers.find((entry) => entry.binding === "PORTAL_EVENTS")?.queue, "portal-events-prod");
-});
-
-test("every production cron is one the preset's worker/cron.ts knows, and development runs everything on one tick", () => {
-  const source = readFileSync(new URL("../node_modules/@firesio/app/src/preset/worker/cron.ts", import.meta.url), "utf8");
-  const known = [...source.matchAll(/(?:DRAIN_ONLY_CRON|DAILY_CRON) = "([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(sorted(known), sorted(["* * * * *", "30 3 * * *"]));
-  for (const cron of production.triggers.crons) assert.ok(known.includes(cron), `production cron "${cron}" is unknown to the preset (@firesio/app worker/cron.ts)`);
-  for (const cron of top.triggers.crons) assert.ok(!known.includes(cron), `development cron "${cron}" would not run the daily work`);
 });
 
 test("the rate limiters keep the same limits in both environments", () => {

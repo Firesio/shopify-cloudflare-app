@@ -8,11 +8,12 @@ this page is how the template uses them.
 Shopify ──POST──▶ routes/webhooks/receive.ts ──one message──▶ queue my-app-webhooks ──▶ workers/app.ts queue()
   401 on a bad HMAC; 2xx after the send         (writes nothing to D1)     DLQ after 8 retries       firesio.queue (preset worker/consume.ts)
                                                                                                       └ processWebhook: admit, claim, route, settle
+                                                                         my-app-webhooks-dlq ──▶ the same queue(): mark `dead_letter`, log, ack
 ```
 
 ## The receiver (`app/routes/webhooks/receive.ts`)
 
-The route is `return firesio.webhook(request)` for every delivery: it runs `verifyWebhook` (constant-time HMAC, POST only, `*.myshopify.com` only), `toQueuedWebhook`, `WEBHOOK_QUEUE.send`, 2xx, and answers a topic the preset does not handle (`firesio.handles(topic)` is false) with a 200 and nothing queued, so Shopify does not retry a subscription nothing handles. The HMAC is verified first for EVERY topic, so an unsigned POST to an unhandled topic is a 401 too; `receive.ts` has no branch on the topic. The preset is handed the RAW request, not the result of Shopify's `authenticate.webhook`, on purpose: that call refreshes the offline session and turns a refresh failure into a 500 (`docs/shopify-api-invariants.md`), which is exactly what an uninstalled app's `app/uninstalled` hits. A bad signature stays a **401**
+The route is `firesio.webhookRoute` (`export const action = firesio.webhookRoute.action`, whose body is `firesio.webhook(request)`, and `loader`, which answers a GET 405 with `Allow: POST`; two exports and not `export const { action, loader } = ...`, because React Router's build cannot strip a destructured export from the client bundle) for every delivery: it runs `verifyWebhook` (constant-time HMAC, POST only, `*.myshopify.com` only), `toQueuedWebhook`, `WEBHOOK_QUEUE.send`, 2xx, and answers a topic the preset does not handle (`firesio.handles(topic)` is false) with a 200 and nothing queued, so Shopify does not retry a subscription nothing handles. The HMAC is verified first for EVERY topic, so an unsigned POST to an unhandled topic is a 401 too; `receive.ts` has no branch on the topic. The preset is handed the RAW request, not the result of Shopify's `authenticate.webhook`, on purpose: that call refreshes the offline session and turns a refresh failure into a 500 (`docs/shopify-api-invariants.md`), which is exactly what an uninstalled app's `app/uninstalled` hits. A bad signature stays a **401**
 (an app-review check); a failed send answers 5xx so Shopify retries. Nothing is written to D1 in the request. The body is queued only for a topic of the app's own (a key of the `webhooks` option: its handler needs it) or when `customerData.stores` is true; otherwise the inbox keeps a
 hash: the customer GDPR topics carry personal data, and this template stores none (`customerData: { stores: false }`). Rotating the client secret: set
 `SHOPIFY_API_SECRET_PREVIOUS` with `wrangler secret put` for the hour the rotation takes, then remove it.
@@ -25,7 +26,7 @@ For every message: `parseQueuedWebhook`, then `processWebhook`:
 |---|---|
 | `processed`, `already_processed`, `in_progress`, `suppressed` | ack |
 | `unsupported_topic`, `invalid_payload` | settled as a `failed` inbox row and acked (retrying cannot help) |
-| `handler_failed`, `inbox_unavailable` | `retry({ delaySeconds: 30 })`, until the queue's DLQ takes it |
+| `handler_failed`, `inbox_unavailable` | `retry({ delaySeconds })`, exponential: 30 s, doubling with the queue's `attempts`, at most an hour, until the queue's DLQ takes it |
 
 The inbox row (`webhook_deliveries`, keyed by the webhook id) is written by the consumer, so a delivery that arrives twice does its work once. A shop that was
 redacted is dropped before any row is stored (the tombstone). Topics handled: `app/uninstalled` (the preset's `shops/lifecycle.ts`, emits `shop.uninstalled`) and the
@@ -54,9 +55,13 @@ Three ways to handle a topic of the app's own, from the default to the most free
 - **Idempotency:** the preset runs a delivery once, but a handler that throws half way is retried: make what it does idempotent (upsert by the webhook id or the resource id).
 - **Personal data** (orders, customers): needs the scope and protected-data access, and `customerData: { stores: true, dataRequest, redact }`; tables with a `shop` column are purged on `shop/redact` automatically, other keying columns go in `purge.shopScoped`.
 
+### Dead letters
+
+After `max_retries` (8) the queue hands a message to `<slug>-webhooks-dlq` (`-dlq-prod`). The Worker consumes that queue too (a consumer in `wrangler.jsonc`, top level AND `env.production`; `npm run check:placeholders` and `scripts/wrangler-bindings.test.mjs` require it, and the queue must exist before a deploy): the preset's `queue` handler writes the inbox row if the main consumer never did, marks it **`dead_letter`** (a processed row is never touched), logs **`webhook.dead_letter`** (the topic and a hash of the shop, never the domain) and acknowledges the message; a message it cannot parse is logged `webhook.invalid_message` and acknowledged; a store that fails retries the message instead of losing it. A delivery for a redacted shop is dropped without a row. So a dead delivery is a row and a log line, not a message waiting in a queue nobody reads: `docs/OPERATIONS.md`, "Webhook DLQ investigation and replay", says what that means for a replay.
+
 ### Queue names (app that already runs in production)
 
-`firesio.queue` consumes only the queues in `webhookQueues`; the default is `<slug>-webhooks` / `<slug>-webhooks-prod`, which is what `npm run new-app` creates. An app that moves onto the preset with queues named otherwise lists ITS names (`webhookQueues: ["...", "..."]`) instead of recreating queues: a batch from a queue not in the list is retried forever and never acknowledged. Queue names are unique per Cloudflare account and one queue has one consumer, so never reuse another app's name. `npm run check:placeholders` and `scripts/wrangler-bindings.test.mjs` pin the names: the `WEBHOOK_QUEUE` producer and the only consumer are `<slug>-webhooks` (top level) and `<slug>-webhooks-prod` (`env.production`), and a declared dead-letter queue is `<slug>-webhooks-dlq` / `<slug>-webhooks-dlq-prod`, the slug being `app/core/identity.ts`'s. An app that keeps older names changes the check on purpose, in the same commit as `webhookQueues`.
+`firesio.queue` consumes only the queues in `webhookQueues` and `webhookDeadLetterQueues` (default `<slug>-webhooks-dlq` / `-dlq-prod`, the dead letters above); the webhook queues default to `<slug>-webhooks` / `<slug>-webhooks-prod`, which is what `npm run new-app` creates. An app that moves onto the preset with queues named otherwise lists ITS names (`webhookQueues: ["...", "..."]`) instead of recreating queues: a batch from a queue in neither list is retried forever and never acknowledged. Queue names are unique per Cloudflare account and one queue has one consumer, so never reuse another app's name. `npm run check:placeholders` and `scripts/wrangler-bindings.test.mjs` pin the names: the `WEBHOOK_QUEUE` producer and the only consumer are `<slug>-webhooks` (top level) and `<slug>-webhooks-prod` (`env.production`), and the dead-letter queue (declared as its `dead_letter_queue` and as a consumer of its own) is `<slug>-webhooks-dlq` / `<slug>-webhooks-dlq-prod`, the slug being `app/core/identity.ts`'s. An app that keeps older names changes the check on purpose, in the same commit as `webhookQueues` and `webhookDeadLetterQueues`.
 
 ### Subscriptions
 
@@ -67,5 +72,5 @@ Both `shopify.app.toml` and `shopify.app.dev.toml` subscribe the same topics at 
 | Symptom | Where to look |
 |---|---|
 | Shopify reports a failing endpoint | The receiver's 401/5xx; `wrangler tail`; the signature secret (`SHOPIFY_API_SECRET`, `_PREVIOUS` during a rotation) |
-| A delivery was dead-lettered | The DLQ `<slug>-webhooks-dlq-prod`; the inbox row is `failed` with the code and detail (`docs/OPERATIONS.md`, DLQ replay) |
+| A delivery was dead-lettered | The `webhook.dead_letter` log line and the inbox row, `dead_letter` (the DLQ itself is empty: the Worker acknowledged it; `docs/OPERATIONS.md`, DLQ replay) |
 | An event the portal never saw | `portal_outbox` (`pending`, `dead`) and the cron `outbox_drain` log line; `dead > 0` is the alert |

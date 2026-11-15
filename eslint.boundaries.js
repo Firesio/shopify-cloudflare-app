@@ -42,6 +42,8 @@ const policies = [
   // Tests may reach what they test plus the shared test support.
   fromFile("test", to("core", "db", "components", "i18n", "routes", "test-support", "workers")),
   fromFile("test", toComposition),
+  // root.tsx is a thing under test too (its error boundary).
+  fromFile("test", { to: { file: { categories: [ENTRY] } } }),
   // core is pure: it imports only itself. Time, ids and secrets come in as arguments.
   allow("core", "core"),
   allow("db", "db"),

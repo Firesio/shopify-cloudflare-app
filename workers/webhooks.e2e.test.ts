@@ -1,13 +1,15 @@
 import { env, exports } from "cloudflare:workers";
+import { deliver, installShop, type Settlement } from "@firesio/app/preset/testing";
 import { signedWebhookRequest } from "@firesio/app/shopify/testing";
 import { callCommand, openTicketResultSchema } from "@firesio/portal-contract";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { identity } from "~/core/identity";
+import { firesio } from "~/firesio.server";
 import { setupTestDatabase } from "~/test/database";
-import { deliver, installShop, recordSends, type Settlement } from "~/test/e2e";
+import { setupSendRecording } from "~/test/sends";
 
 setupTestDatabase();
-afterEach(() => vi.restoreAllMocks());
+const record = setupSendRecording();
 
 const SECRET = "test-api-secret";
 const QUEUE = `${identity.slug}-webhooks`;
@@ -42,7 +44,7 @@ async function redeliver(sent: { bodies: () => unknown[] }, request: () => Promi
   const before = sent.bodies().length;
   expect((await request()).status).toBe(200);
   expect(sent.bodies()).toHaveLength(before + 1);
-  return deliver(QUEUE, sent.bodies().slice(before));
+  return deliver(exports.default, QUEUE, sent.bodies().slice(before));
 }
 
 describe("app/uninstalled, from the HTTP request to the D1 effect, through the real Worker", () => {
@@ -50,15 +52,15 @@ describe("app/uninstalled, from the HTTP request to the D1 effect, through the r
   const uninstall = () => post({ path: "/webhooks/app/uninstalled", topic: "app/uninstalled", shop, webhookId: "wh-uninstall-1", payload: { id: 1, domain: shop } });
 
   it("is a 200 with one queued message and nothing in D1; the consumer marks the shop uninstalled and queues shop.uninstalled for the portal", async () => {
-    await installShop(shop, 1_700_000_000_000);
-    const sent = recordSends(env.WEBHOOK_QUEUE);
+    await installShop(firesio, env, shop, 1_700_000_000_000);
+    const sent = record(env.WEBHOOK_QUEUE);
     expect((await uninstall()).status).toBe(200);
     expect(sent.bodies()).toHaveLength(1);
     // The request itself wrote nothing: the consumer owns the inbox.
     expect(await count(`SELECT COUNT(*) AS n FROM webhook_deliveries`)).toBe(0);
     expect((await env.DB.prepare(`SELECT relationship_status FROM shops WHERE shop = ?1`).bind(shop).first())?.["relationship_status"]).not.toBe("UNINSTALLED");
 
-    expect(await deliver(QUEUE, sent.bodies())).toMatchObject({ acked: ["msg-0"], retried: [], retriedAll: 0 });
+    expect(await deliver(exports.default, QUEUE, sent.bodies())).toMatchObject({ acked: ["msg-0"], retried: [], retriedAll: 0 });
     const shopRow = await env.DB.prepare(`SELECT relationship_status, uninstalled_at FROM shops WHERE shop = ?1`).bind(shop).first();
     expect(shopRow?.["relationship_status"]).toBe("UNINSTALLED");
     expect(typeof shopRow?.["uninstalled_at"]).toBe("number");
@@ -69,10 +71,10 @@ describe("app/uninstalled, from the HTTP request to the D1 effect, through the r
   });
 
   it("changes nothing when Shopify delivers it a second time", async () => {
-    await installShop(shop, 1_700_000_000_000);
-    const sent = recordSends(env.WEBHOOK_QUEUE);
+    await installShop(firesio, env, shop, 1_700_000_000_000);
+    const sent = record(env.WEBHOOK_QUEUE);
     expect((await uninstall()).status).toBe(200);
-    await deliver(QUEUE, sent.bodies());
+    await deliver(exports.default, QUEUE, sent.bodies());
     const before = await env.DB.prepare(`SELECT uninstalled_at FROM shops WHERE shop = ?1`).bind(shop).first();
 
     expect(await redeliver(sent, uninstall)).toMatchObject({ acked: ["msg-0"], retried: [] });
@@ -84,14 +86,14 @@ describe("app/uninstalled, from the HTTP request to the D1 effect, through the r
 
 describe("a delivery that is not for the Worker's consumer", () => {
   it("is a 401 with nothing queued for a bad signature, for a topic the Worker runs and for one it does not", async () => {
-    const sent = recordSends(env.WEBHOOK_QUEUE);
+    const sent = record(env.WEBHOOK_QUEUE);
     expect((await post({ path: "/webhooks/app/uninstalled", topic: "app/uninstalled", shop: "e2e-bad.myshopify.com", webhookId: "wh-bad-1", badHmac: true })).status).toBe(401);
     expect((await post({ path: "/webhooks/orders/create", topic: "orders/create", shop: "e2e-bad.myshopify.com", webhookId: "wh-bad-2", badHmac: true })).status).toBe(401);
     expect(sent.bodies()).toEqual([]);
   });
 
   it("is a 200 with nothing queued for a verified topic nobody handles", async () => {
-    const sent = recordSends(env.WEBHOOK_QUEUE);
+    const sent = record(env.WEBHOOK_QUEUE);
     expect((await post({ path: "/webhooks/orders/create", topic: "orders/create", shop: "e2e-orders.myshopify.com", webhookId: "wh-orders-1" })).status).toBe(200);
     expect(sent.bodies()).toEqual([]);
   });
@@ -99,7 +101,7 @@ describe("a delivery that is not for the Worker's consumer", () => {
 
 describe("the Worker's queue handler", () => {
   it("retries, never acknowledges, a batch addressed to a consumer this Worker does not have", async () => {
-    expect(await deliver("some-other-queue", [{ anything: true }])).toEqual({ acked: [], retried: [], retriedAll: 1 });
+    expect(await deliver(exports.default, "some-other-queue", [{ anything: true }])).toEqual({ acked: [], retried: [], retriedAll: 1 });
   });
 });
 
@@ -107,7 +109,7 @@ const ERASED = ["shops", "support_tickets", "support_messages", "shop_plan_grant
 
 /** A shop with rows in several tables: its install, a ticket with its message and a plan gift. */
 async function seedShop(shop: string): Promise<void> {
-  await installShop(shop, 1_700_000_000_000);
+  await installShop(firesio, env, shop, 1_700_000_000_000);
   const ticket = await callCommand(() => env.PORTAL_ADMIN_API.support().open({ account: account(shop), requestId: `req-${shop}`, subject: "Hello", body: "A message", category: "question", actor: "staff_1" }), openTicketResultSchema);
   expect(ticket.ok).toBe(true);
   expect(await env.PORTAL_ADMIN_API.billing().grantPlan({ account: account(shop), planId: "free", reason: "e2e", actor: "staff_1" })).toMatchObject({ ok: true });
@@ -125,10 +127,10 @@ describe("shop/redact, from the HTTP request to the D1 effect, through the real 
     await seedShop(bystander);
     for (const table of ERASED) expect(await rowsOf(table, shop), table).toBeGreaterThan(0);
 
-    const sent = recordSends(env.WEBHOOK_QUEUE);
+    const sent = record(env.WEBHOOK_QUEUE);
     expect((await redact()).status).toBe(200);
     expect(sent.bodies()).toHaveLength(1);
-    expect(await deliver(QUEUE, sent.bodies())).toMatchObject({ acked: ["msg-0"], retried: [] });
+    expect(await deliver(exports.default, QUEUE, sent.bodies())).toMatchObject({ acked: ["msg-0"], retried: [] });
 
     for (const table of ERASED) {
       expect(await rowsOf(table, shop), table).toBe(0);
@@ -142,9 +144,9 @@ describe("shop/redact, from the HTTP request to the D1 effect, through the real 
 
   it("changes nothing when Shopify delivers it a second time", async () => {
     await seedShop(shop);
-    const sent = recordSends(env.WEBHOOK_QUEUE);
+    const sent = record(env.WEBHOOK_QUEUE);
     expect((await redact()).status).toBe(200);
-    await deliver(QUEUE, sent.bodies());
+    await deliver(exports.default, QUEUE, sent.bodies());
 
     expect(await redeliver(sent, redact)).toMatchObject({ acked: ["msg-0"], retried: [] });
     expect(await outboxTypes(shop)).toEqual(["account.redacted"]);

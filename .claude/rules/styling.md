@@ -13,7 +13,7 @@ Two surfaces, two systems, never mixed:
 | Surface | System | Loaded by |
 |---|---|---|
 | **Public**: landing, legal, support | **SCSS** in `app/styles/public/` | `app/routes/public/layout.tsx` `links()` |
-| **Embedded Shopify admin** (`/app/**`) | **Polaris web components** + App Bridge, no CSS of our own | `AppProvider` (`components/EmbeddedProvider.tsx`) |
+| **Embedded Shopify admin** (`/app/**`) | **Polaris web components** + App Bridge, no CSS of our own | `EmbeddedProvider` (`@firesio/app/ui/shell`, around `AppProvider`) |
 
 The staff console and its Tailwind/shadcn styling left the template with the portal (step 13). `@rules/shopify-and-ui.md` bans hand-rolled CSS in the merchant admin: never style the embedded app yourself.
 

@@ -53,7 +53,7 @@ app/
   core/        the app's own declarations (identity, PLANS, MEMBERS) and pure helpers (install target, security headers, body limit, error logs)
   db/          the app's own Drizzle tables (none yet; the shared ones are the preset's)
   routes/      thin: app/ (embedded; `middleware = [firesio.adminMiddleware]`, one-line files mounting @firesio/app/ui/*), public/, auth/, webhooks/, healthz
-  components/  presentational React; i18n/ the language of a request and the label objects the library pages take
+  components/  presentational React (the app's nav); i18n/ the label objects the library pages take
 workers/       app.ts: fetch, then `firesio.queue`, `firesio.scheduled`, `firesio.email` and `AdminApi = firesio.AdminApi`
 drizzle/       the app's migrations (one baseline; the libraries' tables included)
 tools/         architecture tests; eslint.boundaries.js is the layer table
@@ -70,7 +70,7 @@ Plans (`app/core/plans.ts`), roles and permissions (`members.ts`), the identity 
 entitlement keys and any other words of the library pages (`app/i18n/labels.ts`), its own pages and tables (`app/db/schema.ts`), and
 the options of `createFiresio` in `app/firesio.server.ts` that differ from the defaults: `content` and `notifications` (the
 preset sends the support mails with its own English texts), `metrics` (your own keys next to the standard ones), `meters`, `ai`,
-`support` (`false` leaves support out), `purge` and `customerData` for tables and customer data of its own. Everything else is the
+`support` (`false` leaves support out; `support.staffUrl` puts the portal's ticket address in the staff alert mail), `purge` and `customerData` for tables and customer data of its own. Everything else is the
 preset's: see `node_modules/@firesio/app/src/preset/README.md` (every option, its default and the bindings it reads).
 
 ## Two Shopify apps: dev and prod
@@ -141,14 +141,14 @@ Wrangler environments do **not** inherit bindings, vars, triggers or routes: `en
 `REPLACE_ME` or a launch value is a placeholder (`npm run check:placeholders`), and so does the Workers Builds build (`scripts/ci-release.mjs` runs the same
 check before it touches D1). Production answers on ONE custom domain: `env.production` has `routes: [{ "pattern": "<the host of SHOPIFY_APP_URL>", "custom_domain": true }]`,
 `workers_dev: false` and `preview_urls: false` (the check refuses `REPLACE_ME` there and a host that is not `SHOPIFY_APP_URL`'s), and the webhook queues are exactly
-`<slug>-webhooks` / `<slug>-webhooks-prod` (and `-dlq` / `-dlq-prod`), with the slug of `app/core/identity.ts`.
+`<slug>-webhooks` / `<slug>-webhooks-prod`, each with its dead-letter queue `-dlq` / `-dlq-prod` (both consumed by this Worker; create them before the first deploy), with the slug of `app/core/identity.ts`.
 
 Required secrets (`secrets.required` in `wrangler.jsonc`; set with `wrangler secret put <NAME> --env production`): `SHOPIFY_API_SECRET`,
 `ATTACHMENT_TOKEN_SECRET`, `EVENT_HASH_SECRET` (the key every app and the portal hash events with; `EVENT_HASH_KEY_ID`, a var, is the public
 half) and `PARTNER_API_TOKEN`. The preset treats `PARTNER_API_TOKEN` as optional; this template requires it by choice, because the plan
 a shop is on is read from Shopify's Managed Pricing through the Partner API (`PARTNER_ORG_ID` and `PARTNER_APP_ID` are vars). Optional,
 not declared: `TURNSTILE_SECRET_KEY` (the support form's bot check), `SHOP_CUSTOM_DOMAIN` (only an app that serves a shop's custom
-domain), `SHOPIFY_API_SECRET_PREVIOUS` (only while rotating the Shopify secret). `SHOPIFY_API_KEY` is a public client id.
+domain), `SHOPIFY_API_SECRET_PREVIOUS` (only while rotating the Shopify secret), `SETTINGS_SECRET_KEY` (seals the `secret()` fields of the `settings` library at rest; base64 of 32 random bytes; an app that declares no settings has no use for it). `SHOPIFY_API_KEY` is a public client id.
 
 Workers Builds installs the private `@firesio` packages only if the build has `NPM_TOKEN` (section 3 of the platform design says this is
 **not yet verified**); the fallback is to deploy from GitHub Actions.

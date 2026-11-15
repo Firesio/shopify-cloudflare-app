@@ -48,7 +48,7 @@ Secrets (set with `wrangler secret put`, declared by NAME in `secrets.required` 
 
 Optional and NOT declared (a name in `secrets.required` is a deploy-time requirement): `TURNSTILE_SECRET_KEY` (the support form's
 bot check; `TURNSTILE_SITE_KEY` is the public var), `SHOP_CUSTOM_DOMAIN` (only an app that serves a shop's custom domain),
-`SHOPIFY_API_SECRET_PREVIOUS` (only during a rotation, below).
+`SHOPIFY_API_SECRET_PREVIOUS` (only during a rotation, below), `SETTINGS_SECRET_KEY` (seals the `secret()` fields of the `settings` library at rest, AES-256-GCM; base64 of 32 random bytes; without it they are stored as plain text, and adding it later needs no migration: the next save seals them; `SETTINGS_SECRET_KEY_ID` and `SETTINGS_SECRET_KEY_PREVIOUS` with its `_ID` serve a rotation). The template declares no `settings`, so it has no use for it until an app adds them.
 
 Everything else is a var in `wrangler.jsonc`, committed on purpose: `SHOPIFY_API_KEY` (the public client id), `SCOPES`,
 `SHOPIFY_APP_URL`, `SHOPIFY_APP_HANDLE`, `EMAIL_FROM`, `EMAIL_FROM_NAME`, `STAFF_ALERT_EMAIL`, `SUPPORT_MAIL_DOMAIN`,
@@ -212,34 +212,43 @@ The deployment declares `my-app-webhooks-prod` with `my-app-webhooks-dlq-prod` a
 - A message is the one the receiver queued: the shop, the Shopify webhook id and an `intake` (topic, event id, API version, trigger time, payload
   hash). The body travels only for the app's own topics (the `webhooks` option) and, for the customer topics, only when `customerData.stores`
   is true; the GDPR topics of a template that stores no customer data carry no payload. Treat what it holds as potentially sensitive.
-- The consumer retries a delivery whose handler threw, or whose inbox could not be written, every 30 seconds until the queue gives up. A handler
+- The consumer retries a delivery whose handler threw, or whose inbox could not be written, after a delay that doubles with each attempt (30 seconds, then 60, ... at most an hour) until the queue gives up. A handler
   that failed leaves its `webhook_deliveries` row `failed`, with `attempts`, `failure_code` (`handler_failed`) and `failure_detail`. A message that
   never got past the inbox (D1 unavailable for all the attempts) has **no row**: only the `webhook.retry` log lines and the DLQ itself record it. An
   unknown topic or a payload that does not fit is not retried: it is settled as a `failed` row and acknowledged, so it never reaches the DLQ.
-- The app itself sends staff no alert about a dead delivery. Watch the DLQ depth (`queues info`), the `webhook.retry` log lines and the `failed` rows.
+- This Worker consumes the DLQ too (`wrangler.jsonc` declares `my-app-webhooks-dlq-prod` as a consumer, and the preset's `webhookDeadLetterQueues` names it): each
+  message that lands there is **acknowledged** after its inbox row is marked `dead_letter` (with the topic and a hash of the shop in a `webhook.dead_letter`
+  log line, never the domain), so a dead delivery is recorded instead of sitting unread. The app itself sends staff no alert about it: watch the
+  `webhook.dead_letter` log lines, the `dead_letter` rows and the `failed` ones. A message that never got past the inbox has no row to mark: the log line is
+  its record.
 
 ```bash
 # operator-run: DLQ backlog and consumer configuration
 npx wrangler queues info my-app-webhooks-dlq-prod
 npx wrangler queues consumer list my-app-webhooks-dlq-prod
 
-# operator-run: the failed deliveries the inbox knows
+# operator-run: the failed and dead-lettered deliveries the inbox knows
 npx wrangler d1 execute app-db-prod --remote --command \
-  "SELECT id, topic, shop, attempts, failure_code, failure_detail FROM webhook_deliveries WHERE status = 'failed' ORDER BY received_at DESC LIMIT 50;"
+  "SELECT id, topic, shop, status, attempts, failure_code, failure_detail FROM webhook_deliveries WHERE status IN ('failed', 'dead_letter') ORDER BY received_at DESC LIMIT 50;"
 ```
 
 Wrangler reports queue metadata and attaches or removes a consumer, but it has no command to read or replay individual messages. Replay works
 through the inbox, and it is idempotent by design: a message put back on `my-app-webhooks-prod` is claimed by its webhook id, a delivery already
-`processed` is acknowledged without running again (`already_processed`), a `failed` one is taken over and run again, and a delivery for a redacted
-shop is dropped (`suppressed`). So the replay is "forward each DLQ message, unchanged, to the main queue" once the cause is fixed and deployed.
+`processed` is acknowledged without running again (`already_processed`), a `failed` or `dead_letter` one is taken over and run again, and a delivery for a redacted
+shop is dropped (`suppressed`). So a replay is "forward each message, unchanged, to the main queue" once the cause is fixed and deployed.
 
-1. **Do not attach the production Worker as the DLQ's consumer.** Its `queue` handler consumes only `my-app-webhooks` and `my-app-webhooks-prod` (the
-   preset's `webhookQueues`, derived from `identity.slug`): a batch from any other queue is retried whole and never acknowledged (`queue.unknown`).
-2. Deploy the fix and check that the deployed handler accepts the stored message shape (a handler with an external effect needs its own idempotency:
+**This template records dead letters and does not keep them.** Its Worker consumes the DLQ and acknowledges each message once the row is marked, so the
+queue holds nothing to forward: what survives is the `dead_letter` row (topic, shop, webhook id, attempts) and the `webhook.dead_letter` line. For a delivery
+whose body travelled in the message (an app's own topics) that is the only trace; the inbox keeps a hash, not the payload. An app that must keep the messages for a replay changes that on purpose, in one commit: no DLQ consumer in `wrangler.jsonc` (both environments),
+`webhookDeadLetterQueues: []` in `app/firesio.server.ts`, and `queueNameIssues` (`scripts/launch-config-checks.mjs`) with `scripts/wrangler-bindings.test.mjs`.
+The queue then keeps the messages (Cloudflare's retention) and nothing records them; the procedure is:
+
+1. Deploy the fix and check that the deployed handler accepts the stored message shape (a handler with an external effect needs its own idempotency:
    the inbox guarantees one claim per delivery, not one effect per attempt).
-3. With the owner's approval, attach a small reviewed Worker as a temporary consumer of the DLQ. It has a producer binding to `my-app-webhooks-prod`
+2. With the owner's approval, attach a small reviewed Worker as a temporary consumer of the DLQ. It has a producer binding to `my-app-webhooks-prod`
    and its `queue` handler sends each `message.body` to it unchanged (batch size 1, concurrency 1), acknowledging only after the send. Remove the
-   consumer when the DLQ is empty.
+   consumer when the DLQ is empty. (The production Worker must not be that consumer: its `queue` handler consumes only the queues of `webhookQueues`
+   and `webhookDeadLetterQueues`, and a batch from any other queue is retried whole and never acknowledged, `queue.unknown`.)
 
 ```bash
 # operator-run, changes delivery: attach the approved replay Worker temporarily

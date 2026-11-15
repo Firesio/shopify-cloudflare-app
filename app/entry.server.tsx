@@ -1,8 +1,8 @@
 import { onPromiseSettled } from "@firesio/app/core";
+import { describeRequestError } from "@firesio/app/ui/shell";
 import { isbot } from "isbot";
 import { renderToReadableStream } from "react-dom/server";
 import { ServerRouter, type EntryContext } from "react-router";
-import { describeRequestError } from "~/components/request-error";
 import { renderErrorLog } from "~/core/render-error";
 import { firesio } from "~/firesio.server";
 

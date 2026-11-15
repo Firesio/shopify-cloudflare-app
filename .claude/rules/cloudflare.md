@@ -94,7 +94,7 @@ Two calls that recur and deserve a recorded answer rather than a reflex:
 - **`env` from `cloudflare:workers` (`firesio.services()`), never `process.env`** — workerd does not populate it. A handler that is handed `env` (`scheduled`, `queue`, `email`, the AdminApi) passes it on (`firesio.queue(batch, env)`); the preset builds the services once per `env`.
 - **`crypto.getRandomValues()` / `crypto.randomUUID()`, never `Math.random()`**
   for anything security-bearing (in the app's own code ids come from the preset's runtime: `randomUUID` is lint-banned outside tests). Compare secrets and signatures in constant time, never `===`.
-- **Webhooks: the route is `return firesio.webhook(request)`, handed the RAW `Request`, with no branch on the topic.** Never hand the preset the result of `authenticate.webhook`. The reasons, the consumer and how to add a topic: `docs/webhooks.md`; the evidence: `docs/shopify-api-invariants.md`.
+- **Webhooks: the route is `firesio.webhookRoute` (its `action` is `firesio.webhook(request)`, handed the RAW `Request`, with no branch on the topic).** Never hand the preset the result of `authenticate.webhook`. The reasons, the consumer and how to add a topic: `docs/webhooks.md`; the evidence: `docs/shopify-api-invariants.md`.
 - **No `passThroughOnException`.** Explicit `try/catch` and a structured error
   response.
 

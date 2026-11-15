@@ -39,7 +39,7 @@ function validFiles() {
     ai: { binding: "AI" },
     queues: {
       producers: [{ binding: "WEBHOOK_QUEUE", queue: "useful-app-webhooks-prod" }, { binding: "PORTAL_EVENTS", queue: "portal-events-prod" }],
-      consumers: [{ queue: "useful-app-webhooks-prod", max_retries: 5, dead_letter_queue: "useful-app-webhooks-dlq-prod" }],
+      consumers: [{ queue: "useful-app-webhooks-prod", max_retries: 5, dead_letter_queue: "useful-app-webhooks-dlq-prod" }, { queue: "useful-app-webhooks-dlq-prod" }],
     },
     routes: [{ pattern: "app.example.org", custom_domain: true }],
     workers_dev: false,
@@ -52,7 +52,7 @@ function validFiles() {
     ...structuredClone(production),
     queues: {
       producers: [{ binding: "WEBHOOK_QUEUE", queue: "useful-app-webhooks" }, { binding: "PORTAL_EVENTS", queue: "portal-events" }],
-      consumers: [{ queue: "useful-app-webhooks", max_retries: 5, dead_letter_queue: "useful-app-webhooks-dlq" }],
+      consumers: [{ queue: "useful-app-webhooks", max_retries: 5, dead_letter_queue: "useful-app-webhooks-dlq" }, { queue: "useful-app-webhooks-dlq" }],
     },
   };
   return {
@@ -233,27 +233,30 @@ test("refuses a production that is not on one custom domain: REPLACE_ME, workers
   assert.ok(issues.includes("wrangler.jsonc env.production.preview_urls must be false"));
 });
 
-test("the webhook queues are exactly <slug>-webhooks and <slug>-webhooks-prod, with their dead-letter queues", () => {
+test("the webhook queues are exactly <slug>-webhooks and <slug>-webhooks-prod, and each dead-letter queue is declared and consumed", () => {
   assert.deepEqual(queueNameIssues(validFiles().wrangler, "useful-app"), []);
   const other = validFiles();
   other.wrangler.env.production.queues.producers[0].queue = "queue";
   other.wrangler.env.production.queues.consumers[0].queue = "queue";
   assert.match(validateLaunchContract(other).join("\n"), /env\.production: the WEBHOOK_QUEUE producer must be "useful-app-webhooks-prod"/);
-  assert.match(validateLaunchContract(other).join("\n"), /env\.production: the only queue consumer must be "useful-app-webhooks-prod"/);
+  assert.match(validateLaunchContract(other).join("\n"), /env\.production: the queue consumers must be "useful-app-webhooks-prod" and its dead-letter queue "useful-app-webhooks-dlq-prod"/);
   const topLevel = validFiles();
   topLevel.wrangler.queues.producers[0].queue = "my-app-webhooks";
   assert.match(validateLaunchContract(topLevel).join("\n"), /top level: the WEBHOOK_QUEUE producer must be "useful-app-webhooks"/);
   const dlq = validFiles();
   dlq.wrangler.env.production.queues.consumers[0].dead_letter_queue = "useful-app-webhooks-dlq";
   assert.match(validateLaunchContract(dlq).join("\n"), /dead-letter queue of "useful-app-webhooks-prod" must be "useful-app-webhooks-dlq-prod"/);
-  const two = validFiles();
-  two.wrangler.queues.consumers.push({ queue: "portal-events", max_retries: 1, dead_letter_queue: "x" });
-  assert.match(validateLaunchContract(two).join("\n"), /top level: the only queue consumer/);
+  const three = validFiles();
+  three.wrangler.queues.consumers.push({ queue: "portal-events", max_retries: 1, dead_letter_queue: "x" });
+  assert.match(validateLaunchContract(three).join("\n"), /top level: the queue consumers must be/);
+  // The dead-letter queue is consumed too: without that consumer a dead delivery sits unread.
+  const unread = validFiles();
+  unread.wrangler.env.production.queues.consumers.pop();
+  assert.match(validateLaunchContract(unread).join("\n"), /env\.production: the queue consumers must be "useful-app-webhooks-prod" and its dead-letter queue/);
   assert.ok(queueNameIssues(validFiles().wrangler, null)[0].includes("no slug"));
-  // A declared dead-letter queue is optional to this check (the bindings test requires one separately).
   const noDlq = validFiles();
   delete noDlq.wrangler.env.production.queues.consumers[0].dead_letter_queue;
-  assert.deepEqual(queueNameIssues(noDlq.wrangler, "useful-app"), []);
+  assert.match(queueNameIssues(noDlq.wrangler, "useful-app").join("\n"), /the dead-letter queue of "useful-app-webhooks-prod" must be "useful-app-webhooks-dlq-prod" \(found null\)/);
 });
 
 test("both tomls subscribe the same webhook topics at the same /webhooks/ URIs", () => {

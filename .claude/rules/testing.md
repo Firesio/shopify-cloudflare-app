@@ -19,8 +19,8 @@ Pure code is unit-tested exhaustively; anything crossing a boundary gets an inte
 | **core** (`app/core/`) | No I/O: exhaustive unit tests, every branch, every variant, the unknown one. Code that needs a port is tested with the real services through `firesio.services(env)`: the preset's own tests prove the preset, these tests prove the app's configuration of it (`app/firesio.server.test.ts`). |
 | **the app's own tables and queries** (`app/db/`) | Integration against real local D1/KV/R2. Every query shop-scoped, and **a test proving it cannot read another shop's row is required**. |
 | **Webhook and queue consumers** | The consumer, the duplicate-delivery test and the GDPR purge are the preset's (tested in the platform repo). Here: the receiver hands the RAW request to `firesio.webhook(request)` and never the result of `authenticate.webhook` (a failed session refresh would be a 500; `routes/webhooks/receive.test.ts`: a bad signature is a 401 for any topic, a good one for a topic nobody handles is a 200 with nothing queued), `workers/webhooks.e2e.test.ts` runs a signed `app/uninstalled` and `shop/redact` from the HTTP request through the real Worker's `fetch` and `queue` to the D1 effect, and a redelivery changes nothing; and a topic of the app's own (a key of the `webhooks` option) has a test of its own with a **duplicate-delivery test proving exactly one effect**. |
-| **Cron and the Worker's handlers** | `workers/scheduled.e2e.test.ts` calls the real entry's `scheduled` with each cron `wrangler.jsonc` declares (`30 3 * * *`, `* * * * *`, `*/5 * * * *`) and asserts what reached `PORTAL_EVENTS` (the one place cron behaviour is tested); a batch for an unknown queue is retried, never acknowledged (`workers/webhooks.e2e.test.ts`). |
-| **Public routes and error pages** | `workers/routes.e2e.test.ts`, through `exports.default.fetch`: a malformed `host` on `/auth/*` is a 400, `/?shop=` redirects to `/app`, the support form (decoy field, invalid input, a body over 64 KB is a 413), `/app` with no shop goes to `/`, an unknown address is the root's 404 page, and every response carries the security headers. `app/routes/app/layout.test.tsx` renders the /app boundary for a blocked shop, a forbidden page and App Bridge's token page. |
+| **Cron and the Worker's handlers** | `workers/scheduled.e2e.test.ts` calls the real entry's `scheduled` with each cron `wrangler.jsonc` declares (`DAILY_CRON`, `DRAIN_ONLY_CRON`, `DEVELOPMENT_CRON`, exported by `@firesio/app`; `tools/architecture/wrangler-crons.test.ts` holds `wrangler.jsonc` to them) and asserts what reached `PORTAL_EVENTS` (the one place cron behaviour is tested); a batch for an unknown queue is retried, never acknowledged (`workers/webhooks.e2e.test.ts`). |
+| **Public routes and error pages** | `workers/routes.e2e.test.ts`, through `exports.default.fetch`: a malformed `host` on `/auth/*` is a 400, `/?shop=` redirects to `/app`, the support form (decoy field, invalid input is a 400 with the field errors, a body declared over 64 KB is a 413), `/app` with no shop goes to `/`, an unknown address is the root's 404 page, and every response carries the security headers. `app/routes/app/layout.test.tsx` renders the /app boundary for a blocked shop, a forbidden page and App Bridge's token page, and `app/root.test.tsx` the root's (where an error thrown by the /app MIDDLEWARE lands) for the same three and a 404. |
 | **Schema and migrations** | `tools/architecture/schema-drift.test.ts`: every table of every schema file in `drizzle.config.ts` has a `CREATE TABLE` in `drizzle/*.sql`, and no migrated table is undeclared. |
 | **The AdminApi (what the portal calls)** | `workers/admin-api.e2e.test.ts`: `env.PORTAL_ADMIN_API`, a test-only service binding to this Worker's `AdminApi` entrypoint, called over RPC through the contract's `callCommand` exactly as the portal does (`shops`, `billing`, `support`, plan gifts). |
 | **Library pages** (`@firesio/app/ui/*`) | Tested in the library (loaders and actions against the real services). Here: the middleware that wires their deps (`firesio.adminMiddleware`, tested in the preset) and, for a loader of the app's own, its permission. Polaris web components are verified by hand; say so honestly. |
@@ -65,8 +65,9 @@ So, in this repo:
   code (helpers live in `app/test/`).
 - Hard to test → the design is wrong, not the rule. Must mock everything → too
   coupled; inject dependencies. Huge setup → extract factories into
-  `app/test/`. `installShop` (a shop installed the way `afterAuth` records it), `recordSends`, `tick` and `deliver` live in
-  `app/test/e2e.ts`: one copy, never a second one in a test file.
+  `app/test/`. `installShop` (a shop installed the way `afterAuth` records it), `recordSends`, `tick` and `deliver` are the package's
+  (`@firesio/app/preset/testing`, they take `firesio`, `env` or `exports.default` as arguments): never a copy in a test file. `app/test/sends.ts` (`setupSendRecording()`,
+  called once at the top of a file like `setupTestDatabase()`) puts `recordSends`' replacement of a queue binding back after each test.
 
 ## Speed, and what it costs
 
@@ -80,10 +81,10 @@ Cloudflare does: `exports.default.fetch(request)`, `exports.default.scheduled(..
 entrypoint through `env.PORTAL_ADMIN_API`. Only the React Router manifest is narrowed (`app/test/server-build.ts` stands in for
 `virtual:react-router/server-build` with the real route modules it lists: the webhook receiver, `/healthz`, the landing and support pages, `/auth/*` and the /app layout and home; add a route there when a test needs it). Things to know, found the hard way:
 - `exports.default.queue(name, messages)` is NOT workerd's `Fetcher.queue` here: the plugin serves it as an RPC method and the handler receives
-  the name string as its batch. `deliver()` in `app/test/e2e.ts` passes a batch-shaped object whose `ack()`/`retry()` call back into the test.
+  the name string as its batch. `deliver(exports.default, queueName, bodies)` of `@firesio/app/preset/testing` passes a batch-shaped object whose `ack()`/`retry()` call back into the test.
 - Miniflare delivers a message of a queue with a consumer in `wrangler.jsonc` to the Worker's `queue` handler about 5 seconds after it is sent,
   on its own clock. `recordSends(env.WEBHOOK_QUEUE)` therefore CAPTURES what the Worker sent (it does not forward it) and the test hands the body
-  to `deliver()` itself: the delivery happens exactly when and as often as the test says. Restore with `afterEach(() => vi.restoreAllMocks())`.
+  to `deliver()` itself: the delivery happens exactly when and as often as the test says. `record(env.WEBHOOK_QUEUE)` from `setupSendRecording()` restores the binding after each test (`vi.restoreAllMocks()` does NOT undo it: `recordSends` replaces the binding's methods, it does not spy on them).
 - Calling a group the entrypoint does not define (`campaigns`) over the binding makes the plugin print an uncaught exception of its own; assert the
   entrypoint's methods instead.
 

@@ -26,7 +26,7 @@ the audit that produced these rules: `docs/merchant-speed.md`. Read it before ch
   rows for one shop.
 - **Poll without a bound.** Time or count ceiling, backoff, pause on `document.hidden`.
 - **Put `immutable` on a stable URL**, or remove `/assets/*` from `public/_headers` (`app/core/public-headers.test.ts` pins it).
-- **Depend on a function or class name** (`constructor.name`): the Worker bundle is minified (`app/components/thrown-response.ts` exists for that reason).
+- **Depend on a function or class name** (`constructor.name`): the Worker bundle is minified (`thrownResponseHtml` of `@firesio/app/ui/shell` exists for that reason).
 
 ## Always
 

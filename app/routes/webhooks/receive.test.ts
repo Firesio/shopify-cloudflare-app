@@ -1,15 +1,13 @@
 import { env } from "cloudflare:workers";
 import { signedWebhookRequest } from "@firesio/app/shopify/testing";
 import { RouterContextProvider, type ActionFunctionArgs } from "react-router";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { recordSends } from "~/test/e2e";
+import { describe, expect, it } from "vitest";
 import { setupTestDatabase } from "~/test/database";
+import { setupSendRecording } from "~/test/sends";
 import { action, loader } from "./receive";
 
 setupTestDatabase();
-
-// The queue spies wrap the real producer binding, which every file in this runtime shares: always put it back.
-afterEach(() => vi.restoreAllMocks());
+const record = setupSendRecording();
 
 // The secret of the test environment (vitest.config.ts).
 const SECRET = "test-api-secret";
@@ -23,7 +21,7 @@ const args = (request: Request): ActionFunctionArgs => ({ request, url: new URL(
 
 describe("the webhook receiver (one line: firesio.webhook(request), every topic)", () => {
   it("answers 200 for a verified topic the preset runs, with ONE message on the queue and nothing in D1", async () => {
-    const sent = recordSends(env.WEBHOOK_QUEUE);
+    const sent = record(env.WEBHOOK_QUEUE);
     const response = await action(args(await signed()));
     expect(response.status).toBe(200);
     expect(sent.bodies()).toHaveLength(1);
@@ -32,19 +30,19 @@ describe("the webhook receiver (one line: firesio.webhook(request), every topic)
   });
 
   it("answers 401 for a bad signature on a topic the preset runs, and queues nothing", async () => {
-    const sent = recordSends(env.WEBHOOK_QUEUE);
+    const sent = record(env.WEBHOOK_QUEUE);
     expect((await action(args(await signed({ badHmac: true })))).status).toBe(401);
     expect(sent.bodies()).toEqual([]);
   });
 
   it("answers 401 for a bad signature on a topic nobody handles (an app-review check: an unsigned POST is never a 200), and queues nothing", async () => {
-    const sent = recordSends(env.WEBHOOK_QUEUE);
+    const sent = record(env.WEBHOOK_QUEUE);
     expect((await action(args(await signed({ topic: "orders/create", url: "https://example.test/webhooks/orders/create", badHmac: true })))).status).toBe(401);
     expect(sent.bodies()).toEqual([]);
   });
 
   it("answers 200 for a good signature on a topic nobody handles, and queues nothing", async () => {
-    const sent = recordSends(env.WEBHOOK_QUEUE);
+    const sent = record(env.WEBHOOK_QUEUE);
     const response = await action(args(await signed({ topic: "orders/create", url: "https://example.test/webhooks/orders/create" })));
     expect(response.status).toBe(200);
     expect(sent.bodies()).toEqual([]);

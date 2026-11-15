@@ -11,7 +11,7 @@ An admin page is assembled from mechanisms Shopify already owns; each job has on
 
 ## Which Polaris
 
-Polaris 2 (`polaris-2.js`), named in ONE place, `app/core/polaris.ts`, passed to `createFiresio({ shopify: { polarisUrl } })` (which hands it to `shopifyApp`) and read by `EmbeddedProvider`. Never render `AppProvider` directly or add a Polaris script tag. `@shopify/polaris-types` is `^2.0.0`. Polaris 2 has `s-empty-state`, and `s-text` has `fontSize`/`fontWeight`/`fontVariantNumeric`. Custom CSS that copies Polaris colours or redraws a component pins it to the old look: remove it.
+Polaris 2 (`polaris-2.js`), named in ONE place, `app/core/polaris.ts`, passed to `createFiresio({ shopify: { polarisUrl } })` (which hands it to `shopifyApp`) and given to `EmbeddedProvider` (`@firesio/app/ui/shell`, as `polarisUrl`) wherever the app renders it: the /app layout, its `ErrorBoundary` and the login page. Never render `AppProvider` directly or add a Polaris script tag. `@shopify/polaris-types` is `^2.0.0`. Polaris 2 has `s-empty-state`, and `s-text` has `fontSize`/`fontWeight`/`fontVariantNumeric`. Custom CSS that copies Polaris colours or redraws a component pins it to the old look: remove it.
 
 ## Look up before any markup
 

@@ -39,6 +39,7 @@
     "app/routes/",
     "app/test/",
     "app/root.tsx",
+    "app/root.test.tsx",
     "app/entry.client.tsx",
     "app/entry.server.tsx",
     "workers/",

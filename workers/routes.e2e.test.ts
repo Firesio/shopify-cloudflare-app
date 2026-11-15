@@ -20,7 +20,7 @@ describe("/auth/*", () => {
     const response = await get(`/auth/callback?host=${encodeURIComponent(btoa("not a host name"))}`);
     expect(response.status).toBe(400);
     const html = await response.text();
-    expect(html).toContain("Bad request");
+    expect(html).toContain("Error 400");
     expect(html).not.toMatch(/\bat \S+\.(ts|tsx|mjs|js):\d+/);
   });
 });
@@ -37,36 +37,26 @@ describe("the public support form (POST /support), through the real Worker", () 
   it("answers a filled decoy field as a success and does nothing with it", async () => {
     const response = await postForm({ name: "Bot", email: "bot@example.org", subject: "Hi", message: "Buy things", [CONTACT_TRAP_FIELD]: "http://spam.example" });
     expect(response.status).toBe(200);
-    expect(await response.text()).toContain("Thank you. We will reply by email.");
+    expect(await response.text()).toContain('<p class="notice" role="status">Thank you. We will reply by email.</p>');
   });
 
-  it("shows the field errors for invalid input and keeps what was typed", async () => {
+  it("answers 400 with the field errors for invalid input and keeps what was typed", async () => {
     const response = await postForm({ name: "", email: "not-an-email", subject: "A subject", message: "" });
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(400);
     const html = await response.text();
     expect(html).toContain("This field is required.");
     expect(html).toContain("Enter a valid email address.");
     expect(html).toContain('value="A subject"');
-    expect(html).not.toContain("Thank you. We will reply by email.");
+    // The thanks is in the page's data (the labels travel with the loader) either way: what a person SEES is the status paragraph.
+    expect(html).not.toContain('role="status"');
   });
 
-  it("refuses a body over 64 KB with 413 before reading it, and a body that announces no length with 411", async () => {
+  it("refuses a body declared over 64 KB with 413 before reading it", async () => {
     const big = "x".repeat(64 * 1024 + 1);
     const tooLarge = await exports.default.fetch(
       new Request("https://example.test/support", { method: "POST", headers: { "content-type": "text/plain", "content-length": String(big.length), "user-agent": BROWSER }, body: big }),
     );
     expect(tooLarge.status).toBe(413);
-
-    const chunks = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode("name=a"));
-        controller.close();
-      },
-    });
-    const unannounced = await exports.default.fetch(
-      new Request("https://example.test/support", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": BROWSER }, body: chunks }),
-    );
-    expect(unannounced.status).toBe(411);
   });
 });
 

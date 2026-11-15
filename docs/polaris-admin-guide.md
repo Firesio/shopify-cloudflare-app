@@ -18,7 +18,7 @@ accessibility or responsive behaviour.
 
 The embedded app runs **Polaris 2** (`polaris-2.js`, the stable channel: the newest 2.x, which matches the redesigned
 Shopify admin and follows whichever admin theme the merchant uses). It is named in ONE place, `app/core/polaris.ts`, and
-read by both `shopifyApp({ polarisUrl })` (the preload `Link` header) and `EmbeddedProvider` (the script tag): never render
+read by both `shopifyApp({ polarisUrl })` (the preload `Link` header) and `EmbeddedProvider` of `@firesio/app/ui/shell`, given `polarisUrl={POLARIS_URL}` (the script tag): never render
 `AppProvider` directly and never add a Polaris script tag of your own. `@shopify/polaris-types` is `^2.0.0`: keep it
 the same major as the script (nothing checks it).
 

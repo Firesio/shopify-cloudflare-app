@@ -1,10 +1,11 @@
 import type { LoginError } from "@shopify/shopify-app-react-router/server";
 import { LoginErrorType } from "@shopify/shopify-app-react-router/server";
+import { EmbeddedProvider } from "@firesio/app/ui/shell";
 import { useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { Form, redirect, useActionData, useLoaderData } from "react-router";
-import { EmbeddedProvider } from "~/components/EmbeddedProvider";
 import { installTarget } from "~/core/install-target";
+import { POLARIS_URL } from "~/core/polaris";
 import { firesio } from "~/firesio.server";
 
 const MESSAGES = { missingShop: "Enter your store address.", invalidShop: "Enter a valid store address, like your-store.myshopify.com." } as const;
@@ -43,7 +44,7 @@ export default function Login() {
   const [shop, setShop] = useState("");
   const { error, apiKey } = actionData ?? loaderData;
   return (
-    <EmbeddedProvider apiKey={apiKey}>
+    <EmbeddedProvider apiKey={apiKey} polarisUrl={POLARIS_URL}>
       <s-page>
         <Form method="post">
           <s-section heading="Log in">

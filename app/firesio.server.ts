@@ -21,6 +21,10 @@ export const firesio = createFiresio({
   // entitlement of yours that is a counter gets a `meters` entry here, and only once your code consumes that counter
   // (`services.usage.consume`): a meter nothing increments shows 0 forever.
   labels: { entitlements: ENTITLEMENT_LABELS },
+  // `support: { staffUrl: (ticketId) => ... }` is left unset: it would put the PORTAL's address of a ticket in the staff alert mail
+  // (`STAFF_ALERT_EMAIL`), which says nothing without it (the merchant's embedded address is not one staff can open). The portal's page
+  // is `<portal origin>/support/tickets/<this app's slug>/<ticketId>` (platform ticket 06); `docs/architecture.md` does not give the
+  // pattern, so the template does not guess the portal's origin: set it when the app is registered with the portal.
   // One decision with `api_version` in both `shopify.app*.toml`, and one Polaris release for the preload header and `AppProvider`.
   shopify: { apiVersion, polarisUrl: POLARIS_URL },
 });

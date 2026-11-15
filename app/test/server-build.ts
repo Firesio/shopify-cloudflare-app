@@ -13,7 +13,7 @@ import * as receive from "~/routes/webhooks/receive";
 const noComponent = () => null;
 
 /**
- * A route's `middleware` array as the server build types it. The preset's `adminMiddleware` is typed `MiddlewareFunction<unknown>`,
+ * A route's `middleware` array as the server build types it. A middleware the app writes (the /app layout's with the preset's `adminMiddleware`, the support page's) is typed `MiddlewareFunction<unknown>`,
  * which the build's `MiddlewareFunction<Response>` does not accept; each function is called as it is and only its result is
  * narrowed (a `Response`, or nothing: what the router reads from a middleware).
  */
@@ -65,7 +65,7 @@ const defined = [
   define({ id: "routes/app/home", parentId: "routes/app/layout", index: true, module: appHome }),
   define({ id: "routes/auth/callback", parentId: "root", path: "auth/*", module: { ...callback, default: noComponent } }),
   define({ id: "routes/public/landing", parentId: "root", index: true, module: landing }),
-  define({ id: "routes/public/support", parentId: "root", path: "support", module: support }),
+  define({ id: "routes/public/support", parentId: "root", path: "support", module: { ...support, middleware: asResponseMiddleware(support.middleware) } }),
   define({ id: "routes/healthz", parentId: "root", path: "healthz", module: { ...healthz, default: noComponent } }),
 ];
 

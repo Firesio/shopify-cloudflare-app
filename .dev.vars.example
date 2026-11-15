@@ -20,6 +20,12 @@ EVENT_HASH_SECRET=dev-event-hash-secret-of-at-least-thirty-two-characters
 # Optional: Cloudflare Turnstile secret for the public support form (the site key is TURNSTILE_SITE_KEY in wrangler.jsonc). Empty = check off.
 # TURNSTILE_SECRET_KEY=
 
+# Optional: seals the `secret()` fields of `@firesio/app/settings` at rest (AES-256-GCM): base64 of 32 random bytes, e.g. `openssl rand -base64 32`.
+# Only an app that declares `settings` has any use for it; empty = stored as plain text, and adding it later needs no migration (the next save
+# seals the row). SETTINGS_SECRET_KEY_ID (default s1) names it; SETTINGS_SECRET_KEY_PREVIOUS and its _ID serve a rotation. In production:
+# `wrangler secret put SETTINGS_SECRET_KEY --env production`.
+# SETTINGS_SECRET_KEY=
+
 # Optional: custom shop domains Shopify may authenticate (a comma list is not supported: one domain).
 # SHOP_CUSTOM_DOMAIN=
 

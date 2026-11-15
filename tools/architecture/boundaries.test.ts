@@ -79,6 +79,7 @@ const ALLOWED: readonly (readonly [string, string, string])[] = [
   ["a route → the composition file, core, db and components", "app/routes/probe.ts", `${FIRESIO}\n${CORE}\n${DB}\nimport { AppNav } from "~/components/AppNav";`],
   ["worker → the composition file and core", "workers/probe.ts", `${FIRESIO}\n${CORE}`],
   ["a test → what it tests and the test support", "app/core/probe.test.ts", `${FIRESIO}\n${LABELS}\nimport { setupTestDatabase } from "~/test/database";`],
+  ["a test → the root route", "app/root.probe.test.tsx", `import { ErrorBoundary } from "~/root";`],
 ];
 
 describe("architecture boundaries", () => {

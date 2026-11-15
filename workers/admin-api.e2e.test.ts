@@ -1,10 +1,10 @@
 import { env } from "cloudflare:workers";
+import { installShop } from "@firesio/app/preset/testing";
 import { callCommand, grantListSchema, openTicketResultSchema, planListSchema, revokeGrantResultSchema, standingSchema, ticketPageSchema, ticketSchema } from "@firesio/portal-contract";
 import { describe, expect, it } from "vitest";
 import { PLANS } from "~/core/plans";
 import { firesio } from "~/firesio.server";
 import { setupTestDatabase } from "~/test/database";
-import { installShop } from "~/test/e2e";
 
 setupTestDatabase();
 
@@ -18,7 +18,7 @@ const admin = () => env.PORTAL_ADMIN_API;
  */
 describe("the AdminApi entrypoint over a service binding: shops", () => {
   it("answers getStanding for an installed shop, and 'unknown account' for one it never saw", async () => {
-    await installShop("admin-one.myshopify.com", 1_700_000_000_000);
+    await installShop(firesio, env, "admin-one.myshopify.com", 1_700_000_000_000);
     const known = await callCommand(() => admin().shops().getStanding({ account: account("admin-one.myshopify.com") }), standingSchema);
     expect(known).toEqual({ ok: true, value: { state: "active" } });
     const unknown = await callCommand(() => admin().shops().getStanding({ account: account("never-seen.myshopify.com") }), standingSchema);
@@ -26,7 +26,7 @@ describe("the AdminApi entrypoint over a service binding: shops", () => {
   });
 
   it("blocks an account with blockAccount and reports the standing it left behind", async () => {
-    await installShop("admin-two.myshopify.com", 1_700_000_000_000);
+    await installShop(firesio, env, "admin-two.myshopify.com", 1_700_000_000_000);
     const blocked = await callCommand(() => admin().shops().blockAccount({ account: account("admin-two.myshopify.com"), reason: "chargeback", actor: "staff_1" }), standingSchema);
     expect(blocked.ok && blocked.value.state).toBe("blocked");
     const again = await callCommand(() => admin().shops().getStanding({ account: account("admin-two.myshopify.com") }), standingSchema);
@@ -58,7 +58,7 @@ describe("the AdminApi entrypoint over a service binding: billing", () => {
   });
 
   it("refuses a gift for a shop it does not know and for a plan it does not have", async () => {
-    await installShop("admin-gift.myshopify.com", 1_700_000_000_000);
+    await installShop(firesio, env, "admin-gift.myshopify.com", 1_700_000_000_000);
     expect(await admin().billing().grantPlan({ account: account("never-seen.myshopify.com"), planId: "free", reason: "x", actor: "staff_1" })).toEqual({ ok: false, reason: "unknown account" });
     expect(await admin().billing().grantPlan({ account: account("admin-gift.myshopify.com"), planId: "no-such-plan", reason: "x", actor: "staff_1" })).toEqual({ ok: false, reason: "unknown plan" });
   });
@@ -67,7 +67,7 @@ describe("the AdminApi entrypoint over a service binding: billing", () => {
 describe("the AdminApi entrypoint over a service binding: plan gifts", () => {
   it("gives a plan, lists the gift and takes it back; revoking twice answers as the first time", async () => {
     const shop = "admin-grants.myshopify.com";
-    await installShop(shop, 1_700_000_000_000);
+    await installShop(firesio, env, shop, 1_700_000_000_000);
     const given = await admin().billing().grantPlan({ account: account(shop), planId: "free", reason: "launch gift", actor: "staff_1" });
     expect(given).toMatchObject({ ok: true, value: { planId: "free" } });
     const listed = await callCommand(() => admin().billing().grants({ account: account(shop) }), grantListSchema);
@@ -86,7 +86,7 @@ describe("the AdminApi entrypoint over a service binding: plan gifts", () => {
 
 describe("the AdminApi entrypoint over a service binding: support", () => {
   it("opens a ticket for an installed shop once per requestId, lists it and reads it back", async () => {
-    await installShop("admin-three.myshopify.com", 1_700_000_000_000);
+    await installShop(firesio, env, "admin-three.myshopify.com", 1_700_000_000_000);
     const input = { account: account("admin-three.myshopify.com"), requestId: "req-1", subject: "A call with the owner", body: "Following up on your mail.", category: "question", actor: "staff_1", actorName: "Sam" };
     const opened = await callCommand(() => admin().support().open(input), openTicketResultSchema);
     expect(opened.ok && opened.value.created).toBe(true);
@@ -100,8 +100,8 @@ describe("the AdminApi entrypoint over a service binding: support", () => {
   });
 
   it("does not show a shop another shop's tickets", async () => {
-    await installShop("admin-four.myshopify.com", 1_700_000_000_000);
-    await installShop("admin-five.myshopify.com", 1_700_000_000_000);
+    await installShop(firesio, env, "admin-four.myshopify.com", 1_700_000_000_000);
+    await installShop(firesio, env, "admin-five.myshopify.com", 1_700_000_000_000);
     await admin().support().open({ account: account("admin-four.myshopify.com"), requestId: "req-4", subject: "Four", body: "Only four.", category: "bug", actor: "staff_1" });
     const page = await callCommand(() => admin().support().listTickets({ account: account("admin-five.myshopify.com") }), ticketPageSchema);
     expect(page.ok && page.value.tickets).toEqual([]);

@@ -32,8 +32,11 @@
       // (portal-events-dlq) is the portal's CONSUMER side: nothing to declare here.
       { "binding": "PORTAL_EVENTS", "queue": "portal-events" }
     ],
+    // The webhook queue, and its dead-letter queue: what the main queue gave up on is marked `dead_letter` in the inbox and logged
+    // (`webhook.dead_letter`) by the preset's `queue` handler instead of sitting unread. Both queues must exist before a deploy.
     "consumers": [
-      { "queue": "my-app-webhooks", "max_retries": 8, "dead_letter_queue": "my-app-webhooks-dlq" }
+      { "queue": "my-app-webhooks", "max_retries": 8, "dead_letter_queue": "my-app-webhooks-dlq" },
+      { "queue": "my-app-webhooks-dlq" }
     ]
   },
 
@@ -118,7 +121,8 @@
           { "binding": "PORTAL_EVENTS", "queue": "portal-events-prod" }
         ],
         "consumers": [
-          { "queue": "my-app-webhooks-prod", "max_retries": 8, "dead_letter_queue": "my-app-webhooks-dlq-prod" }
+          { "queue": "my-app-webhooks-prod", "max_retries": 8, "dead_letter_queue": "my-app-webhooks-dlq-prod" },
+          { "queue": "my-app-webhooks-dlq-prod" }
         ]
       },
       "kv_namespaces": [

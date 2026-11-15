@@ -34,7 +34,7 @@ Client-side navigations skip 1, 2 and the layout loader (its `shouldRevalidate` 
    `app/core/public-headers.test.ts` pins this.
 6. **The Worker bundle is minified** (`environments.ssr.build.minify` in `vite.config.ts`, with names kept), because every cold isolate parses it.
    Code must not depend on a function or class name: Shopify's `boundary.error` compares `error.constructor.name` with `"ErrorResponseImpl"` and a
-   minified bundle renames it, which is why `thrownResponseHtml` (`app/components/thrown-response.ts`) exists. Read an error by `status`/`code`/`instanceof`.
+   minified bundle renames it, which is why `thrownResponseHtml` (`@firesio/app/ui/shell`, rendered by `AppErrorBoundary` and the root's boundary) exists. Read an error by `status`/`code`/`instanceof`.
 7. **A loader's cost is the number of sequential D1 waits.** D1 runs one query at a time per database, so `Promise.all` saves network time, not
    database time. Combine reads with `db.batch`, never query in a loop, and put anything a page does not need to paint behind a streamed region
    (`.claude/rules/polaris-app-home.md`, "Loading").

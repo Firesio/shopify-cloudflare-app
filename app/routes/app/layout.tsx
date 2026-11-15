@@ -1,12 +1,12 @@
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { grantsOf } from "@firesio/app/members";
+import { AppErrorBoundary, EmbeddedProvider } from "@firesio/app/ui/shell";
 import type { HeadersFunction, LoaderFunctionArgs, MiddlewareFunction, ShouldRevalidateFunction } from "react-router";
-import { isRouteErrorResponse, Outlet, redirect, useLoaderData, useRouteError } from "react-router";
+import { Outlet, redirect, useLoaderData } from "react-router";
 import { AppNav } from "~/components/AppNav";
-import { EmbeddedProvider } from "~/components/EmbeddedProvider";
-import { thrownResponseHtml } from "~/components/thrown-response";
 import { opensAppWithoutShop } from "~/core/embedded-entry";
 import { MEMBERS } from "~/core/members";
+import { POLARIS_URL } from "~/core/polaris";
 import { firesio } from "~/firesio.server";
 
 /**
@@ -42,7 +42,7 @@ export const shouldRevalidate: ShouldRevalidateFunction = ({ formMethod, default
 export default function AppLayout() {
   const { apiKey, permissions } = useLoaderData<typeof loader>();
   return (
-    <EmbeddedProvider apiKey={apiKey}>
+    <EmbeddedProvider apiKey={apiKey} polarisUrl={POLARIS_URL}>
       <AppNav permissions={permissions} />
       <Outlet />
     </EmbeddedProvider>
@@ -50,31 +50,14 @@ export default function AppLayout() {
 }
 
 /**
- * Shopify needs React Router to catch some thrown responses so their headers reach the response. The one that matters on
- * screen is the App Bridge "bounce" page (a session token on its way): rendered from `thrownResponseHtml`, because Shopify's
- * own `boundary.error` compares a class name a minified bundle renames, and the merchant saw "Something went wrong".
- * A 403 from the guard (a blocked shop, a page the member may not open) is explained, not shown as a failure.
- *
- * Which boundary gets what: an error a page's loader or action throws (a 403 from `requirePermission`) lands here. One the
- * /app MIDDLEWARE throws (a blocked shop, App Bridge's session-token page) never does: the router gives a middleware's error to
- * the boundary of the shallowest route with a loader, which is the root (`app/root.tsx`), so the root renders those too
- * (`app/components/failure.ts`). This one keeps the Polaris look for what a page throws.
+ * Shopify needs React Router to catch some thrown responses so their headers reach the response. `AppErrorBoundary` renders
+ * what a page's loader or action throws (a 403 from `requirePermission`) in Polaris, as the layout would, and a thrown success
+ * response (App Bridge's session-token page) as the document it carries. An error the /app MIDDLEWARE throws (a blocked shop,
+ * that same session-token page) never gets here: the router gives a middleware's error to the boundary of the shallowest route
+ * with a loader, which is the root (`app/root.tsx`), so the root renders those too.
  */
 export function ErrorBoundary() {
-  const error = useRouteError();
-  const html = thrownResponseHtml(error);
-  if (html !== null) return <div dangerouslySetInnerHTML={{ __html: html }} />;
-  if (isRouteErrorResponse(error) && error.status === 403) {
-    const blocked = typeof error.data === "object" && error.data !== null && "reason" in error.data && error.data.reason === "blocked";
-    return (
-      <s-page heading={blocked ? "This account is unavailable" : "You cannot open this page"}>
-        <s-section>
-          <s-paragraph>{blocked ? "Access to the app was turned off for this store. Contact support if you think this is a mistake." : "Ask someone who manages the team to give you access."}</s-paragraph>
-        </s-section>
-      </s-page>
-    );
-  }
-  throw error;
+  return <AppErrorBoundary polarisUrl={POLARIS_URL} showDetails={import.meta.env.MODE === "development"} />;
 }
 
 export const headers: HeadersFunction = (headersArgs) => boundary.headers(headersArgs);

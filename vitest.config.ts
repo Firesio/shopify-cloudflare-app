@@ -44,6 +44,8 @@ const testBindings = {
   TEST_MIGRATIONS: JSON.stringify(migrations),
   SHOPIFY_API_KEY: "test-api-key",
   SHOPIFY_API_SECRET: "test-api-secret",
+  // The preset refuses an empty SCOPES; the template's own value is empty (it declares no scope), so the tests name one.
+  SCOPES: "read_products",
   SHOP_CUSTOM_DOMAIN: "example.myshopify.com",
   SHOPIFY_APP_URL: "https://example.test",
   ATTACHMENT_TOKEN_SECRET: "test-attachment-secret",
@@ -57,7 +59,9 @@ export default defineConfig({
   test: {
     projects: [
       {
-        resolve: { alias: { "~": path.resolve(import.meta.dirname, "app") } },
+        // `cloudflare:workers` exists in workerd only: the package's own stand-in lets a Node test import `@firesio/app` (for its
+        // exported constants, e.g. the cron expressions) without booting a Worker.
+        resolve: { alias: { "~": path.resolve(import.meta.dirname, "app"), "cloudflare:workers": "@firesio/app/preset/testing/cloudflare-workers" } },
         test: {
           name: "unit",
           include: unitFiles,
