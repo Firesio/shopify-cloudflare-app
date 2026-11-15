@@ -1,7 +1,7 @@
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, useRouteError } from "react-router";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, ShouldRevalidateFunction } from "react-router";
 import { directionOf, localeOf } from "@firesio/app";
-import { RootErrorBoundary, thrownResponseHtml } from "@firesio/app/ui/shell";
+import { RootErrorBoundary } from "@firesio/app/ui/shell";
 import "@shopify/app-bridge-types";
 
 /**
@@ -44,23 +44,9 @@ export default function App() {
  *
  * A middleware that throws (the /app guard) is handed to the boundary of the shallowest route that has a loader, and this root
  * has one: so a blocked shop's 403 and a thrown SUCCESS response (App Bridge's session-token page) land here, not in the /app
- * layout's boundary. The library words the 403; the session-token page is not an error and is rendered as the document it carries
- * (`thrownResponseHtml`), or the merchant never gets past the token exchange.
+ * layout's boundary. `RootErrorBoundary` words the 403 and renders the session-token page as the document it carries (it is not an
+ * error, and without it the merchant never gets past the token exchange).
  */
 export function ErrorBoundary() {
-  const bounce = thrownResponseHtml(useRouteError());
-  if (bounce === null) return <RootErrorBoundary showDetails={import.meta.env.MODE === "development"} />;
-  return (
-    <html lang="en">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width,initial-scale=1" />
-        <meta name="robots" content="noindex" />
-        <title>Loading</title>
-      </head>
-      <body>
-        <div dangerouslySetInnerHTML={{ __html: bounce }} />
-      </body>
-    </html>
-  );
+  return <RootErrorBoundary showDetails={import.meta.env.MODE === "development"} />;
 }
