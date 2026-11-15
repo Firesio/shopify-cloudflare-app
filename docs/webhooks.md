@@ -40,8 +40,23 @@ three compliance topics (`customers/data_request`, `customers/redact`, `shop/red
 
 ## Adding a topic
 
-See the `add-webhook-topic` skill: subscribe in both `shopify.app*.toml`, add it to the `webhooks` option of `createFiresio` (the preset owns the uninstall and the GDPR topics; yours run through the same inbox and queue), order it with `decideOrder` if it changes state, test the effect and a
-duplicate delivery. High-volume topics (orders, products) need their own queue and DLQ so a flash sale never delays `shop/redact` or `app/uninstalled`.
+Always, whichever way below: subscribe in **both** `shopify.app.toml` and `shopify.app.dev.toml` (the preset never subscribes for you), and look the topic, its payload and its scope up first. Shopify does not order webhooks: a topic that changes state stores `orderKey(...)` and asks `decideOrder` (`@firesio/app/shopify`). Details and the test list: the `add-webhook-topic` skill.
+
+Three ways to handle a topic of the app's own, from the default to the most freedom:
+
+| Way | When | What you get | What you write |
+|---|---|---|---|
+| **1. `webhooks` option of `createFiresio`** (default) | Almost every topic | HMAC and host check, one queue message, claim by the Shopify webhook id (a redelivery runs once), retry, DLQ, dropped for a redacted shop; `receive.ts` needs no change (`firesio.handles` knows the key) | `webhooks: { "orders/paid": async (delivery, services) => useCase(...) }` in `app/firesio.server.ts`; the use case in `app/core/` |
+| **2. Own branch in `receive.ts`** | The topic must be answered in the request, or needs Shopify's webhook session right there | Nothing from the preset for that topic | `if (topic === "products/update") { const { admin, payload } = await firesio.shopify.authenticate.webhook(request); ... }`, BEFORE nothing else touches the request; never pass that result to `firesio.webhook` (`docs/shopify-api-invariants.md`: a failed session refresh is a 500); your own dedupe |
+| **3. Own queue** | High volume (orders, products) or batch work, so a flash sale never delays `shop/redact` or `app/uninstalled` | Isolation | A queue and DLQ in `wrangler.jsonc` (top level AND `env.production`), the route sends to it, `workers/app.ts` `queue()` routes that queue's batches to your consumer and every other batch to `firesio.queue` |
+
+- **Calling the Admin API from a handler (way 1):** `services` has no Admin client; use `firesio.shopify.unauthenticated.admin(delivery.shop)` (the offline session from `SESSION`). Keep it out of the request path.
+- **Idempotency:** the preset runs a delivery once, but a handler that throws half way is retried: make what it does idempotent (upsert by the webhook id or the resource id).
+- **Personal data** (orders, customers): needs the scope and protected-data access, and `customerData: { stores: true, dataRequest, redact }`; tables with a `shop` column are purged on `shop/redact` automatically, other keying columns go in `purge.shopScoped`.
+
+### Queue names (app that already runs in production)
+
+`firesio.queue` consumes only the queues in `webhookQueues`; the default is `<slug>-webhooks` / `<slug>-webhooks-prod`, which is what `npm run new-app` creates. An app that moves onto the preset with queues named otherwise lists ITS names (`webhookQueues: ["...", "..."]`) instead of recreating queues: a batch from a queue not in the list is retried forever and never acknowledged. Queue names are unique per Cloudflare account and one queue has one consumer, so never reuse another app's name.
 
 ## When it goes wrong
 
