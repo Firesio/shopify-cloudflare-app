@@ -40,7 +40,7 @@
     "new-app": "node scripts/new-app.mjs"
   },
   "dependencies": {
-    "@firesio/app": "^0.2.0",
+    "@firesio/app": "^0.3.0",
     "@firesio/portal-contract": "^0.3.0",
     "@react-router/dev": "^7.18.4",
     "@shopify/shopify-api": "^15.0.1",
