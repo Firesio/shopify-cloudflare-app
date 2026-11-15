@@ -56,7 +56,11 @@ Three ways to handle a topic of the app's own, from the default to the most free
 
 ### Queue names (app that already runs in production)
 
-`firesio.queue` consumes only the queues in `webhookQueues`; the default is `<slug>-webhooks` / `<slug>-webhooks-prod`, which is what `npm run new-app` creates. An app that moves onto the preset with queues named otherwise lists ITS names (`webhookQueues: ["...", "..."]`) instead of recreating queues: a batch from a queue not in the list is retried forever and never acknowledged. Queue names are unique per Cloudflare account and one queue has one consumer, so never reuse another app's name.
+`firesio.queue` consumes only the queues in `webhookQueues`; the default is `<slug>-webhooks` / `<slug>-webhooks-prod`, which is what `npm run new-app` creates. An app that moves onto the preset with queues named otherwise lists ITS names (`webhookQueues: ["...", "..."]`) instead of recreating queues: a batch from a queue not in the list is retried forever and never acknowledged. Queue names are unique per Cloudflare account and one queue has one consumer, so never reuse another app's name. `npm run check:placeholders` and `scripts/wrangler-bindings.test.mjs` pin the names: the `WEBHOOK_QUEUE` producer and the only consumer are `<slug>-webhooks` (top level) and `<slug>-webhooks-prod` (`env.production`), and a declared dead-letter queue is `<slug>-webhooks-dlq` / `<slug>-webhooks-dlq-prod`, the slug being `app/core/identity.ts`'s. An app that keeps older names changes the check on purpose, in the same commit as `webhookQueues`.
+
+### Subscriptions
+
+Both `shopify.app.toml` and `shopify.app.dev.toml` subscribe the same topics at the same URIs, every URI under `/webhooks/` (one receiver, `routes/webhooks/receive.ts`), and `npm run check:placeholders` fails when they differ, when `app/uninstalled` or one of the three compliance topics is missing, or when `[build]` lost `automatically_update_urls_on_dev` / `include_config_on_deploy`. That is the check for `shopify app config link`, which rewrites the toml it links and has dropped the subscriptions without a word.
 
 ## When it goes wrong
 

@@ -19,14 +19,17 @@ Fill local secrets in `.dev.vars`; never commit it. Add feature code under `app/
 ## App identity
 
 `app/core/identity.ts` (slug, name, legal), `app/core/plans.ts`, `app/i18n/labels.ts`, the webhook queue names in `wrangler.jsonc` (`npm run new-app` renames them with the Worker's resources; the preset derives the queues it consumes from the slug, so `app/firesio.server.ts` names none), and both Shopify TOML files. The slug is the `appSlug` on every
-event, and the name the portal knows the app by: the app is declared there in ONE pull request to the Firesio platform repo (an entry in
-`apps/portal/app/core/apps/declared-apps.ts` and a service binding to `<slug>-production` with `entrypoint: "AdminApi"` in the portal's
-`wrangler.jsonc`, top level AND `env.production`; the steps are in section 5 of [the adoption checklist](ADOPTING_THE_TEMPLATE.md), and `npm run new-app` prints them).
-Until it is merged and deployed the portal lists the app as pending and stores none of its events. Keep dev and production apps separate and review the diff after `config:link`.
+event, and the name the portal knows the app by: the app is declared there in ONE pull request to the Firesio platform repo (section 5 of
+[the adoption checklist](ADOPTING_THE_TEMPLATE.md) has the steps). Until it is merged and deployed the portal lists the app as pending and stores none of its events.
+
+Keep dev and production apps separate and read the diff after every `config:link`: `shopify app config link` rewrites the toml it links and has
+been seen to drop the webhook subscriptions and the `[build]` flags. `npm run check:placeholders` catches that (both tomls must subscribe the same
+topics at the same `/webhooks/...` URIs, and keep `automatically_update_urls_on_dev` and `include_config_on_deploy`); re-add what it names and link again.
 
 ## Production
 
-Create the resources `new-app` listed, copy their ids into `wrangler.jsonc` under `env.production`, set the secrets with `wrangler secret put`, then:
+Create the resources `new-app` listed, copy their ids into `wrangler.jsonc` under `env.production`, replace the `routes` pattern there with the app's host
+(the host of `SHOPIFY_APP_URL`; production answers on that custom domain only: `workers_dev` and `preview_urls` are off), set the secrets with `wrangler secret put`, then:
 
 ```bash
 npm run cf-typegen

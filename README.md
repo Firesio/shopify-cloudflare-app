@@ -19,7 +19,7 @@ uninstall, plan changes, redactions, a daily snapshot) through a D1 outbox, and 
 | Shopify | `@shopify/shopify-app-react-router` (token exchange, App Store distribution), Polaris web components, App Bridge |
 | Data | D1 (Drizzle: the preset's and the libraries' `/d1` schemas plus the app's own, in one migration history), KV (sessions), R2 (attachments) |
 | Libraries | `@firesio/app` (the preset at the root; subpaths `core`, `money`, `plans`, `shopify`, `support`, `members`, `notify`, `content`, `ai`, `portal-client`, `ui/*`) and `@firesio/portal-contract` |
-| Tests | Vitest 5 in workerd with real D1/KV/R2/Queues, Node for pure code, `node --test` for scripts |
+| Tests | Vitest 5 in workerd with real D1/KV/R2/Queues, Node for pure code, `node --test` for scripts. The project is the file name: `*.e2e.test.ts` boots the real Worker, `*.workerd.test.ts` (and anything under `app/routes/` or `workers/`) runs in workerd, the rest in Node |
 
 ## Start a new app
 
@@ -41,28 +41,16 @@ fails until every placeholder is replaced; that is its job.
 
 ## Register the app with the portal
 
-Staff operate the app from the portal, which learns about an app from ONE pull request to the Firesio platform repo (the review is the
-approval; there is no Register button):
-
-1. `apps/portal/app/core/apps/declared-apps.ts`: an entry with the app's `slug` (the `appSlug` its events carry: `app/core/identity.ts`),
-   `name`, `kind`, the `binding` key, and optionally `modules`, `links`, `staffPages`; add `campaigns: true` if the app adopts the
-   `campaigns()` command group.
-2. `apps/portal/wrangler.jsonc`: the service binding with that key at the top level AND under `env.production` (bindings are not
-   inherited): `{ "binding": "<KEY>", "service": "<slug>-production", "entrypoint": "AdminApi" }`. `<slug>-production` is THIS repo's
-   Worker name: the `name` in `wrangler.jsonc` (which `npm run new-app` sets to the slug) plus `-production`, the name `wrangler deploy` gives
-   `env.production`. The binding key must also be known to the portal's `shell/apps/app-bindings.ts`.
-3. After the portal deploys, its `*/5` cron reconciles the declaration into its `apps` table: the app's events are accepted within five
-   minutes. Until then the portal shows the app as pending and stores none of its events.
-
-The app's own half is already here: the `PORTAL_EVENTS` producer binding in `wrangler.jsonc` and `export const AdminApi = firesio.AdminApi`
-in `workers/app.ts`.
+Staff operate the app from the portal, which learns about an app from ONE pull request to the Firesio platform repo (a declaration plus a
+service binding to `<slug>-production`). The steps are in [`docs/ADOPTING_THE_TEMPLATE.md`](docs/ADOPTING_THE_TEMPLATE.md), section 5; the app's own half (the `PORTAL_EVENTS`
+producer and `export const AdminApi = firesio.AdminApi`) is already here.
 
 ## Layout
 
 ```
 app/
   firesio.server.ts  THE glue: `createFiresio({ identity, plans, members, schema, ... })`, only what differs from the preset's defaults
-  core/        the app's own declarations (identity, PLANS, MEMBERS) and pure helpers (install target, security headers, error logs)
+  core/        the app's own declarations (identity, PLANS, MEMBERS) and pure helpers (install target, security headers, body limit, error logs)
   db/          the app's own Drizzle tables (none yet; the shared ones are the preset's)
   routes/      thin: app/ (embedded; `middleware = [firesio.adminMiddleware]`, one-line files mounting @firesio/app/ui/*), public/, auth/, webhooks/, healthz
   components/  presentational React; i18n/ the language of a request and the label objects the library pages take
@@ -101,6 +89,12 @@ creates its own pair, since `client_id` ships empty:
 Keep `[access_scopes]` and the webhook list in sync between them: a scope that
 exists in only one env produces bugs that reproduce in only one env.
 
+**`shopify app config link` rewrites the file it links** (`npm run config:link:dev` rewrites `shopify.app.dev.toml`), and it has been seen to
+DROP the webhook subscriptions and the `[build]` flags (`automatically_update_urls_on_dev`, `include_config_on_deploy`) with nothing said. Read the
+diff after every link, and run `npm run check:placeholders`: it refuses a pair of tomls that do not subscribe the same topics at the same
+`/webhooks/...` URIs (the uninstall topic and the three compliance topics are always required), and a `[build]` section that lost its flags
+(production: `automatically_update_urls_on_dev = false`, `include_config_on_deploy = true`; dev: both `true`).
+
 ## The Shopify CLI
 
 `scripts/shopify.mjs` wraps every CLI call, and all the `npm run` Shopify
@@ -110,9 +104,7 @@ version is pinned in `package.json`) instead of whatever `shopify` is on your
 
 The login session is the **normal one**: the CLI uses your real `HOME`, so the
 account you are already logged into on this machine (`shopify auth login`) is
-the one this project uses, like any other Shopify app. There is no per-project
-login and no `.shopify-home/` any more; a leftover one from an older checkout is
-ignored and can be deleted.
+the one this project uses, like any other Shopify app. There is no per-project login.
 
 In dev the Workers AI binding is **off** by default (the spam check then answers "no opinion"), because it has no local
 simulation and turning it on opens a session on Cloudflare at every start. Use `DEV_REMOTE_BINDINGS=1 npm run dev` when
@@ -146,7 +138,10 @@ placeholder ids. `CLOUDFLARE_ENV=production` at build time selects `env.producti
 
 Wrangler environments do **not** inherit bindings, vars, triggers or routes: `env.production` re-declares every one, and
 `scripts/wrangler-bindings.test.mjs` fails when the two lists differ. `cf:deploy` refuses to run while a production binding still says
-`REPLACE_ME` or a launch value is a placeholder (`npm run check:placeholders`).
+`REPLACE_ME` or a launch value is a placeholder (`npm run check:placeholders`), and so does the Workers Builds build (`scripts/ci-release.mjs` runs the same
+check before it touches D1). Production answers on ONE custom domain: `env.production` has `routes: [{ "pattern": "<the host of SHOPIFY_APP_URL>", "custom_domain": true }]`,
+`workers_dev: false` and `preview_urls: false` (the check refuses `REPLACE_ME` there and a host that is not `SHOPIFY_APP_URL`'s), and the webhook queues are exactly
+`<slug>-webhooks` / `<slug>-webhooks-prod` (and `-dlq` / `-dlq-prod`), with the slug of `app/core/identity.ts`.
 
 Required secrets (`secrets.required` in `wrangler.jsonc`; set with `wrangler secret put <NAME> --env production`): `SHOPIFY_API_SECRET`,
 `ATTACHMENT_TOKEN_SECRET`, `EVENT_HASH_SECRET` (the key every app and the portal hash events with; `EVENT_HASH_KEY_ID`, a var, is the public
@@ -163,16 +158,17 @@ Workers Builds installs the private `@firesio` packages only if the build has `N
 ## Scripts
 
 `npm run verify`, `new-app`, `dev`, `build`, `db:generate`, `db:migrate:local`, `db:migrate`, `cf:deploy`, `check:placeholders`,
-`cf-typegen` (after every `wrangler.jsonc` change; `worker-configuration.d.ts` is committed on purpose), `setup:skills`,
-`docs:polaris:sync`, the Shopify wrappers (`config:link:*`, `deploy:*`, `generate`, `env`, `graphql-codegen`).
+`cf-typegen` (after every `wrangler.jsonc` change; `worker-configuration.d.ts` is committed on purpose; `cf-typegen:check` is part of `verify`), the Shopify wrappers (`config:link:*`, `deploy:*`, `generate`, `env`).
+
+The Admin GraphQL client has no codegen here (no document uses it yet). Add it with the first Admin GraphQL document: `npm i -D @shopify/api-codegen-preset graphql-config`, a `.graphqlrc.ts` with `shopifyApiProject({ apiType: ApiType.Admin, apiVersion, documents: ["./app/**/*.{ts,tsx}"], outputDir: "./app/types" })` (`apiVersion` from `app/core/api-version.ts`), a `graphql-codegen` script, and `app/types/` in `.gitignore`; follow the `shopify-plugin:shopify` skill for the document itself.
 
 ## Dependency overrides: do not remove
 
-The `overrides` in `package.json` pin transitive packages (`undici`, `esbuild` under `@esbuild-kit`, `lodash` under the Shopify codegen)
+The `overrides` in `package.json` pin transitive packages (`undici`, `esbuild` under `@esbuild-kit`)
 to patched versions. Remove one only after checking `npm audit` without it.
 
 ## Conventions for agents
 
-`CLAUDE.md` is the contract; `.claude/rules/` loads per area; `agent-skills/` has the recipes; `docs/` is reference. Changing the
+`CLAUDE.md` is the contract; `.claude/rules/` loads per area; `.claude/skills/` has the recipes; `docs/` is reference. Changing the
 template: edit `CHANGELOG.md` and `template-files.json` (a tracked file must be classified as the template's or the app's), and say in the
 entry what a derived app does besides the merge.

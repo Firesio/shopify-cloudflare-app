@@ -7,7 +7,7 @@
 //
 // The slug is OUR OWN name for the app (lower case, hyphens): the `appSlug` on every event, the Worker's name and the prefix of
 // its Cloudflare resources. It is never Shopify's app id. The same slug is declared in the portal (one PR to the Firesio
-// platform repo: see the last step it prints and docs/ADOPTING_THE_TEMPLATE.md).
+// platform repo: docs/ADOPTING_THE_TEMPLATE.md section 5 has the steps; it prints the one value that depends on the slug).
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -85,11 +85,9 @@ export function applyRenames(root, slug, name) {
 /** How the portal learns about the app: ONE pull request to the Firesio platform repo (the review is the approval; there is no Register button). */
 export function portalRegistration(slug) {
   return [
-    `Register "${slug}" with the portal: ONE PR to the Firesio platform repo (until it merges and deploys, the portal lists the app as pending and stores none of its events):`,
-    `  - apps/portal/app/core/apps/declared-apps.ts: an entry with slug "${slug}" (the appSlug the events carry), name, kind, binding key (a service binding of the portal's Env; apps/portal/app/shell/apps/app-bindings.ts says how to reach it), optionally modules, links, staffPages, and campaigns: true if this app adopts the campaigns command group.`,
-    `  - apps/portal/wrangler.jsonc: that service binding at the top level AND under env.production: { "binding": "<KEY>", "service": "${slug}-production", "entrypoint": "AdminApi" }.`,
-    `    "${slug}-production" is this repo's production Worker: the "name" of wrangler.jsonc (set to "${slug}" above) plus "-production", the environment's name (the built build/server/wrangler.json says so in its "name").`,
-    "  The portal's */5 cron reconciles the declaration into its apps table within five minutes of its deploy; the app's own side is the portal-events producer binding, already in wrangler.jsonc.",
+    `Register "${slug}" with the portal: ONE PR to the Firesio platform repo (until it merges and deploys, the portal lists the app as pending and stores none of its events).`,
+    `  The binding to add there points at this repo's production Worker: { "binding": "<KEY>", "service": "${slug}-production", "entrypoint": "AdminApi" }`,
+    `  ("${slug}-production" is the "name" of wrangler.jsonc, set to "${slug}" above, plus "-production"). The steps: docs/ADOPTING_THE_TEMPLATE.md, section 5.`,
   ].join("\n");
 }
 

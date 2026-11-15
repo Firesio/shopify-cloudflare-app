@@ -77,7 +77,7 @@ export const boundariesConfig = {
       { pattern: "app/firesio.server.ts", category: COMPOSITION },
       { pattern: "app/test/server-build.ts", category: SERVER_BUILD },
     ],
-    "boundaries/ignore": ["**/worker-configuration.d.ts", "app/**/+types/**", "app/globals.d.ts"],
+    "boundaries/ignore": ["**/worker-configuration.d.ts", "app/**/+types/**"],
   },
   rules: {
     "boundaries/dependencies": ["error", { default: "disallow", policies }],

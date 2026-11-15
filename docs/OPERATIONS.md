@@ -68,11 +68,13 @@ and deploys production**. The settings (Workers & Pages > the Worker > Settings 
 | Deploy command | `npx wrangler deploy`                                                                          |
 | Build variable | `CLOUDFLARE_ENV=production` (selects `env.production`; without it the build bakes local config) |
 
-`npm run build` runs `scripts/ci-release.mjs` after the Vite build. It acts only inside Workers Builds (`WORKERS_CI`): it applies
-the D1 migrations (fatal on failure, so code never lands ahead of its schema) and then, best effort, deploys the Shopify app
+`npm run build` runs `scripts/ci-release.mjs` after the Vite build. It acts only inside Workers Builds (`WORKERS_CI`): it first runs
+`npm run check:placeholders` (fatal: a placeholder, a route, queue or webhook that drifted stops the build before anything is applied), then applies
+the D1 migrations to the production database `wrangler.jsonc` names under `env.production` (fatal on failure, so code never lands ahead of its schema) and then, best effort, deploys the Shopify app
 config with the repository's pinned Shopify CLI, only when the commits touched `shopify.app.toml` or `extensions/`. Two optional
 build variables: `D1_MIGRATIONS_API_TOKEN` (a token that may edit D1, used for the migration step when the build's own token may not)
-and `SHOPIFY_APP_AUTOMATION_TOKEN` (without it the Shopify deploy is skipped). The build does **not** run `npm run verify`: run it
+and `SHOPIFY_APP_AUTOMATION_TOKEN` (without it the Shopify deploy is skipped; the build never logs anything about its value).
+`@react-router/dev` is a devDependency: the build runs after `npm ci`/`npm clean-install`, which installs devDependencies (the Vite, Cloudflare and Wrangler tooling the build needs are devDependencies too), so it needs no special setting. The build does **not** run `npm run verify`: run it
 (or `npm run cf:deploy`) before pushing to `main`; CI (`.github/workflows/verify.yml`) runs it only on a pull request that touches code,
 on a `template-v*` tag (a derived app picks its own pattern in `verify.yml`) or by hand. Runtime secrets are not build variables; they stay on the Worker. Installing the private `@firesio`
 packages in the build needs `NPM_TOKEN` as a build variable (a read-only `read:packages` token); that this works in Workers Builds is not

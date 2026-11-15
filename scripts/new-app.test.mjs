@@ -108,12 +108,13 @@ test("--help prints the usage and exits 0 without touching a file", () => {
   assert.equal(missing.status, 2);
 });
 
-test("says the portal registration is one PR to the platform repo, with the Worker name the binding points at", () => {
+test("says the portal registration is one PR to the platform repo, with the Worker name the binding points at and where the steps are", () => {
   const text = portalRegistration("repair-ops");
-  assert.match(text, /apps\/portal\/app\/core\/apps\/declared-apps\.ts/);
-  assert.match(text, /apps\/portal\/wrangler\.jsonc/);
+  assert.match(text, /ONE PR to the Firesio platform repo/);
   assert.match(text, /"service": "repair-ops-production", "entrypoint": "AdminApi"/);
-  assert.match(text, /campaigns: true/);
+  assert.match(text, /docs\/ADOPTING_THE_TEMPLATE\.md, section 5/);
+  // The steps themselves live in one place (the adoption checklist), not here.
+  assert.doesNotMatch(text, /declared-apps\.ts|campaigns/);
   assert.doesNotMatch(resourcesFor("repair-ops"), /\/apps page/);
   assert.ok(resourcesFor("repair-ops").includes(text));
 });

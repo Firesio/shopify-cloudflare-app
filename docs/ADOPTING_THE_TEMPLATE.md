@@ -45,7 +45,9 @@ and evidence; a checked box is not a substitute for a tested implementation.
   both fill in `client_id`, which the template ships empty). Review the TOML diff each time.
 - Set the production application URL and redirect URL, then confirm the
   production `SHOPIFY_APP_URL` and `SHOPIFY_API_KEY` (the client id, public configuration) agree with the production
-  Shopify configuration. `npm run check:placeholders` refuses a drift.
+  Shopify configuration. `npm run check:placeholders` refuses a drift. It also requires `env.production.routes` to be the one custom domain
+  that is the host of `SHOPIFY_APP_URL` (with `workers_dev` and `preview_urls` off), the webhook queues to be named `<slug>-webhooks` /
+  `<slug>-webhooks-prod`, and both tomls to subscribe the same webhook topics at the same `/webhooks/...` URIs (`shopify app config link` has dropped them).
 - Choose only the Admin API scopes the app needs. The template starts with none.
   Scopes are ONE decision written in four places: `scopes` in both TOML files and the
   `SCOPES` var of the top level and of `env.production` in `wrangler.jsonc`;
@@ -135,7 +137,7 @@ and evidence; a checked box is not a substitute for a tested implementation.
 - Confirm the production crons (`30 3 * * *` daily, `* * * * *` outbox drain), the webhook
   queue/DLQ names and the rate-limit bindings are present (`check:placeholders` and
   `scripts/wrangler-bindings.test.mjs` read them).
-- **Declare the app in the portal: ONE pull request to the Firesio platform repo; the review is the approval (there is no Register button).**
+- **Declare the app in the portal: ONE pull request to the Firesio platform repo; the review is the approval (there is no Register button). This is the one copy of the steps: the README, SETUP, CLAUDE.md and `npm run new-app` point here.**
   1. `apps/portal/app/core/apps/declared-apps.ts`: an entry with the app's `slug` (the `appSlug` its events carry,
      `app/core/identity.ts`), `name`, `kind`, the `binding` key (a service binding of the portal's `Env`; `wrangler types`
      gives it to the type and `apps/portal/app/shell/apps/app-bindings.ts` says how to reach it), optionally default `modules`,
