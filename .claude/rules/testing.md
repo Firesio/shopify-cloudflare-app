@@ -18,8 +18,9 @@ Pure code is unit-tested exhaustively; anything crossing a boundary gets an inte
 |---|---|
 | **core** (`app/core/`) | No I/O: exhaustive unit tests, every branch, every variant, the unknown one. Code that needs a port is tested with the real services through `firesio.services(env)`: the preset's own tests prove the preset, these tests prove the app's configuration of it (`app/firesio.server.test.ts`). |
 | **the app's own tables and queries** (`app/db/`) | Integration against real local D1/KV/R2. Every query shop-scoped, and **a test proving it cannot read another shop's row is required**. |
-| **Webhook and queue consumers** | The consumer, the duplicate-delivery test and the GDPR purge are the preset's (tested in the platform repo). Here: the receiver hands the RAW request to `firesio.webhook(request)` and never the result of `authenticate.webhook` (a failed session refresh would be a 500; `routes/webhooks/receive.test.ts`), and a topic of the app's own (a key of the `webhooks` option) has a test of its own with a **duplicate-delivery test proving exactly one effect**. |
-| **Cron and the Worker's handlers** | `workers/app.test.ts`: the outbox drains on every tick, the daily snapshot only on the daily one, and a batch for an unknown queue is retried, never acknowledged. |
+| **Webhook and queue consumers** | The consumer, the duplicate-delivery test and the GDPR purge are the preset's (tested in the platform repo). Here: the receiver hands the RAW request to `firesio.webhook(request)` and never the result of `authenticate.webhook` (a failed session refresh would be a 500; `routes/webhooks/receive.test.ts`: a bad signature is a 401 for any topic, a good one for a topic nobody handles is a 200 with nothing queued), `workers/webhooks.e2e.test.ts` runs a signed `app/uninstalled` and `shop/redact` from the HTTP request through the real Worker's `fetch` and `queue` to the D1 effect, and a redelivery changes nothing; and a topic of the app's own (a key of the `webhooks` option) has a test of its own with a **duplicate-delivery test proving exactly one effect**. |
+| **Cron and the Worker's handlers** | `workers/app.test.ts` (the handlers imported directly): the outbox drains on every tick, the daily snapshot only on the daily one, and a batch for an unknown queue is retried, never acknowledged. `workers/scheduled.e2e.test.ts` calls the real entry's `scheduled` with each cron `wrangler.jsonc` declares (`30 3 * * *`, `* * * * *`, `*/5 * * * *`) and asserts what reached `PORTAL_EVENTS`. |
+| **The AdminApi (what the portal calls)** | `workers/admin-api.e2e.test.ts`: `env.PORTAL_ADMIN_API`, a test-only service binding to this Worker's `AdminApi` entrypoint, called over RPC through the contract's `callCommand` exactly as the portal does (`shops`, `billing`, `support`, plan gifts). |
 | **Library pages** (`@firesio/app/ui/*`) | Tested in the library (loaders and actions against the real services). Here: the middleware that wires their deps (`firesio.adminMiddleware`, tested in the preset) and, for a loader of the app's own, its permission. Polaris web components are verified by hand; say so honestly. |
 | **Config** | `scripts/wrangler-bindings.test.mjs` (top level equals `env.production`), `scripts/template-manifest.test.mjs`, `scripts/check-placeholders.test.mjs`, `app/core/config.test.ts`. |
 | **Architecture** | `tools/architecture/boundaries.test.ts` probes the layers and the bans with real files. |
@@ -68,8 +69,20 @@ So, in this repo:
 
 The Workers project runs with `isolate: false`: files share one workerd runtime,
 so the dependency graph is imported once instead of once per file (the full
-suite went from ~165s to ~95s). Tests boot `app/test/worker-entry.ts`, a stub,
+suite went from ~165s to ~95s). The `workers` project boots `app/test/worker-entry.ts`, a stub,
 not `workers/app.ts`, which would load the whole app into every runtime.
+
+The **`e2e` project** (`workers/*.e2e.test.ts`) is the exception on purpose: it boots the REAL `workers/app.ts`, so a test calls it the way
+Cloudflare does: `exports.default.fetch(request)`, `exports.default.scheduled(...)`, `exports.default.queue(batch)` and the `AdminApi`
+entrypoint through `env.PORTAL_ADMIN_API`. Only the React Router manifest is narrowed (`app/test/server-build.ts` stands in for
+`virtual:react-router/server-build` with the real route modules of `/healthz` and the webhook receiver). Things to know, found the hard way:
+- `exports.default.queue(name, messages)` is NOT workerd's `Fetcher.queue` here: the plugin serves it as an RPC method and the handler receives
+  the name string as its batch. `deliver()` in `app/test/e2e.ts` passes a batch-shaped object whose `ack()`/`retry()` call back into the test.
+- Miniflare delivers a message of a queue with a consumer in `wrangler.jsonc` to the Worker's `queue` handler about 5 seconds after it is sent,
+  on its own clock. `recordSends(env.WEBHOOK_QUEUE)` therefore CAPTURES what the Worker sent (it does not forward it) and the test hands the body
+  to `deliver()` itself: the delivery happens exactly when and as often as the test says. Restore with `afterEach(() => vi.restoreAllMocks())`.
+- Calling a group the entrypoint does not define (`campaigns`) over the binding makes the plugin print an uncaught exception of its own; assert the
+  entrypoint's methods instead.
 
 The trade-off is that **KV, R2 and in-memory binding state is not reset between
 files**. A test must not rely on, or be broken by, another file's leftovers: use

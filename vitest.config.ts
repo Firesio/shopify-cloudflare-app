@@ -18,7 +18,8 @@ function collectTests(dir: string): string[] {
 }
 
 // A test that touches a binding runs in workerd; a pure one runs in Node. `workers/` holds the Worker entry's own tests.
-const [workersFiles, unitFiles] = collectTests("app")
+// `*.e2e.test.ts` boots the REAL Worker entry (`workers/app.ts`) in its own project and calls it through `exports`.
+const [workersAndE2eFiles, unitFiles] = collectTests("app")
   .concat(collectTests("workers"), collectTests("tools/architecture"))
   .reduce<[string[], string[]]>(
     ([inWorkers, inNode], file) => {
@@ -29,6 +30,27 @@ const [workersFiles, unitFiles] = collectTests("app")
     },
     [[], []],
   );
+
+const e2eFiles = workersAndE2eFiles.filter((file) => file.endsWith(".e2e.test.ts"));
+const workersFiles = workersAndE2eFiles.filter((file) => !file.endsWith(".e2e.test.ts"));
+
+/** The wrangler name of this Worker: a test-only service binding that names it reaches the Worker under test itself. */
+const WORKER_NAME = /^\s*"name":\s*"([^"]+)"/m.exec(readFileSync(path.join(import.meta.dirname, "wrangler.jsonc"), "utf8"))?.[1];
+if (WORKER_NAME === undefined) throw new Error("wrangler.jsonc has no top-level name");
+
+// Secrets and vars the tests inject (fake on purpose); shared by both workerd projects.
+const testBindings = {
+  TEST_MIGRATIONS: JSON.stringify(migrations),
+  SHOPIFY_API_KEY: "test-api-key",
+  SHOPIFY_API_SECRET: "test-api-secret",
+  SHOP_CUSTOM_DOMAIN: "example.myshopify.com",
+  SHOPIFY_APP_URL: "https://example.test",
+  ATTACHMENT_TOKEN_SECRET: "test-attachment-secret",
+  EVENT_HASH_SECRET: "test-event-hash-secret-of-at-least-thirty-two-characters",
+  EVENT_HASH_KEY_ID: "test-key",
+  PARTNER_API_TOKEN: "test-partner-token",
+};
+const outboundService = () => new Response("Outbound network is blocked in tests. Fake this call at the HTTP boundary.", { status: 403 });
 
 export default defineConfig({
   test: {
@@ -53,18 +75,8 @@ export default defineConfig({
             wrangler: { configPath: "./wrangler.jsonc" },
             remoteBindings: false,
             miniflare: {
-              outboundService: () => new Response("Outbound network is blocked in tests. Fake this call at the HTTP boundary.", { status: 403 }),
-              bindings: {
-                TEST_MIGRATIONS: JSON.stringify(migrations),
-                SHOPIFY_API_KEY: "test-api-key",
-                SHOPIFY_API_SECRET: "test-api-secret",
-                SHOP_CUSTOM_DOMAIN: "example.myshopify.com",
-                SHOPIFY_APP_URL: "https://example.test",
-                ATTACHMENT_TOKEN_SECRET: "test-attachment-secret",
-                EVENT_HASH_SECRET: "test-event-hash-secret-of-at-least-thirty-two-characters",
-                EVENT_HASH_KEY_ID: "test-key",
-                PARTNER_API_TOKEN: "test-partner-token",
-              },
+              outboundService,
+              bindings: testBindings,
             },
           }),
         ],
@@ -76,6 +88,34 @@ export default defineConfig({
           testTimeout: 60_000,
           hookTimeout: 60_000,
           include: workersFiles,
+        },
+      },
+      {
+        resolve: {
+          tsconfigPaths: true,
+          // The React Router Vite plugin generates this virtual module; the tests give the real Worker a build of the routes they call.
+          alias: { "virtual:react-router/server-build": path.resolve(import.meta.dirname, "app/test/server-build.ts") },
+        },
+        plugins: [
+          cloudflareTest({
+            // The REAL Worker entry: `exports.default.fetch`, `.queue` and `.scheduled` are the app's own handlers, and `exports.AdminApi` its entrypoint.
+            main: "./workers/app.ts",
+            wrangler: { configPath: "./wrangler.jsonc" },
+            remoteBindings: false,
+            miniflare: {
+              outboundService,
+              bindings: testBindings,
+              // The portal's way in: a service binding to this Worker's named `AdminApi` entrypoint (the portal's `entrypoint: "AdminApi"`).
+              serviceBindings: { PORTAL_ADMIN_API: { name: WORKER_NAME, entrypoint: "AdminApi" }, WORKER_SELF: { name: WORKER_NAME } },
+            },
+          }),
+        ],
+        test: {
+          name: "e2e",
+          isolate: false,
+          testTimeout: 60_000,
+          hookTimeout: 60_000,
+          include: e2eFiles,
         },
       },
     ],

@@ -1,8 +1,8 @@
 /**
  * The Worker entry the test pool boots instead of `workers/app.ts`.
  *
- * Tests import the code they exercise directly, and none of them goes through
- * the Worker's own `fetch`, `queue` or `scheduled`. Booting the real entry would
+ * Tests of the `workers` project import the code they exercise directly, and none of them goes through
+ * the Worker's own `fetch`, `queue` or `scheduled` (the `e2e` project, `workers/*.e2e.test.ts`, boots the real `workers/app.ts` and does). Booting the real entry would
  * load the entire app (React Router server build, email rendering, the UI
  * library) into every test file's isolate, which costs seconds per file for
  * nothing.

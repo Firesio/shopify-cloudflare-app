@@ -26,6 +26,8 @@ const elements = [
 ];
 
 const ENTRY = "entry";
+// `app/test/server-build.ts`: stands in for the generated server build in the end-to-end tests, so it names the entry files and the routes.
+const SERVER_BUILD = "server-build";
 // `app/firesio.server.ts`: a single file, so it is a file category (`boundaries/files`), not a folder element.
 const COMPOSITION = "composition";
 const to = (...types) => ({ to: { element: { types } } });
@@ -55,6 +57,8 @@ const policies = [
   fromFile(ENTRY, toComposition),
   allow("workers", "workers", "core"),
   allowComposition("workers"),
+  fromFile(SERVER_BUILD, { to: { file: { categories: [ENTRY] } } }),
+  fromFile(SERVER_BUILD, to("routes")),
   allow("test-support", "test-support", "core", "i18n"),
   allowComposition("test-support"),
   allow("tools", "tools"),
@@ -71,6 +75,7 @@ export const boundariesConfig = {
       { pattern: "**/*.test.{ts,tsx}", category: "test" },
       { pattern: "app/{root.tsx,routes.ts,entry.client.tsx,entry.server.tsx}", category: ENTRY },
       { pattern: "app/firesio.server.ts", category: COMPOSITION },
+      { pattern: "app/test/server-build.ts", category: SERVER_BUILD },
     ],
     "boundaries/ignore": ["**/worker-configuration.d.ts", "app/**/+types/**", "app/globals.d.ts"],
   },
