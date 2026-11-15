@@ -142,6 +142,8 @@ export default tseslint.config(
       "no-restricted-syntax": [
         "error",
         { selector: "NewExpression[callee.name='Date'][arguments.length=0]", message: "Take the time from firesio.services().runtime." },
+        // `crypto.randomUUID` above only sees the bare global; this is the same call through `globalThis`, `self` or `window`.
+        { selector: "MemberExpression[property.name='randomUUID'][object.type='MemberExpression'][object.property.name='crypto']", message: "Take ids from firesio.services().runtime." },
       ],
     },
   },

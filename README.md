@@ -1,12 +1,12 @@
 # Shopify Cloudflare App Template
 
 The shell every Firesio Shopify app starts from, on **Cloudflare Workers** (React Router 7, D1, KV, R2, Queues, Cron, Email) and **`@firesio/app`**, one package with a preset
-(`createFiresio`). The template is the minimal app of `platform/docs/architecture.md` section 6.6: one config file
+(`createFiresio`). The template is the minimal app of section 6.6 of the platform design (`docs/architecture.md` in the Firesio platform repo): one config file
 (`app/firesio.server.ts`), `routes.ts` written by hand, a Worker entry of a few lines, one-line routes that mount the pages of
 `@firesio/app/ui/*`, and what is Shopify's and the app's own (auth routes, the embedded `/app` shell, the public pages, the plans
 and roles). Everything that two apps would copy (money, plans and billing, notifications and push, support, members, content, AI,
 the webhook inbox and GDPR purge, the Admin GraphQL client, the portal outbox, the guard, the Worker's handlers and the AdminApi)
-is the preset's. Design: `platform/docs/architecture.md` (sections 4 to 8, 6.5, 6.6).
+is the preset's. The design (sections 4 to 8, 6.5, 6.6) lives in the Firesio platform repo, which a derived app does not carry; every option and binding the preset reads is documented in `node_modules/@firesio/app/src/preset/README.md`.
 
 Staff operate the app from the **portal**, not from the app: there is no staff console here. The app sends the portal events (install,
 uninstall, plan changes, redactions, a daily snapshot) through a D1 outbox, and answers its commands through the `AdminApi` entrypoint the preset provides (`export const AdminApi = firesio.AdminApi` in `workers/app.ts`).
@@ -24,7 +24,7 @@ uninstall, plan changes, redactions, a daily snapshot) through a D1 outbox, and 
 ## Start a new app
 
 ```bash
-gh repo create my-new-app --template khoinguyen12200/shopify-cloudflare-app --private --clone
+gh repo create my-new-app --template Firesio/shopify-cloudflare-app --private --clone
 cd my-new-app
 export NPM_TOKEN=...            # a read-only (read:packages) token for the @firesio packages (`@firesio/app`, `@firesio/portal-contract`); .npmrc only references it
 npm install
@@ -35,8 +35,27 @@ npm run db:migrate:local
 npm run dev
 ```
 
-`new-app` creates nothing in Cloudflare or Shopify: it edits files and prints the commands (D1, KV, R2, the webhook queue and its
-DLQ, secrets, the portal registration). `npm run check:placeholders` fails until every placeholder is replaced; that is its job.
+`new-app` creates nothing in Cloudflare or Shopify: it edits files (it also blanks both `client_id` values, which `config:link:*` fill in) and
+prints the commands (D1, KV, R2, the webhook queue and its DLQ, secrets) and the portal registration. `npm run check:placeholders`
+fails until every placeholder is replaced; that is its job.
+
+## Register the app with the portal
+
+Staff operate the app from the portal, which learns about an app from ONE pull request to the Firesio platform repo (the review is the
+approval; there is no Register button):
+
+1. `apps/portal/app/core/apps/declared-apps.ts`: an entry with the app's `slug` (the `appSlug` its events carry: `app/core/identity.ts`),
+   `name`, `kind`, the `binding` key, and optionally `modules`, `links`, `staffPages`; add `campaigns: true` if the app adopts the
+   `campaigns()` command group.
+2. `apps/portal/wrangler.jsonc`: the service binding with that key at the top level AND under `env.production` (bindings are not
+   inherited): `{ "binding": "<KEY>", "service": "<slug>-production", "entrypoint": "AdminApi" }`. `<slug>-production` is THIS repo's
+   Worker name: the `name` in `wrangler.jsonc` (which `npm run new-app` sets to the slug) plus `-production`, the name `wrangler deploy` gives
+   `env.production`. The binding key must also be known to the portal's `shell/apps/app-bindings.ts`.
+3. After the portal deploys, its `*/5` cron reconciles the declaration into its `apps` table: the app's events are accepted within five
+   minutes. Until then the portal shows the app as pending and stores none of its events.
+
+The app's own half is already here: the `PORTAL_EVENTS` producer binding in `wrangler.jsonc` and `export const AdminApi = firesio.AdminApi`
+in `workers/app.ts`.
 
 ## Layout
 
@@ -129,11 +148,14 @@ Wrangler environments do **not** inherit bindings, vars, triggers or routes: `en
 `scripts/wrangler-bindings.test.mjs` fails when the two lists differ. `cf:deploy` refuses to run while a production binding still says
 `REPLACE_ME` or a launch value is a placeholder (`npm run check:placeholders`).
 
-Required secrets: `SHOPIFY_API_SECRET`, `SHOP_CUSTOM_DOMAIN`, `ATTACHMENT_TOKEN_SECRET`, `EVENT_HASH_SECRET` (the key every app and the
-portal hash events with; `EVENT_HASH_KEY_ID` is the public half), `PARTNER_API_TOKEN` (set with `wrangler secret put`). Optional:
-`TURNSTILE_SECRET_KEY`. `SHOPIFY_API_KEY` is a public client id.
+Required secrets (`secrets.required` in `wrangler.jsonc`; set with `wrangler secret put <NAME> --env production`): `SHOPIFY_API_SECRET`,
+`ATTACHMENT_TOKEN_SECRET`, `EVENT_HASH_SECRET` (the key every app and the portal hash events with; `EVENT_HASH_KEY_ID`, a var, is the public
+half) and `PARTNER_API_TOKEN`. The preset treats `PARTNER_API_TOKEN` as optional; this template requires it by choice, because the plan
+a shop is on is read from Shopify's Managed Pricing through the Partner API (`PARTNER_ORG_ID` and `PARTNER_APP_ID` are vars). Optional,
+not declared: `TURNSTILE_SECRET_KEY` (the support form's bot check), `SHOP_CUSTOM_DOMAIN` (only an app that serves a shop's custom
+domain), `SHOPIFY_API_SECRET_PREVIOUS` (only while rotating the Shopify secret). `SHOPIFY_API_KEY` is a public client id.
 
-Workers Builds installs the private `@firesio` packages only if the build has `NPM_TOKEN` (docs/architecture.md section 3 says this is
+Workers Builds installs the private `@firesio` packages only if the build has `NPM_TOKEN` (section 3 of the platform design says this is
 **not yet verified**); the fallback is to deploy from GitHub Actions.
 
 **Migrations retry on a transient Cloudflare 5xx** (`scripts/migrate.mjs`): applying them is idempotent, which makes the retry correct.

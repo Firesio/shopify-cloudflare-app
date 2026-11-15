@@ -7,8 +7,6 @@ paths:
 
 # Polaris App Home — building an embedded admin page
 
-> **Thin shell (step 13):** the skeleton primitives (`Skeleton.tsx`), `settle()`, `<Deferred>` and `skeleton.css` described below were NOT carried over: the pages of `@firesio/app` (`ui/*`) await their loaders, and the home page is static. An app whose own page streams a region re-adds them (they are in this repo's history before `template-v1.0.0`) and keeps the rules below.
-
 An admin page is assembled from mechanisms Shopify already owns; each job has one owner. Anything built by hand in place of one looks almost right, behaves subtly differently and has no accessibility or responsive behaviour. Recipe: the `add-admin-page` skill. Full guide with the page anatomy, the toast example and the done-checklist: `docs/polaris-admin-guide.md`.
 
 ## Which Polaris
@@ -51,41 +49,25 @@ Consequences that pages most often get wrong:
 
 One `<form>` per screen. Fields carry `name`, `label` and native constraints (`required`, `min`, `max`, `type`, `minLength`), which block a bad submit before any JavaScript. The server parses the submission with Zod and returns per-field reasons rendered on each field's `error`: that is the authoritative gate. `data-save-bar` has no disabled state for its save button; if a visibly disabled control is truly required, use `<s-button slot="primary-action" disabled>` or the programmatic bar.
 
-## Loading: static first, skeletons where the data goes
+## Loading: static first
 
-**OWNER DECISION (2026-11-10), against Shopify's published guidance** (which says Polaris has no skeleton and to use a
-labelled spinner): pages must feel instant and shift by nothing, so a pending value is a skeleton, not a spinner.
+The template ships no skeleton, spinner or streaming helper: the pages of `@firesio/app` (`ui/*`) await their loaders, and the home page (`app/routes/app/home.tsx`) awaits one billing read. What still holds for a page of the app's own:
 
-- **Static first.** `s-page`, headings, labels, buttons, cards and links render at once from the route component. Only a
-  data-dependent value waits. Page loaders await authentication and nothing else; the rest streams (`settle()` + `<Deferred>`).
-- **The skeleton is the real component with the value swapped.** Give the loaded component a `"loading"` state
-  (`MetricCard`'s `reading`, `PerformanceSection`'s `performance`, `ChannelsSection`'s `channels`) and render the SAME markup:
-  same section, same grid, same number of cards, columns and rows, so the two cannot drift. A table shows its real header and
-  N skeleton rows (`expectedRows`).
-- **Primitives** (`app/components/admin/Skeleton.tsx`): `SkeletonText({ chars, heading, fontSize, fontWeight, type })`,
-  `SkeletonLines({ lines })`, `SkeletonBadge({ chars })`, `SkeletonBlock({ width, height })` (pixels only for an image or avatar
-  of fixed size), `SkeletonStatus({ label })` (the ONE hidden announcement per region). A bar is a real `s-text` / `s-heading` /
-  `s-badge` holding figure spaces inside an `s-box` with `background="strong"`, so its height is the real line height: **never
-  write a height in pixels for text**. `PendingSection({ label, heading?, children? })` is the `Deferred` fallback for a whole
-  section; pass the real static children with skeletons in them, or nothing for three lines.
-- **Allowed tools**: those primitives and `app/styles/admin/skeleton.css` (below). No spinner for page or section content;
-  `<s-button loading>` for a submitting button and `shopify.loading` for a route transition stay.
-- **The one stylesheet.** `app/styles/admin/skeleton.css` animates `[data-skeleton]` (a mask sweep that only changes the alpha of
-  what Polaris painted, so it follows light and dark; static under `prefers-reduced-motion`). It is loaded by the `/app` layout's
-  `links()` only, never `root.tsx`, and targets the attribute, never an `s-*` tag. Polaris hosts are `display: contents` with the
-  paint inside their shadow DOM, which is why the file gives the marked host a box. It is the only admin CSS (`styling.md`).
-- **A value we already have is not a skeleton.** The home greeting shows the shop domain at once and the name replaces it.
+- **Static first.** `s-page`, headings, labels, buttons and links render at once from the route component; only a data-dependent value waits. A loader awaits authentication (`firesio.from(context)`) and what the page cannot paint without, nothing else (`.claude/rules/merchant-speed.md`).
+- **Streaming a slow region** is the app's own work, with React Router's own tools (return the promise from the loader, `<Suspense>` and `<Await>` in the component). Keep the region under `streamTimeout` (5 s, `app/entry.server.tsx`), give it an error state and a fallback of the same shape (same section, same number of cards or rows) so the page shifts by nothing.
+- **Owner decision (2026-11-10), against Shopify's published guidance** (which says Polaris has no skeleton and to use a labelled spinner): a pending value is a same-shape placeholder, not a spinner, for page and section content. Nothing here builds it: the first page that needs one writes it in `app/components/` from Polaris elements (presentational, one hidden `role="status"` announcement per region), without custom CSS. `<s-button loading>` for a submitting button and `shopify.loading` for a route transition stay as they are.
+- **A value we already have is not a placeholder.** Show the shop domain at once and let the name replace it.
 
 ## Every create/update gets a toast and a loading state, now
 
 A submission that changes something and tells the merchant nothing is incomplete, not smaller.
 
-- **Toast** once the result is known (`useActionData` in a `useEffect`, `shopify.toast.show(t(...), { isError })`). The toast is an addition: the authoritative error still renders inline, so the page is right without JavaScript.
+- **Toast** once the result is known (`useActionData` in a `useEffect`, `shopify.toast.show(labels.saved, { isError })`). The toast is an addition: the authoritative error still renders inline, so the page is right without JavaScript.
 - **`<s-button loading={busy}>`** on the one control that submitted, not a page spinner and not `disabled`. On a row of independent actions, compute the pending one from `useNavigation().formData` (intent and id) so only that row shows `loading`.
 
 ## Markup
 
-`s-*` elements are global custom elements: no import (types come from `@shopify/polaris-types`; there is no `@shopify/polaris` package). Attribute names are camelCase (`inlineSize`, `gridTemplateColumns`). Booleans take bare shorthand or an expression; keyword attributes always take a string (`padding="base"`). Events: `onClick`, `onInput` and `onChange` work on `s-*` elements when the event bubbles; an event that does not bubble or has its own name (`dismiss`, `droprejected`, `error`) must be listened for on the element with `useElementEvent` (`app/admin/use-element-event.ts`). Every user-visible string goes through `t()` and must survive a ~30% longer translation. Components under `app/components/` stay presentational: props in, JSX out, no fetching, no `.server` imports.
+`s-*` elements are global custom elements: no import (types come from `@shopify/polaris-types`; there is no `@shopify/polaris` package). Attribute names are camelCase (`inlineSize`, `gridTemplateColumns`). Booleans take bare shorthand or an expression; keyword attributes always take a string (`padding="base"`). Events: `onClick`, `onInput` and `onChange` work on `s-*` elements when the event bubbles; an event that does not bubble or has its own name (`dismiss`, `droprejected`, `error`) must be listened for on the element itself (a ref and `addEventListener` in an effect that removes it); the template has no helper for it yet. Every user-visible string of the app's own pages comes from a label object in `app/i18n/labels.ts` (per language, chosen with `localeOf(request)`), not a literal in the JSX, and must survive a ~30% longer translation; the placeholder home page is the one exception and goes when it is replaced. Components under `app/components/` stay presentational: props in, JSX out, no fetching, no `.server` imports.
 
 ## Tests
 

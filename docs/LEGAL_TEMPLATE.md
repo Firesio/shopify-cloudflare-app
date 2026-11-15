@@ -6,7 +6,7 @@ privacy and terms content for jurisdictions where you operate or sell.
 
 ## Required Identity
 
-Fill `app/legal/content.ts` and both locale files with:
+Fill `app/core/identity.ts` and the public legal pages (`app/routes/public/legal/`) with:
 
 | Field | Required value |
 | --- | --- |

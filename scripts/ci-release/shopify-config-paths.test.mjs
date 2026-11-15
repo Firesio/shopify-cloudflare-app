@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   pathsIncludeShopifyConfig,
   touchesShopifyConfig,
@@ -47,4 +48,10 @@ test("touchesShopifyConfig: fails open (deploys) when git cannot diff (e.g. shal
     throw new Error("fatal: ambiguous argument HEAD~20");
   };
   assert.equal(touchesShopifyConfig(mockRunGit), true);
+});
+
+test("the release deploys with the pinned local Shopify CLI, never a floating one", () => {
+  const source = readFileSync(new URL("../ci-release.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /@shopify\/cli@|run\("npx"/);
+  assert.match(source, /"scripts\/shopify\.mjs"/);
 });

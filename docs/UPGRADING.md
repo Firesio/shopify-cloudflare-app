@@ -3,7 +3,7 @@
 Sections are newest first. Each says **affected if**, gives a **checklist** you can follow mechanically,
 and marks the steps that are **risky for an app already in production**.
 
-> The template no longer ships `.github/` (no GitHub Actions, no Dependabot): deploys come from Cloudflare Workers Builds and the pre-commit hook is the only local gate. Older sections below that mention `.github/workflows/ci.yml` or Dependabot describe the past and can be skipped.
+> The template ships one workflow, `.github/workflows/verify.yml` (`npm run verify` and a production build), which runs only on a pull request that touches code, on a `v*` tag, or by hand; there is no Dependabot. Deploys come from Cloudflare Workers Builds and run no CI, and the pre-commit hook (`.githooks/pre-commit`) is the local gate. Older sections below that mention `.github/workflows/ci.yml` (it is `verify.yml` now) or Dependabot describe the past and can be skipped.
 
 ---
 

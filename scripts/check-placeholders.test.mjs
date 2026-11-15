@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { launchWarnings, validateLaunchContract } from "./check-placeholders.mjs";
+import { apiVersionOf, launchWarnings, stripJsonComments, validateLaunchContract } from "./check-placeholders.mjs";
 
 function validFiles() {
   const production = {
@@ -15,6 +16,7 @@ function validFiles() {
       PARTNER_APP_ID: "123456",
       PARTNER_ORG_ID: "1234567",
       EVENT_HASH_KEY_ID: "firesio-1",
+      SCOPES: "",
       AI_GATEWAY_ID: "",
       TURNSTILE_SITE_KEY: "0x4AAAAAAAexample",
     },
@@ -33,6 +35,7 @@ function validFiles() {
     wrangler: { ...structuredClone(production), env: { production } },
     productionToml: 'client_id = "client-key"\napplication_url = "https://app.example.org"\n[webhooks]\napi_version = "2026-10"\n[access_scopes]\nscopes = ""\n[auth]\nredirect_urls = [ "https://app.example.org/auth/callback" ]',
     developmentToml: 'client_id = "dev-key"\napplication_url = "https://dev.example.org"\n[webhooks]\napi_version = "2026-10"\n[access_scopes]\nscopes = ""\n[auth]\nredirect_urls = [ "https://dev.example.org/auth/callback" ]',
+    apiVersionSource: 'import { ApiVersion } from "@shopify/shopify-app-react-router/server";\nexport const apiVersion = ApiVersion.October26;',
     legal: 'export const x = "Our policy";',
     identity: 'slug: "useful-app", name: "Useful App", companyName: "Example LLC", supportEmail: "support@example.org", address: "1 Main Street", effectiveDate: "2026-09-01"',
     plans: 'name: "Free"\nname: "Pro"',
@@ -100,10 +103,57 @@ test("rejects placeholders in the dedicated identity source and an impossible po
   assert.ok(validateLaunchContract({ ...validFiles(), identity: validFiles().identity.replace("2026-09-01", "2026-02-31") }).some((issue) => /effective date/.test(issue)));
 });
 
-test("rejects a webhook API version that is not the template release, and a production app URL that is not https", () => {
-  const files = validFiles();
-  files.productionToml = files.productionToml.replace("2026-10", "2026-04");
-  assert.ok(validateLaunchContract(files).some((issue) => /webhook API version/.test(issue)));
+/** The same scopes written in all four places: both tomls and the SCOPES var of each wrangler environment. */
+function withScopes(files, production, development = production) {
+  files.productionToml = files.productionToml.replace('scopes = ""', `scopes = "${production}"`);
+  files.developmentToml = files.developmentToml.replace('scopes = ""', `scopes = "${development}"`);
+  files.wrangler.env.production.vars.SCOPES = production;
+  files.wrangler.vars.SCOPES = development;
+  return files;
+}
+
+test("accepts a scope that is in both tomls and in both SCOPES vars, in any order", () => {
+  assert.deepEqual(validateLaunchContract(withScopes(validFiles(), "read_products,write_products")), []);
+  const reordered = withScopes(validFiles(), "read_products,write_products");
+  reordered.wrangler.env.production.vars.SCOPES = "write_products, read_products";
+  assert.deepEqual(validateLaunchContract(reordered), []);
+});
+
+test("refuses a scope that production and development do not share", () => {
+  const issues = validateLaunchContract(withScopes(validFiles(), "read_products,write_products", "read_products"));
+  assert.ok(issues.includes("scope drift between shopify.app.toml and shopify.app.dev.toml"));
+});
+
+test("refuses a toml whose scopes differ from the SCOPES var of the same environment", () => {
+  const production = withScopes(validFiles(), "read_products");
+  production.wrangler.env.production.vars.SCOPES = "";
+  assert.ok(validateLaunchContract(production).includes("shopify.app.toml scopes differ from the SCOPES var of wrangler.jsonc env.production"));
+  const development = withScopes(validFiles(), "read_products");
+  development.wrangler.vars.SCOPES = "read_orders";
+  assert.ok(validateLaunchContract(development).includes("shopify.app.dev.toml scopes differ from the top-level SCOPES var of wrangler.jsonc"));
+});
+
+test("reads the webhook API version from app/core/api-version.ts", () => {
+  assert.equal(apiVersionOf("export const apiVersion = ApiVersion.October26;"), "2026-10");
+  assert.equal(apiVersionOf("export const apiVersion = ApiVersion.January27;"), "2027-01");
+  assert.equal(apiVersionOf("export const apiVersion = ApiVersion.Unstable;"), null);
+  const bumped = validFiles();
+  bumped.apiVersionSource = "export const apiVersion = ApiVersion.January27;";
+  assert.deepEqual(validateLaunchContract(bumped).filter((issue) => /api_version/.test(issue)), [expectedVersionIssue("2027-01")]);
+  const undated = validFiles();
+  undated.apiVersionSource = "export const apiVersion = ApiVersion.Unstable;";
+  assert.ok(validateLaunchContract(undated).some((issue) => /does not name a dated ApiVersion/.test(issue)));
+});
+
+const expectedVersionIssue = (version) => `webhook api_version must be ${version} (app/core/api-version.ts) in both shopify.app.toml and shopify.app.dev.toml`;
+
+test("refuses a webhook api_version that differs between the tomls or from api-version.ts, and an app URL that is not https", () => {
+  const production = validFiles();
+  production.productionToml = production.productionToml.replace("2026-10", "2026-04");
+  assert.ok(validateLaunchContract(production).includes(expectedVersionIssue("2026-10")));
+  const development = validFiles();
+  development.developmentToml = development.developmentToml.replace("2026-10", "2026-04");
+  assert.ok(validateLaunchContract(development).includes(expectedVersionIssue("2026-10")));
   const http = validFiles();
   http.wrangler.env.production.vars.SHOPIFY_APP_URL = "http://app.example.org";
   assert.ok(validateLaunchContract(http).includes("SHOPIFY_APP_URL must be an https:// URL"));
@@ -123,4 +173,16 @@ test("warns, without blocking, when the support form has no bot check configured
   assert.ok(warnings.some((warning) => /TURNSTILE_SITE_KEY/.test(warning)));
   assert.ok(warnings.some((warning) => /SHOPIFY_APP_HANDLE is empty/.test(warning)));
   assert.deepEqual(validateLaunchContract(files).filter((issue) => /TURNSTILE|HANDLE/.test(issue)), []);
+});
+
+test("the repo's own scopes and webhook version agree in the tomls, wrangler.jsonc and app/core/api-version.ts", () => {
+  const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+  const files = {
+    ...validFiles(),
+    wrangler: JSON.parse(stripJsonComments(read("wrangler.jsonc"))),
+    productionToml: read("shopify.app.toml"),
+    developmentToml: read("shopify.app.dev.toml"),
+    apiVersionSource: read("app/core/api-version.ts"),
+  };
+  assert.deepEqual(validateLaunchContract(files).filter((issue) => /scope|api_version|ApiVersion/.test(issue)), []);
 });

@@ -26,7 +26,7 @@ describe("the preset, configured as the template configures it", () => {
     expect(names).toContain("shop_subscriptions");
   });
 
-  it("reports the app under the slug the portal's /apps page knows it by", () => {
+  it("reports the app under the slug the portal declares it by (declared-apps.ts)", () => {
     expect(identity.slug).toMatch(/^[a-z][a-z0-9-]*$/);
   });
 

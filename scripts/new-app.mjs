@@ -6,7 +6,8 @@
 //   npm run new-app -- repair-service-ops "Repair Service Ops"
 //
 // The slug is OUR OWN name for the app (lower case, hyphens): the `appSlug` on every event, the Worker's name and the prefix of
-// its Cloudflare resources. It is never Shopify's app id. Register the same slug on the portal's /apps page.
+// its Cloudflare resources. It is never Shopify's app id. The same slug is declared in the portal (one PR to the Firesio
+// platform repo: see the last step it prints and docs/ADOPTING_THE_TEMPLATE.md).
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -24,7 +25,10 @@ export function inputProblem(slug, name) {
   return null;
 }
 
-/** One substitution: every `from` in `file` becomes `to`. `from` is a RegExp or a string (all occurrences). */
+/**
+ * One substitution in `file`: `from` (a RegExp, or a string for its first occurrence) becomes `to`. `to` is inserted literally:
+ * a display name holding `$&` or `$1` must come out as typed.
+ */
 function replace(file, from, to) {
   return { file, from, to };
 }
@@ -55,6 +59,9 @@ export function renames(slug, name) {
     replace("shopify.web.toml", `name = "shopify-cloudflare-app"`, `name = "${slug}"`),
     replace("shopify.app.toml", `name = "My App"`, `name = "${name}"`),
     replace("shopify.app.dev.toml", /^name = ".*"$/m, `name = "${name} (dev)"`),
+    // The template ships no client id (an id of someone else's app would be linked by mistake): `npm run config:link:*` fills them.
+    replace("shopify.app.toml", /^client_id = ".*"$/m, 'client_id = ""'),
+    replace("shopify.app.dev.toml", /^client_id = ".*"$/m, 'client_id = ""'),
   ];
 }
 
@@ -69,13 +76,24 @@ export function applyRenames(root, slug, name) {
       continue;
     }
     const before = readFileSync(path, "utf8");
-    const after = before.replace(from, to);
+    const after = before.replace(from, () => to);
     if (after !== before) {
       writeFileSync(path, after);
       changed.add(file);
     }
   }
   return { changed: [...changed], missing: [...missing] };
+}
+
+/** How the portal learns about the app: ONE pull request to the Firesio platform repo (the review is the approval; there is no Register button). */
+export function portalRegistration(slug) {
+  return [
+    `Register "${slug}" with the portal: ONE PR to the Firesio platform repo (until it merges and deploys, the portal lists the app as pending and stores none of its events):`,
+    `  - apps/portal/app/core/apps/declared-apps.ts: an entry with slug "${slug}" (the appSlug the events carry), name, kind, binding key (a service binding of the portal's Env; apps/portal/app/shell/apps/app-bindings.ts says how to reach it), optionally modules, links, staffPages, and campaigns: true if this app adopts the campaigns command group.`,
+    `  - apps/portal/wrangler.jsonc: that service binding at the top level AND under env.production: { "binding": "<KEY>", "service": "${slug}-production", "entrypoint": "AdminApi" }.`,
+    `    "${slug}-production" is this repo's production Worker: the "name" of wrangler.jsonc (set to "${slug}" above) plus "-production", the environment's name (the built build/server/wrangler.json says so in its "name").`,
+    "  The portal's */5 cron reconciles the declaration into its apps table within five minutes of its deploy; the app's own side is the portal-events producer binding, already in wrangler.jsonc.",
+  ].join("\n");
 }
 
 /** What to create in Cloudflare and Shopify for the app, as shell commands and notes. Nothing here is executed. */
@@ -96,17 +114,31 @@ export function resourcesFor(slug) {
     "  SHOPIFY_API_SECRET, ATTACHMENT_TOKEN_SECRET, EVENT_HASH_SECRET (the portal's shared key), PARTNER_API_TOKEN, TURNSTILE_SECRET_KEY (optional)",
     "",
     "Then:",
-    `  1. Register "${slug}" on the portal's /apps page (the slug is the appSlug the events carry).`,
-    "  2. Email Routing: route support@<your domain> to this Worker; onboard the domain to Email Sending (EMAIL_FROM).",
-    "  3. Ratelimit namespace_id values in wrangler.jsonc are unique per ACCOUNT: change 1001, 1004, 1005 if another app uses them.",
-    "  4. npm run config:link:dev, then npm run config:link:prod (fills client_id), then npm run check:placeholders until it passes.",
+    "  1. Email Routing: route support@<your domain> to this Worker; onboard the domain to Email Sending (EMAIL_FROM).",
+    "  2. Ratelimit namespace_id values in wrangler.jsonc are unique per ACCOUNT: change 1001, 1004, 1005 if another app uses them.",
+    "  3. npm run config:link:dev, then npm run config:link:prod (both fill client_id), then npm run check:placeholders until it passes.",
+    "",
+    portalRegistration(slug),
   ].join("\n");
 }
 
+export const USAGE = [
+  'usage: npm run new-app -- <slug> "<Display Name>"',
+  '       npm run new-app -- repair-service-ops "Repair Service Ops"',
+  "",
+  "Renames a fresh copy of the template everywhere (identity, Worker, resource names, both Shopify configs), blanks both client_id",
+  "values and prints the Cloudflare resources to create. It creates nothing and runs once per repo.",
+].join("\n");
+
 function main() {
-  const [slug, name] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(USAGE);
+    process.exit(0);
+  }
+  const [slug, name] = args;
   if (slug === undefined || name === undefined) {
-    console.error('usage: npm run new-app -- <slug> "<Display Name>"');
+    console.error(USAGE);
     process.exit(2);
   }
   const problem = inputProblem(slug, name);

@@ -58,9 +58,10 @@ if (!process.env.SHOPIFY_APP_AUTOMATION_TOKEN) {
   );
   console.log("▶ deploying Shopify app config + extensions…");
   try {
-    run("npx", [
-      "--yes",
-      "@shopify/cli@latest",
+    // The pinned `@shopify/cli` devDependency, through the same wrapper as every other Shopify command (never `@latest`: a
+    // release must not change behaviour because the CLI did).
+    run("node", [
+      "scripts/shopify.mjs",
       "app",
       "deploy",
       "--config",

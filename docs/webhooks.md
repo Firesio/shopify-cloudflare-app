@@ -12,9 +12,9 @@ Shopify ──POST──▶ routes/webhooks/receive.ts ──one message──�
 
 ## The receiver (`app/routes/webhooks/receive.ts`)
 
-`firesio.handles(topic)` reads the `X-Shopify-Topic` header; for a topic the preset owns, `firesio.webhook(request)` runs `verifyWebhook` (constant-time HMAC, POST only, `*.myshopify.com` only), `toQueuedWebhook`, `WEBHOOK_QUEUE.send`, 2xx. It is handed the RAW request, not the result of Shopify's `authenticate.webhook`, on purpose: that call refreshes the offline session and turns a refresh failure into a 500 (`docs/shopify-api-invariants.md`), which is exactly what an uninstalled app's `app/uninstalled` hits. A bad signature stays a **401**
-(an app-review check); a failed send answers 5xx so Shopify retries. Nothing is written to D1 in the request. The raw body is not queued (the inbox keeps a
-hash): the customer GDPR topics carry personal data, and this template stores none (`customerData: { stores: false }`). Rotating the client secret: set
+The route is `return firesio.webhook(request)` for every delivery: it runs `verifyWebhook` (constant-time HMAC, POST only, `*.myshopify.com` only), `toQueuedWebhook`, `WEBHOOK_QUEUE.send`, 2xx, and answers a topic the preset does not handle (`firesio.handles(topic)` is false) with a verified 200, so Shopify does not retry a subscription nothing handles. That last part is the preset's coming behaviour; until it is adopted, `receive.ts` asks `firesio.handles(topic)` first and answers that 2xx itself. The preset is handed the RAW request, not the result of Shopify's `authenticate.webhook`, on purpose: that call refreshes the offline session and turns a refresh failure into a 500 (`docs/shopify-api-invariants.md`), which is exactly what an uninstalled app's `app/uninstalled` hits. A bad signature stays a **401**
+(an app-review check); a failed send answers 5xx so Shopify retries. Nothing is written to D1 in the request. The body is queued only for a topic of the app's own (a key of the `webhooks` option: its handler needs it) or when `customerData.stores` is true; otherwise the inbox keeps a
+hash: the customer GDPR topics carry personal data, and this template stores none (`customerData: { stores: false }`). Rotating the client secret: set
 `SHOPIFY_API_SECRET_PREVIOUS` with `wrangler secret put` for the hour the rotation takes, then remove it.
 
 ## The consumer (`firesio.queue`: the preset's `worker/consume.ts` and `services/webhooks.ts`)

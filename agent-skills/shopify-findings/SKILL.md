@@ -1,11 +1,11 @@
 ---
 name: shopify-findings
-description: Look up this project's verified (and still-unverified) findings about Shopify and Cloudflare behaviour before relying on remembered API behaviour. Use when touching webhooks and their queue, compliance/redaction, offline or online tokens and refresh, install/uninstall, billing and subscriptions, the Partner API, API versions, member identity (ID token, account_owner), or the uninstall probe.
+description: Look up this project's verified (and still-unverified) findings about Shopify and Cloudflare behaviour before relying on remembered API behaviour. Use when touching webhooks and their queue, compliance/redaction, offline or online tokens and refresh, install/uninstall, billing and subscriptions, the Partner API, API versions, or member identity (ID token, account_owner).
 ---
 
 # Shopify and Cloudflare findings
 
-The project's log of costly findings is `docs/shopify-api-invariants.md` (about 66 KB). It is **not loaded automatically**.
+The project's log of costly findings is `docs/shopify-api-invariants.md` (about 70 KB; most evidence paths are the earlier app's, see its header for where the code lives now). It is **not loaded automatically**.
 Do not read it whole. Find the section, read that section only.
 
 ```bash
@@ -17,7 +17,7 @@ rg -n -i '<keyword>' docs/shopify-api-invariants.md   # e.g. refresh, tombstone,
 |---|---|
 | Webhook HMAC, retries, ordering, compliance topics, token refresh, `authenticate.webhook` 500s | "Webhook delivery, compliance and offline tokens" |
 | Queue-first receiver, dead letters, side-effect dedupe | "Queue-first receiver, side effects and dead letters" |
-| Unknown-shop webhooks, uninstall probe capacity, cron | "Unknown-shop webhooks and uninstall-probe capacity" |
+| Unknown-shop webhooks, cron (the uninstall probe in it is history: this template has none) | "Unknown-shop webhooks and uninstall-probe capacity" |
 | `shopify-app-react-router` / `shopify-api` behaviour | "shopify-app-react-router 3.x upgrade" |
 | App Store install rules, shop-domain form | "App Store install requirements" |
 | Loader / `afterAuth` speed, KV write limits, static asset caching | "Merchant load path" |

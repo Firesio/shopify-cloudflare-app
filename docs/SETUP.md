@@ -19,7 +19,10 @@ Fill local secrets in `.dev.vars`; never commit it. Add feature code under `app/
 ## App identity
 
 `app/core/identity.ts` (slug, name, legal), `app/core/plans.ts`, `app/i18n/labels.ts`, the webhook queue names in `wrangler.jsonc` (`npm run new-app` renames them with the Worker's resources; the preset derives the queues it consumes from the slug, so `app/firesio.server.ts` names none), and both Shopify TOML files. The slug is the `appSlug` on every
-event: register the same slug on the portal's `/apps` page. Keep dev and production apps separate and review the diff after `config:link`.
+event, and the name the portal knows the app by: the app is declared there in ONE pull request to the Firesio platform repo (an entry in
+`apps/portal/app/core/apps/declared-apps.ts` and a service binding to `<slug>-production` with `entrypoint: "AdminApi"` in the portal's
+`wrangler.jsonc`, top level AND `env.production`; the steps are in section 5 of [the adoption checklist](ADOPTING_THE_TEMPLATE.md), and `npm run new-app` prints them).
+Until it is merged and deployed the portal lists the app as pending and stores none of its events. Keep dev and production apps separate and review the diff after `config:link`.
 
 ## Production
 
@@ -33,4 +36,4 @@ npm run cf:deploy
 ```
 
 `check:placeholders` is expected to fail on a fresh clone and is the final gate that confirms app-specific values were replaced. For legal, privacy,
-compliance and operational review see `LEGAL_TEMPLATE.md` and `OPERATIONS.md`.
+compliance and operational review see `LEGAL_TEMPLATE.md`, `ADOPTING_THE_TEMPLATE.md` and `OPERATIONS.md`.

@@ -6,6 +6,8 @@
     "app/core/identity.ts",
     "app/core/plans.ts",
     "app/core/members.ts",
+    "app/core/config.test.ts",
+    "app/components/AppNav.tsx",
     "app/firesio.server.ts",
     "app/firesio.server.test.ts",
     "app/db/schema.ts",

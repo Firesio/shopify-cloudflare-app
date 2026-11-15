@@ -6,5 +6,4 @@
 export const ENTITLEMENT_LABELS = {
   "tickets.max": { name: "Open support tickets" },
   "members.max": { name: "Team members" },
-  "mail.daily_max": { name: "Emails per day" },
 } as const;

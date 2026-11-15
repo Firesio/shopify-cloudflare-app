@@ -192,6 +192,45 @@ function tomlSectionString(text, section, key) {
   return tomlString(body, key);
 }
 
+/** A scopes string as the set Shopify treats it as: order and spacing do not matter. */
+function scopeSet(value) {
+  return [...new Set(String(value ?? "").split(",").map((scope) => scope.trim()).filter(Boolean))].sort();
+}
+
+const sameSet = (a, b) => a.length === b.length && a.every((scope, i) => scope === b[i]);
+
+/**
+ * Scopes are one decision written in four places: both tomls (what Shopify grants) and the `SCOPES` var of each wrangler
+ * environment (what the Worker asks for at token exchange). A scope that exists in only one of them is a bug that reproduces
+ * in only one environment, so every pair must agree. A template with no scopes is fine: an app adds the ones it uses.
+ */
+function scopeIssues(files, production) {
+  const issues = [];
+  const productionToml = scopeSet(tomlString(files.productionToml, "scopes"));
+  const developmentToml = scopeSet(tomlString(files.developmentToml, "scopes"));
+  if (!sameSet(productionToml, developmentToml)) issues.push("scope drift between shopify.app.toml and shopify.app.dev.toml");
+  if (!sameSet(productionToml, scopeSet(production.vars?.SCOPES))) issues.push("shopify.app.toml scopes differ from the SCOPES var of wrangler.jsonc env.production");
+  if (!sameSet(developmentToml, scopeSet(files.wrangler.vars?.SCOPES))) issues.push("shopify.app.dev.toml scopes differ from the top-level SCOPES var of wrangler.jsonc");
+  return issues;
+}
+
+const MONTHS = { January: "01", February: "02", March: "03", April: "04", May: "05", June: "06", July: "07", August: "08", September: "09", October: "10", November: "11", December: "12" };
+
+/** The webhook API version `app/core/api-version.ts` names (`ApiVersion.October26` is "2026-10"), or null when it is not a dated one. */
+export function apiVersionOf(source) {
+  const match = /ApiVersion\.([A-Z][a-z]+)(\d{2})\b/.exec(source ?? "");
+  const month = match ? MONTHS[match[1]] : undefined;
+  return match && month ? `20${match[2]}-${month}` : null;
+}
+
+/** The Admin API / webhook version is ONE decision: `app/core/api-version.ts` and `api_version` in both tomls. */
+function webhookVersionIssues(files) {
+  const supported = apiVersionOf(files.apiVersionSource);
+  if (supported === null) return ["app/core/api-version.ts does not name a dated ApiVersion (for example ApiVersion.October26)"];
+  const versions = [files.productionToml, files.developmentToml].map((toml) => tomlSectionString(toml, "webhooks", "api_version"));
+  return versions.every((version) => version === supported) ? [] : [`webhook api_version must be ${supported} (app/core/api-version.ts) in both shopify.app.toml and shopify.app.dev.toml`];
+}
+
 export function validateLaunchContract(files) {
   const issues = [];
   const production = configForEnv(files.wrangler, "production");
@@ -248,19 +287,8 @@ export function validateLaunchContract(files) {
   if (vars.SHOPIFY_APP_URL && appUrl && vars.SHOPIFY_APP_URL !== appUrl) issues.push("SHOPIFY_APP_URL drifts from shopify.app.toml application_url");
   if (vars.SHOPIFY_API_KEY && clientId && vars.SHOPIFY_API_KEY !== clientId) issues.push("SHOPIFY_API_KEY drifts from shopify.app.toml client_id");
 
-  const productionScopes = tomlString(files.productionToml, "scopes");
-  const developmentScopes = tomlString(files.developmentToml, "scopes");
-  if (productionScopes !== developmentScopes) issues.push("scope drift between production and development configs");
-  for (const scope of productionScopes.split(",").map((scope) => scope.trim()).filter(Boolean)) {
-    issues.push(`unused scope ${scope}; base template must start with no scopes`);
-  }
-  const productionWebhookVersion = tomlSectionString(files.productionToml, "webhooks", "api_version");
-  const developmentWebhookVersion = tomlSectionString(files.developmentToml, "webhooks", "api_version");
-  // The Admin API / webhook version is ONE decision (app/core/api-version.ts and both tomls).
-  const supportedWebhookVersion = "2026-10";
-  if (productionWebhookVersion !== supportedWebhookVersion || developmentWebhookVersion !== supportedWebhookVersion) {
-    issues.push(`webhook API version must be ${supportedWebhookVersion} in both Shopify app configs`);
-  }
+  issues.push(...scopeIssues(files, production));
+  issues.push(...webhookVersionIssues(files));
   const identitySource = files.identity ?? "";
   const requiredIdentity = ["slug", "name", "companyName", "supportEmail", "address"];
   const missingIdentity = requiredIdentity.some((field) => new RegExp(`${field}\\s*:\\s*"[^"\\n]+"`).test(identitySource) === false);
@@ -354,6 +382,7 @@ function main() {
     developmentToml: readFileSync(join(repoRoot, "shopify.app.dev.toml"), "utf8"),
     legal: readSources(repoRoot, "app/routes/public/legal").map(({ source }) => source).join("\n") + readFileSync(join(repoRoot, "app/core/identity.ts"), "utf8"),
     identity: readFileSync(join(repoRoot, "app/core/identity.ts"), "utf8"),
+    apiVersionSource: readFileSync(join(repoRoot, "app/core/api-version.ts"), "utf8"),
     plans: readFileSync(join(repoRoot, "app/core/plans.ts"), "utf8"),
     publicCopy: ["landing", "support"].map((page) => readFileSync(join(repoRoot, `app/routes/public/${page}.tsx`), "utf8")).join("\n"),
     routeSources: [{ path: "app/routes/app/home.tsx", source: readFileSync(join(repoRoot, "app/routes/app/home.tsx"), "utf8") }],

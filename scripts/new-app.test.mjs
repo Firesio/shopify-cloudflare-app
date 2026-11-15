@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { applyRenames, inputProblem, renames, resourcesFor } from "./new-app.mjs";
+import { applyRenames, inputProblem, portalRegistration, renames, resourcesFor } from "./new-app.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -71,4 +72,44 @@ test("lists the resources to create and creates none of them", () => {
   assert.match(text, /portal-events-prod/);
   const source = readFileSync(join(repo, "scripts/new-app.mjs"), "utf8");
   assert.doesNotMatch(source, /child_process|spawn|exec(File)?Sync|fetch\(/);
+});
+
+test("blanks the client id of both Shopify configs, whatever a copy still carries", () => {
+  const root = scratch();
+  for (const file of ["shopify.app.toml", "shopify.app.dev.toml"]) {
+    writeFileSync(join(root, file), read(root, file).replace(/^client_id = ".*"$/m, 'client_id = "0123456789abcdef"'));
+  }
+  applyRenames(root, "repair-ops", "Repair Ops");
+  for (const file of ["shopify.app.toml", "shopify.app.dev.toml"]) assert.match(read(root, file), /^client_id = ""$/m, file);
+});
+
+test("the template itself ships no client id in either Shopify config", () => {
+  for (const file of ["shopify.app.toml", "shopify.app.dev.toml"]) assert.match(readFileSync(join(repo, file), "utf8"), /^client_id = ""$/m, file);
+});
+
+test("inserts a display name literally: $&, $1 and $$ are not replacement patterns", () => {
+  const root = scratch();
+  const name = "Pay $& Go $1 $$ $`";
+  applyRenames(root, "repair-ops", name);
+  assert.ok(read(root, "app/core/identity.ts").includes(`"${name}"`));
+  assert.ok(read(root, "shopify.app.toml").includes(`name = "${name}"`));
+  assert.ok(read(root, "shopify.app.dev.toml").includes(`name = "${name} (dev)"`));
+});
+
+test("--help prints the usage and exits 0 without touching a file", () => {
+  const result = spawnSync(process.execPath, [join(repo, "scripts/new-app.mjs"), "--help"], { encoding: "utf8" });
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /usage: npm run new-app -- <slug>/);
+  const missing = spawnSync(process.execPath, [join(repo, "scripts/new-app.mjs")], { encoding: "utf8" });
+  assert.equal(missing.status, 2);
+});
+
+test("says the portal registration is one PR to the platform repo, with the Worker name the binding points at", () => {
+  const text = portalRegistration("repair-ops");
+  assert.match(text, /apps\/portal\/app\/core\/apps\/declared-apps\.ts/);
+  assert.match(text, /apps\/portal\/wrangler\.jsonc/);
+  assert.match(text, /"service": "repair-ops-production", "entrypoint": "AdminApi"/);
+  assert.match(text, /campaigns: true/);
+  assert.doesNotMatch(resourcesFor("repair-ops"), /\/apps page/);
+  assert.ok(resourcesFor("repair-ops").includes(text));
 });

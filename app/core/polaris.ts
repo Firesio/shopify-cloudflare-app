@@ -10,6 +10,6 @@
  * bundle and runs another. Never add a Polaris script tag of your own: two bundles on one page make the app throw.
  *
  * `@shopify/polaris-types` must be the same major (`^2.0.0` for this URL): the types describe the components the page
- * actually renders. A test holds the two together.
+ * actually renders. Nothing checks it: change both together.
  */
 export const POLARIS_URL = "https://cdn.shopify.com/shopifycloud/polaris-2.js";

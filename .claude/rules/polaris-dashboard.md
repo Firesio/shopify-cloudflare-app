@@ -22,12 +22,13 @@ vertical or inline groups whose children size to their content. Cards are
 `<s-box border="base" borderRadius="base" padding="base">`; do not add CSS or
 inline spacing to imitate Polaris.
 
-Dashboard metrics must have a translated label, a locale-formatted value, and
-comparison context only when the comparison is meaningful. Money is passed to
-`formatMoney` as integer minor units plus its currency, and counts go through
-`formatNumber`. All visible copy, including table headings, activity labels, and
-placeholder names, belongs in the `admin` translation namespace for every
-supported locale.
+Dashboard metrics must have a label from a label object, a locale-formatted value, and
+comparison context only when the comparison is meaningful. Money is formatted
+from integer minor units plus its currency, and counts from numbers, with
+`Intl.NumberFormat` and the shop's locale (the template has no formatting
+helper yet). All visible copy, including table headings, activity labels, and
+placeholder names, belongs in the label objects of `app/i18n/labels.ts` for every
+supported language.
 
 Keep the page useful when data is empty: use the `s-empty-state` component
 (a Polaris 2 component, not a composition) with one clear next action instead of

@@ -2,7 +2,7 @@
 
 Reference material for people and agents. **Nothing here is loaded automatically** by Claude Code: search with `rg`, open the section you need.
 What an agent must always follow is in `CLAUDE.md`; per-area rules are in `.claude/rules/` (loaded when matching files are opened); recipes are in `agent-skills/`.
-The design of the platform (events, commands, libraries, the portal) is `platform/docs/architecture.md`; each library's README is the manual for its feature.
+The design of the platform (events, commands, libraries, the portal) is `docs/architecture.md` in the Firesio platform repo (not carried by a derived app); each library's README is the manual for its feature.
 
 ## Starting and running an app
 

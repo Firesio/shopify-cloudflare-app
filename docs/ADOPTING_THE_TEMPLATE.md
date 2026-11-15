@@ -7,20 +7,20 @@
 
 `CLAUDE.md` in the template says placeholders stay and nobody asks for real values. **That is reversed the moment the repository is an app**: the work is to make it real. You are in a derived app when the owner says so or `npm run new-app` has been run. Do this as part of the adoption, not later:
 
-1. **Replace every placeholder** (run `npm run check:placeholders`; it must pass before a production deploy). Surfaces: `app/core/identity.ts` (name, brand, contacts, legal address and effective date), `app/routes/public/**` (landing, support, privacy, terms), `app/core/plans.ts` (plan names, prices, limits), `app/routes/app/home.tsx` (the placeholder home page), `wrangler.jsonc` (real resource ids, `SHOPIFY_APP_URL`, app handle, `PARTNER_*`, `EVENT_HASH_KEY_ID`), `shopify.app*.toml` (client id, URLs, scopes, webhooks), and the support copy (only state a response time the business really commits to).
+1. **Replace every placeholder** (run `npm run check:placeholders`; it must pass before a production deploy). Surfaces: `app/core/identity.ts` (name, brand, contacts, legal address and effective date), `app/routes/public/**` (landing, support, privacy, terms), `app/core/plans.ts` (plan names, prices, limits), `app/routes/app/home.tsx` (the placeholder home page), `wrangler.jsonc` (real resource ids, `SHOPIFY_APP_URL`, app handle, `SCOPES`, `PARTNER_ORG_ID`, `PARTNER_APP_ID`, `EVENT_HASH_KEY_ID`), `shopify.app*.toml` (client id, URLs, scopes, webhooks), and the support copy (only state a response time the business really commits to).
 2. **Unknown real value (legal address, app name, price, SLA): ask the owner.** Never invent one, never weaken `check:placeholders`.
 3. **Fix the docs and the agent instructions in the same change.** The derived app is not a template any more:
    - In `CLAUDE.md`, replace "What this repo is" with a short "This app" section (what it does, who it is for, what is deliberately out of scope) and delete the "placeholders are intentional" rule; `check:placeholders` is now an ordinary release gate.
    - Rewrite `docs/README.md` for the app: drop template-only documents that no longer apply (`SETUP.md`, this checklist once complete); keep `UPGRADING.md` and `template-files.json` if the app still pulls template updates.
    - Record the app's own verified Shopify findings in `docs/shopify-api-invariants.md` and its own decisions in the rule that owns the area.
-   - Register the app's slug on the portal's `/apps` page; until it is registered, the portal lists the app as "pending" and stores none of its events.
+   - Get the app declared in the portal (section 5): one pull request to the Firesio platform repo. Until it is merged and deployed, the portal lists the app as pending and stores none of its events.
 4. Run `npm run verify` after each area and say what was changed and what was verified.
 
 ## Refactor plan (short version)
 
 1. **Identity:** edit `app/core/identity.ts` once; keep public pages, legal pages
    and email branding derived from it.
-2. **Shopify:** keep client IDs, app GIDs, app handles, plan handles, and shop
+2. **Shopify:** keep client IDs, app handles, plan handles and shop
    domains separate; validate each against the API/configuration that owns it.
 3. **Database:** the app's own tables are in `app/db/schema.ts` (passed to `createFiresio({ schema })`, so `shop/redact` erases every one that has a `shop` column), the shared ones are `@firesio/app`'s (`drizzle.config.ts` lists their schemas); queries are bound and preserve shop isolation (`.claude/rules/data.md`).
 4. **Tests:** assert rendered output and persisted state, especially billing,
@@ -39,41 +39,37 @@ and evidence; a checked box is not a substitute for a tested implementation.
 - Set the canonical product, company, support/privacy contacts, legal address and
   effective date in `app/core/identity.ts`; do not reintroduce identity literals in routes, legal pages or mail texts
   (the preset's mail texts take the app's name as a variable: `identity.name` in `app/firesio.server.ts`; to word them differently pass `content` and `notifications` there).
-
 - Create separate Shopify applications for development and production. Link
   `shopify.app.dev.toml` only to the development application and
-  `shopify.app.toml` only to production.
+  `shopify.app.toml` only to production (`npm run config:link:dev`, then `npm run config:link:prod`;
+  both fill in `client_id`, which the template ships empty). Review the TOML diff each time.
 - Set the production application URL and redirect URL, then confirm the
-  production `SHOPIFY_APP_URL` and `SHOPIFY_API_KEY` agree with the production
-  Shopify configuration.
-- Choose only the Admin API scopes the app needs. Keep development and
-  production scopes and webhook API versions aligned. Request protected
+  production `SHOPIFY_APP_URL` and `SHOPIFY_API_KEY` (the client id, public configuration) agree with the production
+  Shopify configuration. `npm run check:placeholders` refuses a drift.
+- Choose only the Admin API scopes the app needs. The template starts with none.
+  Scopes are ONE decision written in four places: `scopes` in both TOML files and the
+  `SCOPES` var of the top level and of `env.production` in `wrangler.jsonc`;
+  `check:placeholders` refuses a pair that differs. Request protected
   customer-data access before adding topics that need it.
-- Treat the Shopify client ID as public configuration. Keep the Shopify API
-  secret out of source control and set it as a Cloudflare secret.
-- Obtain each environment's app resource ID from an authenticated Admin
-  `currentAppInstallation { app { id apiKey handle } }` query. Copy `app.id`
-  verbatim as the `gid://shopify/App/...` value for
-  `SHOPIFY_PARTNER_APP_ID`; never derive it from the client ID, installation ID,
-  or the legacy `gid://partners/App/...` namespace. Compare `app.apiKey` with
-  that environment's `SHOPIFY_API_KEY` before using the ID for billing/history.
-- Link environments deliberately with `npm run config:link:dev` and
-  `npm run config:link:prod`, reviewing the TOML diff. The template uses a
-  shared development app by default; if your team uses developer-local apps,
-  keep separate named configs and set each app's GID in its ignored `.dev.vars`.
-- Configure Partner access separately: create a Partner API client with
-  **Manage apps**, store its token as `SHOPIFY_PARTNER_API_TOKEN`, and set the
-  owning organization ID in `SHOPIFY_PARTNER_ORGANIZATION_ID`. Verify access
-  with `activeSubscription(appId: $appId, shopId: $shopId)` using the Shopify App
-  GID and a real Shop GID; a `null` subscription means no active contract, not
-  that an app mismatch is safe to ignore.
+- The Admin API / webhook version is one decision too: `app/core/api-version.ts` and
+  `api_version` in both TOML files (the check reads the first and compares).
+- Keep the Shopify API secret out of source control: it is the `SHOPIFY_API_SECRET` Cloudflare secret.
+- Configure Partner access, which this template **requires** (the preset treats it as optional):
+  a Partner API client that may read the app's subscriptions, whose token is the
+  `PARTNER_API_TOKEN` secret; `PARTNER_ORG_ID` (the numeric organization id in
+  `partners.shopify.com/<id>`) and `PARTNER_APP_ID` (the app's id in the Partner Dashboard, the
+  numeric id or its GID) are vars in `wrangler.jsonc`, in both environments. The plan a shop is
+  on is read from Shopify's Managed Pricing through that API; without the token the
+  refresh reports `not_configured` and every shop stays on the free plan. Verify with a real
+  shop and a test subscription: a `null` subscription means no active contract, not that an
+  app mismatch is safe to ignore.
 
 ## 2. Replace product, legal, and translated copy
 
 - Replace brand, feature, support, pricing, plan, identity, contact, and URL
-  copy in every locale. Do not publish an untranslated fallback or text that
+  copy in every language the app ships. Do not publish an untranslated fallback or text that
   describes a different product.
-- Complete the privacy policy and terms with qualified legal review. Inventory
+- Complete the privacy policy and terms with qualified legal review (`LEGAL_TEMPLATE.md`). Inventory
   every processor, data category, purpose, retention period, transfer, and
   contact route that the actual app uses.
 - Ensure the public privacy, terms, pricing, and support pages are reachable at
@@ -81,81 +77,96 @@ and evidence; a checked box is not a substitute for a tested implementation.
 - Run `npm run check:placeholders`; it is expected to block a fresh template and
   must pass before a production deploy.
 
-## 3. Decide billing and AI policy
+## 3. Decide billing, AI and members
 
-- Replace the billing-plan registry with actual plan names, prices, intervals,
-  trial rules, and Managed Pricing handles. Verify the same handles in Shopify's
-  Partner configuration before billing a merchant.
-- If the app exposes AI, replace the template's allow-all gate with an explicit
-  entitlement, quota, abuse, cost, privacy, and emergency-disable policy. Test
-  normal, over-limit, provider-failure, and disabled states.
-- If the app does not use AI, remove its UI and provider configuration rather
-  than leaving a merchant-facing path with an undefined policy.
-
-- Decide who may use the app: open `app/members/config.ts` and choose how a Shopify
-  user who is not yet a member is handled (`auto_join`, `invite_only`, `approval`),
-  the role strangers get, and whether to ask Shopify for the person's email and name
-  (`invite_only` needs it). Then give each role the permissions your features need
-  (`app/domain/member-access.ts`) and guard every embedded route with the one it
-  needs. Rules and extension points: `.claude/rules/members.md`. Members are staff of
-  the merchant, so they carry a name and an email: confirm the privacy copy covers them.
-  Decide whether the team is limited by plan: give a plan a `limit` on `members.max` in
-  `app/billing/plans.ts`, or leave it `unlimited` (or delete the key) for no limit. The Team
-  page is at `/app/members` and shows only to roles that may manage members; each person has a
-  page of their own (`/app/members/:memberId`) where a role is applied and a person removed.
-  Decide whether merchants may give a person permissions of their own instead of a role's
-  preset: `customPermissions: { enabled: true }` in `app/members/config.ts` turns on a checkbox
-  per permission on that page (`alsoProtected` lists permissions that only ever come with a role;
-  `members:manage` always does). Name each permission your app adds in
-  `app/components/members/permission-text.ts` and the `admin` catalogue.
-  If you limit seats, decide what happens to a team that is over the limit after a downgrade:
-  the default (`seatOverage: { policy: "never_remove" }`) removes nobody; `notify_then_trim`
-  tells the shop's owners and admins and, after `noticeHours`, takes the extra people off their
-  seats (never an owner, never the last team manager). Before choosing it, read "Seats" in
-  `.claude/rules/members.md` and check the two notice emails read well in every language you ship.
-
-- Decide whether the app sends announcements to merchants (`.claude/rules/campaigns.md`):
-  the page is `/internal/campaigns` and an AI agent can run it through the MCP tools. Before
-  the first real send, do a small one to yourself through the real sender (the rules file
-  lists what is not yet verified), and make sure the audience's privacy copy matches who is
-  written to.
+- Replace the plan table in `app/core/plans.ts` with actual plan names, prices, intervals,
+  trial rules, and Managed Pricing handles (the plan handle is the key that joins Shopify's subscription
+  to the table). Verify the same handles in Shopify's Partner configuration before billing a merchant.
+  Declare an entitlement key only when something backs it: `members.max` is enforced by the members
+  library, `tickets.max` is only shown (the plans page's open-ticket meter) and a hard limit is the
+  app's own check, and a counter such as emails per day needs the app's own `services.usage.consume`
+  call plus a `meters` entry in `app/firesio.server.ts` (the template ships none: the preset counts no mail
+  against a daily allowance, so a `mail.daily_max` key would show 0 forever).
+- The only AI in the template is the support form's spam decision (Workers AI through the `AI`
+  binding, optionally behind `AI_GATEWAY_ID`); it answers "no opinion" when unavailable, so a real
+  customer's mail is never lost to a model. If the app exposes AI to merchants, pass `ai: { client, gate }` to `createFiresio`
+  and replace the default allow-all gate with an explicit entitlement, quota, abuse, cost, privacy
+  and emergency-disable policy. Test normal, over-limit, provider-failure, and disabled states.
+  If it does not, leave `ai` out rather than leaving a merchant-facing path with an undefined policy.
+- Decide who may use the app, in `app/core/members.ts` (`defineMembers`): how a Shopify user who is not yet a member is
+  handled (`onUnknownUser`: `auto_join`, `invite_only`, `approval`), the role strangers get, whether to
+  ask Shopify for the person's email and name (`onlineTokens`; `invite_only` needs it), and the
+  permissions each role holds. Guard every embedded route with `firesio.requirePermission`. Members are
+  staff of the merchant, so they carry a name and an email: confirm the privacy copy covers them.
+  The team page is the library's, mounted at `/app/members`. Decide whether merchants may give a person
+  permissions of their own (`customPermissions`), and what happens to a team over its seat limit after a downgrade
+  (`seatOverage`: `never_remove`, or `notify_then_trim` with `noticeHours`: it tells the shop's owners and
+  admins and then takes the extra people off their seats, never an owner and never the last team manager;
+  check the two notice emails read well in every language you ship). Reference:
+  `node_modules/@firesio/app/src/members/README.md`.
 
 ## 4. Inventory customer data and compliance behavior
 
 - List every table, object, cache, log, queue payload, email, analytics event,
   and third-party processor that can contain merchant or customer data.
-- For each new category of customer data, update the compliance handlers,
-  deletion/retention policy, access process, and privacy copy. Test the real
-  data path; webhook routing alone is not proof that data is deleted.
+- For each new category of customer data, update the compliance handlers
+  (`customerData: { stores: true, dataRequest, redact }` in `app/firesio.server.ts` when the app stores customer data;
+  the default is `{ stores: false }`), the deletion/retention policy, access process, and privacy copy.
+  `shop/redact` erases every table with a `shop` column on its own; a table keyed by another column goes in
+  `purge.shopScoped`, one that must survive in `purge.keep`. Test the real data path; webhook routing alone is not proof that data is deleted.
 - Confirm Shopify mandatory compliance webhooks, HMAC verification, and
   idempotency behavior after adding or changing any data-bearing feature.
 - Assign an owner for security incidents and data-subject requests, including a
   monitored contact channel and response expectations.
 
-## 5. Provision production resources and secrets
+## 5. Provision production resources, secrets and the portal
 
-- Create production D1, KV, R2, email, Queue/DLQ, and rate-limit resources (including
-  the `campaigns-prod` queue and its `campaigns-dlq-prod` dead-letter queue);
-  set their production binding details in `wrangler.jsonc`; then run
-  `npm run cf-typegen`.
-- Declare and provision every required secret: `SHOPIFY_API_SECRET`,
-  `ATTACHMENT_TOKEN_SECRET`, `INTERNAL_SESSION_SECRET`, `STAFF_MFA_KEY`,
-  `SHOP_CUSTOM_DOMAIN`, and `SHOPIFY_PARTNER_API_TOKEN`. Secrets are never app configuration values.
-- Configure `EMAIL_FROM` and `EMAIL_FROM_NAME` only after authorizing the
-  sending domain. Test password recovery without exposing reset links in a
-  production response.
-- Confirm the production cron schedule, upload-cleanup monitoring, Webhook
-  Queue/DLQ names, and login/reset rate-limit bindings are present.
+- Create the production resources `npm run new-app` listed: the D1 database, the `SESSION` KV namespace, the R2
+  bucket for support attachments, the webhook queue and its dead-letter queue; bind the portal's blocklist KV
+  namespace (read only) as `PORTAL_BLOCKLIST`; give the three rate-limit bindings namespace ids that no other app on
+  the account uses; set their production ids in `wrangler.jsonc` under `env.production`; then run
+  `npm run cf-typegen`. The `portal-events` queue is the portal's and already exists: this app only produces to it.
+- Declare and provision every required secret: `SHOPIFY_API_SECRET`, `ATTACHMENT_TOKEN_SECRET`,
+  `EVENT_HASH_SECRET` (the shared key; `EVENT_HASH_KEY_ID` is the var that names it) and `PARTNER_API_TOKEN`.
+  `TURNSTILE_SECRET_KEY` (with `TURNSTILE_SITE_KEY`), `SHOP_CUSTOM_DOMAIN` and `SHOPIFY_API_SECRET_PREVIOUS` are optional and not declared. Secrets are never app configuration values.
+- Support mail: onboard the sending domain to Email Sending and set `EMAIL_FROM` and `EMAIL_FROM_NAME`
+  (vars, in both environments) only after authorizing it; route `support@<your domain>` through Email Routing to
+  this Worker (without `EMAIL_FROM` nothing is sent).
+- Confirm the production crons (`30 3 * * *` daily, `* * * * *` outbox drain), the webhook
+  queue/DLQ names and the rate-limit bindings are present (`check:placeholders` and
+  `scripts/wrangler-bindings.test.mjs` read them).
+- **Declare the app in the portal: ONE pull request to the Firesio platform repo; the review is the approval (there is no Register button).**
+  1. `apps/portal/app/core/apps/declared-apps.ts`: an entry with the app's `slug` (the `appSlug` its events carry,
+     `app/core/identity.ts`), `name`, `kind`, the `binding` key (a service binding of the portal's `Env`; `wrangler types`
+     gives it to the type and `apps/portal/app/shell/apps/app-bindings.ts` says how to reach it), optionally default `modules`,
+     `links` and `staffPages`, and `campaigns: true` if the app has adopted the `campaigns()` command group
+     (without it the portal does not ask the app about campaigns). The template does not implement that group.
+  2. Commands: in the same PR, declare the service binding in `apps/portal/wrangler.jsonc`, at the top level AND under
+     `env.production` (bindings are not inherited), with `entrypoint: "AdminApi"` and `service` the app's production Worker name,
+     `<slug>-production`:
+     `{ "binding": "<KEY>", "service": "<slug>-production", "entrypoint": "AdminApi" }`.
+     That name is this repo's: the top-level `name` of `wrangler.jsonc` (which `npm run new-app` sets to the slug) plus the
+     environment, `-production`. `shell/apps/declared-apps-wrangler.test.ts` in the platform repo fails when the two files
+     disagree. `export const AdminApi = firesio.AdminApi` in `workers/app.ts` is the app's half.
+  3. App side: the producer binding to `portal-events` (and `portal-events-prod` under `env.production`) is already in `wrangler.jsonc`.
+  4. After the portal deploys, its `*/5` cron reconciles the declaration into the `apps` table (it inserts what is missing with the declared
+     default modules and never deletes or disables), so the app's events are accepted within five minutes. The portal's `/apps` page keeps
+     the runtime state (events accepted or refused, module switches) and a "Test connection" button (a read-only `billing().plans({})` over the
+     binding): press it after the first deploy. Events from a slug nobody declares are not stored.
+  5. Staff pages of the app's own (`/internal`) need no portal change: bind the portal's `STAFF_DIRECTORY` KV read-only, put the path
+     behind its own Cloudflare Access application, verify the Access JWT, then `createStaffDirectoryReader` from `@firesio/portal-client`.
+     Optionally list the pages in the declaration's `staffPages` so `/apps` links to them.
 
 ## 6. Establish operations and release controls
 
-- Assign owners and alert routes for Worker errors, cron sweep failures, queue
-  backlog/DLQ growth, D1 recovery, secret rotation, and production access.
+- Assign owners and alert routes for Worker errors, cron step failures (`cron.step_failed`), a growing or dead
+  `portal_outbox`, webhook DLQ depth, D1 recovery, secret rotation, and production access.
 - Test a rollback and D1 recovery procedure in a non-production environment.
   A Worker rollback never reverses a data migration.
 - Choose CI/CD identity, protected environments, review approvals, audit logs,
-  artifact retention, and dependency-update policy. Automation is
-  organization-specific; do not copy an unreviewed workflow from another app.
+  artifact retention, and dependency-update policy. `.github/workflows/verify.yml` runs `npm run verify` and a production
+  build on pull requests that touch code, on `v*` tags and by hand; Workers Builds (if you connect it) deploys `main` without it.
+  Automation is organization-specific; do not copy an unreviewed workflow from another app.
 - Follow the incident and release procedures in [the operations runbook](OPERATIONS.md).
 
 ## 7. Perform the current App Store review
@@ -163,14 +174,12 @@ and evidence; a checked box is not a substitute for a tested implementation.
 - Run the current Shopify App Store self-review against the completed app, not
   the template. Recheck Shopify requirements at submission time because they
   change.
-- Verify installation, OAuth callback, billing, uninstall, mandatory webhooks,
-  support, privacy, and terms end to end on a production-like environment.
+- Verify installation and authentication (token exchange: there is no OAuth callback, the install is recorded in `afterAuth`), billing, uninstall,
+  mandatory webhooks, support, privacy, and terms end to end on a production-like environment.
 - Uninstall, then reinstall within seconds (Shopify's reviewers do exactly
-  this): the app opens and authenticates, background jobs for the shop still
-  find its offline session (they may retry for a minute or two, never skip),
-  and the late `app/uninstalled` webhook does not delete the new install's
-  sessions (look for `shopify.uninstall.ignored`, reason
-  `reinstalled_before_cleanup`). Not verifiable without a real store.
+  this): the app opens and authenticates, and the late `app/uninstalled`
+  webhook does not mark the new install uninstalled (the preset applies an uninstall only when no newer lifecycle fact is stored).
+  Not verifiable without a real store.
 - Review listing copy, screenshots, support contact, permissions, data use,
   merchant-facing error states, and accessibility with the final product.
 

@@ -2,8 +2,8 @@
  * Stable product identity shared by the public pages, the legal copy and the notifications. Pure: configured at
  * authoring time, never per request.
  *
- * `slug` is OUR OWN name for the app (lower case, hyphens): the `appSlug` on every event the portal receives and the slug on
- * the portal's `/apps` page. Never Shopify's app id. `npm run new-app` renames it with the rest.
+ * `slug` is OUR OWN name for the app (lower case, hyphens): the `appSlug` on every event the portal receives and the slug the portal
+ * declares the app by (`declared-apps.ts`, one PR to the Firesio platform repo). Never Shopify's app id. `npm run new-app` renames it with the rest.
  */
 export const identity = Object.freeze({
   slug: "my-app",

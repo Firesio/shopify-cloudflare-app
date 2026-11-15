@@ -20,3 +20,14 @@ merging this tag.
 - New: `eslint.boundaries.js` (the layers), size caps, no `as`, no `any`, no `Date.now` or `crypto.randomUUID` outside tests (the preset's runtime reads them),
   a verify workflow, `npm run new-app`, `/healthz`, a test that compares the top-level and production bindings.
 - Rate limits now fail closed (a missing or failing binding denies), as docs/architecture.md section 6.4 says.
+- `npm run check:placeholders` no longer refuses a scope (an app adds the scopes it uses); it now requires the scopes of `shopify.app.toml` to equal the `SCOPES`
+  var of `env.production`, those of `shopify.app.dev.toml` to equal the top-level `SCOPES`, and the two tomls to agree, and it reads the webhook `api_version`
+  from `app/core/api-version.ts` instead of a hard-coded value.
+- `npm run new-app` blanks `client_id` in both Shopify configs (the template ships none), inserts a display name literally (`$&` and `$1` are not replacement patterns),
+  answers `--help`, and prints the portal registration: one PR to the Firesio platform repo (`declared-apps.ts` and a service binding to `<slug>-production`).
+- `SHOP_CUSTOM_DOMAIN` is no longer in `secrets.required` (optional in the preset); `PARTNER_API_TOKEN` stays required by this template's choice.
+- `mail.daily_max` is gone from `PLANS`, the entitlement labels and the meters: nothing in the preset counts mail against a daily allowance, so the plans page showed 0 forever.
+  An app that sends mail of its own adds the key back with its own `services.usage.consume` call and a `meters` entry.
+- `scripts/ci-release.mjs` deploys the Shopify app config with the pinned local CLI (`scripts/shopify.mjs`), not `@shopify/cli@latest`; lint also bans `globalThis.crypto.randomUUID`.
+- `app/components/AppNav.tsx` and `app/core/config.test.ts` are the app's (`template-files.json`). The rules, skills and docs describe this template (webhook route form, crons,
+  operations runbook, adoption checklist) and no longer ask for code that is not here.

@@ -106,6 +106,8 @@ describe("the bans", () => {
     ["Date.now", "const at = Date.now();"],
     ["new Date()", "const at = new Date();"],
     ["crypto.randomUUID", "const id = crypto.randomUUID();"],
+    ["globalThis.crypto.randomUUID", "const id = globalThis.crypto.randomUUID();"],
+    ["self.crypto.randomUUID", "const id = self.crypto.randomUUID();"],
     ["Math.random", "const n = Math.random();"],
   ])("refuses %s in the app's own code (the preset's runtime is the one place that reads them)", async (_label, code) => {
     const used = `export const used = () => { ${code} return 1; };`;

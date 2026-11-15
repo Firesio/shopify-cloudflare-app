@@ -1,6 +1,6 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "c0a58386cf12f142409e63d22589b9d9"
+client_id = ""
 name = "My App (Dev)"
 application_url = "https://example.com"
 embedded = true

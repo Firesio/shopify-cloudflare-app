@@ -15,7 +15,7 @@
   "observability": { "enabled": true, "head_sampling_rate": 1, "redact_query_string": true },
 
   // BINDINGS ARE NOT INHERITED by a named environment: every binding below is declared again under `env.production`
-  // (main, compatibility_*, assets and the `$schema` are inherited). `app/test/wrangler-bindings.test.ts` compares the two
+  // (main, compatibility_*, assets and the `$schema` are inherited). `scripts/wrangler-bindings.test.mjs` compares the two
   // lists by binding name, so a binding added to one and forgotten in the other fails `npm run verify`.
   //
   // The top level is for Miniflare only (`npm run dev`, vitest): it simulates each binding by NAME and ignores the ids.
@@ -28,7 +28,7 @@
     "producers": [
       // Verified webhooks, one durable message each (the request writes nothing to D1).
       { "binding": "WEBHOOK_QUEUE", "queue": "my-app-webhooks" },
-      // Events for the portal (docs/architecture.md section 4). The outbox drains into it. The DLQ
+      // Events for the portal (`docs/architecture.md` section 4 in the Firesio platform repo). The outbox drains into it. The DLQ
       // (portal-events-dlq) is the portal's CONSUMER side: nothing to declare here.
       { "binding": "PORTAL_EVENTS", "queue": "portal-events" }
     ],
@@ -57,7 +57,7 @@
   // Workers AI (the support spam check). Not simulated by Miniflare; `remote: true` states what is already the case.
   "ai": { "binding": "AI", "remote": true },
 
-  // Rate Limiting bindings (docs/architecture.md section 6.4): one per purpose, named <PURPOSE>_LIMITER. A binding that
+  // Rate Limiting bindings (`docs/architecture.md` section 6.4 in the Firesio platform repo): one per purpose, named <PURPOSE>_LIMITER. A binding that
   // is absent or errors DENIES (the anti-abuse path fails closed).
   "ratelimits": [
     { "name": "SUPPORT_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
@@ -66,8 +66,11 @@
   ],
 
   // Secret NAMES, declared rather than inferred (values never live here): so `wrangler types` does not depend on .dev.vars.
+  // PARTNER_API_TOKEN is optional in the preset but REQUIRED by this template (Managed Pricing reads), so it is listed.
+  // Optional secrets are not listed (a name here is a deploy-time requirement): SHOP_CUSTOM_DOMAIN (a shop's custom domain,
+  // only for an app that serves one), SHOPIFY_API_SECRET_PREVIOUS (only during a secret rotation), TURNSTILE_SECRET_KEY (a var slot above).
   "secrets": {
-    "required": ["SHOPIFY_API_SECRET", "SHOP_CUSTOM_DOMAIN", "ATTACHMENT_TOKEN_SECRET", "EVENT_HASH_SECRET", "PARTNER_API_TOKEN"]
+    "required": ["SHOPIFY_API_SECRET", "ATTACHMENT_TOKEN_SECRET", "EVENT_HASH_SECRET", "PARTNER_API_TOKEN"]
   },
 
   // Non-secret vars. SHOPIFY_API_KEY is the public client_id; `shopify app dev` injects the real one (vite.config.ts).
@@ -130,7 +133,7 @@
       ],
       // `secrets` must be specified in every named environment.
       "secrets": {
-        "required": ["SHOPIFY_API_SECRET", "SHOP_CUSTOM_DOMAIN", "ATTACHMENT_TOKEN_SECRET", "EVENT_HASH_SECRET", "PARTNER_API_TOKEN"]
+        "required": ["SHOPIFY_API_SECRET", "ATTACHMENT_TOKEN_SECRET", "EVENT_HASH_SECRET", "PARTNER_API_TOKEN"]
       },
       "vars": {
         // The production client_id, from shopify.app.toml.

@@ -17,10 +17,10 @@ accessibility or responsive behaviour.
 ## 0. Which Polaris, and where it is named
 
 The embedded app runs **Polaris 2** (`polaris-2.js`, the stable channel: the newest 2.x, which matches the redesigned
-Shopify admin and follows whichever admin theme the merchant uses). It is named in ONE place, `app/admin/polaris.ts`, and
+Shopify admin and follows whichever admin theme the merchant uses). It is named in ONE place, `app/core/polaris.ts`, and
 read by both `shopifyApp({ polarisUrl })` (the preload `Link` header) and `EmbeddedProvider` (the script tag): never render
-`AppProvider` directly and never add a Polaris script tag of your own. `@shopify/polaris-types` is `^2.0.0` and a test holds
-it to the script's major. The mirror in `docs/polaris/` is Polaris 2 too.
+`AppProvider` directly and never add a Polaris script tag of your own. `@shopify/polaris-types` is `^2.0.0`: keep it
+the same major as the script (nothing checks it). The mirror in `docs/polaris/` is Polaris 2 too.
 
 What Polaris 2 changes for markup: `s-text` has `fontSize` and `fontWeight` and `fontVariantNumeric` (so a price needs no
 CSS), and there is an `s-empty-state` component (the old empty-state composition is gone). Custom CSS that copies Polaris
@@ -366,8 +366,8 @@ the equivalent mechanism.
 - **Keyword attributes** (`padding`, `gap`, `tone`, `variant`, `size`,
   `direction`, `inlineSize`, `background`) always take a string:
   `<s-box padding="base">`, `<s-stack gap="loose">`.
-- Every user-visible string goes through `t()` — `@rules/i18n.md`. Layout must
-  survive a translation ~30% longer than the English.
+- Every user-visible string comes from a label object (`app/i18n/labels.ts`, per language; the examples
+  above write `t("key")` for that lookup). Layout must survive a translation ~30% longer than the English.
 - Components under `app/components/` stay presentational: props in, JSX out, no
   fetching, no `.server` imports.
 
@@ -387,7 +387,7 @@ the equivalent mechanism.
 - [ ] Resource selection is a picker; no field asks for a handle or an ID
 - [ ] `inlineSize` matches the content, and supporting material is in `aside`
 - [ ] Spacing comes entirely from `s-page` / `s-section` / `s-stack` / `s-grid`
-- [ ] Every string is translated
+- [ ] Every string comes from a label object, not a literal in the JSX
 - [ ] The server side is tested — loader, action, intent handlers, payload
       builders. Polaris web components cannot be meaningfully unit-tested, so the
       rendering is **verified by hand and reported as verified by hand**

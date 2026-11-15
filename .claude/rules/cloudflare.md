@@ -20,10 +20,10 @@ needs it; do not scaffold one speculatively.
 | **D1** | All relational state | `@rules/data.md` |
 | **KV** | Shopify sessions + hot read cache | Eventually consistent — never the source of relational truth. Shop-scoped keys, invalidate at the write site |
 | **Queues** | Webhook → pipeline handoff | At-least-once ⇒ idempotent consumers, backoff that spans an outage (not a minute), and a **dead-letter queue**. A webhook route answers 2xx only after ONE `queue.send` and writes nothing to D1 first (`docs/webhooks.md`) |
-| **Queues (portal events)** | `PORTAL_EVENTS` producer: the outbox drains into the portal's queue | Written reason: docs/architecture.md section 4. Producer only; the portal's consumer owns the dead-letter queue (`portal-events-dlq`). Both environments name different queues (`portal-events`, `portal-events-prod`) |
+| **Queues (portal events)** | `PORTAL_EVENTS` producer: the outbox drains into the portal's queue | Written reason: `docs/architecture.md` section 4 in the Firesio platform repo. Producer only; the portal's consumer owns the dead-letter queue (`portal-events-dlq`). Both environments name different queues (`portal-events`, `portal-events-prod`) |
 | **Cron Triggers** | Outbox drain (every tick) and the daily snapshot and prune | One `scheduled` handler (`firesio.scheduled`); the preset's `worker/cron.ts` says what each cron string runs (`scripts/wrangler-bindings.test.mjs` pins it); each step guards its own errors so one failure never costs the others their tick |
 | **Email Sending** | Customer replies and staff alerts | Verified sender domain from `vars`; failures are logged by event name and never lose a ticket |
-| **Rate Limiting** | Support writes, the public form, inbound mail | Config-only binding, **fails closed** (the preset's `adapters/rate-limit.ts`), docs/architecture.md section 6.4 |
+| **Rate Limiting** | Support writes, the public form, inbound mail | Config-only binding, **fails closed** (the preset's `adapters/rate-limit.ts`), `docs/architecture.md` section 6.4 in the Firesio platform repo |
 | **Email Routing + Email Workers** | Mail sent to the app's support addresses to the Worker's `email` handler | Receiving only. `firesio.email` (the Worker's `email` handler) is the entry; the decisions are `@firesio/app/support`'s |
 | **Turnstile** | Bot check on the public support form | Verified server-side (the preset's `adapters/turnstile.ts`). The site key is a `var`; the secret is a Worker secret |
 | **Observability** | Logs | `enabled: true` + `head_sampling_rate`, structured JSON |
@@ -92,7 +92,8 @@ Two calls that recur and deserve a recorded answer rather than a reflex:
   (`@rules/core.md`).
 - **`env` from `cloudflare:workers` (`firesio.services()`), never `process.env`** — workerd does not populate it. A handler that is handed `env` (`scheduled`, `queue`, `email`, the AdminApi) passes it on (`firesio.queue(batch, env)`); the preset builds the services once per `env`.
 - **`crypto.getRandomValues()` / `crypto.randomUUID()`, never `Math.random()`**
-  for anything security-bearing. Webhook HMACs are verified by Shopify's `authenticate.webhook` (and by `@firesio/app/shopify` when the preset is handed a raw request); both compare in constant time — never `===`.
+  for anything security-bearing (in the app's own code ids come from the preset's runtime: `randomUUID` is lint-banned outside tests). Compare secrets and signatures in constant time, never `===`.
+- **Webhooks: the route is `return firesio.webhook(request)`, handed the RAW `Request`.** The preset verifies the HMAC itself in constant time (`crypto.subtle.verify`; a bad one is a 401, never a 500), accepts `SHOPIFY_API_SECRET_PREVIOUS` during a rotation, enqueues and answers 2xx, and answers a topic it does not handle with a verified 200 (the preset's coming behaviour; until it is adopted `receive.ts` still asks `firesio.handles(topic)` first). **Never pass `firesio.shopify.authenticate.webhook`'s result to the preset for its topics**: that call refreshes the offline session and a failed refresh is a 500 (an uninstalled app's `app/uninstalled` hits exactly that), and it loses `SHOPIFY_API_SECRET_PREVIOUS`. A topic of the app's own that needs an Admin API session calls `authenticate.webhook` for THAT topic only, in its own branch. Evidence: `docs/shopify-api-invariants.md`.
 - **No `passThroughOnException`.** Explicit `try/catch` and a structured error
   response.
 
