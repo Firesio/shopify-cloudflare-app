@@ -97,7 +97,11 @@ export default defineConfig(({ command }) => ({
       // `supportContext`) with the preset's middleware that fills them. Pre-bundled per entry, each entry gets its own copy of
       // those objects and every page dies with "No value found for context" in `react-router dev` (found in a real dev store,
       // when the pages were a separate package). Excluded, the modules load once from source.
-      optimizeDeps: { exclude: ["@firesio/app"] },
+      // Excluding it also hides its own dependencies from the scan, so the CommonJS ones the Worker reaches through it are
+      // listed (workerd cannot load a CommonJS file raw: "module is not defined" on every request): the AI SDK (`ai`) and
+      // Cloudflare's provider for it (`agents/models/ai-sdk`), and `react/jsx-runtime` (Shopify's `AppProvider`, reached
+      // through `@firesio/app/ui/shell`).
+      optimizeDeps: { exclude: ["@firesio/app"], include: ["ai", "agents/models/ai-sdk", "react/jsx-runtime"] },
       build: {
         rolldownOptions: {
           output: { minify: { compress: { keepNames: { function: true, class: true } }, mangle: { keepNames: { function: true, class: true } } } },

@@ -1,16 +1,14 @@
-import type { LoaderFunctionArgs } from "react-router";
 import type { loader as layoutLoader } from "./layout";
 import { useLoaderData, useRouteLoaderData } from "react-router";
 import { identity } from "~/core/identity";
 import { PLANS } from "~/core/plans";
 import { firesio } from "~/firesio.server";
 
-export const loader = async ({ context }: LoaderFunctionArgs) => {
-  const { shop, member, services } = firesio.from(context);
-  firesio.requirePermission(member, "app:view");
+// `firesio.loader(permission, handler)`: the member is read and the permission checked (403 otherwise) before the handler runs.
+export const loader = firesio.loader("app:view", async ({ shop, services }) => {
   const effective = await services.billing.effectivePlan(shop);
   return { shop, plan: PLANS[effective.ok ? effective.effective.planHandle : "free"].name };
-};
+});
 
 /**
  * The home page of the embedded app: a placeholder a derived app replaces (`docs/ADOPTING_THE_TEMPLATE.md`). Polaris web

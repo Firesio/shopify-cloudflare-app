@@ -19,6 +19,8 @@ const elements = [
   { type: "db", pattern: "app/db", partialMatch: false },
   { type: "components", pattern: "app/components", partialMatch: false },
   { type: "i18n", pattern: "app/i18n", partialMatch: false },
+  // The app's AI features: prompts and calls, each a function that receives the shop's `ai` (`firesio.from(context).ai`) as an argument.
+  { type: "ai", pattern: "app/ai", partialMatch: false },
   { type: "routes", pattern: "app/routes", partialMatch: false },
   { type: "test-support", pattern: "app/test", partialMatch: false },
   { type: "workers", pattern: "workers", partialMatch: false },
@@ -40,7 +42,7 @@ const policies = [
   // Third-party packages (and `@firesio/app`, which is a package here) are a separate concern.
   { allow: { to: { module: { origin: ["external", "core"] } } } },
   // Tests may reach what they test plus the shared test support.
-  fromFile("test", to("core", "db", "components", "i18n", "routes", "test-support", "workers")),
+  fromFile("test", to("core", "db", "components", "i18n", "routes", "test-support", "workers", "ai")),
   fromFile("test", toComposition),
   // root.tsx is a thing under test too (its error boundary).
   fromFile("test", { to: { file: { categories: [ENTRY] } } }),
@@ -49,15 +51,17 @@ const policies = [
   allow("db", "db"),
   allow("i18n", "i18n", "core"),
   allow("components", "components", "i18n", "core"),
+  // An AI feature gets `ai` from its caller: it never reaches the composition file or the database itself, so a test hands it `fakeAi()`.
+  allow("ai", "ai", "core"),
   // The one file that calls `createFiresio`: it names the app's own values (plans, members, identity, schema, labels).
   fromFile(COMPOSITION, to("core", "db", "i18n")),
   // Routes read input, call a use case, return the result: they get the services from `firesio`, never build them.
-  allow("routes", "routes", "components", "i18n", "core", "db"),
+  allow("routes", "routes", "components", "i18n", "core", "db", "ai"),
   allowComposition("routes"),
   // root.tsx, routes.ts, entry.client.tsx, entry.server.tsx.
   fromFile(ENTRY, to("routes", "components", "i18n", "core")),
   fromFile(ENTRY, toComposition),
-  allow("workers", "workers", "core"),
+  allow("workers", "workers", "core", "ai"),
   allowComposition("workers"),
   fromFile(SERVER_BUILD, { to: { file: { categories: [ENTRY] } } }),
   fromFile(SERVER_BUILD, to("routes")),

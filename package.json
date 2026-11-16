@@ -38,11 +38,13 @@
     "new-app": "node scripts/new-app.mjs"
   },
   "dependencies": {
-    "@firesio/app": "^0.4.0",
+    "@firesio/app": "^0.5.0",
     "@firesio/portal-contract": "^0.3.1",
     "@shopify/shopify-api": "^15.0.1",
     "@shopify/shopify-app-react-router": "^3.0.2",
     "@shopify/shopify-app-session-storage": "^7.0.1",
+    "agents": "^0.33.0",
+    "ai": "^7.0.173",
     "drizzle-orm": "^0.45.4",
     "isbot": "^5.2.2",
     "postal-mime": "^4.2.0",

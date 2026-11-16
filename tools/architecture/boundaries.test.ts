@@ -70,11 +70,14 @@ const REFUSED: readonly (readonly [string, string, string])[] = [
   ["components → db", "app/components/probe.ts", DB],
   ["worker → db", "workers/probe.ts", DB],
   ["route → test support", "app/routes/probe.ts", `import { setupTestDatabase } from "~/test/database";`],
+  ["an AI feature → the composition file", "app/ai/probe.ts", FIRESIO],
+  ["an AI feature → db", "app/ai/probe.ts", DB],
 ];
 
 /** Imports the table must allow: [label, probe file, code]. */
 const ALLOWED: readonly (readonly [string, string, string])[] = [
   ["core → core", "app/core/probe.ts", CORE],
+  ["an AI feature → core", "app/ai/probe.ts", CORE],
   ["i18n → core", "app/i18n/probe.ts", CORE],
   ["a route → the composition file, core, db and components", "app/routes/probe.ts", `${FIRESIO}\n${CORE}\n${DB}\nimport { AppNav } from "~/components/AppNav";`],
   ["worker → the composition file and core", "workers/probe.ts", `${FIRESIO}\n${CORE}`],

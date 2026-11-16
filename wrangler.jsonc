@@ -57,7 +57,8 @@
   // Support ticket attachments (screenshots, recordings), streamed to R2.
   "r2_buckets": [{ "binding": "UPLOADS", "bucket_name": "app-support-uploads" }],
 
-  // Workers AI (the support spam check). Not simulated by Miniflare; `remote: true` states what is already the case.
+  // Workers AI and AI Gateway: every AI call of the app (`ai` in a route) and the support spam check. Not simulated by
+  // Miniflare; `remote: true` states what is already the case, so `npm run dev` calls the real models (a few cents at most).
   "ai": { "binding": "AI", "remote": true },
 
   // Rate Limiting bindings (`docs/architecture.md` section 6.4 in the Firesio platform repo): one per purpose, named <PURPOSE>_LIMITER. A binding that
@@ -93,7 +94,7 @@
     // Cloudflare Turnstile on the public support form; empty = check off (local development only).
     "TURNSTILE_SITE_KEY": "",
     "TURNSTILE_SECRET_KEY": "",
-    // Optional AI Gateway id; empty = straight to Workers AI.
+    // The AI Gateway every call goes through; empty = Cloudflare's `default` gateway (created on first use), shared by the apps.
     "AI_GATEWAY_ID": "",
     // The key id of the HMAC every app and the portal share (EVENT_HASH_SECRET is the secret half).
     "EVENT_HASH_KEY_ID": "",

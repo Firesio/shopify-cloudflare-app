@@ -89,12 +89,12 @@ and evidence; a checked box is not a substitute for a tested implementation.
   app's own check, and a counter such as emails per day needs the app's own `services.usage.consume`
   call plus a `meters` entry in `app/firesio.server.ts` (the template ships none: the preset counts no mail
   against a daily allowance, so a `mail.daily_max` key would show 0 forever).
-- The only AI in the template is the support form's spam decision (Workers AI through the `AI`
-  binding, optionally behind `AI_GATEWAY_ID`); it answers "no opinion" when unavailable, so a real
-  customer's mail is never lost to a model. If the app exposes AI to merchants, pass `ai: { client, gate }` to `createFiresio`
-  and replace the default allow-all gate with an explicit entitlement, quota, abuse, cost, privacy
-  and emergency-disable policy. Test normal, over-limit, provider-failure, and disabled states.
-  If it does not, leave `ai` out rather than leaving a merchant-facing path with an undefined policy.
+- AI works out of the box: the support form's spam check asks Cloudflare's decision model (Clef) and answers "no opinion" when
+  it is unavailable, so a real customer's mail is never lost to a model; a feature of your own calls the shop's `ai`
+  (`CLAUDE.md`, section "AI"). Cloudflare's Auto Router picks the model; pin one per feature in `ai.models` only when a
+  feature needs it. Before merchants see AI, pass `ai: { gate }` to `createFiresio` with an explicit entitlement, quota,
+  abuse, cost and emergency-disable policy (and an AI Gateway spend limit on the `app` metadata as a safety net), and test
+  the normal, over-limit, provider-failure and refused states.
 - Decide who may use the app, in `app/core/members.ts` (`defineMembers`): how a Shopify user who is not yet a member is
   handled (`onUnknownUser`: `auto_join`, `invite_only`, `approval`), the role strangers get, whether to
   ask Shopify for the person's email and name (`onlineTokens`; `invite_only` needs it), and the
