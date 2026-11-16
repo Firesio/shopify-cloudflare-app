@@ -5,6 +5,15 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
 
 ## template-v1.0.0 (unreleased)
 
+- `@firesio/app` 0.7.1 and `@firesio/portal-contract` 0.4.0. One migration, `drizzle/0001_eminent_enchantress.sql`: `notification_logs` (every mail is
+  logged and deduped), `plan_usage_ops` (idempotent `consume`/`release`), `shop_plan_grants.request_id`, the subscription's real charge on
+  `shop_subscriptions` (interval, price, cycle start, pending change), `shops.proxy_path_prefix`, `shop_members.locale` (the language remembered per member).
+- The mails show the app's logo: `identity.logo` (`/logo.png`, a placeholder in `public/` to replace).
+- `app_subscriptions/update` is subscribed in both tomls (the plan is read again when the merchant changes it in Shopify's admin).
+- Production runs the hourly cron too (`0 * * * *`: the uninstall probe, the one-time ticket backfill, an app's hourly work).
+- New routes: `support/file/:id` (`firesio.supportFile`: a ticket's file by its signed link, for the pages, the portal and the mails) and the
+  `*` route inside `/app` (`@firesio/app/ui/shell/not-found`, a 404 with the app's menu).
+
 The template is the minimal app on `@firesio/app`, the one package with the `createFiresio` preset (roadmap step 13, then ticket 17). It is a NEW BASELINE: the schema is one migration
 (`drizzle/0000_baseline.sql`), and an app built on an earlier template migrates one feature at a time (roadmap step 14), not by
 merging this tag.

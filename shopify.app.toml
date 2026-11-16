@@ -26,6 +26,11 @@ api_version = "2026-10"
   topics = [ "app/uninstalled" ]
   uri = "/webhooks/app/uninstalled"
 
+  # The merchant changed or cancelled the plan in Shopify's admin: the preset reads it again at once (Managed Pricing).
+  [[webhooks.subscriptions]]
+  topics = [ "app_subscriptions/update" ]
+  uri = "/webhooks/app_subscriptions/update"
+
   # MANDATORY for every app distributed through the Shopify App Store — all
   # three topics, whether or not the app stores personal data. Missing or
   # non-functioning compliance webhooks are an automatic review rejection.

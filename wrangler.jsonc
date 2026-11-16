@@ -114,8 +114,9 @@
       "workers_dev": false,
       "preview_urls": false,
       "observability": { "enabled": true, "head_sampling_rate": 1, "redact_query_string": true },
-      // Daily (the snapshot, the prune) and every minute (the outbox drain only).
-      "triggers": { "crons": ["30 3 * * *", "* * * * *"] },
+      // Daily (the snapshot, the prune), hourly (the uninstall probe, the ticket backfill, the app's hourly work) and every
+      // minute (the outbox drain only): the preset's worker/cron.ts names each.
+      "triggers": { "crons": ["30 3 * * *", "0 * * * *", "* * * * *"] },
       "queues": {
         "producers": [
           { "binding": "WEBHOOK_QUEUE", "queue": "my-app-webhooks-prod" },

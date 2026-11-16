@@ -23,7 +23,11 @@ export default [
     route("members/:memberId", "routes/app/members/member.tsx"),
     route("no-access", "routes/app/members/no-access.tsx"),
     route("plans", "routes/app/plans.tsx"),
+    route("*", "routes/app/not-found.tsx"),
   ]),
+
+  // One file of a support ticket, by its signed link (the pages, the portal and the mails carry it).
+  route("support/file/:id", "routes/support/file.ts"),
 
   // OAuth: paths fixed by `authPathPrefix: "/auth"` and the redirect_urls in shopify.app*.toml. Do not rename.
   ...prefix("auth", [route("login", "routes/auth/login.tsx"), route("*", "routes/auth/callback.tsx")]),

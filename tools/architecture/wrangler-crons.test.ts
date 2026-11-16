@@ -1,12 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { DAILY_CRON, DEVELOPMENT_CRON, DRAIN_ONLY_CRON, KNOWN_CRONS } from "@firesio/app";
+import { DAILY_CRON, DEVELOPMENT_CRON, DRAIN_ONLY_CRON, HOURLY_CRON, KNOWN_CRONS } from "@firesio/app";
 import { describe, expect, it } from "vitest";
 import { stripJsonComments } from "../../scripts/wrangler-config.mjs";
 
 /**
  * The cron expressions of wrangler.jsonc and the preset's `scheduled` handler are ONE decision: the handler drains the portal outbox
- * on every tick, and runs the daily work (the metrics snapshot, the prune) on every tick except the drain-only one. A cron the
+ * on every tick, runs the hourly work (the uninstall probe, the ticket backfill) on `HOURLY_CRON` and the daily work (the metrics
+ * snapshot, the prune) on `DAILY_CRON`. A cron the
  * preset does not know runs the daily work too, so a typo would not fail: it would run the prune every minute.
  */
 const config: unknown = JSON.parse(stripJsonComments(readFileSync(join(import.meta.dirname, "../../wrangler.jsonc"), "utf8")));
@@ -23,9 +24,9 @@ function productionOf(source: unknown): unknown {
 }
 
 describe("wrangler.jsonc triggers", () => {
-  it("production runs the daily cron and the every-minute outbox drain, and nothing the preset does not know", () => {
+  it("production runs the daily cron, the hourly one and the every-minute outbox drain, and nothing the preset does not know", () => {
     const production = cronsOf(productionOf(config));
-    expect([...production].sort()).toEqual([DAILY_CRON, DRAIN_ONLY_CRON].sort());
+    expect([...production].sort()).toEqual([DAILY_CRON, HOURLY_CRON, DRAIN_ONLY_CRON].sort());
     for (const cron of production) expect(KNOWN_CRONS, cron).toContain(cron);
   });
 

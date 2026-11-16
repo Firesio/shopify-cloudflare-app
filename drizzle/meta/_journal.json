@@ -8,6 +8,13 @@
       "when": 1794674710043,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794844488531,
+      "tag": "0001_eminent_enchantress",
+      "breakpoints": true
     }
   ]
 }

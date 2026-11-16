@@ -13,7 +13,7 @@ import { ENTITLEMENT_LABELS } from "~/i18n/labels";
  * preset's default. Nothing here reads a binding: it is all built on first use, once per `env` object.
  */
 export const firesio = createFiresio({
-  identity: { name: identity.name, slug: identity.slug },
+  identity: { name: identity.name, slug: identity.slug, logo: identity.logo },
   plans: PLANS,
   members: MEMBERS,
   schema,

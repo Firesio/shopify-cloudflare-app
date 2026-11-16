@@ -10,6 +10,9 @@ export const identity = Object.freeze({
   name: "TODO: Your App Name",
   brandName: "TODO: Your App Name",
   companyName: "Firesio",
+  // The app's logo on every mail that wears no shop brand: a file in `public/` (PNG, JPEG or WebP), or an https URL.
+  // TODO: replace public/logo.png with the app's own logo (square, at least 64 px).
+  logo: "/logo.png",
   contacts: Object.freeze({
     // The fallback only: an app's real address is derived from its own domain (`support@<app>.firesio.app`).
     supportEmail: "support@firesio.app",
