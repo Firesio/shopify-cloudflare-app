@@ -5,15 +5,16 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
 
 ## template-v1.0.0 (unreleased)
 
-- `@firesio/app` 0.9.0, a BREAKING release (what a new form replaces is removed, not deprecated; the package's own CHANGELOG, `packages/app/CHANGELOG.md` in the
+- `@firesio/app` 0.10.1, which carries 0.9.0, a BREAKING release (what a new form replaces is removed, not deprecated; the package's own CHANGELOG, `packages/app/CHANGELOG.md` in the
   Firesio platform repo, lists everything). What changed here, and what an app on an earlier state of this template does:
   - **Plans are declared once.** `app/core/plans.ts` is `definePlans({ features, plans })`: each feature is a `capability`, `capacity`, `quota` or `metered` with its
     `name`, and each plan gives a `grants` value per feature (`limit(50)` is `50`, `unlimited` is `"unlimited"`, `enabled`/`disabled` are `true`/`false`); exactly one plan
     is free. The plans page, its comparison rows and its usage meters are generated from it, so `app/i18n/labels.ts` (`ENTITLEMENT_LABELS`), `labels.entitlements`
     and the `meters` option are gone: move each name to its feature, and each meter to the feature it measured (a `quota` shows the counter kept under its own key).
-    The preset no longer adds the open-ticket meter: `tickets.max` is a `capacity` whose `count` is the preset's `services.openTicketCount`. Core imports no
-    service, so the file exports `planCatalogue({ openTickets })` and `app/firesio.server.ts` builds `PLANS` from it; code that read `PLANS[handle]` reads
-    `PLANS.plans[handle]` (`import { PLANS } from "~/firesio.server"`) or `services.plans[handle]`. The template declares no `metered` feature (it has nothing
+    The preset no longer adds the open-ticket meter: `tickets.max` is a `capacity`, and its count is the preset's `services.openTicketCount`. Core imports no
+    service, so `app/core/plans.ts` exports the pure catalogue (`PLANS`) and `app/firesio.server.ts` gives the count beside the services
+    (`counts: (services) => ({ "tickets.max": (shop) => services.openTicketCount(shop) })`, 0.10.1); code that read `PLANS[handle]` reads
+    `PLANS.plans[handle]` (`import { PLANS } from "~/core/plans"`) or `services.plans[handle]`. The template declares no `metered` feature (it has nothing
     Shopify could bill per use, and a meter must exist in the Partner Dashboard first), so `drizzle.config.ts` does not pass `{ metered: true }`.
   - **One migration, `drizzle/0003_mean_trauma.sql`.** The settings table is RENAMED, `shop_settings` to `firesio_settings` (`ALTER TABLE ... RENAME TO`: saved
     settings stay); `plan_usage_holds` (`services.usage.reserve` / `commit` / `cancel`, with the CHECKs and `WITHOUT ROWID` of the library's `holdsTableSql()`);

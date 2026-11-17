@@ -1,6 +1,8 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { firesio, PLANS } from "./firesio.server";
+import { planMeters } from "@firesio/app/plans";
+import { PLANS } from "./core/plans";
+import { firesio } from "./firesio.server";
 import { setupTestDatabase } from "./test/database";
 
 setupTestDatabase();
@@ -9,8 +11,16 @@ describe("the preset, configured as the template configures it", () => {
   it("builds every service from the bindings wrangler.jsonc declares (a missing binding is one error naming it)", () => {
     const services = firesio.services(env);
     expect(services.support).not.toBeNull();
-    expect(services.catalogue).toBe(PLANS);
     expect(services.plans).toBe(PLANS.plans);
+    expect(Object.keys(services.catalogue.features)).toEqual(Object.keys(PLANS.features));
+  });
+
+  it("meters open tickets with the preset's own count, read from the database", async () => {
+    const meters = new Map(planMeters(firesio.services(env).catalogue).map((meter) => [meter.key, meter.source]));
+    const tickets = meters.get("tickets.max");
+    expect(tickets?.kind).toBe("count");
+    expect(tickets?.kind === "count" ? await tickets.count("no-tickets.myshopify.com", { now: 0, window: null }) : null).toBe(0);
+    expect(meters.get("members.max")).toEqual({ kind: "ceiling" });
   });
 
   it("serves a shop with no subscription the free plan", async () => {

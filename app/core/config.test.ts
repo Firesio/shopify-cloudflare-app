@@ -2,11 +2,7 @@ import { entitlementOf, planMeters, shownFeatures } from "@firesio/app/plans";
 import { describe, expect, it } from "vitest";
 import { identity } from "./identity";
 import { MEMBERS } from "./members";
-import { planCatalogue } from "./plans";
-
-/** The catalogue as the app declares it; the count is this test's own (core reads no service: `app/firesio.server.ts` passes the real one). */
-const OPEN_TICKETS = 7;
-const PLANS = planCatalogue({ openTickets: () => Promise.resolve(OPEN_TICKETS) });
+import { PLANS } from "./plans";
 
 describe("the app's own declarations", () => {
   it("has a members configuration where the owner and the admin hold everything and a stranger never gets the plan", () => {
@@ -28,12 +24,10 @@ describe("the app's own declarations", () => {
     for (const plan of Object.values(PLANS.plans)) expect(Object.keys(plan.entitlements).sort()).toEqual(declared);
   });
 
-  it("meters open tickets with the count it was given, and shows the seat limit as a ceiling", async () => {
+  it("shows open tickets and the seat limit as meters, with no count of its own (core reads no service: `app/firesio.server.ts` gives it)", () => {
     const meters = new Map(planMeters(PLANS).map((meter) => [meter.key, meter.source]));
     expect([...meters.keys()]).toEqual(["tickets.max", "members.max"]);
-    const tickets = meters.get("tickets.max");
-    expect(tickets?.kind).toBe("count");
-    expect(tickets?.kind === "count" ? await tickets.count("a.myshopify.com", { now: 0, window: null }) : null).toBe(OPEN_TICKETS);
+    expect(meters.get("tickets.max")).toEqual({ kind: "ceiling" });
     expect(meters.get("members.max")).toEqual({ kind: "ceiling" });
   });
 

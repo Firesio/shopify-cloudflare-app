@@ -3,7 +3,8 @@ import { planMeters } from "@firesio/app/plans";
 import { installShop } from "@firesio/app/preset/testing";
 import { callCommand, grantListSchema, openTicketResultSchema, planListSchema, revokeGrantResultSchema, standingSchema, ticketPageSchema, ticketSchema } from "@firesio/portal-contract";
 import { describe, expect, it } from "vitest";
-import { firesio, PLANS } from "~/firesio.server";
+import { PLANS } from "~/core/plans";
+import { firesio } from "~/firesio.server";
 import { setupTestDatabase } from "~/test/database";
 
 setupTestDatabase();
@@ -113,7 +114,7 @@ describe("the open-ticket meter of the plans page", () => {
     await installShop(firesio, env, "meter-one.myshopify.com", 1_700_000_000_000);
     await installShop(firesio, env, "meter-two.myshopify.com", 1_700_000_000_000);
     await admin().support().open({ account: account("meter-one.myshopify.com"), requestId: "req-meter", subject: "One", body: "Only one.", category: "question", actor: "staff_1" });
-    const source = planMeters(PLANS).find((meter) => meter.key === "tickets.max")?.source;
+    const source = planMeters(firesio.services(env).catalogue).find((meter) => meter.key === "tickets.max")?.source;
     expect(source?.kind).toBe("count");
     if (source?.kind !== "count") return;
     const at = { now: 1_700_000_000_000, window: null };

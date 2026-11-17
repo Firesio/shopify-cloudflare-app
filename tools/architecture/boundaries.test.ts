@@ -55,7 +55,7 @@ async function boundaryFindings(relativePath: string, code: string): Promise<Fin
   return [...unresolvedImports(path, code), ...findings];
 }
 
-const CORE = `import { planCatalogue } from "~/core/plans";`;
+const CORE = `import { PLANS } from "~/core/plans";`;
 const DB = `import * as schema from "~/db/schema";`;
 const FIRESIO = `import { firesio } from "~/firesio.server";`;
 

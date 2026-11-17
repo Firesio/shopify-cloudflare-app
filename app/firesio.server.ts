@@ -2,17 +2,10 @@ import { createFiresio } from "@firesio/app";
 import { apiVersion } from "~/core/api-version";
 import { identity } from "~/core/identity";
 import { MEMBERS } from "~/core/members";
-import { planCatalogue } from "~/core/plans";
+import { PLANS } from "~/core/plans";
 import { SETTINGS } from "~/core/settings";
 import { POLARIS_URL } from "~/core/polaris";
 import * as schema from "~/db/schema";
-
-/**
- * The app's plans (`core/plans.ts`) over the counts only this file can reach: the `tickets.max` meter of the plans page shows the
- * preset's own count of open tickets. The count names `firesio` before the line that builds it, which is safe: it runs when the
- * plans page asks, never while this module loads. Elsewhere the plans are `services.plans` and `services.catalogue`.
- */
-export const PLANS = planCatalogue({ openTickets: (shop) => firesio.services().openTicketCount(shop) });
 
 /**
  * The whole glue of the app (`docs/architecture.md` section 6.6, in the Firesio platform repo): the preset builds every service, the
@@ -21,8 +14,10 @@ export const PLANS = planCatalogue({ openTickets: (shop) => firesio.services().o
  */
 export const firesio = createFiresio({
   identity: { name: identity.name, slug: identity.slug, logo: identity.logo },
-  // The plans page (its cards, comparison rows and usage meters) is generated from this catalogue: there is nothing else to pass.
+  // The plans page (its cards, comparison rows and usage meters) is generated from the catalogue of `core/plans.ts`. A count that
+  // reads the database is given here, beside the services: the `tickets.max` meter shows the preset's own count of open tickets.
   plans: PLANS,
+  counts: (services) => ({ "tickets.max": (shop) => services.openTicketCount(shop) }),
   members: MEMBERS,
   // The app's settings groups (`app/core/settings.ts`): `services.settings`, the page `routes/app/settings.tsx`.
   settings: [...SETTINGS],
