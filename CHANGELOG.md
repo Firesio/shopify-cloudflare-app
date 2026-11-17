@@ -5,7 +5,10 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
 
 ## template-v1.0.0 (unreleased)
 
-- `@firesio/app` 0.7.1 and `@firesio/portal-contract` 0.4.0. One migration, `drizzle/0001_eminent_enchantress.sql`: `notification_logs` (every mail is
+- Settings: a sample group (`app/core/settings.ts`, `defineSettings` with `visibleWhen` and `clearWhen`) and its page `/app/settings`
+  (`routes/app/settings.tsx`, `createPage` + `SettingsForm`, `app:manage`, linked in the menu), `shop_settings` in `drizzle/0002_careful_joshua_kane.sql`.
+  A group with `secret()` fields needs `SETTINGS_SECRET_KEY` in production (or `SETTINGS_SECRETS_PLAINTEXT: "allow"` at the top level in development).
+- `@firesio/app` 0.8.0 and `@firesio/portal-contract` 0.4.0. One migration, `drizzle/0001_eminent_enchantress.sql`: `notification_logs` (every mail is
   logged and deduped), `plan_usage_ops` (idempotent `consume`/`release`), `shop_plan_grants.request_id`, the subscription's real charge on
   `shop_subscriptions` (interval, price, cycle start, pending change), `shops.proxy_path_prefix`, `shop_members.locale` (the language remembered per member).
 - The mails show the app's logo: `identity.logo` (`/logo.png`, a placeholder in `public/` to replace).

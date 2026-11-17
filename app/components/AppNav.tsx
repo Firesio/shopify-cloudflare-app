@@ -12,6 +12,7 @@ export function AppNav({ permissions }: { readonly permissions: readonly Permiss
       <s-link href="/app/support">Support</s-link>
       {can("billing:manage") ? <s-link href="/app/plans">Plan</s-link> : null}
       {can("members:manage") ? <s-link href="/app/members">Team</s-link> : null}
+      {can("app:manage") ? <s-link href="/app/settings">Settings</s-link> : null}
     </s-app-nav>
   );
 }

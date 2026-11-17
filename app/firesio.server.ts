@@ -3,6 +3,7 @@ import { apiVersion } from "~/core/api-version";
 import { identity } from "~/core/identity";
 import { MEMBERS } from "~/core/members";
 import { PLANS } from "~/core/plans";
+import { SETTINGS } from "~/core/settings";
 import { POLARIS_URL } from "~/core/polaris";
 import * as schema from "~/db/schema";
 import { ENTITLEMENT_LABELS } from "~/i18n/labels";
@@ -16,6 +17,8 @@ export const firesio = createFiresio({
   identity: { name: identity.name, slug: identity.slug, logo: identity.logo },
   plans: PLANS,
   members: MEMBERS,
+  // The app's settings groups (`app/core/settings.ts`): `services.settings`, the page `routes/app/settings.tsx`.
+  settings: [...SETTINGS],
   schema,
   // The plans page's names for the entitlement keys of `core/plans.ts`. The meter of `tickets.max` is the preset's own; an
   // entitlement of yours that is a counter gets a `meters` entry here, and only once your code consumes that counter

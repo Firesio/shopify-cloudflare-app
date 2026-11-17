@@ -7,7 +7,7 @@ import { defineConfig } from "drizzle-kit";
 export default defineConfig({
   dialect: "sqlite",
   driver: "d1-http",
-  schema: ["./app/db/schema.ts", ...firesioSchemaPaths()],
+  schema: ["./app/db/schema.ts", ...firesioSchemaPaths({ settings: true })],
   out: "./drizzle",
   casing: "snake_case",
 });

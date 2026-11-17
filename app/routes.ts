@@ -23,6 +23,7 @@ export default [
     route("members/:memberId", "routes/app/members/member.tsx"),
     route("no-access", "routes/app/members/no-access.tsx"),
     route("plans", "routes/app/plans.tsx"),
+    route("settings", "routes/app/settings.tsx"),
     route("*", "routes/app/not-found.tsx"),
   ]),
 
