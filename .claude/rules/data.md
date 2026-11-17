@@ -13,8 +13,8 @@ D1 is a network hop per query and the app is multi-tenant. Both are binding.
 
 - **The preset's** (`@firesio/app/preset/d1`): `shops`, `shop_subscriptions`, `shop_plan_grants`, `notification_preferences`.
 - **The app's own** (`app/db/schema.ts`): none yet; a derived app's tables go here, are passed to `createFiresio({ schema })` (every table with a `shop` column is erased on `shop/redact`) and are listed first in `drizzle.config.ts`.
-- **The libraries'** (`@firesio/app/*/d1`): the webhook inbox and tombstones, plan usage, support, members, content edits, push devices, AI, the portal outbox. Their schemas are `firesioSchemaPaths()` in `drizzle.config.ts` (a library the preset does not wire, like `settings` or `messaging`, is an option of it); `npm run db:generate` sees all of them and writes ONE migration history in `./drizzle`. The app owns the migrations; a library never migrates anything.
-- Adding a table: add it to the schema file (or pass the library's option to `firesioSchemaPaths()` in `drizzle.config.ts`), `npm run db:generate`, **read the SQL** (Drizzle cannot express a CHECK or WITHOUT ROWID: where the library publishes `...TableSql()`, the migration must match it, as `plan_usage` does), run the whole suite.
+- **The libraries'** (`@firesio/app/*/d1`): the webhook inbox and tombstones, plan usage, support, members, content edits, push devices, AI, the portal outbox. Their schemas are `firesioSchemaPaths()` in `drizzle.config.ts` (a part the app opts into is an option of it: `{ settings: true }`, `{ messaging: true }`, and `{ metered: true }` once the plan catalogue has a `metered` feature); `npm run db:generate` sees all of them and writes ONE migration history in `./drizzle`. The app owns the migrations; a library never migrates anything.
+- Adding a table: add it to the schema file (or pass the library's option to `firesioSchemaPaths()` in `drizzle.config.ts`), `npm run db:generate`, **read the SQL** (Drizzle cannot express a CHECK or WITHOUT ROWID: where the library publishes `...TableSql()`, the migration must match it, as `plan_usage` and `plan_usage_holds` do), run the whole suite.
 
 ## Shop-scoped, always
 
@@ -26,7 +26,7 @@ The shared tables' adapters (the preset's and the libraries') use `env.DB.prepar
 
 ## Migrations are forward-only
 
-Once applied to production, never edit, rename or renumber a migration: a new one fixes a bad one. The template's `0000_baseline` is edited in place only until the first app deploys it (it is a new baseline: an app built on an earlier template migrates feature by feature, roadmap step 14). Adding a column is safe; removing one is two deploys (stop reading, then drop). A change under `drizzle/` or `app/db/` runs the **full** suite, and `npx drizzle-kit generate` must report "No schema changes" unless you meant one.
+Once applied to production, never edit, rename or renumber a migration: a new one fixes a bad one. A derived app holds real rows, so a migration must keep them: a table a library renamed is `ALTER TABLE ... RENAME TO` (drizzle-kit asks "created or renamed?": answer truthfully; SQLite renames the primary key's own index with the table), never a drop and a create, and a new NOT NULL column carries a default. `tools/architecture/migration-rows.test.ts` is the pattern: the history up to the migration, rows as the app wrote them, the rest, and the rows are still there. The template's `0000_baseline` is edited in place only until the first app deploys it (it is a new baseline: an app built on an earlier template migrates feature by feature, roadmap step 14). Adding a column is safe; removing one is two deploys (stop reading, then drop). A change under `drizzle/` or `app/db/` runs the **full** suite, and `npx drizzle-kit generate` must report "No schema changes" unless you meant one.
 
 ## Money
 

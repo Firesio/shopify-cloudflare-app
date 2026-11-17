@@ -6,7 +6,7 @@ import { stripJsonComments } from "../../scripts/wrangler-config.mjs";
 
 /**
  * The cron expressions of wrangler.jsonc and the preset's `scheduled` handler are ONE decision: the handler drains the portal outbox
- * on every tick, runs the hourly work (the uninstall probe, the ticket backfill) on `HOURLY_CRON` and the daily work (the metrics
+ * on every tick, runs the hourly work (the uninstall probe, the ticket backfill, the sweep of held usage) on `HOURLY_CRON` and the daily work (the metrics
  * snapshot, the prune) on `DAILY_CRON`. A cron the
  * preset does not know runs the daily work too, so a typo would not fail: it would run the prune every minute.
  */

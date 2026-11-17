@@ -21,7 +21,7 @@ a package bump is `npm install @firesio/app@<range>`). Run `npm run verify` befo
 
 What this tag removed from the earlier template, and where it went: money, billing and entitlements, notifications and Web Push, support, members, the text
 units, AI, the webhook inbox, the GDPR purge, the Admin client, the guard, the Worker's handlers and the AdminApi are `@firesio/app` (the preset at its root, one subpath per library); the staff console, MCP, campaigns and the `api/v1` routes are the portal's
-job (or gone); the Partner-history sweep, the uninstall probe and the scope log were not carried (see the report that came with step 13).
+job (or gone); the Partner-history sweep, the uninstall probe and the scope log were not carried (see the report that came with step 13; the uninstall probe has since come back as a step of the preset's hourly cron).
 
 ---
 
@@ -35,9 +35,14 @@ read in `docs/shopify-api-invariants.md`. Production apps: deploy the Worker fir
 from any queue, cron, secret or migration change.
 
 **`@firesio/app` and `@firesio/portal-contract`.** `npm install @firesio/app@<range> @firesio/portal-contract@<range>` with
-`NPM_TOKEN` in the environment (never in a file), then `npm run verify`. A library that gained a table or a column makes
-`tools/architecture/schema-drift.test.ts` fail until `npm run db:generate` writes the migration (read the SQL: the app owns its
-migrations); `drizzle-kit generate` must then report no changes. The preset's README (`node_modules/@firesio/app/src/preset/README.md`)
+`NPM_TOKEN` in the environment (never in a file), then `npm run verify`. Before 1.0 a minor version may break: read the release's
+entry in the package's CHANGELOG (`packages/app/CHANGELOG.md` in the Firesio platform repo; the installed package carries its
+READMEs, not its CHANGELOG) and this template's `CHANGELOG.md`, which says what an app on the template does. A library that gained
+a table or a column makes `tools/architecture/schema-drift.test.ts` fail until `npm run db:generate` writes the migration (read the
+SQL: the app owns its migrations, and its database holds rows); `drizzle-kit generate` must then report no changes. When a library
+RENAMED a table, drizzle-kit asks whether the new one is "created or renamed": answer renamed, so the migration is
+`ALTER TABLE ... RENAME TO` and the rows stay (a drop and a create would lose them), and add a case to
+`tools/architecture/migration-rows.test.ts`. The preset's README (`node_modules/@firesio/app/src/preset/README.md`)
 lists every option and binding; a new required binding goes in `wrangler.jsonc` at the top level AND `env.production`.
 
 **Cloudflare: wrangler and `compatibility_date`.** `npx wrangler types` after any `wrangler.jsonc` change (`npm run verify`

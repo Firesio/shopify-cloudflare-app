@@ -81,14 +81,16 @@ and evidence; a checked box is not a substitute for a tested implementation.
 
 ## 3. Decide billing, AI and members
 
-- Replace the plan table in `app/core/plans.ts` with actual plan names, prices, intervals,
-  trial rules, and Managed Pricing handles (the plan handle is the key that joins Shopify's subscription
-  to the table). Verify the same handles in Shopify's Partner configuration before billing a merchant.
-  Declare an entitlement key only when something backs it: `members.max` is enforced by the members
-  library, `tickets.max` is only shown (the plans page's open-ticket meter) and a hard limit is the
-  app's own check, and a counter such as emails per day needs the app's own `services.usage.consume`
-  call plus a `meters` entry in `app/firesio.server.ts` (the template ships none: the preset counts no mail
-  against a daily allowance, so a `mail.daily_max` key would show 0 forever).
+- Replace the catalogue in `app/core/plans.ts` (`definePlans({ features, plans })`) with actual features, plan names,
+  prices, intervals and Managed Pricing handles (the plan handle is the key that joins Shopify's subscription
+  to the table; exactly one plan is free). Verify the same handles in Shopify's Partner configuration before billing a merchant.
+  The plans page is generated from the catalogue: a feature's `name` is its row, every `capacity` and `quota` is a usage meter,
+  `show: false` keeps a gate off the page. Declare a feature only when something backs it: `members.max` is enforced by the
+  members library, `tickets.max` is only shown (a capacity whose `count` is the preset's open-ticket count, passed in by
+  `app/firesio.server.ts`) and a hard limit is the app's own check; a `quota` such as emails per day needs the app's own
+  `services.usage.consume(shop, "<the feature's key>", ...)` call (the template ships none: the preset counts no mail
+  against a daily allowance, so a `mail.daily_max` quota would show 0 forever); a `metered` feature (usage billed by Shopify)
+  needs its meter in the Partner Dashboard, `services.billedUsage.record(...)` and `firesioSchemaPaths({ metered: true })`.
 - AI works out of the box: the support form's spam check asks Cloudflare's decision model (Clef) and answers "no opinion" when
   it is unavailable, so a real customer's mail is never lost to a model; a feature of your own calls the shop's `ai`
   (`CLAUDE.md`, section "AI"). Cloudflare's Auto Router picks the model; pin one per feature in `ai.models` only when a

@@ -23,7 +23,7 @@ comparison context only when the comparison is meaningful. Money is formatted
 from integer minor units plus its currency, and counts from numbers, with
 `Intl.NumberFormat` and the shop's locale (the template has no formatting
 helper yet). All visible copy, including table headings, activity labels, and
-placeholder names, belongs in the label objects of `app/i18n/labels.ts` for every
+placeholder names, belongs in the label objects of `app/i18n/` for every
 supported language.
 
 Keep the page useful when data is empty: use the `s-empty-state` component

@@ -1,13 +1,14 @@
 import type { loader as layoutLoader } from "./layout";
 import { useLoaderData, useRouteLoaderData } from "react-router";
 import { identity } from "~/core/identity";
-import { PLANS } from "~/core/plans";
 import { firesio } from "~/firesio.server";
 
 // `firesio.loader(permission, handler)`: the member is read and the permission checked (403 otherwise) before the handler runs.
 export const loader = firesio.loader("app:view", async ({ shop, services }) => {
   const effective = await services.billing.effectivePlan(shop);
-  return { shop, plan: PLANS[effective.ok ? effective.effective.planHandle : "free"].name };
+  const handle = effective.ok ? effective.effective.planHandle : "free";
+  // `services.plans` is the plan table of the app's catalogue (`core/plans.ts`); a plan that declares no name shows its handle.
+  return { shop, plan: services.plans[handle].name ?? handle };
 });
 
 /**

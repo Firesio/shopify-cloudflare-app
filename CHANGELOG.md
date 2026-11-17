@@ -5,8 +5,31 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
 
 ## template-v1.0.0 (unreleased)
 
+- `@firesio/app` 0.9.0, a BREAKING release (what a new form replaces is removed, not deprecated; the package's own CHANGELOG, `packages/app/CHANGELOG.md` in the
+  Firesio platform repo, lists everything). What changed here, and what an app on an earlier state of this template does:
+  - **Plans are declared once.** `app/core/plans.ts` is `definePlans({ features, plans })`: each feature is a `capability`, `capacity`, `quota` or `metered` with its
+    `name`, and each plan gives a `grants` value per feature (`limit(50)` is `50`, `unlimited` is `"unlimited"`, `enabled`/`disabled` are `true`/`false`); exactly one plan
+    is free. The plans page, its comparison rows and its usage meters are generated from it, so `app/i18n/labels.ts` (`ENTITLEMENT_LABELS`), `labels.entitlements`
+    and the `meters` option are gone: move each name to its feature, and each meter to the feature it measured (a `quota` shows the counter kept under its own key).
+    The preset no longer adds the open-ticket meter: `tickets.max` is a `capacity` whose `count` is the preset's `services.openTicketCount`. Core imports no
+    service, so the file exports `planCatalogue({ openTickets })` and `app/firesio.server.ts` builds `PLANS` from it; code that read `PLANS[handle]` reads
+    `PLANS.plans[handle]` (`import { PLANS } from "~/firesio.server"`) or `services.plans[handle]`. The template declares no `metered` feature (it has nothing
+    Shopify could bill per use, and a meter must exist in the Partner Dashboard first), so `drizzle.config.ts` does not pass `{ metered: true }`.
+  - **One migration, `drizzle/0003_mean_trauma.sql`.** The settings table is RENAMED, `shop_settings` to `firesio_settings` (`ALTER TABLE ... RENAME TO`: saved
+    settings stay); `plan_usage_holds` (`services.usage.reserve` / `commit` / `cancel`, with the CHECKs and `WITHOUT ROWID` of the library's `holdsTableSql()`);
+    `content_overrides.hidden` (`'[]'` for the edits already saved). An app that generates its own migration answers "renamed" when drizzle-kit asks about
+    `firesio_settings` (the default answer, "create", drops the old table and its rows). Migrate and deploy together (`npm run cf:deploy` does): between the
+    two, the Worker still on 0.8 reads `shop_settings`, which is gone, so its settings page fails until the new Worker is live. New test `tools/architecture/migration-rows.test.ts`: rows written before the migration are still there after it.
+  - **Options an app may have used.** `access` is a list of rules (`[{ path: "/app/settings", needs: "settings:manage" }]`, or `read` and `write` apart) instead of a
+    record; `firesio.check(auth, { permission, surface, respond })` instead of a positional permission; a `webhooks` entry takes `unknownShop: "run" | "defer"` and
+    `heldWhileFrozen` (`requiresShop` is gone); `uninstallProbe` is gone (`cron: { preset: { uninstall_probe: false } }` leaves the step out, `firesio.jobs()` runs it);
+    `support.limitersWhenUnbound: { tickets, form, mail }` replaces `limiterWhenUnbound`; the `notifications` option is gone (`notify.messages` only), and `notify`
+    answers `can` / `look` / `copies` where it had `brand` and the standard entitlement names (the skip reason `not_entitled` is `not_allowed`).
+  - **Dates.** Every boundary is UTC (a quota's day and month, the end of a cancellation's day): `timeZone` left `periodWindow`, `endOfDayIn`, `ShopRef` and
+    `CountWindow`. A shop's time zone only formats what a person reads.
+  - The hourly cron also gives back quota a crashed run left reserved (`held_usage_sweep`, `heldUsageMaxAge`).
 - Settings: a sample group (`app/core/settings.ts`, `defineSettings` with `visibleWhen` and `clearWhen`) and its page `/app/settings`
-  (`routes/app/settings.tsx`, `createPage` + `SettingsForm`, `app:manage`, linked in the menu), `shop_settings` in `drizzle/0002_careful_joshua_kane.sql`.
+  (`routes/app/settings.tsx`, `createPage` + `SettingsForm`, `app:manage`, linked in the menu), `shop_settings` in `drizzle/0002_careful_joshua_kane.sql` (renamed `firesio_settings` by `0003`, above).
   A group with `secret()` fields needs `SETTINGS_SECRET_KEY` in production (or `SETTINGS_SECRETS_PLAINTEXT: "allow"` at the top level in development).
 - `@firesio/app` 0.8.0 and `@firesio/portal-contract` 0.4.0. One migration, `drizzle/0001_eminent_enchantress.sql`: `notification_logs` (every mail is
   logged and deduped), `plan_usage_ops` (idempotent `consume`/`release`), `shop_plan_grants.request_id`, the subscription's real charge on
@@ -38,8 +61,8 @@ merging this tag.
 - `npm run new-app` blanks `client_id` in both Shopify configs (the template ships none), inserts a display name literally (`$&` and `$1` are not replacement patterns),
   answers `--help`, and prints the portal registration: one PR to the Firesio platform repo (`declared-apps.ts` and a service binding to `<slug>-production`).
 - `SHOP_CUSTOM_DOMAIN` is no longer in `secrets.required` (optional in the preset); `PARTNER_API_TOKEN` stays required by this template's choice.
-- `mail.daily_max` is gone from `PLANS`, the entitlement labels and the meters: nothing in the preset counts mail against a daily allowance, so the plans page showed 0 forever.
-  An app that sends mail of its own adds the key back with its own `services.usage.consume` call and a `meters` entry.
+- `mail.daily_max` is gone from the plans: nothing in the preset counts mail against a daily allowance, so the plans page showed 0 forever.
+  An app that sends mail of its own adds it back as a `quota` feature together with its own `services.usage.consume` call.
 - `scripts/ci-release.mjs` deploys the Shopify app config with the pinned local CLI (`scripts/shopify.mjs`), not `@shopify/cli@latest`; lint also bans `globalThis.crypto.randomUUID`.
 - `routes/webhooks/receive.ts` is `firesio.webhookRoute` (`action` is `firesio.webhook(request)` for every topic): the preset (`@firesio/app` 0.2.x with the all-topics receiver) verifies the HMAC first, so a bad signature is a 401 even for a topic nobody handles, and a verified topic it does not run is a 200 with nothing queued. The `firesio.handles(topic)` branch and its `webhook.unhandled` log line are gone; the docs, rules and the `add-webhook-topic` skill describe the current behaviour.
 - New end-to-end tests that boot the real Worker entry (`workers/*.e2e.test.ts`, the `e2e` vitest project): the AdminApi over a service binding with RPC, a signed `app/uninstalled` and `shop/redact` from `fetch` through `queue` to the D1 effect (and a redelivery), and every cron into `PORTAL_EVENTS`. `@firesio/app/preset/testing` (`installShop`, `recordSends`, `deliver`, `tick`) and `app/test/server-build.ts` are their helpers; `eslint.boundaries.js` knows the second one.

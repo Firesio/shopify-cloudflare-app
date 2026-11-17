@@ -1,7 +1,6 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { PLANS } from "~/core/plans";
-import { firesio } from "./firesio.server";
+import { firesio, PLANS } from "./firesio.server";
 import { setupTestDatabase } from "./test/database";
 
 setupTestDatabase();
@@ -10,7 +9,8 @@ describe("the preset, configured as the template configures it", () => {
   it("builds every service from the bindings wrangler.jsonc declares (a missing binding is one error naming it)", () => {
     const services = firesio.services(env);
     expect(services.support).not.toBeNull();
-    expect(services.plans).toBe(PLANS);
+    expect(services.catalogue).toBe(PLANS);
+    expect(services.plans).toBe(PLANS.plans);
   });
 
   it("serves a shop with no subscription the free plan", async () => {

@@ -18,7 +18,7 @@ Fill local secrets in `.dev.vars`; never commit it. Add feature code under `app/
 
 ## App identity
 
-`app/core/identity.ts` (slug, name, legal), `app/core/plans.ts`, `app/i18n/labels.ts`, the webhook queue names in `wrangler.jsonc` (`npm run new-app` renames them with the Worker's resources; the preset derives the queues it consumes from the slug, so `app/firesio.server.ts` names none), and both Shopify TOML files. The slug is the `appSlug` on every
+`app/core/identity.ts` (slug, name, legal), `app/core/plans.ts`, the webhook queue names in `wrangler.jsonc` (`npm run new-app` renames them with the Worker's resources; the preset derives the queues it consumes from the slug, so `app/firesio.server.ts` names none), and both Shopify TOML files. The slug is the `appSlug` on every
 event, and the name the portal knows the app by: the app is declared there in ONE pull request to the Firesio platform repo (section 5 of
 [the adoption checklist](ADOPTING_THE_TEMPLATE.md) has the steps). Until it is merged and deployed the portal lists the app as pending and stores none of its events.
 

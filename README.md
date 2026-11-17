@@ -50,12 +50,12 @@ producer and `export const AdminApi = firesio.AdminApi`) is already here.
 ```
 app/
   firesio.server.ts  THE glue: `createFiresio({ identity, plans, members, schema, ... })`, only what differs from the preset's defaults
-  core/        the app's own declarations (identity, PLANS, MEMBERS) and pure helpers (install target, security headers, body limit, error logs)
+  core/        the app's own declarations (identity, the plan catalogue, MEMBERS, the settings groups) and pure helpers (install target, security headers, body limit, error logs)
   db/          the app's own Drizzle tables (none yet; the shared ones are the preset's)
   routes/      thin: app/ (embedded; `middleware = [firesio.adminMiddleware]`, one-line files mounting @firesio/app/ui/*), public/, auth/, webhooks/, healthz
-  components/  presentational React (the app's nav); i18n/ the label objects the library pages take
+  components/  presentational React (the app's nav)
 workers/       app.ts: fetch, then `firesio.queue`, `firesio.scheduled`, `firesio.email` and `AdminApi = firesio.AdminApi`
-drizzle/       the app's migrations (one baseline; the libraries' tables included)
+drizzle/       the app's migrations (a baseline and one per library release since; the libraries' tables included)
 tools/         architecture tests; eslint.boundaries.js is the layer table
 ```
 
@@ -66,10 +66,11 @@ Actions minutes); a push to `main` runs no CI, so run `npm run verify` before yo
 
 ## What an app writes
 
-Plans (`app/core/plans.ts`), roles and permissions (`members.ts`), the identity (`identity.ts`), the names of the plans page's
-entitlement keys and any other words of the library pages (`app/i18n/labels.ts`), its own pages and tables (`app/db/schema.ts`), and
-the options of `createFiresio` in `app/firesio.server.ts` that differ from the defaults: `content` and `notifications` (the
-preset sends the support mails with its own English texts), `metrics` (your own keys next to the standard ones), `meters`, `ai`,
+Plans (`app/core/plans.ts`: `definePlans({ features, plans })`, declared once; the plans page, its comparison rows and its usage
+meters are generated from it), roles and permissions (`members.ts`), the identity (`identity.ts`), its settings groups (`settings.ts`),
+its own pages and tables (`app/db/schema.ts`), its words in another language (label objects in `app/i18n/`, passed as `labels`), and
+the options of `createFiresio` in `app/firesio.server.ts` that differ from the defaults: `content` and `notify` (the
+preset sends the support mails with its own English texts), `metrics` (your own keys next to the standard ones), `access`, `ai`,
 `support` (`false` leaves support out; `support.staffUrl` puts the portal's ticket address in the staff alert mail), `purge` and `customerData` for tables and customer data of its own. Everything else is the
 preset's: see `node_modules/@firesio/app/src/preset/README.md` (every option, its default and the bindings it reads).
 

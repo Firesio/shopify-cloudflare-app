@@ -48,7 +48,7 @@ Secrets (set with `wrangler secret put`, declared by NAME in `secrets.required` 
 
 Optional and NOT declared (a name in `secrets.required` is a deploy-time requirement): `TURNSTILE_SECRET_KEY` (the support form's
 bot check; `TURNSTILE_SITE_KEY` is the public var), `SHOP_CUSTOM_DOMAIN` (only an app that serves a shop's custom domain),
-`SHOPIFY_API_SECRET_PREVIOUS` (only during a rotation, below), `SETTINGS_SECRET_KEY` (seals the `secret()` fields of the `settings` library at rest, AES-256-GCM; base64 of 32 random bytes; without it they are stored as plain text, and adding it later needs no migration: the next save seals them; `SETTINGS_SECRET_KEY_ID` and `SETTINGS_SECRET_KEY_PREVIOUS` with its `_ID` serve a rotation). The template declares no `settings`, so it has no use for it until an app adds them.
+`SHOPIFY_API_SECRET_PREVIOUS` (only during a rotation, below), `SETTINGS_SECRET_KEY` (seals the `secret()` fields of the `settings` library at rest, AES-256-GCM; base64 of 32 random bytes; without it a Worker whose settings groups hold a `secret()` field refuses to build its services, `SettingsSecretKeyMissing`, unless `SETTINGS_SECRETS_PLAINTEXT` is `"allow"` at the top level, development only; `SETTINGS_SECRET_KEY_ID` and `SETTINGS_SECRET_KEY_PREVIOUS` with its `_ID` serve a rotation). The template's sample settings group holds no secret, so it has no use for the key until an app adds one.
 
 Everything else is a var in `wrangler.jsonc`, committed on purpose: `SHOPIFY_API_KEY` (the public client id), `SCOPES`,
 `SHOPIFY_APP_URL`, `SHOPIFY_APP_HANDLE`, `EMAIL_FROM`, `EMAIL_FROM_NAME`, `STAFF_ALERT_EMAIL`, `SUPPORT_MAIL_DOMAIN`,
@@ -123,18 +123,26 @@ sent a second time (the portal drops the duplicate by event id).
 
 ## Scheduled work (cron) and R2
 
-Production has two crons (`triggers.crons`, re-declared under `env.production`; the preset's `worker/cron.ts` knows exactly these
-two strings and `scripts/wrangler-bindings.test.mjs` pins them):
+Production has three crons (`triggers.crons`, re-declared under `env.production`; the preset's `worker/cron.ts` knows exactly these
+strings and `tools/architecture/wrangler-crons.test.ts` holds `wrangler.jsonc` to them):
 
-- `* * * * *`, every minute: **drains the portal outbox** into the `portal-events-prod` queue (up to 50 events a run). Nothing else.
-- `30 3 * * *`, daily: the same drain, then the **daily metrics snapshot** (yesterday's counts, sent as one `metrics.snapshot` event) and
-  the **prune**: sent outbox rows older than a week, spent usage counters, and expired support uploads. The sweep deletes the R2 objects before
-  their D1 rows, so a failed object deletion stays retryable on the next daily tick.
+- `* * * * *`, every minute: **drains the portal outbox** into the `portal-events-prod` queue (up to 50 events a run). Nothing else
+  (an app with a `metered` feature also sends its usage reports to Shopify on every tick).
+- `0 * * * *`, hourly: the same drain, then the **uninstall probe**, the one-time **ticket backfill**, the **sweep of held usage** (a
+  quota reserved with `services.usage.reserve` and never settled is given back after `heldUsageMaxAge`, 30 minutes by default) and the
+  app's own `cron.hourly` steps.
+- `30 3 * * *`, daily: the same drain, then the **daily metrics snapshot** (yesterday's counts, sent as one `metrics.snapshot` event), the
+  **prune** (sent outbox rows older than a week, spent usage counters with their operations and settled holds, expired support uploads, and
+  the preset's logs by `retention`) and the **subscription refresh**. The sweep deletes the R2 objects before their D1 rows, so a failed
+  object deletion stays retryable on the next daily tick.
 
-Development has one cron, `*/5 * * * *`, which runs both (the daily work runs on every tick that is not the drain-only one).
+Development has one cron, `*/5 * * * *`, which runs all of it (the hourly and the daily work run on every tick).
 
-Each step logs one line, `cron.step` with `step` (`outbox_drain`, `metrics_snapshot`, `prune`) and its counts, or `cron.step_failed` with
-the step name when it threw; a failed step does not stop the next one and is repaired by the next tick. Investigate `cron.step_failed` and the
+A step that did something logs one line, `cron.step` with `step` (`outbox_drain`, `uninstall_probe`, `tickets_backfill`,
+`held_usage_sweep`, `metrics_snapshot`, `prune`, `subscriptions_refresh`) and its counts; a step that threw always logs
+`cron.step_failed` with its name. A failed step does not stop the next one and is repaired by the next tick. A step of the preset's an
+app runs at its own pace is left out with `cron: { preset: { <step>: false } }` and called through `firesio.jobs()`; while the app's
+`frozen` option answers true, a tick drains the outbox and does nothing else (`cron.held_frozen`). Investigate `cron.step_failed` and the
 event-specific log lines before touching data by hand.
 
 ```bash

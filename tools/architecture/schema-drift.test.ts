@@ -20,12 +20,21 @@ async function tablesOf(file: string): Promise<string[]> {
   return Object.values(module).flatMap((value) => (is(value, SQLiteTable) ? [getTableConfig(value).name] : []));
 }
 
-/** The tables the migrations create (and not drop again): every `CREATE TABLE` of every .sql file, in order. */
+const NAME = "[`\"]?(\\w+)[`\"]?";
+const TABLE_STATEMENT = new RegExp(`CREATE TABLE\\s+(?:IF NOT EXISTS\\s+)?${NAME}|DROP TABLE\\s+(?:IF EXISTS\\s+)?${NAME}|ALTER TABLE\\s+${NAME}\\s+RENAME TO\\s+${NAME}`, "gi");
+
+/**
+ * The tables the migrations leave behind: every `CREATE TABLE`, `DROP TABLE` and `ALTER TABLE ... RENAME TO` of every .sql file,
+ * in the order they run (a renamed table is known by its new name only).
+ */
 function migratedTables(): string[] {
   const sql = readdirSync(join(root, "drizzle")).filter((name) => name.endsWith(".sql")).sort().map((name) => readFileSync(join(root, "drizzle", name), "utf8")).join("\n");
   const tables = new Set<string>();
-  for (const match of sql.matchAll(/CREATE TABLE\s+(?:IF NOT EXISTS\s+)?[`"]?(\w+)[`"]?/gi)) tables.add(match[1] ?? "");
-  for (const match of sql.matchAll(/DROP TABLE\s+(?:IF EXISTS\s+)?[`"]?(\w+)[`"]?/gi)) tables.delete(match[1] ?? "");
+  for (const [, created, dropped, renamedFrom, renamedTo] of sql.matchAll(TABLE_STATEMENT)) {
+    if (created !== undefined) tables.add(created);
+    if (dropped !== undefined) tables.delete(dropped);
+    if (renamedFrom !== undefined && renamedTo !== undefined && tables.delete(renamedFrom)) tables.add(renamedTo);
+  }
   return [...tables].sort();
 }
 

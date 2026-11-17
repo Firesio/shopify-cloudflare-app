@@ -1,9 +1,9 @@
 import { env } from "cloudflare:workers";
+import { planMeters } from "@firesio/app/plans";
 import { installShop } from "@firesio/app/preset/testing";
 import { callCommand, grantListSchema, openTicketResultSchema, planListSchema, revokeGrantResultSchema, standingSchema, ticketPageSchema, ticketSchema } from "@firesio/portal-contract";
 import { describe, expect, it } from "vitest";
-import { PLANS } from "~/core/plans";
-import { firesio } from "~/firesio.server";
+import { firesio, PLANS } from "~/firesio.server";
 import { setupTestDatabase } from "~/test/database";
 
 setupTestDatabase();
@@ -54,7 +54,7 @@ describe("the AdminApi entrypoint over a service binding: billing", () => {
     const plans = await callCommand(() => admin().billing().plans({}), planListSchema);
     expect(plans.ok).toBe(true);
     if (!plans.ok) return;
-    expect(plans.value.plans.map((plan) => plan.id).sort()).toEqual(Object.keys(PLANS).sort());
+    expect(plans.value.plans.map((plan) => plan.id).sort()).toEqual(Object.keys(PLANS.plans).sort());
   });
 
   it("refuses a gift for a shop it does not know and for a plan it does not have", async () => {
@@ -105,5 +105,19 @@ describe("the AdminApi entrypoint over a service binding: support", () => {
     await admin().support().open({ account: account("admin-four.myshopify.com"), requestId: "req-4", subject: "Four", body: "Only four.", category: "bug", actor: "staff_1" });
     const page = await callCommand(() => admin().support().listTickets({ account: account("admin-five.myshopify.com") }), ticketPageSchema);
     expect(page.ok && page.value.tickets).toEqual([]);
+  });
+});
+
+describe("the open-ticket meter of the plans page", () => {
+  it("counts the open tickets of the shop it is asked about, from the database, and never another shop's", async () => {
+    await installShop(firesio, env, "meter-one.myshopify.com", 1_700_000_000_000);
+    await installShop(firesio, env, "meter-two.myshopify.com", 1_700_000_000_000);
+    await admin().support().open({ account: account("meter-one.myshopify.com"), requestId: "req-meter", subject: "One", body: "Only one.", category: "question", actor: "staff_1" });
+    const source = planMeters(PLANS).find((meter) => meter.key === "tickets.max")?.source;
+    expect(source?.kind).toBe("count");
+    if (source?.kind !== "count") return;
+    const at = { now: 1_700_000_000_000, window: null };
+    expect(await source.count("meter-one.myshopify.com", at)).toBe(1);
+    expect(await source.count("meter-two.myshopify.com", at)).toBe(0);
   });
 });

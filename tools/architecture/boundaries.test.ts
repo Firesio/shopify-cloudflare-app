@@ -55,9 +55,8 @@ async function boundaryFindings(relativePath: string, code: string): Promise<Fin
   return [...unresolvedImports(path, code), ...findings];
 }
 
-const CORE = `import { PLANS } from "~/core/plans";`;
+const CORE = `import { planCatalogue } from "~/core/plans";`;
 const DB = `import * as schema from "~/db/schema";`;
-const LABELS = `import { ENTITLEMENT_LABELS } from "~/i18n/labels";`;
 const FIRESIO = `import { firesio } from "~/firesio.server";`;
 
 /** Imports the table must refuse: [label, probe file, code]. */
@@ -81,7 +80,7 @@ const ALLOWED: readonly (readonly [string, string, string])[] = [
   ["i18n → core", "app/i18n/probe.ts", CORE],
   ["a route → the composition file, core, db and components", "app/routes/probe.ts", `${FIRESIO}\n${CORE}\n${DB}\nimport { AppNav } from "~/components/AppNav";`],
   ["worker → the composition file and core", "workers/probe.ts", `${FIRESIO}\n${CORE}`],
-  ["a test → what it tests and the test support", "app/core/probe.test.ts", `${FIRESIO}\n${LABELS}\nimport { setupTestDatabase } from "~/test/database";`],
+  ["a test → what it tests and the test support", "app/core/probe.test.ts", `${FIRESIO}\n${CORE}\nimport { setupTestDatabase } from "~/test/database";`],
   ["a test → the root route", "app/root.probe.test.tsx", `import { ErrorBoundary } from "~/root";`],
 ];
 

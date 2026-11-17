@@ -11,7 +11,6 @@
     "app/firesio.server.ts",
     "app/firesio.server.workerd.test.ts",
     "app/db/schema.ts",
-    "app/i18n/labels.ts",
     "app/routes/app/home.tsx",
     "app/routes/public/",
     "app/styles/",
@@ -35,7 +34,6 @@
   "template": [
     "app/components/",
     "app/core/",
-    "app/i18n/",
     "app/routes/",
     "app/test/",
     "app/root.tsx",

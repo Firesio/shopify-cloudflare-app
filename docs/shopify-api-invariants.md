@@ -12,7 +12,8 @@ pointer; the finding and its design consequence still hold. Where a current equi
 | `app/adapters/shopify-webhook.server.ts`, `app/routes/webhooks/*.server.ts`, `app/services/webhook-*.ts`, `app/domain/webhook-*.ts` | `@firesio/app/shopify` (`webhooks/verify.ts`, `intake.ts`, `inbox.ts`, `ordering.ts`) and the preset's `worker/receive.ts` and `worker/consume.ts`; the route is `firesio.webhook(request)` |
 | `app/services/redaction*.ts`, `app/routes/webhooks/redaction.test.ts` | `@firesio/app/shopify` `tombstone.ts` and the preset's `purge/` |
 | `.claude/rules/members.md`, `app/services/members/`, `app/domain/member-seat*.ts` | the members library: `node_modules/@firesio/app/src/members/README.md` |
-| the uninstall probe, the Partner-history sweep, the in-app review request, the staff dead-letter alert | gone: not in this template (the crons are the two of the preset's `worker/cron.ts`: the outbox drain and the daily snapshot) |
+| the Partner-history sweep, the in-app review request, the staff dead-letter alert | gone: not in this template |
+| the uninstall probe | the preset's hourly cron step `uninstall_probe` (`worker/cron.ts`; `docs/OPERATIONS.md`, "Scheduled work") |
 
 A memo, not an authority. **The skill lookup always wins** — see
 `@rules/shopify-and-ui.md`. What this file buys is two things:

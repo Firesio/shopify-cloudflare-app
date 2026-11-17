@@ -16,7 +16,7 @@ For the app's own page:
 3. **Route**: file under `app/routes/app/`, entry inside the `route("app", ...)` group of `app/routes.ts`; a link in `AppNav` (`app/components/AppNav.tsx`) for the permission that gates it.
 4. **Access**: the layout's `middleware = [firesio.adminMiddleware]` authenticates and admits; loader and action then call `const { shop, member, services } = firesio.from(context); firesio.requirePermission(member, "<permission>")`; a permission name that `MEMBERS` does not declare does not compile. Hiding a link is courtesy; the server is the lock.
 5. **Structure**: sections are direct children of `s-page`; spacing only from `s-section`/`s-stack`/`s-grid`; a toast on every create/update; `loading` on the submitting button only.
-6. **Words**: plain strings in a label object built per language in `app/i18n/labels.ts`; dates and money through `Intl` with the shop's zone and locale.
+6. **Words**: plain strings in a label object built per language in `app/i18n/` (the app's to create: the template has no words of its own beyond its placeholder pages); dates and money through `Intl` with the shop's zone and locale.
 7. **Speed**: the loader awaits only what the page cannot render without; bounded queries.
 8. **Validate** the markup with the `shopify-plugin:shopify-polaris-app-home` skill's `validate.mjs`.
 9. **Tests**: loaders, actions and the guard on the server side. Polaris cannot be unit-tested: verify the rendering by hand and **say so**.

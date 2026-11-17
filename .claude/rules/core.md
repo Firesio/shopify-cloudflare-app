@@ -12,17 +12,18 @@ One law: **dependencies point inward.** The table is `eslint.boundaries.js`; `to
 
 | Element | Folder | Holds | May import |
 |---|---|---|---|
-| core | `app/core/` | The app's declarations (`PLANS`, `MEMBERS`, identity) and pure helpers | core |
+| core | `app/core/` | The app's declarations (the plan catalogue, `MEMBERS`, identity, the settings groups) and pure helpers | core |
 | db | `app/db/` | The app's own Drizzle tables (the shared ones are `@firesio/app`'s) | db |
 | composition | `app/firesio.server.ts` | THE call of `createFiresio`: only what differs from the preset's defaults | core, db, i18n |
 | components | `app/components/` | Presentational React (props in, JSX out) | core, i18n |
-| i18n | `app/i18n/` | Language of a request, the label objects the `@firesio/app/ui/*` pages take | core |
+| i18n | `app/i18n/` | The app's words per language: the label objects of its own pages, and the `labels.*` functions of `createFiresio` for an app in another language than the library's (none in the template: plans and features are named in `core/plans.ts`) | core |
 | routes | `app/routes/` | Read input, call a use case or a library route module, return | composition, components, i18n, core, db |
 | entry | `root.tsx`, `routes.ts`, `entry.*` | Document and route table | routes, composition, components, i18n, core |
 | workers | `workers/` | `fetch`, then `scheduled`, `queue`, `email`, `AdminApi`: delegate to `firesio` | composition, core |
 
 - core takes time, ids, randomness and secrets as arguments: lint bans `Date.now`, `new Date()`, `Math.random`, `crypto.randomUUID` outside tests (the preset's runtime reads them; a Date made from a value, `new Date(ms)`, is fine) and bans `fetch` and React in core.
-- A use case of the app's own declares a port and receives an adapter built from `firesio.services()`; entry points hold no logic. The adapters of the shared tables are the preset's.
+- A use case of the app's own declares a port and receives an adapter built from `firesio.services()`; entry points hold no logic. The adapters of the shared tables are the preset's. The plan catalogue is the example: `core/plans.ts` declares `PlanCounts` (what its usage meters count) and `app/firesio.server.ts` passes the preset's count, so core never imports the composition file (the import cycle the preset's README calls harmless is refused by the layer table here).
+- Dates: every boundary that decides something (a quota's day or month, the end of a cancellation's day) is UTC, with the helpers of `@firesio/app/core` (`startOfUtcDay`, `startOfUtcMonth`, ...). A shop's time zone only formats what a person reads (`Intl`).
 - The libraries are packages: import their public entries (`@firesio/app`, `@firesio/app/plans`, `/d1`, `/testing`, ...), never their `src` paths (`drizzle.config.ts` takes the schema paths from `firesioSchemaPaths()`, `@firesio/app/preset/schema`). A rule or a feature that two apps need goes to the library (platform repo), not here.
 - **No mutable module state**: an isolate is reused across shops. The preset's caches (`firesio.services`, `firesio.shopify`) are `WeakMap`s keyed by `env`, holding nothing about a shop; the app adds none.
 - Dead code is deleted. Tests sit beside their subject (`*.test.ts`); shared helpers in `app/test/`.
