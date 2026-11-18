@@ -46,6 +46,15 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
     comment of a hand-checked migration (`-- the old table is dropped below: create table later`) or a string literal read as a table. The
     comments (`--`, `/* */`) and the text of string literals are blanked first, quoted identifiers kept; a test says a word in a comment or a
     string is not a table. Nothing to do in an app.
+  - **The architecture probes are fast and write nothing into `app/`.** `tools/architecture/boundaries.test.ts` linted each probe with the
+    whole type-aware config (the TypeScript program of the whole app, for each probe: too slow on a large app) and wrote its probes, and the
+    adapter, wiring and messages files they import, into `app/` while it ran, where a test that crawls the sources (route exports, bundle
+    guards) found them. The probes now run in a throwaway copy of the layout in `os.tmpdir()` (`tools/architecture/probe-world.ts`: the
+    repo's `tsconfig.json`, a link to `node_modules`, an empty module at each imported path), linted by the repo's `eslint.config.js` with
+    its own boundaries settings moved there, only the rule under test (`ruleFilter`) and no type-aware parsing; a message without a rule
+    (a parse error, an ignored file) counts as a finding. 9.7 s became 1.9 s here. Each probe was checked to fail with its rule loosened
+    (a policy widened, `default: "allow"`, `no-unknown-files` off, a ban removed, a cap raised, the resolver's tsconfig or the root path
+    broken). An app with probes of its own rules writes them with `createProbeWorld`, and its crawling tests need no exception for them.
 - `@firesio/app` 0.10.1, which carries 0.9.0, a BREAKING release (what a new form replaces is removed, not deprecated; the package's own CHANGELOG, `packages/app/CHANGELOG.md` in the
   Firesio platform repo, lists everything). What changed here, and what an app on an earlier state of this template does:
   - **Plans are declared once.** `app/core/plans.ts` is `definePlans({ features, plans })`: each feature is a `capability`, `capacity`, `quota` or `metered` with its

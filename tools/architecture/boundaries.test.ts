@@ -1,58 +1,16 @@
-import { existsSync } from "node:fs";
-import { mkdir, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { ESLint } from "eslint";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createProbeWorld, type Finding, type ProbeWorld } from "./probe-world";
 
 /**
- * Proves the architecture table in eslint.boundaries.js, and the bans in eslint.config.js, are enforced. Each probe is a real
- * file written where it claims to live (the plugin classifies files on disk), linted, then removed with any folder it created.
- * If the import resolver stopped working the plugin would let every import through silently and the "refuses" cases would fail;
- * each refusal must come from the dependency rule itself.
+ * Proves the architecture table in eslint.boundaries.js, and the bans in eslint.config.js, are enforced. Each probe is a file linted
+ * with the repo's whole config where it claims to live, in a throwaway copy of the layout outside the repo (`./probe-world.ts`: no
+ * file is ever written into `app/`). If the import resolver stopped working the plugin would let every import through silently and
+ * the "refuses" cases would fail; each refusal must come from the dependency rule itself.
  */
-const root = join(import.meta.dirname, "../..");
-const eslint = new ESLint({ cwd: root });
+let world: ProbeWorld;
 
-interface Finding {
-  readonly rule: string;
-  readonly message: string;
-}
-
-/** The outermost folder on the way to `path` that does not exist yet, so cleanup removes only what the probe made. */
-function firstMissingFolder(path: string): string | null {
-  let missing: string | null = null;
-  for (let dir = dirname(path); !existsSync(dir); dir = dirname(dir)) missing = dir;
-  return missing;
-}
-
-/** The plugin lets an import it cannot resolve through silently: a probe pointing at a moved file would pass for the wrong reason. */
-function unresolvedImports(path: string, code: string): Finding[] {
-  const specifiers = [...code.matchAll(/from "([^"]+)"/g)].map((match) => match[1] ?? "");
-  return specifiers
-    .filter((specifier) => specifier.startsWith("~/") || specifier.startsWith("."))
-    .map((specifier) => ({ specifier, base: specifier.startsWith("~/") ? join(root, "app", specifier.slice(2)) : join(dirname(path), specifier) }))
-    .filter(({ base }) => ![".ts", ".tsx", "/index.ts"].some((suffix) => existsSync(`${base}${suffix}`)))
-    .map(({ specifier }) => ({ rule: "probe/unresolved", message: specifier }));
-}
-
-/** Writes the probe where it claims to live, lints it with the whole config, removes it; the findings of the rules whose id starts with `prefix`. */
-async function lintProbe(relativePath: string, code: string, prefix: string): Promise<{ path: string; findings: Finding[] }> {
-  const path = join(root, relativePath.replace(/probe\.tsx?$/, (ext) => `probe-${crypto.randomUUID()}${ext.slice("probe".length)}`));
-  const created = firstMissingFolder(path);
-  await mkdir(dirname(path), { recursive: true });
-  try {
-    await writeFile(path, `${code}\nexport const probe = 1;\n`);
-    const [result] = await eslint.lintFiles([path]);
-    const findings = (result?.messages ?? []).filter((m) => m.ruleId?.startsWith(prefix) === true).map((m) => ({ rule: m.ruleId ?? "", message: m.message }));
-    return { path, findings };
-  } finally {
-    await rm(created ?? path, { recursive: true, force: true });
-  }
-}
-
-async function boundaryFindings(relativePath: string, code: string): Promise<Finding[]> {
-  const { path, findings } = await lintProbe(relativePath, code, "boundaries/");
-  return [...unresolvedImports(path, code), ...findings];
+async function boundaryFindings(relativePath: string, code: string): Promise<readonly Finding[]> {
+  return [...world.unresolved(relativePath, code), ...(await world.lint(relativePath, code, "boundaries/"))];
 }
 
 const CORE = `import { PLANS } from "~/core/plans";`;
@@ -61,19 +19,23 @@ const FIRESIO = `import { firesio } from "~/firesio.server";`;
 const ROUTE = `import { loader } from "~/routes/healthz";`;
 const COMPONENT = `import { AppNav } from "~/components/AppNav";`;
 
-/**
- * Files the probes import from in the layers the template has no file in yet (an app's adapters, wiring and messages, in
- * feature sub-folders as a grown app has them): written before the probes, removed after with any folder they created.
- */
-const TARGETS: Readonly<Record<"adapter" | "wiring" | "notifications", string>> = {
-  adapter: "app/adapters/probe-orders/orders-repo.ts",
-  wiring: "app/wiring/probe-orders.ts",
-  notifications: "app/notifications/probe-messages.ts",
-};
-const ADAPTER = `import { target } from "~/adapters/probe-orders/orders-repo";`;
-const WIRING = `import { target } from "~/wiring/probe-orders";`;
-const NOTIFICATIONS = `import { target } from "~/notifications/probe-messages";`;
-const madeFolders: string[] = [];
+/** The modules the probes import, at the paths of the app's layout (empty modules in the probe world): the template's files, and an
+ * adapter, a wiring module and messages in feature sub-folders, the layers a grown app fills. */
+const WORLD = [
+  "app/core/plans.ts",
+  "app/db/schema.ts",
+  "app/firesio.server.ts",
+  "app/routes/healthz.ts",
+  "app/components/AppNav.tsx",
+  "app/test/database.ts",
+  "app/root.tsx",
+  "app/adapters/orders/orders-repo.ts",
+  "app/wiring/orders.ts",
+  "app/notifications/messages.ts",
+];
+const ADAPTER = `import { target } from "~/adapters/orders/orders-repo";`;
+const WIRING = `import { target } from "~/wiring/orders";`;
+const NOTIFICATIONS = `import { target } from "~/notifications/messages";`;
 
 /**
  * The Worker env's module, written into the probes' code only. Spelled in two parts because `vitest.config.ts` refuses a Node test
@@ -133,18 +95,11 @@ const ALLOWED: readonly (readonly [string, string, string])[] = [
 ];
 
 beforeAll(async () => {
-  for (const file of Object.values(TARGETS)) {
-    const path = join(root, file);
-    const made = firstMissingFolder(path);
-    if (made !== null) madeFolders.push(made);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, "export const target = 1;\n");
-  }
+  world = await createProbeWorld(WORLD);
 });
 
 afterAll(async () => {
-  for (const file of Object.values(TARGETS)) await rm(join(root, file), { force: true });
-  for (const folder of madeFolders) await rm(folder, { recursive: true, force: true });
+  await world.remove();
 });
 
 describe("architecture boundaries", () => {
@@ -166,7 +121,7 @@ describe("architecture boundaries", () => {
 });
 
 describe("the bans", () => {
-  const ban = async (path: string, code: string, rule: string) => (await lintProbe(path, code, rule)).findings;
+  const ban = (path: string, code: string, rule: string) => world.lint(path, code, rule);
 
   it.each([
     ["Date.now", "const at = Date.now();"],
@@ -205,7 +160,7 @@ describe("the bans", () => {
 });
 
 describe("the import bans (eslint.config.js)", () => {
-  const ban = async (path: string, code: string) => (await lintProbe(path, code, "no-restricted-imports")).findings;
+  const ban = (path: string, code: string) => world.lint(path, code, "no-restricted-imports");
 
   it("refuses createFiresio outside the composition file (the one call), but not in a test", async () => {
     const build = `import { createFiresio } from "@firesio/app";\nexport const build = createFiresio;`;
