@@ -18,6 +18,9 @@ export default [
     index("routes/app/home.tsx"),
     route("support", "routes/app/support/list.tsx"),
     route("support/new", "routes/app/support/new.tsx"),
+    // The file staging route of the support pages (`paths.supportUpload`): a resource route, no page. A static segment outranks
+    // `:ticketId`, so `upload` is never read as a ticket id.
+    route("support/upload", "routes/app/support/upload.ts"),
     route("support/:ticketId", "routes/app/support/thread.tsx"),
     route("members", "routes/app/members/team.tsx"),
     route("members/:memberId", "routes/app/members/member.tsx"),

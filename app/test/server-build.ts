@@ -3,13 +3,14 @@ import * as entryModule from "~/entry.server";
 import * as root from "~/root";
 import * as appHome from "~/routes/app/home";
 import * as appLayout from "~/routes/app/layout";
+import * as supportUpload from "~/routes/app/support/upload";
 import * as callback from "~/routes/auth/callback";
 import * as landing from "~/routes/public/landing";
 import * as support from "~/routes/public/support";
 import * as healthz from "~/routes/healthz";
 import * as receive from "~/routes/webhooks/receive";
 
-/** The two routes are resource routes (an action, a loader): the build type wants a component, which a resource route never renders. */
+/** The resource routes (an action, a loader): the build type wants a component, which a resource route never renders. */
 const noComponent = () => null;
 
 /**
@@ -55,7 +56,7 @@ function define(spec: Spec): { readonly route: ServerRoute; readonly manifest: N
  * What `virtual:react-router/server-build` is in the end-to-end tests (`vitest.config.ts` aliases it here), so the REAL
  * `workers/app.ts` boots under workerd without the React Router Vite plugin. The routes are the app's own route modules, the
  * entry is its own `entry.server.tsx`; only the route table is narrowed to the routes the tests call (the webhook receiver,
- * `/healthz`, the landing and support pages, `/auth/*` and `/app`), with the ids, parents and paths `app/routes.ts` gives them (the
+ * `/healthz`, the landing and support pages, `/auth/*`, `/app` and the support file staging route under it), with the ids, parents and paths `app/routes.ts` gives them (the
  * public layout excepted: it imports a stylesheet, so those pages are mounted on the root).
  */
 const defined = [
@@ -63,6 +64,7 @@ const defined = [
   define({ id: "routes/webhooks/receive", parentId: "root", path: "webhooks/*", module: { ...receive, default: noComponent } }),
   define({ id: "routes/app/layout", parentId: "root", path: "app", module: { ...appLayout, middleware: asResponseMiddleware(appLayout.middleware) } }),
   define({ id: "routes/app/home", parentId: "routes/app/layout", index: true, module: appHome }),
+  define({ id: "routes/app/support/upload", parentId: "routes/app/layout", path: "support/upload", module: { ...supportUpload, default: noComponent } }),
   define({ id: "routes/auth/callback", parentId: "root", path: "auth/*", module: { ...callback, default: noComponent } }),
   define({ id: "routes/public/landing", parentId: "root", index: true, module: landing }),
   define({ id: "routes/public/support", parentId: "root", path: "support", module: { ...support, middleware: asResponseMiddleware(support.middleware) } }),

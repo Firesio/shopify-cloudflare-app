@@ -15,6 +15,7 @@
     "app/routes/public/",
     "app/styles/",
     "app/routes.ts",
+    "app/routes.test.ts",
     "drizzle/",
     "extensions/",
     "public/",

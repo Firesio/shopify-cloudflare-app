@@ -2,6 +2,7 @@ import { createFiresio } from "@firesio/app";
 import { apiVersion } from "~/core/api-version";
 import { identity } from "~/core/identity";
 import { MEMBERS } from "~/core/members";
+import { SUPPORT_UPLOAD_PATH } from "~/core/paths";
 import { PLANS } from "~/core/plans";
 import { SETTINGS } from "~/core/settings";
 import { POLARIS_URL } from "~/core/polaris";
@@ -26,6 +27,8 @@ export const firesio = createFiresio({
   // (`STAFF_ALERT_EMAIL`), which says nothing without it (the merchant's embedded address is not one staff can open). The portal's page
   // is `<portal origin>/support/tickets/<this app's slug>/<ticketId>` (platform ticket 06); `docs/architecture.md` does not give the
   // pattern, so the template does not guess the portal's origin: set it when the app is registered with the portal.
+  // The support pages' file picker streams each file to the staging route mounted there (`app/routes.ts`); without it they take no files.
+  paths: { supportUpload: SUPPORT_UPLOAD_PATH },
   // One decision with `api_version` in both `shopify.app*.toml`, and one Polaris release for the preload header and `AppProvider`.
   shopify: { apiVersion, polarisUrl: POLARIS_URL },
 });
