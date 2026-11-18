@@ -1,22 +1,32 @@
 import boundaries from "eslint-plugin-boundaries";
 
 /**
- * The architecture of the template as one table: what each kind of file may import. Imports are resolved (TypeScript resolver, so
- * `~/x` and `../../x` are the same file), so depth and spelling do not matter. A file that matches no element is an error
- * (`no-unknown-files`), so a new top-level folder cannot slip past the table. `tools/architecture/boundaries.test.ts` proves the
- * resolver is active (the plugin otherwise ignores unresolved imports silently).
+ * The architecture of an app as one table: what each kind of file may import (the layout and its reasons: `CLAUDE.md`, "Layout").
+ * Imports are resolved (TypeScript resolver, so `~/x` and `../../x` are the same file), so depth and spelling do not matter, and a
+ * folder's sub-folders (`app/core/<feature>/`, `app/adapters/<feature>/`, ...) are the folder's element. A file that matches no
+ * element is an error (`no-unknown-files`), so a new top-level folder cannot slip past the table. `tools/architecture/boundaries.test.ts`
+ * proves every row (the plugin otherwise ignores unresolved imports silently).
  *
- *   entry (root, routes.ts, entry.*) -> routes -> composition (app/firesio.server.ts) -> core, db, i18n
- *                                         components, i18n: presentation helpers; core: pure, imports nothing of the app.
+ *   entry (root, routes.ts, entry.*) -> routes -> composition (app/firesio.server.ts) -> wiring -> adapters -> core, db
+ *   routes -> ai -> core; composition -> notifications -> components -> i18n -> core
+ *   core: pure, imports nothing of the app; db: tables only; adapters: the app's ports implemented over D1, KV, R2, Shopify, HTTP.
  *
- * The services, the adapters and the guard are `@firesio/app`'s (the preset), so the app has no wiring and no adapters folder:
- * `app/firesio.server.ts` is the ONE file that calls `createFiresio`, and everything else reaches the services through it.
+ * The preset's services, adapters and guard are `@firesio/app`'s. `app/firesio.server.ts` is the ONE file that calls `createFiresio`
+ * (a lint ban in `eslint.config.js`); `app/wiring/` builds the APP's own services and handlers from the preset's, for that file to
+ * plug in, and everything else reaches the services through `firesio`. A folder the template has no file in (`adapters`, `wiring`,
+ * `notifications`, `ai`, `i18n`) is a layer a derived app fills.
  */
 const ROOT = `${import.meta.dirname}/`;
 
 const elements = [
   { type: "core", pattern: "app/core", partialMatch: false },
   { type: "db", pattern: "app/db", partialMatch: false },
+  // The app's own implementations of core's ports: Drizzle over `services.db`, KV, R2, Queues, the Admin GraphQL API, outside HTTP.
+  { type: "adapters", pattern: "app/adapters", partialMatch: false },
+  // What `app/firesio.server.ts` plugs in: the app's services for one shop (`withServices`) and its handlers (webhooks, queues, cron, hooks).
+  { type: "wiring", pattern: "app/wiring", partialMatch: false },
+  // The app's own mail and push messages (`defineMessages`), their texts per language and their templates.
+  { type: "notifications", pattern: "app/notifications", partialMatch: false },
   { type: "components", pattern: "app/components", partialMatch: false },
   { type: "i18n", pattern: "app/i18n", partialMatch: false },
   // The app's AI features: prompts and calls, each a function that receives the shop's `ai` (`firesio.from(context).ai`) as an argument.
@@ -42,21 +52,30 @@ const policies = [
   // Third-party packages (and `@firesio/app`, which is a package here) are a separate concern.
   { allow: { to: { module: { origin: ["external", "core"] } } } },
   // Tests may reach what they test plus the shared test support.
-  fromFile("test", to("core", "db", "components", "i18n", "routes", "test-support", "workers", "ai")),
+  fromFile("test", to("core", "db", "adapters", "wiring", "notifications", "components", "i18n", "routes", "test-support", "workers", "ai")),
   fromFile("test", toComposition),
   // root.tsx is a thing under test too (its error boundary).
   fromFile("test", { to: { file: { categories: [ENTRY] } } }),
   // core is pure: it imports only itself. Time, ids and secrets come in as arguments.
   allow("core", "core"),
+  // db holds the tables, nothing else: a query is an adapter's.
   allow("db", "db"),
+  // An adapter implements a port of core over the app's tables or a binding it is handed; it never reaches `firesio` (it is given what it uses).
+  allow("adapters", "adapters", "core", "db"),
+  // Wiring gets the preset's services as an argument and binds adapters into core's use cases; the composition file imports it, so it
+  // never imports that file back (a factory that names `firesio` while `firesio` is being typed is a circular type, TS7022).
+  allow("wiring", "wiring", "core", "db", "adapters", "ai"),
+  allow("notifications", "notifications", "core", "i18n", "components"),
   allow("i18n", "i18n", "core"),
   allow("components", "components", "i18n", "core"),
   // An AI feature gets `ai` from its caller: it never reaches the composition file or the database itself, so a test hands it `fakeAi()`.
   allow("ai", "ai", "core"),
-  // The one file that calls `createFiresio`: it names the app's own values (plans, members, identity, schema, labels).
-  fromFile(COMPOSITION, to("core", "db", "i18n")),
-  // Routes read input, call a use case, return the result: they get the services from `firesio`, never build them.
-  allow("routes", "routes", "components", "i18n", "core", "db", "ai"),
+  // The one file that calls `createFiresio`: it names the app's own values (plans, members, identity, schema, labels, messages) and
+  // plugs in the app's own services and handlers (wiring, or an adapter directly when binding it is one line).
+  fromFile(COMPOSITION, to("core", "db", "i18n", "adapters", "wiring", "notifications")),
+  // Routes read input, call a use case, return the result: they get the services (the preset's and, through `withServices`, the
+  // app's own) from `firesio`, never build them, and never query a table themselves (no `db`, no `adapters`, no `wiring`).
+  allow("routes", "routes", "components", "i18n", "core", "ai"),
   allowComposition("routes"),
   // root.tsx, routes.ts, entry.client.tsx, entry.server.tsx.
   fromFile(ENTRY, to("routes", "components", "i18n", "core")),

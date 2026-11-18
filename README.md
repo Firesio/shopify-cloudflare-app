@@ -47,13 +47,28 @@ producer and `export const AdminApi = firesio.AdminApi`) is already here.
 
 ## Layout
 
+The standard shape of every Firesio app (the full table, what each folder may import and how a feature grows: `CLAUDE.md`, "Layout";
+`eslint.boundaries.js` and `eslint.config.js` enforce it, `tools/architecture/boundaries.test.ts` proves it). Folders marked (empty) have no file in
+the template: a derived app fills them as its features need, one sub-folder or file per feature.
+
 ```
 app/
-  firesio.server.ts  THE glue: `createFiresio({ identity, plans, members, schema, ... })`, only what differs from the preset's defaults
-  core/        the app's own declarations (identity, the plan catalogue, MEMBERS, the settings groups) and pure helpers (install target, security headers, body limit, error logs)
-  db/          the app's own Drizzle tables (none yet; the shared ones are the preset's)
-  routes/      thin: app/ (embedded; `middleware = [firesio.adminMiddleware]`, one-line files mounting @firesio/app/ui/*), public/, auth/, webhooks/, healthz
-  components/  presentational React (the app's nav)
+  firesio.server.ts  THE composition: `createFiresio({ identity, plans, members, schema, ... })`, only what differs from the preset's
+                     defaults, plus the app's own services (`.withServices(...)`) and handlers (`webhooks`, `queues`, `cron`) from wiring/
+  core/              the app's declarations (identity, plans, MEMBERS, settings, paths, retention) and pure helpers
+  core/<feature>/    (empty) a feature's domain, pure: types, rules, input schemas, ports, use cases handed their ports, time and ids
+  db/                the app's own Drizzle tables (schema.ts; one file per feature once there are several)
+  adapters/<feature>/ (empty) the ports implemented over D1 (`services.db`), KV, R2, Queues, the Admin GraphQL API, outside HTTP
+  wiring/<feature>.ts (empty) a feature's services bound for a shop and its handlers, handed the preset's services; plugged in by firesio.server.ts
+  notifications/     (empty) the app's own messages (`defineMessages`), their texts and templates
+  ai/<feature>.ts    (empty) one function per AI feature, handed the shop's `ai`
+  i18n/              (empty) the app's words per language
+  components/        presentational React (`components/<feature>/` once there are several)
+  routes/            thin: app/ (embedded; `middleware = [firesio.adminMiddleware]`; `app/<feature>/`, and one-line files mounting
+                     @firesio/app/ui/*, the support file staging route included), public/, auth/, webhooks/, support/, healthz;
+                     proxy/ and extensions/ when the app has an app proxy or an extension backend
+  test/              shared test support
+  styles/            SCSS of the public pages
 workers/       app.ts: fetch, then `firesio.queue`, `firesio.scheduled`, `firesio.email` and `AdminApi = firesio.AdminApi`
 drizzle/       the app's migrations (a baseline and one per library release since; the libraries' tables included)
 tools/         architecture tests; eslint.boundaries.js is the layer table
@@ -68,7 +83,9 @@ Actions minutes); a push to `main` runs no CI, so run `npm run verify` before yo
 
 Plans (`app/core/plans.ts`: `definePlans({ features, plans })`, declared once; the plans page, its comparison rows and its usage
 meters are generated from it), roles and permissions (`members.ts`), the identity (`identity.ts`), its settings groups (`settings.ts`),
-its own pages and tables (`app/db/schema.ts`), its words in another language (label objects in `app/i18n/`, passed as `labels`), and
+its own features (domain in `app/core/<feature>/`, tables in `app/db/`, queries and API calls in `app/adapters/<feature>/`, bound in
+`app/wiring/<feature>.ts`, pages in `app/routes/app/<feature>/`), its words in another language (label objects in `app/i18n/`, passed as `labels`),
+how long it keeps a support conversation no shop owns (`app/core/retention.ts`), and
 the options of `createFiresio` in `app/firesio.server.ts` that differ from the defaults: `content` and `notify` (the
 preset sends the support mails with its own English texts), `metrics` (your own keys next to the standard ones), `access`, `ai`,
 `support` (`false` leaves support out; `support.staffUrl` puts the portal's ticket address in the staff alert mail), `purge` and `customerData` for tables and customer data of its own. Everything else is the

@@ -45,6 +45,14 @@ Two calls that recur and deserve a recorded answer rather than a reflex:
   delay, never settled**; only an uninstalled or unknown shop settles. A listing never deletes an index entry.
   Evidence and what is unverified: `docs/shopify-api-invariants.md`, "Session lookup after a quick uninstall and
   reinstall".
+- **A queue of the app's own** (the template has none) is the preset's to consume: its handler goes in `queues` of
+  `createFiresio` (built in `app/wiring/<feature>.ts`; every message has a NUMBER of `attempts` from 1, so a retry policy is
+  `message.retry({ delaySeconds: 30 * message.attempts })`, and `batch.ackAll()` acknowledges the rest), and its dead-letter queue
+  in `deadLetterQueues` (`{ "<slug>-jobs-dlq": true }`: one `app.alert` to the portal per message, a `queue.dead_letter` log line
+  without the body, acknowledged; a function there runs first and keeps the body where a person can replay it). Declare both under
+  `queues.consumers` (top level AND `env.production`, the main one naming its `dead_letter_queue`).
+  Without `deadLetterQueues` the DLQ's batches are retried whole (`queue.unknown`). An app whose code reads its own request
+  context opens it around the preset's entry points with `around: (env: Env, run) => ...` (also built in `app/wiring/`).
 - **Queues vs Workflows.** Queues fit enqueue-and-forget single steps.
   **Workflows** fit multi-step processes where each step must survive failure
   independently. Pick per pipeline, and say which and why.

@@ -5,6 +5,18 @@ import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 import { boundariesConfig } from "./eslint.boundaries.js";
 
+// `no-restricted-imports` is one rule: a later block that matches a file REPLACES an earlier block's list for it, so each block below
+// repeats the bans it inherits (`ONLY_COMPOSITION_BUILDS`, `NO_REACT`, `NO_WORKER_ENV`).
+const ONLY_COMPOSITION_BUILDS = { name: "@firesio/app", importNames: ["createFiresio"], message: "app/firesio.server.ts is the one call of createFiresio: reach the services through `firesio`." };
+const NO_REACT = [
+  { name: "react", message: "No React here: presentation is app/components (and the routes that render it)." },
+  { name: "react-dom", message: "No React here: presentation is app/components (and the routes that render it)." },
+  { name: "react-router", message: "No framework here: routes read the request and pass plain values in." },
+];
+const NO_WORKER_ENV = { group: ["cloudflare:*"], message: "The Worker env and bindings are handed in as arguments (from `firesio.services()` or the preset's `services`), never read here." };
+const NO_QUERY_BUILDER = { group: ["drizzle-orm", "drizzle-orm/*"], message: "A query is an adapter's (app/adapters/<feature>/): this layer receives a port." };
+const NO_PACKAGE_PAGES = { group: ["@firesio/app/ui", "@firesio/app/ui/*"], message: "The package's pages are React: mounted by app/routes, never imported here." };
+
 export default tseslint.config(
   {
     ignores: [
@@ -129,12 +141,38 @@ export default tseslint.config(
     },
   },
   {
-    // core is pure: no framework, no I/O.
+    // `createFiresio` is called once, in app/firesio.server.ts; every other file reaches what it built through `firesio`.
+    // A test may build a firesio of its own to try an option the app does not set.
+    files: ["app/**/*.{ts,tsx}", "workers/**/*.ts"],
+    ignores: ["app/firesio.server.ts", "app/test/**", "**/*.test.{ts,tsx}"],
+    rules: { "no-restricted-imports": ["error", { paths: [ONLY_COMPOSITION_BUILDS] }] },
+  },
+  {
+    // core is pure: no framework, no I/O, no query, no Worker env; the preset (the package's root) is the composition file's.
     files: ["app/core/**/*.ts"],
     rules: {
-      "no-restricted-imports": ["error", { paths: [{ name: "react-router", message: "core/ has no framework imports." }, { name: "react", message: "core/ has no framework imports." }] }],
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [{ name: "@firesio/app", message: "core/ declares and decides; the preset is app/firesio.server.ts's (a type import is fine).", allowTypeImports: true }, ...NO_REACT],
+          patterns: [NO_WORKER_ENV, NO_QUERY_BUILDER, NO_PACKAGE_PAGES, { group: ["@firesio/app/*/d1", "@firesio/app/preset/*"], message: "core/ takes ports: the D1 adapters and the preset's parts are wired outside it." }],
+        },
+      ],
       "no-restricted-globals": ["error", { name: "fetch", message: "core/ takes I/O as arguments; do not call fetch." }],
     },
+  },
+  {
+    // Adapters and wiring run on the server, handed what they use: no React, no Worker env of their own.
+    // Their tests (in workerd) read the test bindings (`cloudflare:test`) to hand them in.
+    files: ["app/adapters/**/*.ts", "app/wiring/**/*.ts"],
+    ignores: ["**/*.test.ts"],
+    rules: { "no-restricted-imports": ["error", { paths: [ONLY_COMPOSITION_BUILDS, ...NO_REACT], patterns: [NO_WORKER_ENV, NO_PACKAGE_PAGES] }] },
+  },
+  {
+    // Presentation and words: props and labels in, markup out; no query and no Worker env.
+    files: ["app/components/**/*.{ts,tsx}", "app/i18n/**/*.ts", "app/notifications/**/*.{ts,tsx}", "app/ai/**/*.ts"],
+    ignores: ["**/*.test.{ts,tsx}"],
+    rules: { "no-restricted-imports": ["error", { paths: [ONLY_COMPOSITION_BUILDS], patterns: [NO_WORKER_ENV, NO_QUERY_BUILDER] }] },
   },
   boundariesConfig,
 );

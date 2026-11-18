@@ -1,6 +1,7 @@
 ---
 paths:
   - "app/db/**/*.ts"
+  - "app/adapters/**/*.ts"
   - "drizzle/**"
   - "drizzle.config.ts"
 ---
@@ -12,7 +13,7 @@ D1 is a network hop per query and the app is multi-tenant. Both are binding.
 ## Whose tables
 
 - **The preset's** (`@firesio/app/preset/d1`): `shops`, `shop_subscriptions`, `shop_plan_grants`, `notification_preferences`.
-- **The app's own** (`app/db/schema.ts`): none yet; a derived app's tables go here, are passed to `createFiresio({ schema })` (every table with a `shop` column is erased on `shop/redact`) and are listed first in `drizzle.config.ts`.
+- **The app's own** (`app/db/schema.ts`): none yet; a derived app's tables go here (one file per feature, `app/db/<feature>.ts`, re-exported by `schema.ts`, once there are several), are passed to `createFiresio({ schema })` (every table with a `shop` column is erased on `shop/redact`) and are listed first in `drizzle.config.ts`. Their queries are the adapters' (`app/adapters/<feature>/`, handed `services.db` and the shop by their wiring), never a route's or core's (lint refuses both).
 - **The libraries'** (`@firesio/app/*/d1`): the webhook inbox and tombstones, plan usage, support, members, content edits, push devices, AI, the portal outbox. Their schemas are `firesioSchemaPaths()` in `drizzle.config.ts` (a part the app opts into is an option of it: `{ settings: true }`, `{ messaging: true }`, and `{ metered: true }` once the plan catalogue has a `metered` feature); `npm run db:generate` sees all of them and writes ONE migration history in `./drizzle`. The app owns the migrations; a library never migrates anything.
 - Adding a table: add it to the schema file (or pass the library's option to `firesioSchemaPaths()` in `drizzle.config.ts`), `npm run db:generate`, **read the SQL** (Drizzle cannot express a CHECK or WITHOUT ROWID: where the library publishes `...TableSql()`, the migration must match it, as `plan_usage` and `plan_usage_holds` do), run the whole suite.
 
