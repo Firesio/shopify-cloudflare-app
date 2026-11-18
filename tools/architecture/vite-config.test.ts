@@ -3,8 +3,8 @@ import { createLogger, resolveConfig, type Logger } from "vite";
 import { describe, expect, it } from "vitest";
 
 /**
- * `vite.config.ts` as Vite resolves it for `vite dev` (`resolveConfig(..., "serve")` runs every plugin's config hooks; it starts no
- * server, no workerd and opens no port). `firesioVite()` must leave ONE copy of `@firesio/app` in the dev server: excluded from
+ * `vite.config.ts` as Vite resolves it for `vite dev` (`resolveConfig(..., "serve")` runs every plugin's config hooks, React Router's
+ * child compiler included; it starts no workerd and opens no port). `firesioVite()` must leave ONE copy of `@firesio/app` in the dev server: excluded from
  * dependency pre-bundling in the Worker's environment and the browser's, and what it imports pre-bundled through it instead. With a
  * pre-bundled copy next to the source one, every package page answered 500 "No value found for context" (found live in Team Up).
  */
@@ -32,5 +32,14 @@ describe("vite.config.ts in the dev server", () => {
     // The CommonJS modules the Worker reaches through the package (the AI SDK, Cloudflare's provider for it): workerd cannot load them raw.
     expect(config.environments["ssr"]?.optimizeDeps.include).toEqual(expect.arrayContaining(["@firesio/app > ai", "@firesio/app > agents/models/ai-sdk"]));
     expect(warnings.filter((message) => message.includes("[firesio:vite]"))).toEqual([]);
+  });
+
+  it("keeps the Cloudflare plugin when Vite restarts the dev server (it evaluates this file again in the same process)", async () => {
+    // `server.restart()` resolves the config anew, as here; the child compiler React Router builds from its `configResolved` hook
+    // must leave the plugin out, a restart must not (scripts/vite-child-compiler.mjs).
+    for (const start of ["start", "first restart", "second restart"]) {
+      const config = await resolveConfig({ root, configFile: join(root, "vite.config.ts"), customLogger: createLogger("silent"), logLevel: "warn" }, "serve");
+      expect(config.plugins.map((plugin) => plugin.name), start).toContain("vite-plugin-cloudflare");
+    }
   });
 });

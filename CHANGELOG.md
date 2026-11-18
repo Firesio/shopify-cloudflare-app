@@ -32,6 +32,16 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
     numeric `attempts` and `deadLetterQueues` (no queue of its own: the webhook queues and their DLQs are the preset's), `shopStates` / `getMany`
     (no job over many shops), the notify options `mailCopies`, `textsFor`, `consent`, `template` and ICU plural/select (no mail of its own),
     the support page slots, and the contract's campaign fields (no `campaigns` handler).
+- What a large app (Team Up) found when it took the standard layout, fixed here. An app on the previous state of this template takes the
+  `template` files of the merge as they come, and does by hand what each item says of its own files:
+  - **A dev-server restart keeps the Worker.** `vite.config.ts` told React Router's child compiler (a second evaluation of the file, which must
+    leave the Cloudflare plugin out) from the main config by counting evaluations; Vite evaluates the file again each time it restarts the dev
+    server (an edit to `vite.config.ts`, `.dev.vars` or `wrangler.jsonc`), so after one restart the Cloudflare plugin was gone and the Worker no
+    longer served the app. `scripts/vite-child-compiler.mjs` (`createChildCompilerGuard`, Team Up's) tells them apart by who starts the
+    evaluation: React Router's own `configResolved` hook. `vite.config.ts` is the template's: take it, or, if yours differs, replace the counter
+    with the guard (`const childCompilerGuard = createChildCompilerGuard()`, `isChildCompiler()`, `...reactRouter().map(childCompilerGuard.markChildCompilerLoads)`).
+    Tests: `scripts/vite-child-compiler.test.mjs` (the decision over several evaluations), `tools/architecture/vite-config.test.ts` (the real
+    Vite and React Router chain resolved three times in one process: the old counter fails it).
 - `@firesio/app` 0.10.1, which carries 0.9.0, a BREAKING release (what a new form replaces is removed, not deprecated; the package's own CHANGELOG, `packages/app/CHANGELOG.md` in the
   Firesio platform repo, lists everything). What changed here, and what an app on an earlier state of this template does:
   - **Plans are declared once.** `app/core/plans.ts` is `definePlans({ features, plans })`: each feature is a `capability`, `capacity`, `quota` or `metered` with its

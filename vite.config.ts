@@ -2,6 +2,7 @@ import { reactRouter } from "@react-router/dev/vite";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import { firesioVite } from "@firesio/app/vite";
 import { defineConfig } from "vite";
+import { createChildCompilerGuard } from "./scripts/vite-child-compiler.mjs";
 
 // `shopify app dev` passes the live tunnel URL as SHOPIFY_APP_URL (older CLIs:
 // HOST). Compute it into a local — do NOT mutate process.env, since the
@@ -39,14 +40,16 @@ function shopifyDevVars(): Record<string, string> {
   return vars;
 }
 
-// @react-router/dev re-evaluates this file to build a "child compiler" (a second
-// Vite server, used only for CSS). It would start a second workerd, a second
-// remote AI session and a second dependency optimizer on the same cache.
-const configLoadsKey = Symbol.for("vite-config-loads");
-const previousLoads = Reflect.get(globalThis, configLoadsKey);
-const configLoads = typeof previousLoads === "number" ? previousLoads + 1 : 1;
-Reflect.set(globalThis, configLoadsKey, configLoads);
-const isChildCompiler = configLoads > 1;
+// @react-router/dev evaluates this file again to build a "child compiler" (a
+// second Vite server, used only for CSS); with the Cloudflare plugin in it, it
+// would start a second workerd, a second remote AI session and a second
+// dependency optimizer, so that evaluation leaves the plugin out. Vite also
+// evaluates this file again whenever it restarts the dev server, and that one
+// must keep the plugin: the guard tells them apart by who starts the evaluation
+// (React Router's own `configResolved` hook), never by counting evaluations
+// (after one restart a counter dropped the Worker). See scripts/vite-child-compiler.mjs.
+const childCompilerGuard = createChildCompilerGuard();
+const isChildCompiler = childCompilerGuard.isChildCompiler();
 
 export default defineConfig(({ command }) => ({
   // Vite 8 resolves tsconfig `paths` (the `~/*` alias) natively.
@@ -85,7 +88,7 @@ export default defineConfig(({ command }) => ({
               : {}),
           }),
         ]),
-    reactRouter(),
+    ...reactRouter().map(childCompilerGuard.markChildCompilerLoads),
     // One copy of `@firesio/app` in the dev server (see the note on dependency pre-bundling above); the production build is not affected.
     firesioVite(),
   ],
