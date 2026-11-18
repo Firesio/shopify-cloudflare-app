@@ -10,8 +10,9 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
   - **`firesioVite()`** (`@firesio/app/vite`) is the last plugin of `vite.config.ts`, and the hand-written `optimizeDeps` are gone (the browser
     list and the Worker's `exclude`/`include` of `@firesio/app`, `ai`, `agents/models/ai-sdk`, `react/jsx-runtime`): the plugin keeps ONE copy of
     the package in the dev server, without which every package page answered 500 "No value found for context" in `npm run dev`. React Router's
-    plugin pre-bundles React and the router and Vite's scan finds the app's own imports. An app with its own `optimizeDeps` keeps only entries
-    for packages of ITS own (never `@firesio/app` or a subpath: the plugin warns). Test: `tools/architecture/vite-config.test.ts`.
+    plugin pre-bundles React and the router, and Vite's scan of the Worker's entry and route modules finds what the Worker imports; the
+    browser's environment is not scanned (see the item on `vite.config.ts`'s comment below). An app with its own `optimizeDeps` keeps only
+    entries for packages of ITS own (never `@firesio/app` or a subpath: the plugin warns). Test: `tools/architecture/vite-config.test.ts`.
   - **Support attachments.** `app/routes/app/support/upload.ts` (`export { action, loader } from "@firesio/app/ui/support/upload"`) is mounted under
     the /app layout at `/app/support/upload` (`app/routes.ts`), and `paths: { supportUpload: SUPPORT_UPLOAD_PATH }` (`app/core/paths.ts`) turns on
     the file picker of the new-ticket and reply pages. An app merges `app/routes.ts` and `app/firesio.server.ts` by hand (they are its files):
@@ -69,6 +70,16 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
     entry files), by feature in `app/test/<feature>/`, and stays test-only: no layer may import it, which `boundaries.test.ts` now probes
     for every layer, the composition file and `app/root.tsx` (it probed routes only), each probe checked to fail with its rule loosened.
     An app moves its shared helpers into `app/test/` (or `app/test/<feature>/`) as they are.
+  - **`vite.config.ts` says what is scanned, and pre-bundles the browser's own package.** Its comment said Vite's scan of the route modules
+    finds what the app's own files import; that holds for the Worker's environment only (the Cloudflare plugin's and React Router's
+    `optimizeDeps.entries`). React Router hands the browser's environment no entry while `future.unstable_optimizeDeps` is off
+    (`@react-router/dev`'s `getOptimizeDepsEntries` answers `[]`, and Vite then scans nothing), so `@shopify/app-bridge-types`, which
+    `app/root.tsx` imports for its side effect, was found on the first page load and the page reloaded. It is now in
+    `environments.client.optimizeDeps.include` (`zod` needs no entry: `@firesio/app > zod` serves the app's own copy too, Vite's
+    `tryOptimizedResolve`). `tools/architecture/vite-config.test.ts` pins both facts and fails on a package the app's browser code imports
+    (the client entry, the components, the side-effect imports of the root and the routes) that nothing pre-bundles; it also closes what
+    React Router's plugin opens when the config is resolved (its child compiler and the route typegen watcher, which left
+    `.react-router/types` half written when the test process exited). An app with its own browser packages lists them there.
 - `@firesio/app` 0.10.1, which carries 0.9.0, a BREAKING release (what a new form replaces is removed, not deprecated; the package's own CHANGELOG, `packages/app/CHANGELOG.md` in the
   Firesio platform repo, lists everything). What changed here, and what an app on an earlier state of this template does:
   - **Plans are declared once.** `app/core/plans.ts` is `definePlans({ features, plans })`: each feature is a `capability`, `capacity`, `quota` or `metered` with its

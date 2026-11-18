@@ -61,14 +61,20 @@ export default defineConfig(({ command }) => ({
     ...(host !== "localhost" ? { allowedHosts: [host] } : {}),
     ...(process.env.PORT ? { port: Number(process.env.PORT) } : {}),
   },
-  // Dependency pre-bundling (`optimizeDeps`) is not configured here, on purpose. `firesioVite()` (below) excludes `@firesio/app`
-  // from it in every environment, the Worker's and the browser's, and pre-bundles what the package imports instead (its route
-  // modules are `.tsx` files Vite serves from source, so a pre-bundled copy of the package would hand a page a second copy of its
-  // router context: every package page answered 500 "No value found for context" in `npm run dev`). React Router's plugin
-  // pre-bundles React and the router; Vite's scan of the route modules finds what the app's own files import (`zod`,
-  // `@shopify/app-bridge-types`). Add an entry here only for a package of the APP's that the scan misses (the symptom: "new
-  // dependencies found ... reloading" under `DEBUG=vite:deps`), and never `@firesio/app` or one of its subpaths: the plugin warns
-  // at start, because Vite would pre-bundle the package again.
+  // Dependency pre-bundling (`optimizeDeps`). `firesioVite()` (below) excludes `@firesio/app` from it in every environment, the
+  // Worker's and the browser's, and pre-bundles what the package imports instead (its route modules are `.tsx` files Vite serves
+  // from source, so a pre-bundled copy of the package would hand a page a second copy of its router context: every package page
+  // answered 500 "No value found for context" in `npm run dev`). React Router's plugin pre-bundles React and the router.
+  //
+  // Only the Worker's environment (`ssr`) is scanned: Vite reads the Worker's entry and every route module (the Cloudflare plugin's
+  // and React Router's `optimizeDeps.entries`) and pre-bundles what they import. The BROWSER's is not: React Router hands it no
+  // entry while `future.unstable_optimizeDeps` is off (react-router.config.ts), so a package the browser loads is found only when a
+  // page that imports it is first visited, and Vite then re-optimises and reloads that page (under `DEBUG=vite:deps`: "new
+  // dependencies optimized ... reloading"). So `environments.client.optimizeDeps.include` (below) lists the packages of the app's
+  // own that its browser code imports and nothing pre-bundles yet; `tools/architecture/vite-config.test.ts` fails on a missing one.
+  // A package `@firesio/app` also imports (`zod`) is pre-bundled through it already (`@firesio/app > zod` serves the app's own
+  // `zod` too). Never list `@firesio/app` or one of its subpaths: the plugin warns at start, because Vite would pre-bundle the
+  // package again.
   plugins: [
     // Runs the app in the Workers runtime (workerd) during dev, matching
     // production. Bindings are real (D1, KV) via Miniflare.
@@ -95,10 +101,13 @@ export default defineConfig(({ command }) => ({
   build: {
     assetsInlineLimit: 0,
   },
-  // The Worker (`ssr`) bundle ships unminified by default: ~6 MB that every cold isolate has to parse before its
-  // first request, and the merchant who lands on a cold isolate waits for it. Names are kept (`keepNames`) because
-  // the code logs `error.name` and compares class names.
   environments: {
+    // The browser's own packages (see the note on dependency pre-bundling above): root.tsx imports `@shopify/app-bridge-types`
+    // for its side effect (the `shopify` global's types; an empty module at run time).
+    client: { optimizeDeps: { include: ["@shopify/app-bridge-types"] } },
+    // The Worker (`ssr`) bundle ships unminified by default: ~6 MB that every cold isolate has to parse before its
+    // first request, and the merchant who lands on a cold isolate waits for it. Names are kept (`keepNames`) because
+    // the code logs `error.name` and compares class names.
     ssr: {
       build: {
         rolldownOptions: {
