@@ -24,19 +24,48 @@ const NAME = "[`\"]?(\\w+)[`\"]?";
 const TABLE_STATEMENT = new RegExp(`CREATE TABLE\\s+(?:IF NOT EXISTS\\s+)?${NAME}|DROP TABLE\\s+(?:IF EXISTS\\s+)?${NAME}|ALTER TABLE\\s+${NAME}\\s+RENAME TO\\s+${NAME}`, "gi");
 
 /**
- * The tables the migrations leave behind: every `CREATE TABLE`, `DROP TABLE` and `ALTER TABLE ... RENAME TO` of every .sql file,
- * in the order they run (a renamed table is known by its new name only).
+ * SQL as SQLite reads it, for the statement regex: its comments (`-- ...` to the end of the line, `/* ... *\/`) and the text of its
+ * string literals (`'...'`, `''` inside) are blanked, quoted identifiers (`"..."`, `` `...` ``, `[...]`) kept. A hand-checked migration
+ * explains itself in comments ("-- the old table is dropped below"), and the prose must not read as a table name.
  */
-function migratedTables(): string[] {
-  const sql = readdirSync(join(root, "drizzle")).filter((name) => name.endsWith(".sql")).sort().map((name) => readFileSync(join(root, "drizzle", name), "utf8")).join("\n");
+const COMMENT_STRING_OR_IDENTIFIER = /'(?:[^']|'')*'|"(?:[^"]|"")*"|`[^`]*`|\[[^\]]*\]|--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)/g;
+const codeOf = (sql: string): string => sql.replace(COMMENT_STRING_OR_IDENTIFIER, (token) => (token.startsWith("'") || token.startsWith("--") || token.startsWith("/*") ? " " : token));
+
+/**
+ * The tables a migration history leaves behind: every `CREATE TABLE`, `DROP TABLE` and `ALTER TABLE ... RENAME TO`, in the order they
+ * run (a renamed table is known by its new name only).
+ */
+function tablesLeftBy(sql: string): string[] {
   const tables = new Set<string>();
-  for (const [, created, dropped, renamedFrom, renamedTo] of sql.matchAll(TABLE_STATEMENT)) {
+  for (const [, created, dropped, renamedFrom, renamedTo] of codeOf(sql).matchAll(TABLE_STATEMENT)) {
     if (created !== undefined) tables.add(created);
     if (dropped !== undefined) tables.delete(dropped);
     if (renamedFrom !== undefined && renamedTo !== undefined && tables.delete(renamedFrom)) tables.add(renamedTo);
   }
   return [...tables].sort();
 }
+
+/** The tables `drizzle/*.sql` leaves behind, the files in the order they run. */
+function migratedTables(): string[] {
+  return tablesLeftBy(readdirSync(join(root, "drizzle")).filter((name) => name.endsWith(".sql")).sort().map((name) => readFileSync(join(root, "drizzle", name), "utf8")).join("\n"));
+}
+
+describe("reading the migrations", () => {
+  it("reads the statements, quoted or not, in the order they run", () => {
+    const sql = "CREATE TABLE `a` (`id` text);\nCREATE TABLE IF NOT EXISTS \"b\" (id text);\ncreate table c (id text);\nALTER TABLE `a` RENAME TO `d`;\nDROP TABLE IF EXISTS c;";
+    expect(tablesLeftBy(sql)).toEqual(["b", "d"]);
+  });
+
+  it("does not read a word in a comment or a string as a table", () => {
+    const sql = [
+      "-- the old table is dropped below: create table later",
+      "CREATE TABLE `kept` (`note` text DEFAULT 'drop table kept' NOT NULL); -- then DROP TABLE kept, said in prose",
+      "/* a block comment: CREATE TABLE ghost (id) */",
+      "INSERT INTO `kept` VALUES ('create table it''s');--> statement-breakpoint",
+    ].join("\n");
+    expect(tablesLeftBy(sql)).toEqual(["kept"]);
+  });
+});
 
 describe("the migrations match the schema files drizzle.config.ts lists", () => {
   it("lists schema files that exist and declare tables", async () => {

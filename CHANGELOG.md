@@ -42,6 +42,10 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
     with the guard (`const childCompilerGuard = createChildCompilerGuard()`, `isChildCompiler()`, `...reactRouter().map(childCompilerGuard.markChildCompilerLoads)`).
     Tests: `scripts/vite-child-compiler.test.mjs` (the decision over several evaluations), `tools/architecture/vite-config.test.ts` (the real
     Vite and React Router chain resolved three times in one process: the old counter fails it).
+  - **`tools/architecture/schema-drift.test.ts` reads SQL, not prose.** It found table names with a regex over the raw migrations, so a
+    comment of a hand-checked migration (`-- the old table is dropped below: create table later`) or a string literal read as a table. The
+    comments (`--`, `/* */`) and the text of string literals are blanked first, quoted identifiers kept; a test says a word in a comment or a
+    string is not a table. Nothing to do in an app.
 - `@firesio/app` 0.10.1, which carries 0.9.0, a BREAKING release (what a new form replaces is removed, not deprecated; the package's own CHANGELOG, `packages/app/CHANGELOG.md` in the
   Firesio platform repo, lists everything). What changed here, and what an app on an earlier state of this template does:
   - **Plans are declared once.** `app/core/plans.ts` is `definePlans({ features, plans })`: each feature is a `capability`, `capacity`, `quota` or `metered` with its
