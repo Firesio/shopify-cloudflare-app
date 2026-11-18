@@ -1,5 +1,6 @@
 import { reactRouter } from "@react-router/dev/vite";
 import { cloudflare } from "@cloudflare/vite-plugin";
+import { firesioVite } from "@firesio/app/vite";
 import { defineConfig } from "vite";
 
 // `shopify app dev` passes the live tunnel URL as SHOPIFY_APP_URL (older CLIs:
@@ -57,13 +58,14 @@ export default defineConfig(({ command }) => ({
     ...(host !== "localhost" ? { allowedHosts: [host] } : {}),
     ...(process.env.PORT ? { port: Number(process.env.PORT) } : {}),
   },
-  // Browser (client environment) dependency pre-bundling. Vite finds a dependency only when it first sees an import of it; each
-  // discovery re-optimises and reloads the page, leaving the browser holding URLs with an outdated `?v=` hash (504s on the first
-  // navigation in dev). List every browser-side package here, including the ones `@firesio/app` (its `ui/*` pages) brings. Add a package when a
-  // client route starts importing a new one: the symptom is "new dependencies found ... reloading" in `DEBUG=vite:deps`.
-  optimizeDeps: {
-    include: ["react", "react-dom/client", "react-router", "react-router/dom", "zod", "@shopify/shopify-app-react-router/react", "@shopify/app-bridge-types"],
-  },
+  // Dependency pre-bundling (`optimizeDeps`) is not configured here, on purpose. `firesioVite()` (below) excludes `@firesio/app`
+  // from it in every environment, the Worker's and the browser's, and pre-bundles what the package imports instead (its route
+  // modules are `.tsx` files Vite serves from source, so a pre-bundled copy of the package would hand a page a second copy of its
+  // router context: every package page answered 500 "No value found for context" in `npm run dev`). React Router's plugin
+  // pre-bundles React and the router; Vite's scan of the route modules finds what the app's own files import (`zod`,
+  // `@shopify/app-bridge-types`). Add an entry here only for a package of the APP's that the scan misses (the symptom: "new
+  // dependencies found ... reloading" under `DEBUG=vite:deps`), and never `@firesio/app` or one of its subpaths: the plugin warns
+  // at start, because Vite would pre-bundle the package again.
   plugins: [
     // Runs the app in the Workers runtime (workerd) during dev, matching
     // production. Bindings are real (D1, KV) via Miniflare.
@@ -84,6 +86,8 @@ export default defineConfig(({ command }) => ({
           }),
         ]),
     reactRouter(),
+    // One copy of `@firesio/app` in the dev server (see the note on dependency pre-bundling above); the production build is not affected.
+    firesioVite(),
   ],
   build: {
     assetsInlineLimit: 0,
@@ -93,15 +97,6 @@ export default defineConfig(({ command }) => ({
   // the code logs `error.name` and compares class names.
   environments: {
     ssr: {
-      // @firesio/app is TypeScript source whose route modules (`ui/*`) share context objects (`membersContext`, `plansContext`,
-      // `supportContext`) with the preset's middleware that fills them. Pre-bundled per entry, each entry gets its own copy of
-      // those objects and every page dies with "No value found for context" in `react-router dev` (found in a real dev store,
-      // when the pages were a separate package). Excluded, the modules load once from source.
-      // Excluding it also hides its own dependencies from the scan, so the CommonJS ones the Worker reaches through it are
-      // listed (workerd cannot load a CommonJS file raw: "module is not defined" on every request): the AI SDK (`ai`) and
-      // Cloudflare's provider for it (`agents/models/ai-sdk`), and `react/jsx-runtime` (Shopify's `AppProvider`, reached
-      // through `@firesio/app/ui/shell`).
-      optimizeDeps: { exclude: ["@firesio/app"], include: ["ai", "agents/models/ai-sdk", "react/jsx-runtime"] },
       build: {
         rolldownOptions: {
           output: { minify: { compress: { keepNames: { function: true, class: true } }, mangle: { keepNames: { function: true, class: true } } } },
