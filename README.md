@@ -56,7 +56,8 @@ app/
   firesio.server.ts  THE composition: `createFiresio({ identity, plans, members, schema, ... })`, only what differs from the preset's
                      defaults, plus the app's own services (`.withServices(...)`) and handlers (`webhooks`, `queues`, `cron`) from wiring/
   core/              the app's declarations (identity, plans, MEMBERS, settings, paths, retention) and pure helpers
-  core/<feature>/    (empty) a feature's domain, pure: types, rules, input schemas, ports, use cases handed their ports, time and ids
+  core/<feature>/    (empty) a feature's domain, pure: types, rules, input schemas, ports, use cases handed their ports, time and ids;
+                     vocabulary.ts, the value lists its rows store (the one file of core db imports, for its CHECK constraints)
   db/                the app's own Drizzle tables (schema.ts; one file per feature once there are several)
   adapters/<feature>/ (empty) the ports implemented over D1 (`services.db`), KV, R2, Queues, the Admin GraphQL API, outside HTTP
   wiring/<feature>.ts (empty) a feature's services bound for a shop and its handlers, handed the preset's services; plugged in by firesio.server.ts

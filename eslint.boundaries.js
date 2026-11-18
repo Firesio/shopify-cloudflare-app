@@ -9,6 +9,7 @@ import boundaries from "eslint-plugin-boundaries";
  *
  *   entry (root, routes.ts, entry.*) -> routes -> composition (app/firesio.server.ts) -> wiring -> adapters -> core, db
  *   routes -> ai -> core; composition -> notifications -> components -> i18n -> core
+ *   db -> core's vocabularies only (`app/core/<feature>/vocabulary.ts`: value lists, imports nothing)
  *   core: pure, imports nothing of the app; db: tables only; adapters: the app's ports implemented over D1, KV, R2, Shopify, HTTP.
  *
  * The preset's services, adapters and guard are `@firesio/app`'s. `app/firesio.server.ts` is the ONE file that calls `createFiresio`
@@ -38,6 +39,9 @@ const elements = [
 ];
 
 const ENTRY = "entry";
+// `app/core/<feature>/vocabulary.ts` (or `app/core/vocabulary.ts`): the value lists a feature's rows store (statuses, kinds) and the
+// types read from them, the one part of core db may import (its CHECK constraints and `$type`); it imports nothing (eslint.config.js).
+const VOCABULARY = "vocabulary";
 // `app/test/server-build.ts`: stands in for the generated server build in the end-to-end tests, so it names the entry files and the routes.
 const SERVER_BUILD = "server-build";
 // `app/firesio.server.ts`: a single file, so it is a file category (`boundaries/files`), not a folder element.
@@ -58,8 +62,9 @@ const policies = [
   fromFile("test", { to: { file: { categories: [ENTRY] } } }),
   // core is pure: it imports only itself. Time, ids and secrets come in as arguments.
   allow("core", "core"),
-  // db holds the tables, nothing else: a query is an adapter's.
+  // db holds the tables, nothing else: a query is an adapter's. Of core it reads only the vocabularies, so a value list is declared once.
   allow("db", "db"),
+  { from: { element: { type: "db" } }, allow: { to: { file: { categories: [VOCABULARY] } } } },
   // An adapter implements a port of core over the app's tables or a binding it is handed; it never reaches `firesio` (it is given what it uses).
   allow("adapters", "adapters", "core", "db"),
   // Wiring gets the preset's services as an argument and binds adapters into core's use cases; the composition file imports it, so it
@@ -100,6 +105,7 @@ export const boundariesConfig = {
       { pattern: "**/*.test.{ts,tsx}", category: "test" },
       { pattern: "app/{root.tsx,routes.ts,entry.client.tsx,entry.server.tsx}", category: ENTRY },
       { pattern: "app/firesio.server.ts", category: COMPOSITION },
+      { pattern: "app/core/**/vocabulary.ts", category: VOCABULARY },
       { pattern: "app/test/server-build.ts", category: SERVER_BUILD },
     ],
     "boundaries/ignore": ["**/worker-configuration.d.ts", "app/**/+types/**"],

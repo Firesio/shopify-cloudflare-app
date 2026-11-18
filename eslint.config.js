@@ -15,6 +15,13 @@ const NO_REACT = [
 ];
 const NO_WORKER_ENV = { group: ["cloudflare:*"], message: "The Worker env and bindings are handed in as arguments (from `firesio.services()` or the preset's `services`), never read here." };
 const NO_QUERY_BUILDER = { group: ["drizzle-orm", "drizzle-orm/*"], message: "A query is an adapter's (app/adapters/<feature>/): this layer receives a port." };
+// Reading "now" or a fresh id: `no-restricted-syntax`'s list for the app's own code (a block that sets the rule repeats it).
+const CLOCK_SYNTAX = [
+  { selector: "NewExpression[callee.name='Date'][arguments.length=0]", message: "Take the time from firesio.services().runtime." },
+  // `crypto.randomUUID` (no-restricted-properties) only sees the bare global; this is the same call through `globalThis`, `self` or `window`.
+  { selector: "MemberExpression[property.name='randomUUID'][object.type='MemberExpression'][object.property.name='crypto']", message: "Take ids from firesio.services().runtime." },
+];
+const VOCABULARY_ONLY = "A vocabulary holds `as const` value lists and the types read from them, and imports nothing: db reads it for its CHECK constraints. A rule over the values is core's, in another file.";
 const NO_PACKAGE_PAGES = { group: ["@firesio/app/ui", "@firesio/app/ui/*"], message: "The package's pages are React: mounted by app/routes, never imported here." };
 
 export default tseslint.config(
@@ -132,12 +139,7 @@ export default tseslint.config(
         { object: "crypto", property: "randomUUID", message: "Take ids from firesio.services().runtime." },
         { object: "Math", property: "random", message: "Take randomness as an argument (firesio.services().runtime for ids)." },
       ],
-      "no-restricted-syntax": [
-        "error",
-        { selector: "NewExpression[callee.name='Date'][arguments.length=0]", message: "Take the time from firesio.services().runtime." },
-        // `crypto.randomUUID` above only sees the bare global; this is the same call through `globalThis`, `self` or `window`.
-        { selector: "MemberExpression[property.name='randomUUID'][object.type='MemberExpression'][object.property.name='crypto']", message: "Take ids from firesio.services().runtime." },
-      ],
+      "no-restricted-syntax": ["error", ...CLOCK_SYNTAX],
     },
   },
   {
@@ -159,6 +161,19 @@ export default tseslint.config(
         },
       ],
       "no-restricted-globals": ["error", { name: "fetch", message: "core/ takes I/O as arguments; do not call fetch." }],
+    },
+  },
+  {
+    // A feature's vocabulary (`app/core/<feature>/vocabulary.ts`) is the one file of core that db imports (eslint.boundaries.js): so it
+    // holds values and types only, and imports nothing, not even core.
+    files: ["app/core/**/vocabulary.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...CLOCK_SYNTAX,
+        ...["ImportDeclaration", "ImportExpression", "ExportAllDeclaration", "ExportNamedDeclaration[source]"].map((selector) => ({ selector, message: VOCABULARY_ONLY })),
+        ...["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression", "ClassDeclaration", "ClassExpression"].map((selector) => ({ selector, message: VOCABULARY_ONLY })),
+      ],
     },
   },
   {

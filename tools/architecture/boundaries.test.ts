@@ -32,10 +32,14 @@ const WORLD = [
   "app/adapters/orders/orders-repo.ts",
   "app/wiring/orders.ts",
   "app/notifications/messages.ts",
+  "app/core/orders/order.ts",
+  "app/core/orders/vocabulary.ts",
+  "app/adapters/orders/vocabulary.ts",
 ];
 const ADAPTER = `import { target } from "~/adapters/orders/orders-repo";`;
 const WIRING = `import { target } from "~/wiring/orders";`;
 const NOTIFICATIONS = `import { target } from "~/notifications/messages";`;
+const VOCABULARY = `import { ORDER_STATUSES } from "~/core/orders/vocabulary";`;
 
 /**
  * The Worker env's module, written into the probes' code only. Spelled in two parts because `vitest.config.ts` refuses a Node test
@@ -67,6 +71,8 @@ const REFUSED: readonly (readonly [string, string, string])[] = [
   ["core → the messages", "app/core/probe.ts", NOTIFICATIONS],
   ["a route → the messages (it sends through the services)", "app/routes/probe.ts", NOTIFICATIONS],
   ["db → core", "app/db/probe.ts", CORE],
+  ["db → a core file of a feature that is not its vocabulary", "app/db/orders.probe.ts", `import { target } from "~/core/orders/order";`],
+  ["db → a file named vocabulary outside core", "app/db/orders.probe.ts", `import { target } from "~/adapters/orders/vocabulary";`],
   ["i18n → the composition file", "app/i18n/probe.ts", FIRESIO],
   ["components → the composition file", "app/components/probe.ts", FIRESIO],
   ["components → db", "app/components/probe.ts", DB],
@@ -84,6 +90,8 @@ const ALLOWED: readonly (readonly [string, string, string])[] = [
   ["a route → the composition file, core and components", "app/routes/probe.ts", `${FIRESIO}\n${CORE}\n${COMPONENT}`],
   ["a route in a feature folder → the composition file, core and components", "app/routes/app/orders/probe.ts", `${FIRESIO}\n${CORE}\n${COMPONENT}`],
   ["core, in a feature folder → core", "app/core/orders/probe.ts", CORE],
+  ["db → a feature's vocabulary (the value lists its CHECK constraints are built from)", "app/db/orders.probe.ts", VOCABULARY],
+  ["core → a feature's vocabulary (the same lists, for its types and rules)", "app/core/orders/probe.ts", VOCABULARY],
   ["an adapter → core, db and another adapter", "app/adapters/billing/probe.ts", `${CORE}\n${DB}\n${ADAPTER}`],
   ["wiring → core, db and adapters", "app/wiring/probe.ts", `${CORE}\n${DB}\n${ADAPTER}`],
   ["notifications → core and components", "app/notifications/probe.tsx", `${CORE}\n${COMPONENT}`],
@@ -151,6 +159,14 @@ describe("the bans", () => {
   it("refuses React and fetch in core", async () => {
     expect(await ban("app/core/probe.ts", `import * as react from "react";\nexport const used = react;`, "no-restricted-imports")).not.toEqual([]);
     expect(await ban("app/core/probe.ts", `export const load = () => fetch("https://example.test");`, "no-restricted-globals")).not.toEqual([]);
+  });
+
+  it("refuses a vocabulary any import or logic, and allows it value lists and their types", async () => {
+    const at = "app/core/billing/vocabulary.ts";
+    for (const code of [CORE, `import { z } from "zod";\nexport const used = z;`, `export * from "./statuses";`, `export { ORDER_STATUSES } from "~/core/orders/vocabulary";`, "export const isOpen = (status: string) => status === \"open\";", "export function isOpen() { return true; }"]) {
+      expect(await ban(at, code, "no-restricted-syntax"), code).not.toEqual([]);
+    }
+    expect(await ban(at, `export const INVOICE_STATES = ["draft", "sent"] as const;\nexport type InvoiceState = (typeof INVOICE_STATES)[number];`, "no-restricted-syntax")).toEqual([]);
   });
 
   it("refuses a function over 40 lines", async () => {

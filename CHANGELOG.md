@@ -55,6 +55,14 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
     (a parse error, an ignored file) counts as a finding. 9.7 s became 1.9 s here. Each probe was checked to fail with its rule loosened
     (a policy widened, `default: "allow"`, `no-unknown-files` off, a ban removed, a cap raised, the resolver's tsconfig or the root path
     broken). An app with probes of its own rules writes them with `createProbeWorld`, and its crawling tests need no exception for them.
+  - **A value list core and db both need is declared once, in the feature's vocabulary.** The table refused db → core and core → db and
+    said nothing of a status a CHECK constraint and the domain share. Team Up mirrors such lists in `app/db/vocabulary.ts`, held equal to
+    the domain's by a test (about forty lists); the standard is one list instead: `app/core/<feature>/vocabulary.ts` (`as const` lists and
+    their types), the one file of core db may import (a file category of `eslint.boundaries.js`), and lint refuses any import, function
+    or class in it, so no logic and no input reaches the DDL. db → any other core file stays refused, and so does core → db. Worked
+    example in `CLAUDE.md` ("Layout"); `tools/architecture/vocabulary-recipe.test.ts` proves its CHECK in SQLite; `boundaries.test.ts`
+    probes who may import it and what it may hold (each probe checked to fail with its rule loosened). An app with a mirror in `app/db/`
+    moves each list into its feature's `vocabulary.ts`, imports it from the table and from the domain, and deletes the mirror and its test.
 - `@firesio/app` 0.10.1, which carries 0.9.0, a BREAKING release (what a new form replaces is removed, not deprecated; the package's own CHANGELOG, `packages/app/CHANGELOG.md` in the
   Firesio platform repo, lists everything). What changed here, and what an app on an earlier state of this template does:
   - **Plans are declared once.** `app/core/plans.ts` is `definePlans({ features, plans })`: each feature is a `capability`, `capacity`, `quota` or `metered` with its
