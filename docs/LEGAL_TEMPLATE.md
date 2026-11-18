@@ -38,7 +38,9 @@ region, data categories, and current privacy/DPA URL.
 - **Use:** map each category to a feature; state training/profiling/automated
   decision use explicitly.
 - **Sharing:** list every vendor and why it receives data.
-- **Retention:** give event and deletion rules. Include `shop/redact` workflow.
+- **Retention:** give event and deletion rules. Include `shop/redact` workflow, and how long a support conversation no shop owns
+  (a stranger's mail, the public form) is kept: `UNASSIGNED_CONVERSATION_DAYS` in `app/core/retention.ts` (365 days after its last
+  message or close in the template), after which the daily cron erases it with its messages and files.
 - **Security:** state only controls actually enabled: TLS, encryption at rest,
   least privilege, incident process, access review.
 - **Rights:** give contact route, identity verification process, response target,

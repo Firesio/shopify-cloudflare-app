@@ -3,6 +3,7 @@ import { DAILY_CRON, DEVELOPMENT_CRON, DRAIN_ONLY_CRON } from "@firesio/app";
 import { installShop, tick } from "@firesio/app/preset/testing";
 import { describe, expect, it, vi } from "vitest";
 import { identity } from "~/core/identity";
+import { UNASSIGNED_CONVERSATION_DAYS } from "~/core/retention";
 import { firesio } from "~/firesio.server";
 import { setupTestDatabase } from "~/test/database";
 import { setupSendRecording } from "~/test/sends";
@@ -65,5 +66,37 @@ describe("the Worker's scheduled handler, called through exports.default.schedul
     await tick(exports.default, CRONS.drainOnly);
     expect(typesOf(portal.bodies())).toEqual(["shop.installed"]);
     expect(await outboxStatus("shop.installed")).toEqual(["sent"]);
+  });
+});
+
+describe("the daily cron's retention of support conversations no shop owns (retention.unassignedConversationDays)", () => {
+  const DAY_MS = 86_400_000;
+
+  async function openStrangerConversation(subject: string): Promise<string> {
+    const { inbox } = firesio.services(env);
+    if (inbox === null) throw new Error("support is on in this template");
+    return (await inbox.submitForm({ name: "Pat", email: "pat@example.org", subject, message: "A question before installing.", shop: null })).ticketId;
+  }
+
+  /** The conversation's last activity moved back, as the days between its last message and the tick would. */
+  async function age(ticketId: string, days: number, shop: string | null = null): Promise<void> {
+    const at = Date.now() - days * DAY_MS;
+    await env.DB.prepare(`UPDATE support_tickets SET last_message_at = ?1, created_at = ?1, shop = ?2 WHERE id = ?3`).bind(at, shop, ticketId).run();
+  }
+
+  async function remaining(table: "support_tickets" | "support_messages", column: "id" | "ticket_id"): Promise<string[]> {
+    const rows = await env.DB.prepare(`SELECT ${column} AS id FROM ${table} ORDER BY ${column}`).all();
+    return [...new Set(rows.results.flatMap((row) => (typeof row["id"] === "string" ? [row["id"]] : [])))].sort();
+  }
+
+  it("erases one idle past the limit with its messages, and keeps a recent one and an old one a shop owns", async () => {
+    const [stale, recent, owned] = [await openStrangerConversation("Old"), await openStrangerConversation("New"), await openStrangerConversation("Owned")];
+    await age(stale, UNASSIGNED_CONVERSATION_DAYS + 1);
+    await age(recent, UNASSIGNED_CONVERSATION_DAYS - 1);
+    await age(owned, UNASSIGNED_CONVERSATION_DAYS + 1, "owner-shop.myshopify.com");
+
+    await tick(exports.default, CRONS.daily);
+    expect(await remaining("support_tickets", "id")).toEqual([recent, owned].sort());
+    expect(await remaining("support_messages", "ticket_id")).toEqual([recent, owned].sort());
   });
 });
