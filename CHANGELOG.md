@@ -63,6 +63,12 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
     example in `CLAUDE.md` ("Layout"); `tools/architecture/vocabulary-recipe.test.ts` proves its CHECK in SQLite; `boundaries.test.ts`
     probes who may import it and what it may hold (each probe checked to fail with its rule loosened). An app with a mirror in `app/db/`
     moves each list into its feature's `vocabulary.ts`, imports it from the table and from the domain, and deletes the mirror and its test.
+  - **A home for test fixtures.** `app/test/` (test support) could import only core, i18n and the composition file, so a large app's shared
+    fixtures (helpers that seed tables, build adapters, call routes: Team Up's 21 files, 37 imports) had nowhere to live but copied into each
+    test. Test support now reaches what a test reaches (db, adapters, wiring, notifications, components, i18n, routes, AI, workers, the
+    entry files), by feature in `app/test/<feature>/`, and stays test-only: no layer may import it, which `boundaries.test.ts` now probes
+    for every layer, the composition file and `app/root.tsx` (it probed routes only), each probe checked to fail with its rule loosened.
+    An app moves its shared helpers into `app/test/` (or `app/test/<feature>/`) as they are.
 - `@firesio/app` 0.10.1, which carries 0.9.0, a BREAKING release (what a new form replaces is removed, not deprecated; the package's own CHANGELOG, `packages/app/CHANGELOG.md` in the
   Firesio platform repo, lists everything). What changed here, and what an app on an earlier state of this template does:
   - **Plans are declared once.** `app/core/plans.ts` is `definePlans({ features, plans })`: each feature is a `capability`, `capacity`, `quota` or `metered` with its

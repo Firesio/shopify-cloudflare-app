@@ -35,11 +35,32 @@ const WORLD = [
   "app/core/orders/order.ts",
   "app/core/orders/vocabulary.ts",
   "app/adapters/orders/vocabulary.ts",
+  "app/ai/orders.ts",
+  "app/i18n/orders.ts",
+  "workers/app.ts",
 ];
 const ADAPTER = `import { target } from "~/adapters/orders/orders-repo";`;
 const WIRING = `import { target } from "~/wiring/orders";`;
 const NOTIFICATIONS = `import { target } from "~/notifications/messages";`;
 const VOCABULARY = `import { ORDER_STATUSES } from "~/core/orders/vocabulary";`;
+const TEST_SUPPORT = `import { setupTestDatabase } from "~/test/database";`;
+
+/** Test support stays test-only: every file that is not a test and not test support, in each layer, is refused an import of it. */
+const NOT_TESTS = [
+  "app/core/orders/probe.ts",
+  "app/db/probe.ts",
+  "app/adapters/orders/probe.ts",
+  "app/wiring/probe.ts",
+  "app/notifications/probe.ts",
+  "app/components/orders/probe.tsx",
+  "app/i18n/probe.ts",
+  "app/ai/probe.ts",
+  "app/routes/app/orders/probe.ts",
+  "workers/probe.ts",
+  "tools/architecture/probe.ts",
+  "app/firesio.server.ts",
+  "app/root.tsx",
+];
 
 /**
  * The Worker env's module, written into the probes' code only. Spelled in two parts because `vitest.config.ts` refuses a Node test
@@ -77,7 +98,7 @@ const REFUSED: readonly (readonly [string, string, string])[] = [
   ["components → the composition file", "app/components/probe.ts", FIRESIO],
   ["components → db", "app/components/probe.ts", DB],
   ["worker → db", "workers/probe.ts", DB],
-  ["route → test support", "app/routes/probe.ts", `import { setupTestDatabase } from "~/test/database";`],
+  ...NOT_TESTS.map((path) => [`${path.replace(/\/probe\.tsx?$/, "")} → test support (it is test-only)`, path, TEST_SUPPORT] as const),
   ["an AI feature → the composition file", "app/ai/probe.ts", FIRESIO],
   ["an AI feature → db", "app/ai/probe.ts", DB],
 ];
@@ -100,6 +121,11 @@ const ALLOWED: readonly (readonly [string, string, string])[] = [
   ["worker → the composition file and core", "workers/probe.ts", `${FIRESIO}\n${CORE}`],
   ["a test → what it tests and the test support", "app/core/probe.test.ts", `${FIRESIO}\n${CORE}\nimport { setupTestDatabase } from "~/test/database";`],
   ["a test → the root route", "app/root.probe.test.tsx", `import { ErrorBoundary } from "~/root";`],
+  [
+    "test support, in a feature folder → what a test may reach (a world: tables, adapters, wiring, routes, messages, the Worker)",
+    "app/test/orders/probe.ts",
+    [TEST_SUPPORT, DB, ADAPTER, WIRING, ROUTE, NOTIFICATIONS, COMPONENT, FIRESIO, CORE, VOCABULARY, `import { target as ai } from "~/ai/orders";`, `import { target as words } from "~/i18n/orders";`, `import { target as worker } from "../../../workers/app";`, `import { ErrorBoundary } from "~/root";`].join("\n"),
+  ],
 ];
 
 beforeAll(async () => {

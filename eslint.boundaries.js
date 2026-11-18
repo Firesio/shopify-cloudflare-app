@@ -33,6 +33,7 @@ const elements = [
   // The app's AI features: prompts and calls, each a function that receives the shop's `ai` (`firesio.from(context).ai`) as an argument.
   { type: "ai", pattern: "app/ai", partialMatch: false },
   { type: "routes", pattern: "app/routes", partialMatch: false },
+  // Shared test support, test-only: helpers and fixtures (`app/test/<feature>/`: worlds that seed tables, build adapters, call routes).
   { type: "test-support", pattern: "app/test", partialMatch: false },
   { type: "workers", pattern: "workers", partialMatch: false },
   { type: "tools", pattern: "tools/*", partialMatch: false },
@@ -89,8 +90,11 @@ const policies = [
   allowComposition("workers"),
   fromFile(SERVER_BUILD, { to: { file: { categories: [ENTRY] } } }),
   fromFile(SERVER_BUILD, to("routes")),
-  allow("test-support", "test-support", "core", "i18n"),
+  // Test support is part of the tests: it may reach what a test may (a fixture seeds the tables, builds an adapter, calls a route). Nothing
+  // outside the tests imports it (no policy above allows it), so none of it reaches the Worker's bundle.
+  allow("test-support", "test-support", "core", "db", "adapters", "wiring", "notifications", "components", "i18n", "routes", "workers", "ai"),
   allowComposition("test-support"),
+  { from: { element: { type: "test-support" } }, allow: { to: { file: { categories: [ENTRY] } } } },
   allow("tools", "tools"),
 ];
 

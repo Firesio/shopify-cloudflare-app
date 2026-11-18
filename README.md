@@ -68,7 +68,7 @@ app/
   routes/            thin: app/ (embedded; `middleware = [firesio.adminMiddleware]`; `app/<feature>/`, and one-line files mounting
                      @firesio/app/ui/*, the support file staging route included), public/, auth/, webhooks/, support/, healthz;
                      proxy/ and extensions/ when the app has an app proxy or an extension backend
-  test/              shared test support
+  test/              shared test support, test-only (test/<feature>/: fixtures and worlds that seed tables, build adapters, call routes)
   styles/            SCSS of the public pages
 workers/       app.ts: fetch, then `firesio.queue`, `firesio.scheduled`, `firesio.email` and `AdminApi = firesio.AdminApi`
 drizzle/       the app's migrations (a baseline and one per library release since; the libraries' tables included)

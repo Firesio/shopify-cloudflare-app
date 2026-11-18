@@ -29,7 +29,8 @@ export interface Finding {
 }
 
 export interface ProbeWorld {
-  /** Writes `code` at `relativePath` of the world, lints it with the rules whose id starts with `rulePrefix`, removes it. */
+  /** Writes `code` at `relativePath` of the world, lints it with the rules whose id starts with `rulePrefix`, removes it (or puts the
+   * world's empty module back, for a probe at the path of one). */
   readonly lint: (relativePath: string, code: string, rulePrefix: string) => Promise<readonly Finding[]>;
   /** The relative imports (`~/...`, `./...`) of `code` that resolve to no file of the world: a probe that would pass for the wrong reason. */
   readonly unresolved: (relativePath: string, code: string) => readonly Finding[];
@@ -85,7 +86,6 @@ export async function createProbeWorld(files: readonly string[]): Promise<ProbeW
   const linters = new Map<string, ESLint>();
   const lint = async (relativePath: string, code: string, rulePrefix: string): Promise<readonly Finding[]> => {
     const path = join(root, relativePath);
-    if (existsSync(path)) throw new Error(`${relativePath} is a file of the probe world, not a probe`);
     const linter = linters.get(rulePrefix) ?? linterFor(root, rulePrefix);
     linters.set(rulePrefix, linter);
     await mkdir(dirname(path), { recursive: true });
@@ -95,7 +95,8 @@ export async function createProbeWorld(files: readonly string[]): Promise<ProbeW
       // A message without a rule (a parse error, "File ignored") is a finding too: an "allows" probe must not pass on a file never linted.
       return (result?.messages ?? []).filter((m) => m.ruleId === null || m.ruleId.startsWith(rulePrefix)).map((m) => ({ rule: m.ruleId ?? "probe/eslint", message: m.message }));
     } finally {
-      await rm(path, { force: true });
+      // A probe at the path of a world file (the composition file, `app/root.tsx`) stands in for it while it is linted.
+      await (files.includes(relativePath) ? writeFile(path, "export {};\n") : rm(path, { force: true }));
     }
   };
   return { lint, unresolved: (relativePath, code) => unresolvedIn(root, relativePath, code), remove: () => rm(root, { recursive: true, force: true }) };
