@@ -5,6 +5,33 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
 
 ## template-v1.0.0 (unreleased)
 
+- `@firesio/app` 0.13.1 and `@firesio/portal-contract` 0.6.0 (additive since 0.10.1; the package's CHANGELOG lists every addition). No schema change
+  (`drizzle-kit generate`: no changes). What changed here, and what an app on the previous state of this template does besides the merge:
+  - **`firesioVite()`** (`@firesio/app/vite`) is the last plugin of `vite.config.ts`, and the hand-written `optimizeDeps` are gone (the browser
+    list and the Worker's `exclude`/`include` of `@firesio/app`, `ai`, `agents/models/ai-sdk`, `react/jsx-runtime`): the plugin keeps ONE copy of
+    the package in the dev server, without which every package page answered 500 "No value found for context" in `npm run dev`. React Router's
+    plugin pre-bundles React and the router and Vite's scan finds the app's own imports. An app with its own `optimizeDeps` keeps only entries
+    for packages of ITS own (never `@firesio/app` or a subpath: the plugin warns). Test: `tools/architecture/vite-config.test.ts`.
+  - **Support attachments.** `app/routes/app/support/upload.ts` (`export { action, loader } from "@firesio/app/ui/support/upload"`) is mounted under
+    the /app layout at `/app/support/upload` (`app/routes.ts`), and `paths: { supportUpload: SUPPORT_UPLOAD_PATH }` (`app/core/paths.ts`) turns on
+    the file picker of the new-ticket and reply pages. An app merges `app/routes.ts` and `app/firesio.server.ts` by hand (they are its files):
+    add the route and the `paths` line. Tests: `app/routes.test.ts`, `workers/support-upload.e2e.test.ts`.
+  - **Retention of support conversations no shop owns.** `retention: { unassignedConversationDays: UNASSIGNED_CONVERSATION_DAYS }` (365, in the
+    app's own `app/core/retention.ts`): the daily cron erases a stranger's conversation (mail, public form) a year after its last activity; the
+    package keeps them for ever otherwise. Say it in the privacy policy (`docs/LEGAL_TEMPLATE.md`, "Retention"); the first daily run after the
+    deploy erases every such conversation already older than that. Test: `workers/scheduled.e2e.test.ts`.
+  - **The standard layout** (`CLAUDE.md`, "Layout"): three layers a growing app fills, `app/adapters/<feature>/` (the ports over D1, KV, R2,
+    Shopify, HTTP), `app/wiring/<feature>.ts` (the app's services bound for a shop and its handlers, plugged into `app/firesio.server.ts`) and
+    `app/notifications/`, and feature sub-folders in every layer. Lint now refuses a route that imports `app/db` (a query is an adapter's),
+    `createFiresio` outside `app/firesio.server.ts` (tests excepted), and in core `drizzle-orm`, `cloudflare:*`, a value of the preset, the
+    package's pages, its D1 adapters and preset parts (and React and `cloudflare:*` in adapters and wiring, `drizzle-orm` and `cloudflare:*` in
+    components, i18n, notifications and AI features); `tools/architecture/boundaries.test.ts` probes each. An app whose routes query tables
+    moves each query into an adapter of its feature, bound with `withServices`.
+  - Not adopted, because the template has no code of that kind (an app that has some adopts them the documented way): `shopRecord` and
+    `check(..., { record })` (the template reads no shop row of its own and has no extension backend), `around` (no request context of its own),
+    numeric `attempts` and `deadLetterQueues` (no queue of its own: the webhook queues and their DLQs are the preset's), `shopStates` / `getMany`
+    (no job over many shops), the notify options `mailCopies`, `textsFor`, `consent`, `template` and ICU plural/select (no mail of its own),
+    the support page slots, and the contract's campaign fields (no `campaigns` handler).
 - `@firesio/app` 0.10.1, which carries 0.9.0, a BREAKING release (what a new form replaces is removed, not deprecated; the package's own CHANGELOG, `packages/app/CHANGELOG.md` in the
   Firesio platform repo, lists everything). What changed here, and what an app on an earlier state of this template does:
   - **Plans are declared once.** `app/core/plans.ts` is `definePlans({ features, plans })`: each feature is a `capability`, `capacity`, `quota` or `metered` with its
