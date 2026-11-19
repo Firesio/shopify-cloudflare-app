@@ -5,7 +5,7 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
 
 ## template-v1.0.0 (unreleased)
 
-- `@firesio/app` 0.13.1 and `@firesio/portal-contract` 0.6.0 (additive since 0.10.1; the package's CHANGELOG lists every addition). No schema change
+- `@firesio/app` 1.0.0 and `@firesio/portal-contract` 0.6.0 (1.0.0 only adds to 0.13.1: the POS webview and the staff phone app, both opt-in, see `docs/POS-AND-PHONE.md`; an app on 0.13.1 changes nothing to take it; additive since 0.10.1; the package's CHANGELOG lists every addition). No schema change
   (`drizzle-kit generate`: no changes). What changed here, and what an app on the previous state of this template does besides the merge:
   - **`firesioVite()`** (`@firesio/app/vite`) is the last plugin of `vite.config.ts`, and the hand-written `optimizeDeps` are gone (the browser
     list and the Worker's `exclude`/`include` of `@firesio/app`, `ai`, `agents/models/ai-sdk`, `react/jsx-runtime`): the plugin keeps ONE copy of
