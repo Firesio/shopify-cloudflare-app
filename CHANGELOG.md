@@ -5,6 +5,7 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
 
 ## template-v1.1.0 (unreleased)
 
+- `@firesio/app` 1.4.0 (only adds). **MRR follows the real price**: the daily snapshot's `revenue.mrr` is what shops are charged, an annual charge a twelfth a month (it was the paying shops times the plan's list monthly price). **Metrics history**: a new hourly cron step `metrics_backfill` (on by default; `cron.preset.metrics_backfill: false` leaves it out) sends the portal a snapshot per past day from the first install, a year at most, then stops; a past day carries installs, uninstalls, tickets created and the reconstructed shop count only. An app with its own day-correct counts lists their keys in `metrics.backfill`. No schema change.
 - `@firesio/app` 1.3.0 and `@firesio/portal-contract` 1.2.0 (both only add to 1.0.0; an app on 1.0.0 changes nothing to take them). No schema change
   (`drizzle-kit generate`: no changes). What changed here, and what an app on the previous state of this template does besides the merge:
   - **Shop names and the announce sweep.** Every account event now carries the shop's name (`account.name`, read from the app's own `shops.name`), and
