@@ -1,13 +1,14 @@
-import type { BillingCommands, BillingGrantCommands, Received, ShopsCommands, SupportCommands, SupportOpenCommands } from "@firesio/portal-contract";
+import type { BillingCommands, BillingGrantCommands, CampaignsCommands, Received, ShopsCommands, SupportCommands, SupportOpenCommands } from "@firesio/portal-contract";
 
 /**
  * The portal's view of this app's `AdminApi` over RPC: every input is `unknown` until the app has validated it (`Received`), and the
- * template supports `support().open` and the grants commands, so they are not optional here.
+ * template supports `support().open`, the grants commands and the `campaigns()` group (`campaignDelivery`), so they are not optional here.
  */
 interface AdminApiOverRpc extends Rpc.WorkerEntrypointBranded {
   shops(): Received<ShopsCommands>;
   billing(): Received<BillingCommands> & Received<BillingGrantCommands>;
   support(): Received<SupportCommands> & Received<SupportOpenCommands>;
+  campaigns(): Received<CampaignsCommands>;
 }
 
 // Test-only bindings: `@cloudflare/vitest-plugin` types `env` from "cloudflare:test" as `Cloudflare.Env`, so the extra bindings

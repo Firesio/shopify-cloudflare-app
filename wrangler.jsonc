@@ -30,13 +30,19 @@
       { "binding": "WEBHOOK_QUEUE", "queue": "my-app-webhooks" },
       // Events for the portal (`docs/architecture.md` section 4 in the Firesio platform repo). The outbox drains into it. The DLQ
       // (portal-events-dlq) is the portal's CONSUMER side: nothing to declare here.
-      { "binding": "PORTAL_EVENTS", "queue": "portal-events" }
+      { "binding": "PORTAL_EVENTS", "queue": "portal-events" },
+      // Campaigns (`campaignDelivery` in app/firesio.server.ts): one message per step of a delivery chain. Its OWN queue on purpose: a
+      // campaign's pacing and retries must never share a line with a password reset or a support reply. Named `<slug>-campaigns` (the preset's default).
+      { "binding": "CAMPAIGNS_QUEUE", "queue": "my-app-campaigns" }
     ],
     // The webhook queue, and its dead-letter queue: what the main queue gave up on is marked `dead_letter` in the inbox and logged
     // (`webhook.dead_letter`) by the preset's `queue` handler instead of sitting unread. Both queues must exist before a deploy.
     "consumers": [
       { "queue": "my-app-webhooks", "max_retries": 8, "dead_letter_queue": "my-app-webhooks-dlq" },
-      { "queue": "my-app-webhooks-dlq" }
+      { "queue": "my-app-webhooks-dlq" },
+      // The campaigns queue and its dead-letter queue (read as `<name>-dlq`); both must exist before a deploy.
+      { "queue": "my-app-campaigns", "max_retries": 5, "dead_letter_queue": "my-app-campaigns-dlq" },
+      { "queue": "my-app-campaigns-dlq" }
     ]
   },
 
@@ -120,11 +126,14 @@
       "queues": {
         "producers": [
           { "binding": "WEBHOOK_QUEUE", "queue": "my-app-webhooks-prod" },
-          { "binding": "PORTAL_EVENTS", "queue": "portal-events-prod" }
+          { "binding": "PORTAL_EVENTS", "queue": "portal-events-prod" },
+          { "binding": "CAMPAIGNS_QUEUE", "queue": "my-app-campaigns-prod" }
         ],
         "consumers": [
           { "queue": "my-app-webhooks-prod", "max_retries": 8, "dead_letter_queue": "my-app-webhooks-dlq-prod" },
-          { "queue": "my-app-webhooks-dlq-prod" }
+          { "queue": "my-app-webhooks-dlq-prod" },
+          { "queue": "my-app-campaigns-prod", "max_retries": 5, "dead_letter_queue": "my-app-campaigns-prod-dlq" },
+          { "queue": "my-app-campaigns-prod-dlq" }
         ]
       },
       "kv_namespaces": [

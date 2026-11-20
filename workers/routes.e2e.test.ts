@@ -33,6 +33,23 @@ describe("the landing page", () => {
   });
 });
 
+describe("the campaign unsubscribe page", () => {
+  const forged = "/campaigns/unsubscribe?e=someone%40example.org&c=forged&s=forged";
+
+  it("is public: the link opens without a Shopify session", async () => {
+    const response = await get(forged);
+    expect(response.status).toBe(200);
+    // The test build draws a route as a document, so the page's own HTML and headers (the button, no-store, noindex) are read where
+    // nothing wraps the response: app/routes/campaigns/unsubscribe.test.ts.
+  });
+
+  it("refuses a forged link with a plain 400 that says nothing about which addresses are known", async () => {
+    const response = await exports.default.fetch(new Request(`https://example.test${forged}`, { method: "POST", headers: { "user-agent": BROWSER } }));
+    expect(response.status).toBe(400);
+    expect(await response.text()).toContain("This link is not valid");
+  });
+});
+
 describe("the public support form (POST /support), through the real Worker", () => {
   it("answers a filled decoy field as a success and does nothing with it", async () => {
     const response = await postForm({ name: "Bot", email: "bot@example.org", subject: "Hi", message: "Buy things", [CONTACT_TRAP_FIELD]: "http://spam.example" });

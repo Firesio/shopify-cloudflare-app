@@ -298,7 +298,7 @@ test("both tomls keep their [build] flags: dev follows the tunnel, production do
 
 test("the repo's own tomls and wrangler.jsonc pass the webhook, build-flag and queue-name checks", () => {
   const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
-  const files = { ...validFiles(), wrangler: JSON.parse(stripJsonComments(read("wrangler.jsonc"))), productionToml: read("shopify.app.toml"), developmentToml: read("shopify.app.dev.toml"), identity: read("app/core/identity.ts") };
+  const files = { ...validFiles(), wrangler: JSON.parse(stripJsonComments(read("wrangler.jsonc"))), productionToml: read("shopify.app.toml"), developmentToml: read("shopify.app.dev.toml"), identity: read("app/core/identity.ts"), firesio: read("app/firesio.server.ts") };
   const issues = validateLaunchContract(files).filter((issue) => /webhook subscription|\[build\]|uri "|queue|dead-letter|workers_dev|preview_urls/.test(issue));
   assert.deepEqual(issues, []);
 });

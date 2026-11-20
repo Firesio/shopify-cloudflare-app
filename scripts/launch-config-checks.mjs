@@ -17,21 +17,47 @@ export function slugOf(identitySource) {
  * queues follow the same pattern and are consumed by the same Worker (the preset's `webhookDeadLetterQueues` records what landed
  * there); a webhook queue without that consumer would let dead deliveries sit unread. `portal-events*` is the portal's and is never checked here.
  */
-export function queueNameIssues(wrangler, slug) {
+export function queueNameIssues(wrangler, slug, options = {}) {
   if (slug === null) return ["app/core/identity.ts has no slug: the webhook queue names cannot be checked"];
   const expectations = [
-    { label: "top level", env: configForEnv(wrangler, "top-level"), queue: `${slug}-webhooks`, dlq: `${slug}-webhooks-dlq` },
-    { label: "env.production", env: configForEnv(wrangler, "production"), queue: `${slug}-webhooks-prod`, dlq: `${slug}-webhooks-dlq-prod` },
+    { label: "top level", env: configForEnv(wrangler, "top-level"), queue: `${slug}-webhooks`, dlq: `${slug}-webhooks-dlq`, campaigns: [`${slug}-campaigns`, `${slug}-campaigns-dlq`] },
+    { label: "env.production", env: configForEnv(wrangler, "production"), queue: `${slug}-webhooks-prod`, dlq: `${slug}-webhooks-dlq-prod`, campaigns: [`${slug}-campaigns-prod`, `${slug}-campaigns-prod-dlq`] },
   ];
   const issues = [];
-  for (const { label, env, queue, dlq } of expectations) {
+  for (const { label, env, queue, dlq, campaigns } of expectations) {
     const producer = env?.queues?.producers?.find((entry) => entry.binding === "WEBHOOK_QUEUE")?.queue;
     if (producer !== queue) issues.push(`wrangler.jsonc ${label}: the WEBHOOK_QUEUE producer must be "${queue}" (found ${JSON.stringify(producer ?? null)})`);
     const consumers = env?.queues?.consumers ?? [];
     const names = consumers.map((entry) => entry.queue);
-    if (names.length !== 2 || !names.includes(queue) || !names.includes(dlq)) {
-      issues.push(`wrangler.jsonc ${label}: the queue consumers must be "${queue}" and its dead-letter queue "${dlq}" (found ${JSON.stringify(consumers.map((entry) => entry.queue))})`);
+    // Exactly the queues this app consumes: the webhook pair, and the campaigns pair while `campaignDelivery` is declared. A stray consumer is a queue nobody meant to read.
+    const wanted = options.campaigns === true ? [queue, dlq, ...campaigns] : [queue, dlq];
+    if (names.length !== wanted.length || !wanted.every((name) => names.includes(name))) {
+      issues.push(`wrangler.jsonc ${label}: the queue consumers must be "${queue}" and its dead-letter queue "${dlq}"${options.campaigns === true ? ` and the campaigns queue "${campaigns[0]}" with its dead-letter queue "${campaigns[1]}"` : ""} (found ${JSON.stringify(consumers.map((entry) => entry.queue))})`);
     }
+    const main = consumers.find((entry) => entry.queue === queue);
+    if (main !== undefined && main.dead_letter_queue !== dlq) issues.push(`wrangler.jsonc ${label}: the dead-letter queue of "${queue}" must be "${dlq}" (found ${JSON.stringify(main.dead_letter_queue ?? null)})`);
+  }
+  if (options.campaigns === true) issues.push(...campaignQueueIssues(wrangler, slug));
+  return issues;
+}
+
+/**
+ * The campaigns queue (`campaignDelivery` in app/firesio.server.ts): the preset consumes `<slug>-campaigns` / `<slug>-campaigns-prod` and
+ * reads the dead-letter queue as `<name>-dlq`, and sends each step of a delivery through the `CAMPAIGNS_QUEUE` producer. A queue that does
+ * not carry the slug is one nobody consumes: a campaign would start and never send.
+ */
+export function campaignQueueIssues(wrangler, slug) {
+  const expectations = [
+    { label: "top level", env: configForEnv(wrangler, "top-level"), queue: `${slug}-campaigns`, dlq: `${slug}-campaigns-dlq` },
+    { label: "env.production", env: configForEnv(wrangler, "production"), queue: `${slug}-campaigns-prod`, dlq: `${slug}-campaigns-prod-dlq` },
+  ];
+  const issues = [];
+  for (const { label, env, queue, dlq } of expectations) {
+    const producer = env?.queues?.producers?.find((entry) => entry.binding === "CAMPAIGNS_QUEUE")?.queue;
+    if (producer !== queue) issues.push(`wrangler.jsonc ${label}: the CAMPAIGNS_QUEUE producer must be "${queue}" (found ${JSON.stringify(producer ?? null)})`);
+    const consumers = env?.queues?.consumers ?? [];
+    const names = consumers.map((entry) => entry.queue);
+    if (!names.includes(queue) || !names.includes(dlq)) issues.push(`wrangler.jsonc ${label}: the campaigns queue "${queue}" and its dead-letter queue "${dlq}" must both be consumers (found ${JSON.stringify(names)})`);
     const main = consumers.find((entry) => entry.queue === queue);
     if (main !== undefined && main.dead_letter_queue !== dlq) issues.push(`wrangler.jsonc ${label}: the dead-letter queue of "${queue}" must be "${dlq}" (found ${JSON.stringify(main.dead_letter_queue ?? null)})`);
   }

@@ -16,14 +16,21 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
   - **How the app's numbers are drawn.** The standard, health and ticket metric keys carry `chart`, `featured`, `group` and `good` (contract 1.2.0), so the portal's
     dashboard shows them as cards with charts without any code here. An app's own keys may declare them in their `defineMetrics` entries; left out, the portal derives a default.
   - **Push refusals say why.** A push service's refusal reason (Apple's `BadWebPushRequest`, `VapidPkHashMismatch`...) is kept in the delivery report and its log line.
-  - **Campaigns are a default of the package, opt-in here.** The preset serves the `campaigns()` group when `createFiresio({ campaignDelivery: {} })` is declared (an app with
-    its own `campaigns` handler keeps it). The template does not declare it, because it needs infrastructure that must exist BEFORE a deploy. To turn it on: (1) add
-    `node_modules/@firesio/app/src/campaigns/d1/schema.ts` to `drizzle.config.ts`, `npm run db:generate`, read the SQL; (2) create the queue `<slug>-campaigns` and its
-    dead-letter queue `<slug>-campaigns-dlq` (and the `-prod` pair) with `wrangler queues create`, then declare the producer `CAMPAIGNS_QUEUE` and the consumer with its
-    `dead_letter_queue` in `wrangler.jsonc`, top level AND `env.production`; (3) `EMAIL` and `EMAIL_FROM` on a verified Email Sending domain, and `ATTACHMENT_TOKEN_SECRET`
-    of at least 32 characters; (4) `campaignDelivery: {}` in `app/firesio.server.ts` (options: `segments`, `signature`, `options`, `unsubscribePath`); (5) a public route
-    `/campaigns/unsubscribe` returning `firesio.campaigns().unsubscribe(request)` from its `loader` and `action`; (6) `campaigns: true` in the portal's `declared-apps.ts`.
-    Not verified: nothing has been sent through Cloudflare Email Sending (the package's ticket 25 lists what).
+  - **Campaigns are ON in the template.** The preset serves the contract's `campaigns()` group from `campaignDelivery: {}` (`app/firesio.server.ts`). What came with it,
+    and what an app on the previous state does besides the merge: (1) `drizzle.config.ts` lists the campaigns tables (`firesioSchemaPaths({ settings: true, campaigns: true })`)
+    and `drizzle/0004_*.sql` creates them (`campaigns`, `campaign_recipients`, `campaign_unsubscribes`, `campaign_requests`): an app with its own migrations runs
+    `npm run db:generate` and reads the SQL; (2) `wrangler.jsonc` declares the producer `CAMPAIGNS_QUEUE` and the consumers `my-app-campaigns` (with
+    `dead_letter_queue`) and `my-app-campaigns-dlq`, top level AND `env.production` (`-prod`, `-prod-dlq`); **create the four queues with `wrangler queues create` BEFORE the deploy**;
+    `npm run new-app` renames them to the slug and `npm run check:placeholders` refuses a name that does not carry it; (3) the public route `/campaigns/unsubscribe`
+    (`app/routes/campaigns/unsubscribe.ts`, a line in `app/routes.ts`); (4) `EMAIL`, `EMAIL_FROM` on a verified Email Sending domain and `ATTACHMENT_TOKEN_SECRET` of 32+
+    characters (the template already declares them); (5) `campaigns: true` in the portal's `declared-apps.ts`. An app that does not want campaigns removes
+    `campaignDelivery`, the queues and the route (the launch check then stops asking for the queues). Not verified: nothing has been sent through Cloudflare Email Sending;
+    send a campaign to yourself before a large one.
+  - **POS: `PageActions` and `AppSurface` are in.** The home page draws its actions with `PageActions` (the header slots on the web admin, one bar in Shopify POS), the `/app` layout wraps its
+    outlet in `<AppSurface surface back>` (nothing drawn on the web admin), `createFiresio({ surface: {} })`, the report route `app/routes/app/surface.ts` and its line in `app/routes.ts`, and
+    `app/core/back.ts` (the parent of each page, for the POS Back button: the app edits its table). Held by tests: `app/surface.test.ts` (`pageActionsFindings` over `app/routes/app/**` and `app/components/`, `reportRouteFindings`),
+    `app/dom/HomeView.dom.test.tsx` (`pageOnEverySurface`, in jsdom: `vitest.config.ts` has a `dom` project for `*.dom.test.tsx`, `app/dom/tsconfig.json` type-checks them with the browser's types, `jsdom` is a dev dependency).
+    Costs nothing on the web admin. `[pos] embedded = true` (what lists the app in the POS app) is a commented line in `shopify.app.toml`: the app turns it on.
 
 ## template-v1.0.0 (unreleased)
 

@@ -19,6 +19,11 @@ automatically_update_urls_on_dev = false
 # `shopify app deploy` (scripts/ci-release.mjs) ships this file's config (scopes, webhooks) with the app.
 include_config_on_deploy = true
 
+# Lists the app in the Shopify POS app (the same pages, with the actions in POS's bottom bar: `docs/POS-AND-PHONE.md`). The code is already
+# wired (`surface: {}`, `AppSurface`, `PageActions`); this line is the app's decision, because it shows the app to merchants' staff at the register.
+# [pos]
+# embedded = true
+
 [webhooks]
 api_version = "2026-10"
 

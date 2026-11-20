@@ -10,7 +10,9 @@
     "node_modules",
     "build",
     "extensions",
-    ".claude"
+    ".claude",
+    // Drawn in jsdom, with the browser's types and without the Worker's: `app/dom/tsconfig.json` checks them.
+    "app/dom"
   ],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],

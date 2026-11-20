@@ -21,16 +21,19 @@ function collectTests(dir: string): string[] {
 //   *.e2e.test.ts(x)     boots the REAL Worker entry (`workers/app.ts`) in its own project and calls it through `exports`.
 //   *.workerd.test.ts(x) runs in workerd and imports the code it exercises directly (bindings, D1, the composition file). A
 //                        test under `app/routes/` (it imports `firesio.server.ts`, which reads `env`) or `workers/` is one too.
+//   *.dom.test.tsx       renders React in jsdom (a page on each surface: `pageOnEverySurface`); no Worker, no bindings.
 //   *.test.ts(x)         everything else: pure code, in Node.
 // A Node test that imports `cloudflare:*` would fail at import with an obscure message: the guard below says which file to rename.
 const E2E = /\.e2e\.test\.tsx?$/;
 const WORKERD = /\.workerd\.test\.tsx?$/;
+const DOM = /\.dom\.test\.tsx?$/;
 const inWorkerdFolder = (file: string) => file.startsWith("app/routes/") || file.startsWith("workers/");
 
 const allTests = collectTests("app").concat(collectTests("workers"), collectTests("tools/architecture"));
 const e2eFiles = allTests.filter((file) => E2E.test(file));
-const workersFiles = allTests.filter((file) => !E2E.test(file) && (WORKERD.test(file) || inWorkerdFolder(file)));
-const unitFiles = allTests.filter((file) => !E2E.test(file) && !WORKERD.test(file) && !inWorkerdFolder(file));
+const domFiles = allTests.filter((file) => DOM.test(file));
+const workersFiles = allTests.filter((file) => !E2E.test(file) && !DOM.test(file) && (WORKERD.test(file) || inWorkerdFolder(file)));
+const unitFiles = allTests.filter((file) => !E2E.test(file) && !DOM.test(file) && !WORKERD.test(file) && !inWorkerdFolder(file));
 for (const file of unitFiles) {
   if (readFileSync(file, "utf8").includes("cloudflare:")) throw new Error(`${file} imports cloudflare:* but runs in Node: rename it to ${file.replace(/\.test\.(tsx?)$/, ".workerd.test.$1")}`);
 }
@@ -70,6 +73,11 @@ export default defineConfig({
           isolate: false,
           fsModuleCache: true,
         },
+      },
+      {
+        // A page rendered in jsdom, with no Worker: where its actions are drawn on each surface.
+        resolve: { alias: { "~": path.resolve(import.meta.dirname, "app"), "cloudflare:workers": "@firesio/app/preset/testing/cloudflare-workers" } },
+        test: { name: "dom", include: domFiles, environment: "jsdom" },
       },
       {
         resolve: { tsconfigPaths: true },

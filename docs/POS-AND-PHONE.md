@@ -1,10 +1,10 @@
 # The POS webview and the staff phone app (opt-in)
 
-`@firesio/app` 1.0.0 can serve the app's `/app` pages inside the **Shopify POS app** and on a **staff member's phone** (an installed web app), with the SAME pages: a page declares what its actions are and each surface draws them. Nothing here is on in the template. An app that needs neither changes nothing and pays nothing (no code in its bundle, no table, no route, no stylesheet). Design: the platform repo, `docs/architecture.md` section 6.12 and `docs/tickets/21-surface-devices.md`; the package's own words: `@firesio/app/surface`, `ui/surface`, `devices`, `ui/devices` (each has a README).
+`@firesio/app` 1.0.0 can serve the app's `/app` pages inside the **Shopify POS app** and on a **staff member's phone** (an installed web app), with the SAME pages: a page declares what its actions are and each surface draws them. The POS side is wired in the template and costs nothing on the web admin (section 2); the phone app is a switch, off (section 3). Design: the platform repo, `docs/architecture.md` section 6.12 and `docs/tickets/21-surface-devices.md`; the package's own words: `@firesio/app/surface`, `ui/surface`, `devices`, `ui/devices` (each has a README).
 
-## 1. A page's actions (do this in every app, it costs nothing)
+## 1. A page's actions (wired: do this in every page you add)
 
-A page draws its actions with `PageActions` from `@firesio/app/ui/surface` as the LAST child of `s-page`, never with `slot="primary-action"` / `slot="secondary-actions"` written by hand:
+A page draws its actions with `PageActions` from `@firesio/app/ui/surface` as the LAST child of `s-page`, never with `slot="primary-action"` / `slot="secondary-actions"` written by hand. The home page does it (`app/components/HomeView.tsx`):
 
 ```tsx
 <s-page heading="Orders">
@@ -18,17 +18,13 @@ A page draws its actions with `PageActions` from `@firesio/app/ui/surface` as th
 </s-page>
 ```
 
-In the web admin this is the header slots, exactly as before. Name a capability (`requires`: `scanner`, `share`, `picker`, `resourcePicker`, `register`) when a control needs a facility the host may lack; name a surface (`on`, `OnSurface`) only for work that really belongs to one. Test a page with `pageOnEverySurface(<Page />)` (`@firesio/app/ui/surface/testing`); hold the rules with `pageActionsFindings` (`@firesio/app/ui/surface/testing/guard`, needs `typescript`) over `app/routes/app/**` in a guard test.
+In the web admin this is the header slots, exactly as before. Name a capability (`requires`: `scanner`, `share`, `picker`, `resourcePicker`, `register`) when a control needs a facility the host may lack; name a surface (`on`, `OnSurface`) only for work that really belongs to one. **Held by tests**: `app/surface.test.ts` runs `pageActionsFindings` over `app/routes/app/**` and `app/components/` (a hand-written slot, `PageActions` not last, a misplaced primary all fail `verify` with the file and line), and `app/dom/HomeView.dom.test.tsx` draws the page on every surface with `pageOnEverySurface` (give a new page its own `*.dom.test.tsx` the same way; the page must be a component that takes its data as props, so a test can draw it without a router).
 
-## 2. Serve the Shopify POS webview
+## 2. The Shopify POS webview (wired; one line is yours)
 
-1. `shopify.app.toml`: `[pos] embedded = true`.
-2. `app/firesio.server.ts`: `surface: {}` in `createFiresio`.
-3. A route for the page's own report of where it runs, under the `/app` layout: `app/routes/app/surface.ts` with `export { action, loader } from "@firesio/app/ui/surface/report";` and the line in `app/routes.ts`.
-4. The `/app` layout: the loader returns `surface: firesio.maybeFrom(context).surface`; the component wraps its outlet in `SurfaceProvider` (`surface`, `labels={surfaceLabelsFor(locale)}`), mounts `<SurfaceReporter assumed={surface} />`, and where `surface === "pos"` draws `<PageActionsHost back={...} />` before the outlet and `<PageActionsSpacer />` after it (`back` is the page's parent address, which only the app knows; `null` on its home).
-5. `import "@firesio/app/ui/surface/pos.css";` in the layout (the one stylesheet of the POS bar).
+Already in the template: `surface: {}` in `app/firesio.server.ts`; the report route `app/routes/app/surface.ts` and its line in `app/routes.ts` (held by `reportRouteFindings`); the `/app` layout's loader returns `surface` and wraps its outlet in `<AppSurface surface back={backOf(pathname)}>` (nothing is drawn on the web admin: no element, no style, no request; only inside POS it adds the bar's stylesheet, the bar and a spacer); `app/core/back.ts`, the parent of each page for the POS Back button (**edit it when you add a section**).
 
-What each surface SHOWS (dashboard regions, printing, the detail page) is the app's own table over `Surface`; the package does not decide it.
+What is left to the app: `[pos] embedded = true` in `shopify.app.toml` (a commented line there: it lists the app in the POS app, so it is a decision), and what each surface SHOWS (dashboard regions, printing, the detail page): the app's own table over `Surface`; the package does not decide it. Words: `AppSurface` takes `labels={surfaceLabelsFor(locale)}` when the app is translated.
 
 ## 3. Serve the staff phone app
 

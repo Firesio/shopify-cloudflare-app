@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { bindingKeys, configForEnv, stripJsonComments } from "./check-placeholders.mjs";
-import { productionRouteIssues, queueNameIssues, slugOf } from "./launch-config-checks.mjs";
+import { campaignQueueIssues, productionRouteIssues, queueNameIssues, slugOf } from "./launch-config-checks.mjs";
 
 const config = JSON.parse(stripJsonComments(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8")));
 const top = configForEnv(config, "top-level");
@@ -27,7 +27,7 @@ test("the two environments name different queues, and the webhook queue's dead-l
   const names = (env) => (env.queues?.producers ?? []).map((producer) => producer.queue);
   for (const queue of names(top)) assert.ok(!names(production).includes(queue), `${queue} is shared by both environments`);
   for (const env of [top, production]) {
-    const webhooks = env.queues.consumers.filter((consumer) => consumer.dead_letter_queue !== undefined);
+    const webhooks = env.queues.consumers.filter((consumer) => consumer.dead_letter_queue !== undefined && consumer.queue.includes("webhooks"));
     assert.equal(webhooks.length, 1, "one consumer has a dead-letter queue: the webhook queue");
     assert.ok(env.queues.consumers.some((consumer) => consumer.queue === webhooks[0].dead_letter_queue), `${webhooks[0].dead_letter_queue} has no consumer: the preset would never record what lands there`);
   }
@@ -36,11 +36,28 @@ test("the two environments name different queues, and the webhook queue's dead-l
 test("the webhook queues are named after the slug in app/core/identity.ts, in both environments", () => {
   const slug = slugOf(readFileSync(new URL("../app/core/identity.ts", import.meta.url), "utf8"));
   assert.ok(slug);
-  assert.deepEqual(queueNameIssues(config, slug), []);
+  assert.deepEqual(queueNameIssues(config, slug, { campaigns: true }), []);
   assert.deepEqual(top.queues.producers.find((entry) => entry.binding === "WEBHOOK_QUEUE"), { binding: "WEBHOOK_QUEUE", queue: `${slug}-webhooks` });
-  assert.deepEqual(top.queues.consumers.map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-webhooks`, `${slug}-webhooks-dlq`], [`${slug}-webhooks-dlq`, undefined]]);
+  assert.deepEqual(top.queues.consumers.filter((entry) => entry.queue.includes("webhooks")).map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-webhooks`, `${slug}-webhooks-dlq`], [`${slug}-webhooks-dlq`, undefined]]);
   assert.deepEqual(production.queues.producers.find((entry) => entry.binding === "WEBHOOK_QUEUE"), { binding: "WEBHOOK_QUEUE", queue: `${slug}-webhooks-prod` });
-  assert.deepEqual(production.queues.consumers.map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-webhooks-prod`, `${slug}-webhooks-dlq-prod`], [`${slug}-webhooks-dlq-prod`, undefined]]);
+  assert.deepEqual(production.queues.consumers.filter((entry) => entry.queue.includes("webhooks")).map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-webhooks-prod`, `${slug}-webhooks-dlq-prod`], [`${slug}-webhooks-dlq-prod`, undefined]]);
+});
+
+test("the campaigns queue and its dead-letter queue are named after the slug and consumed, in both environments", () => {
+  const slug = slugOf(readFileSync(new URL("../app/core/identity.ts", import.meta.url), "utf8"));
+  assert.ok(slug);
+  assert.ok(/\bcampaignDelivery\s*:/.test(readFileSync(new URL("../app/firesio.server.ts", import.meta.url), "utf8")), "the template declares campaignDelivery");
+  assert.deepEqual(campaignQueueIssues(config, slug), []);
+  assert.deepEqual(queueNameIssues(config, slug, { campaigns: true }), []);
+  assert.deepEqual(top.queues.consumers.filter((entry) => entry.queue.includes("campaigns")).map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-campaigns`, `${slug}-campaigns-dlq`], [`${slug}-campaigns-dlq`, undefined]]);
+  assert.deepEqual(production.queues.consumers.filter((entry) => entry.queue.includes("campaigns")).map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-campaigns-prod`, `${slug}-campaigns-prod-dlq`], [`${slug}-campaigns-prod-dlq`, undefined]]);
+  // A producer or a consumer forgotten in one environment is named, not found in production.
+  const forgotten = structuredClone(config);
+  forgotten.env.production.queues.producers = forgotten.env.production.queues.producers.filter((entry) => entry.binding !== "CAMPAIGNS_QUEUE");
+  forgotten.env.production.queues.consumers = forgotten.env.production.queues.consumers.filter((entry) => !entry.queue.includes("campaigns"));
+  const issues = campaignQueueIssues(forgotten, slug).join("\n");
+  assert.match(issues, /env\.production: the CAMPAIGNS_QUEUE producer must be/);
+  assert.match(issues, /env\.production: the campaigns queue .* must both be consumers/);
 });
 
 test("production is on one custom domain only: no workers.dev, no preview URLs (and the top level is not)", () => {

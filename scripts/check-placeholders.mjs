@@ -207,7 +207,7 @@ export function validateLaunchContract(files) {
   issues.push(...webhookSubscriptionIssues(files.productionToml, files.developmentToml));
   issues.push(...buildFlagIssues(files.productionToml, files.developmentToml));
   issues.push(...productionRouteIssues(production));
-  issues.push(...queueNameIssues(files.wrangler, slugOf(files.identity)));
+  issues.push(...queueNameIssues(files.wrangler, slugOf(files.identity), { campaigns: /\bcampaignDelivery\s*:/.test(files.firesio ?? "") }));
   const identitySource = files.identity ?? "";
   const requiredIdentity = ["slug", "name", "companyName", "supportEmail", "address"];
   const missingIdentity = requiredIdentity.some((field) => new RegExp(`${field}\\s*:\\s*"[^"\\n]+"`).test(identitySource) === false);
@@ -301,6 +301,7 @@ function main() {
     developmentToml: readFileSync(join(repoRoot, "shopify.app.dev.toml"), "utf8"),
     legal: readSources(repoRoot, "app/routes/public/legal").map(({ source }) => source).join("\n") + readFileSync(join(repoRoot, "app/core/identity.ts"), "utf8"),
     identity: readFileSync(join(repoRoot, "app/core/identity.ts"), "utf8"),
+    firesio: readFileSync(join(repoRoot, "app/firesio.server.ts"), "utf8"),
     apiVersionSource: readFileSync(join(repoRoot, "app/core/api-version.ts"), "utf8"),
     plans: readFileSync(join(repoRoot, "app/core/plans.ts"), "utf8"),
     publicCopy: ["landing", "support"].map((page) => readFileSync(join(repoRoot, `app/routes/public/${page}.tsx`), "utf8")).join("\n"),

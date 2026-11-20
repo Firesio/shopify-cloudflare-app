@@ -33,6 +33,14 @@ export const firesio = createFiresio({
   retention: { unassignedConversationDays: UNASSIGNED_CONVERSATION_DAYS },
   // The support pages' file picker streams each file to the staging route mounted there (`app/routes.ts`); without it they take no files.
   paths: { supportUpload: SUPPORT_UPLOAD_PATH },
+  // Serves the Shopify POS webview with the same pages: the request's surface is read (`from(context).surface`), `routes/app/surface.ts` receives
+  // the page's own report. Costs nothing on the web admin. `[pos] embedded = true` in `shopify.app.toml` is what lists the app in POS.
+  surface: {},
+  // Staff announcements the portal writes and this app emails to its own merchants (the `campaigns()` group of the contract). Needs the tables
+  // (`drizzle.config.ts`), the `<slug>-campaigns` queue and its dead-letter queue (`wrangler.jsonc`), `EMAIL`/`EMAIL_FROM` on a verified Email Sending
+  // domain, `ATTACHMENT_TOKEN_SECRET`, and the public unsubscribe route (`routes/campaigns/unsubscribe.ts`). Options: `segments`, `signature`,
+  // `options`, `unsubscribePath`. The portal asks only an app that declares `campaigns: true` in its `declared-apps.ts`.
+  campaignDelivery: {},
   // One decision with `api_version` in both `shopify.app*.toml`, and one Polaris release for the preload header and `AppProvider`.
   shopify: { apiVersion, polarisUrl: POLARIS_URL },
 });

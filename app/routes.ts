@@ -25,10 +25,15 @@ export default [
     route("members", "routes/app/members/team.tsx"),
     route("members/:memberId", "routes/app/members/member.tsx"),
     route("no-access", "routes/app/members/no-access.tsx"),
+    // Where the page reports the surface it runs on (the Shopify POS webview); `app/surface.test.ts` holds this line.
+    route("surface", "routes/app/surface.ts"),
     route("plans", "routes/app/plans.tsx"),
     route("settings", "routes/app/settings.tsx"),
     route("*", "routes/app/not-found.tsx"),
   ]),
+
+  // The unsubscribe link of a campaign mail: public, no shop (`campaignDelivery.unsubscribePath`, default `/campaigns/unsubscribe`).
+  route("campaigns/unsubscribe", "routes/campaigns/unsubscribe.ts"),
 
   // One file of a support ticket, by its signed link (the pages, the portal and the mails carry it).
   route("support/file/:id", "routes/support/file.ts"),

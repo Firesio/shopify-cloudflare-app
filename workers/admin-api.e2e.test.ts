@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { planMeters } from "@firesio/app/plans";
 import { installShop } from "@firesio/app/preset/testing";
-import { callCommand, grantListSchema, openTicketResultSchema, planListSchema, revokeGrantResultSchema, standingSchema, ticketPageSchema, ticketSchema } from "@firesio/portal-contract";
+import { callCommand, campaignDraftResultSchema, campaignPageSchema, grantListSchema, openTicketResultSchema, planListSchema, revokeGrantResultSchema, standingSchema, ticketPageSchema, ticketSchema } from "@firesio/portal-contract";
 import { describe, expect, it } from "vitest";
 import { PLANS } from "~/core/plans";
 import { firesio } from "~/firesio.server";
@@ -39,14 +39,25 @@ describe("the AdminApi entrypoint over a service binding: shops", () => {
     expect(refused.ok).toBe(false);
   });
 
-  it("declares the groups the template supports and not the optional one it does not adopt (the portal reads a missing group as unsupported)", () => {
+  it("declares the groups the template supports (the portal reads a missing group as unsupported)", () => {
     // Not called over the binding: the plugin's RPC emulation reports a missing property as an uncaught exception of its own.
     const methods = new Set<string>();
     for (let proto: object | null = firesio.AdminApi.prototype; proto !== null && proto !== Object.prototype; proto = Object.getPrototypeOf(proto)) {
       for (const name of Object.getOwnPropertyNames(proto)) methods.add(name);
     }
-    expect([...methods]).toEqual(expect.arrayContaining(["shops", "billing", "support"]));
-    expect(methods.has("campaigns")).toBe(false);
+    expect([...methods]).toEqual(expect.arrayContaining(["shops", "billing", "support", "campaigns"]));
+  });
+});
+
+describe("the AdminApi entrypoint over a service binding: campaigns", () => {
+  it("keeps a draft the portal writes, once per requestId, and lists it; nothing is mailed by writing it", async () => {
+    const input = { requestId: "e2e-campaign-1", name: "Spring news", subject: "What is new", body: "Hello from the team.", actor: "staff_1" };
+    const first = await callCommand(() => admin().campaigns().create(input), campaignDraftResultSchema);
+    const again = await callCommand(() => admin().campaigns().create(input), campaignDraftResultSchema);
+    expect(first.ok).toBe(true);
+    expect(again.ok && first.ok && again.value.campaign.id).toBe(first.ok ? first.value.campaign.id : null);
+    const listed = await callCommand(() => admin().campaigns().list({ status: "draft" }), campaignPageSchema);
+    expect(listed.ok && listed.value.campaigns.map((campaign) => campaign.name)).toEqual(["Spring news"]);
   });
 });
 

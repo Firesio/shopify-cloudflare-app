@@ -40,7 +40,7 @@ test("renames the slug, the display name and every resource name in one run", ()
   assert.match(read(root, "app/core/identity.ts"), /name: "Repair Ops"/);
   const wrangler = read(root, "wrangler.jsonc");
   assert.match(wrangler, /"name": "repair-ops"/);
-  for (const name of ["repair-ops-db", "repair-ops-db-prod", "repair-ops-support-uploads", "repair-ops-webhooks", "repair-ops-webhooks-dlq-prod"]) assert.ok(wrangler.includes(`"${name}"`), name);
+  for (const name of ["repair-ops-db", "repair-ops-db-prod", "repair-ops-support-uploads", "repair-ops-webhooks", "repair-ops-webhooks-dlq-prod", "repair-ops-campaigns", "repair-ops-campaigns-dlq", "repair-ops-campaigns-prod", "repair-ops-campaigns-prod-dlq"]) assert.ok(wrangler.includes(`"${name}"`), name);
   // The migration scripts read the database names from wrangler.jsonc: nothing else names them.
   assert.equal(databaseName(JSON.parse(stripJsonComments(wrangler)), "production"), "repair-ops-db-prod");
   assert.equal(databaseName(JSON.parse(stripJsonComments(wrangler)), ""), "repair-ops-db");

@@ -1,9 +1,11 @@
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { grantsOf } from "@firesio/app/members";
 import { AppErrorBoundary, EmbeddedProvider } from "@firesio/app/ui/shell";
+import { AppSurface } from "@firesio/app/ui/surface";
 import type { HeadersFunction, LoaderFunctionArgs, MiddlewareFunction, ShouldRevalidateFunction } from "react-router";
-import { Outlet, redirect, useLoaderData } from "react-router";
+import { Outlet, redirect, useLoaderData, useLocation } from "react-router";
 import { AppNav } from "~/components/AppNav";
+import { backOf } from "~/core/back";
 import { opensAppWithoutShop } from "~/core/embedded-entry";
 import { MEMBERS } from "~/core/members";
 import { POLARIS_URL } from "~/core/polaris";
@@ -30,7 +32,8 @@ export const middleware: MiddlewareFunction[] = [
  */
 export const loader = ({ context }: LoaderFunctionArgs) => {
   const { member, services } = firesio.maybeFrom(context);
-  return { apiKey: services.env.SHOPIFY_API_KEY, permissions: member === null ? [] : [...grantsOf(member, MEMBERS)] };
+  // `surface` is where this request is drawn (the web admin, or the Shopify POS webview): `AppSurface` below draws the POS bar for `pos`.
+  return { apiKey: services.env.SHOPIFY_API_KEY, permissions: member === null ? [] : [...grantsOf(member, MEMBERS)], surface: firesio.maybeFrom(context).surface };
 };
 
 /**
@@ -40,11 +43,15 @@ export const loader = ({ context }: LoaderFunctionArgs) => {
 export const shouldRevalidate: ShouldRevalidateFunction = ({ formMethod, defaultShouldRevalidate }) => (formMethod ? defaultShouldRevalidate : false);
 
 export default function AppLayout() {
-  const { apiKey, permissions } = useLoaderData<typeof loader>();
+  const { apiKey, permissions, surface } = useLoaderData<typeof loader>();
+  const { pathname } = useLocation();
+  // `AppSurface` draws nothing of its own on the web admin (no element, no style, no request): only inside POS does it add the bar.
   return (
     <EmbeddedProvider apiKey={apiKey} polarisUrl={POLARIS_URL}>
       <AppNav permissions={permissions} />
-      <Outlet />
+      <AppSurface surface={surface} back={backOf(pathname)}>
+        <Outlet />
+      </AppSurface>
     </EmbeddedProvider>
   );
 }

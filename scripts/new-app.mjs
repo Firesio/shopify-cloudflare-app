@@ -42,6 +42,7 @@ export function renames(slug, name) {
   const resources = [
     [/\bapp-support-uploads\b/g, `${slug}-support-uploads`],
     [/\bmy-app-webhooks\b/g, `${slug}-webhooks`],
+    [/\bmy-app-campaigns\b/g, `${slug}-campaigns`],
     [/\bapp-db\b/g, `${slug}-db`],
   ];
   const withResources = (file) => resources.map(([from, to]) => replace(file, from, to));

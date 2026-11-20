@@ -1,0 +1,9 @@
+{
+  // The tests that render React in jsdom (`*.dom.test.tsx`): the browser's types, not the Worker's (the two disagree on `Element`,
+  // `Response` and `ReadableStream`, and the package's `ui/surface/testing` is written against the browser's). A file's nearest
+  // tsconfig is the one ESLint's project service uses too, which is why they live in their own folder.
+  "extends": "../../tsconfig.json",
+  "include": ["./**/*.tsx"],
+  "exclude": [],
+  "compilerOptions": { "types": ["vite/client", "@shopify/polaris-types"] }
+}
