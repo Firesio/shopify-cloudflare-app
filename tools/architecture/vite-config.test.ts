@@ -56,7 +56,8 @@ function browserPackages(): string[] {
   return [...new Set([...always, ...sideEffects])].sort();
 }
 
-describe("vite.config.ts in the dev server", () => {
+// Each case resolves the whole Vite config (and starts a dev server): on a busy machine, with hundreds of test files running beside it, the default 5 s is not enough. A time budget only; the assertions are unchanged.
+describe("vite.config.ts in the dev server", { timeout: 60_000 }, () => {
   it("excludes @firesio/app from pre-bundling in the Worker's and the browser's environments, and pre-bundles its imports through it", async () => {
     const { logger, warnings } = recordingLogger();
     const config = await resolveForDev(logger);
