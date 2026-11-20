@@ -14,14 +14,25 @@ const record = setupSendRecording();
 // The crons wrangler.jsonc declares: production's two (`env.production.triggers`) and the development one (top level).
 const CRONS = { daily: DAILY_CRON, drainOnly: DRAIN_ONLY_CRON, development: DEVELOPMENT_CRON } as const;
 
+/**
+ * The ids of the events the preset's announce sweep (`shops_announce`, on by default since @firesio/app 1.3.0) makes for shops that were
+ * there before the portal was connected. They are the sweep's, not the app's own: the checks below are about the app's own events, so
+ * they leave these out (the sweep has its own tests in the package).
+ */
+const ANNOUNCE_ID = "announce\\_%";
+
 async function outboxStatus(type: string): Promise<string[]> {
-  const rows = await env.DB.prepare(`SELECT status FROM portal_outbox WHERE type = ?1 ORDER BY created_at, event_id`).bind(type).all();
+  const rows = await env.DB.prepare(`SELECT status FROM portal_outbox WHERE type = ?1 AND event_id NOT LIKE '${ANNOUNCE_ID}' ESCAPE '\\' ORDER BY created_at, event_id`).bind(type).all();
   return rows.results.flatMap((row) => (typeof row["status"] === "string" ? [row["status"]] : []));
 }
 
-/** The messages the Worker handed `PORTAL_EVENTS`, as the portal's consumer would read them. */
+/** The messages the Worker handed `PORTAL_EVENTS`, as the portal's consumer would read them (the announce sweep's events left out, see ANNOUNCE_ID). */
+function ownBodies(bodies: readonly unknown[]): unknown[] {
+  return bodies.filter((body) => !(typeof body === "object" && body !== null && "eventId" in body && typeof body.eventId === "string" && body.eventId.startsWith("announce_")));
+}
+
 function typesOf(bodies: readonly unknown[]): string[] {
-  return bodies.flatMap((body) => (typeof body === "object" && body !== null && "type" in body && typeof body.type === "string" ? [body.type] : []));
+  return ownBodies(bodies).flatMap((body) => (typeof body === "object" && body !== null && "type" in body && typeof body.type === "string" ? [body.type] : []));
 }
 
 describe("the Worker's scheduled handler, called through exports.default.scheduled", () => {

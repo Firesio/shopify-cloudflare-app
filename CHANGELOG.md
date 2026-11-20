@@ -3,6 +3,28 @@
 An app takes a newer template by merging its tag (`template-v<version>`, see `template-files.json`: the `template` files come over
 unchanged, the `app` files are the app's). Each entry says what to do besides the merge.
 
+## template-v1.1.0 (unreleased)
+
+- `@firesio/app` 1.3.0 and `@firesio/portal-contract` 1.2.0 (both only add to 1.0.0; an app on 1.0.0 changes nothing to take them). No schema change
+  (`drizzle-kit generate`: no changes). What changed here, and what an app on the previous state of this template does besides the merge:
+  - **Shop names and the announce sweep.** Every account event now carries the shop's name (`account.name`, read from the app's own `shops.name`), and
+    a new hourly cron step, `shops_announce` (on by default, `cron.preset.shops_announce: false` leaves it out, `firesio.jobs().announceShops()` runs it
+    by hand), sends `shop.installed` (and `shop.uninstalled` when the uninstall time is known) for every shop the app already had, 300 a tick, so the portal's
+    directory fills with shops that pre-date the connection. Event ids are fixed (`announce_install_<shop>`), so running it twice adds nothing. It needs the
+    hourly cron the template already declares. Test: `workers/scheduled.e2e.test.ts` now checks the app's own events and leaves the sweep's out
+    (`announce_` ids); the sweep has its own tests in the package.
+  - **How the app's numbers are drawn.** The standard, health and ticket metric keys carry `chart`, `featured`, `group` and `good` (contract 1.2.0), so the portal's
+    dashboard shows them as cards with charts without any code here. An app's own keys may declare them in their `defineMetrics` entries; left out, the portal derives a default.
+  - **Push refusals say why.** A push service's refusal reason (Apple's `BadWebPushRequest`, `VapidPkHashMismatch`...) is kept in the delivery report and its log line.
+  - **Campaigns are a default of the package, opt-in here.** The preset serves the `campaigns()` group when `createFiresio({ campaignDelivery: {} })` is declared (an app with
+    its own `campaigns` handler keeps it). The template does not declare it, because it needs infrastructure that must exist BEFORE a deploy. To turn it on: (1) add
+    `node_modules/@firesio/app/src/campaigns/d1/schema.ts` to `drizzle.config.ts`, `npm run db:generate`, read the SQL; (2) create the queue `<slug>-campaigns` and its
+    dead-letter queue `<slug>-campaigns-dlq` (and the `-prod` pair) with `wrangler queues create`, then declare the producer `CAMPAIGNS_QUEUE` and the consumer with its
+    `dead_letter_queue` in `wrangler.jsonc`, top level AND `env.production`; (3) `EMAIL` and `EMAIL_FROM` on a verified Email Sending domain, and `ATTACHMENT_TOKEN_SECRET`
+    of at least 32 characters; (4) `campaignDelivery: {}` in `app/firesio.server.ts` (options: `segments`, `signature`, `options`, `unsubscribePath`); (5) a public route
+    `/campaigns/unsubscribe` returning `firesio.campaigns().unsubscribe(request)` from its `loader` and `action`; (6) `campaigns: true` in the portal's `declared-apps.ts`.
+    Not verified: nothing has been sent through Cloudflare Email Sending (the package's ticket 25 lists what).
+
 ## template-v1.0.0 (unreleased)
 
 - `@firesio/app` 1.0.0 and `@firesio/portal-contract` 0.6.0 (1.0.0 only adds to 0.13.1: the POS webview and the staff phone app, both opt-in, see `docs/POS-AND-PHONE.md`; an app on 0.13.1 changes nothing to take it; additive since 0.10.1; the package's CHANGELOG lists every addition). No schema change
