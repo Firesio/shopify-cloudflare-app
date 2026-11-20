@@ -11,7 +11,7 @@
     "precommit": "node scripts/precommit.mjs",
     "dev": "node scripts/shopify.mjs app dev --config dev",
     "predev": "node scripts/predev.mjs",
-    "build": "CLOUDFLARE_ENV=production react-router build && node scripts/ci-release.mjs",
+    "build": "CLOUDFLARE_ENV=production react-router build && node scripts/bundle-budget.mjs && node scripts/ci-release.mjs",
     "preview": "npm run build && vite preview",
     "typecheck": "react-router typegen && tsc --noEmit && tsc --noEmit -p app/dom",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",

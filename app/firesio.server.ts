@@ -1,8 +1,10 @@
 import { createFiresio } from "@firesio/app";
 import { apiVersion } from "~/core/api-version";
+import { PWA } from "~/core/features";
 import { identity } from "~/core/identity";
 import { MEMBERS } from "~/core/members";
 import { SUPPORT_UPLOAD_PATH } from "~/core/paths";
+import { PHONE_DEVICES } from "~/core/phone";
 import { PLANS } from "~/core/plans";
 import { UNASSIGNED_CONVERSATION_DAYS } from "~/core/retention";
 import { SETTINGS } from "~/core/settings";
@@ -36,6 +38,9 @@ export const firesio = createFiresio({
   // Serves the Shopify POS webview with the same pages: the request's surface is read (`from(context).surface`), `routes/app/surface.ts` receives
   // the page's own report. Costs nothing on the web admin. `[pos] embedded = true` in `shopify.app.toml` is what lists the app in POS.
   surface: {},
+  // The staff phone app, while its switch is on (`app/core/features.ts`): the device gate in the admin middleware, `firesio.devices()`, the daily sweep. Needs the three
+  // tables of `devices/d1` (migrations, always present), `DEVICE_LINK_LIMITER` (always declared) and the routes `routes.ts` mounts under the same switch.
+  ...(PWA ? { devices: PHONE_DEVICES } : {}),
   // Staff announcements the portal writes and this app emails to its own merchants (the `campaigns()` group of the contract). Needs the tables
   // (`drizzle.config.ts`), the `<slug>-campaigns` queue and its dead-letter queue (`wrangler.jsonc`), `EMAIL`/`EMAIL_FROM` on a verified Email Sending
   // domain, `ATTACHMENT_TOKEN_SECRET`, and the public unsubscribe route (`routes/campaigns/unsubscribe.ts`). Options: `segments`, `signature`,

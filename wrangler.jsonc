@@ -72,7 +72,10 @@
   "ratelimits": [
     { "name": "SUPPORT_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
     { "name": "SUPPORT_FORM_LIMITER", "namespace_id": "1004", "simple": { "limit": 5, "period": 60 } },
-    { "name": "SUPPORT_MAIL_LIMITER", "namespace_id": "1005", "simple": { "limit": 5, "period": 60 } }
+    { "name": "SUPPORT_MAIL_LIMITER", "namespace_id": "1005", "simple": { "limit": 5, "period": 60 } },
+    // The staff phone app's pairing calls (`app/core/features.ts`, `docs/POS-AND-PHONE.md` section 3), per source. Declared always, so switching the phone app
+    // on needs no wrangler edit; while it is off nothing reads it.
+    { "name": "DEVICE_LINK_LIMITER", "namespace_id": "1006", "simple": { "limit": 10, "period": 60 } }
   ],
 
   // Secret NAMES, declared rather than inferred (values never live here): so `wrangler types` does not depend on .dev.vars.
@@ -150,7 +153,8 @@
       "ratelimits": [
         { "name": "SUPPORT_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
         { "name": "SUPPORT_FORM_LIMITER", "namespace_id": "1004", "simple": { "limit": 5, "period": 60 } },
-        { "name": "SUPPORT_MAIL_LIMITER", "namespace_id": "1005", "simple": { "limit": 5, "period": 60 } }
+        { "name": "SUPPORT_MAIL_LIMITER", "namespace_id": "1005", "simple": { "limit": 5, "period": 60 } },
+        { "name": "DEVICE_LINK_LIMITER", "namespace_id": "1006", "simple": { "limit": 10, "period": 60 } }
       ],
       // `secrets` must be specified in every named environment.
       "secrets": {

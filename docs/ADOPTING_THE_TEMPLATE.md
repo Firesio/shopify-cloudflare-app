@@ -136,6 +136,11 @@ and evidence; a checked box is not a substitute for a tested implementation.
 - Support mail: onboard the sending domain to Email Sending and set `EMAIL_FROM` and `EMAIL_FROM_NAME`
   (vars, in both environments) only after authorizing it; route `support@<your domain>` through Email Routing to
   this Worker (without `EMAIL_FROM` nothing is sent).
+- Create the campaigns queues BEFORE the first deploy (the template serves the portal's campaigns, `campaignDelivery` in `app/firesio.server.ts`; `npm run new-app` renamed them to
+  the slug): `wrangler queues create <slug>-campaigns`, `<slug>-campaigns-dlq`, `<slug>-campaigns-prod` and `<slug>-campaigns-prod-dlq`. Mail needs `EMAIL_FROM` on a verified Email Sending domain
+  and `ATTACHMENT_TOKEN_SECRET` (it signs the unsubscribe link); without them a campaign's test and start answer "unavailable" (nothing is faked). An app that does not want campaigns removes
+  `campaignDelivery`, the two queue producers/consumers in `wrangler.jsonc` and `app/routes/campaigns/`, and the launch check stops asking for the queues.
+- The staff phone app (`app/core/features.ts`, off) and the Shopify POS bar are in `docs/POS-AND-PHONE.md`; the phone app's tables and rate limit are already declared, so turning it on needs no migration or wrangler edit.
 - Confirm the production crons (`30 3 * * *` daily, `* * * * *` outbox drain), the webhook
   queue/DLQ names and the rate-limit bindings are present (`check:placeholders` and
   `scripts/wrangler-bindings.test.mjs` read them).
@@ -143,8 +148,8 @@ and evidence; a checked box is not a substitute for a tested implementation.
   1. `apps/portal/app/core/apps/declared-apps.ts`: an entry with the app's `slug` (the `appSlug` its events carry,
      `app/core/identity.ts`), `name`, `kind`, the `binding` key (a service binding of the portal's `Env`; `wrangler types`
      gives it to the type and `apps/portal/app/shell/apps/app-bindings.ts` says how to reach it), optionally default `modules`,
-     `links` and `staffPages`, and `campaigns: true` if the app has adopted the `campaigns()` command group
-     (without it the portal does not ask the app about campaigns). The template does not implement that group.
+     `links` and `staffPages`, and `campaigns: true` (the template implements the `campaigns()` group, so declare it; without it the
+     portal does not ask the app about campaigns).
   2. Commands: in the same PR, declare the service binding in `apps/portal/wrangler.jsonc`, at the top level AND under
      `env.production` (bindings are not inherited), with `entrypoint: "AdminApi"` and `service` the app's production Worker name,
      `<slug>-production`:

@@ -31,6 +31,13 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
     `app/core/back.ts` (the parent of each page, for the POS Back button: the app edits its table). Held by tests: `app/surface.test.ts` (`pageActionsFindings` over `app/routes/app/**` and `app/components/`, `reportRouteFindings`),
     `app/dom/HomeView.dom.test.tsx` (`pageOnEverySurface`, in jsdom: `vitest.config.ts` has a `dom` project for `*.dom.test.tsx`, `app/dom/tsconfig.json` type-checks them with the browser's types, `jsdom` is a dev dependency).
     Costs nothing on the web admin. `[pos] embedded = true` (what lists the app in the POS app) is a commented line in `shopify.app.toml`: the app turns it on.
+  - **The staff phone app is written and behind ONE switch, off.** `app/core/features.ts`: `export const PWA = false;`. Everything it needs is in the template (the public pages `/m`, `/m/start`, the manifest, the pairing calls and `/sw.js`
+    under `app/routes/m/` and `app/routes/sw.ts`, `/app/phone`, `app/components/PhoneLayout.tsx` loaded with `lazy()`, `app/core/phone.ts` with the deny-list and the manifest, two placeholder icons in `public/`), connected only through the switch
+    in `app/routes.ts`, `app/firesio.server.ts` and the layout. Always there, so the switch needs no migration or wrangler edit: migration `drizzle/0005_*.sql` (the three device tables, `drizzle.config.ts` lists their schema) and the rate limit
+    `DEVICE_LINK_LIMITER` (top level AND `env.production`). `app/features.test.ts` fails `verify` and says which piece is missing when it is on, or still connected when it is off. `scripts/bundle-budget.mjs` (run by `npm run build`)
+    measures the client bundle: 177,040 gzip bytes for the admin with the switch off (173,720 before this change), the phone shell apart at 17.7 KB gzip, never requested until a paired phone opens the app. What an app on the previous state does
+    besides the merge: `npm run db:generate` finds nothing new if it takes `drizzle/0005_*.sql` and `drizzle.config.ts` as they are; merge `wrangler.jsonc` (`DEVICE_LINK_LIMITER` in both places), `app/routes.ts`, `app/firesio.server.ts` and the layout by hand
+    (they are its files); turning it on is `docs/POS-AND-PHONE.md` section 3. Not verified: a real pairing, iOS, the look next to Shopify Mobile.
 
 ## template-v1.0.0 (unreleased)
 

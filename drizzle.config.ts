@@ -7,7 +7,12 @@ import { defineConfig } from "drizzle-kit";
 export default defineConfig({
   dialect: "sqlite",
   driver: "d1-http",
-  schema: ["./app/db/schema.ts", ...firesioSchemaPaths({ settings: true, campaigns: true })],
+  schema: [
+    "./app/db/schema.ts",
+    ...firesioSchemaPaths({ settings: true, campaigns: true }),
+    // The staff phone app's tables (`app/core/features.ts`). Always in the history, so switching the part on needs no migration; empty while it is off.
+    "./node_modules/@firesio/app/src/devices/d1/schema.ts",
+  ],
   out: "./drizzle",
   casing: "snake_case",
 });

@@ -1,14 +1,18 @@
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { grantsOf } from "@firesio/app/members";
 import { AppErrorBoundary, EmbeddedProvider } from "@firesio/app/ui/shell";
+import { platformOf } from "@firesio/app/notify/push";
 import { AppSurface } from "@firesio/app/ui/surface";
+import { lazy, Suspense } from "react";
 import type { HeadersFunction, LoaderFunctionArgs, MiddlewareFunction, ShouldRevalidateFunction } from "react-router";
 import { Outlet, redirect, useLoaderData, useLocation } from "react-router";
 import { AppNav } from "~/components/AppNav";
 import { backOf } from "~/core/back";
 import { opensAppWithoutShop } from "~/core/embedded-entry";
 import { MEMBERS } from "~/core/members";
+import { phoneItems } from "~/components/phone-items";
 import { POLARIS_URL } from "~/core/polaris";
+import { PWA } from "~/core/features";
 import { firesio } from "~/firesio.server";
 
 /**
@@ -30,10 +34,12 @@ export const middleware: MiddlewareFunction[] = [
  * This layout hides what a member cannot use, but only to be kind. On the kept-out page there is no member (`maybeFrom` answers
  * `member: null`, where `from` would redirect to that very page): that is "no permissions", not an error.
  */
-export const loader = ({ context }: LoaderFunctionArgs) => {
-  const { member, services } = firesio.maybeFrom(context);
+export const loader = ({ context, request }: LoaderFunctionArgs) => {
+  const { member, services, shop, surface } = firesio.maybeFrom(context);
+  // On a paired staff phone (`surface === "pwa"`, only while `PWA` is on) the layout draws the phone's shell instead; `platform` lets an iPhone's bars be glass from the first paint.
+  const phone = PWA && surface === "pwa" ? { shop, platform: platformOf(request.headers.get("user-agent") ?? "", 0), items: [...phoneItems()] } : null;
   // `surface` is where this request is drawn (the web admin, or the Shopify POS webview): `AppSurface` below draws the POS bar for `pos`.
-  return { apiKey: services.env.SHOPIFY_API_KEY, permissions: member === null ? [] : [...grantsOf(member, MEMBERS)], surface: firesio.maybeFrom(context).surface };
+  return { apiKey: services.env.SHOPIFY_API_KEY, permissions: member === null ? [] : [...grantsOf(member, MEMBERS)], surface, phone };
 };
 
 /**
@@ -42,9 +48,21 @@ export const loader = ({ context }: LoaderFunctionArgs) => {
  */
 export const shouldRevalidate: ShouldRevalidateFunction = ({ formMethod, defaultShouldRevalidate }) => (formMethod ? defaultShouldRevalidate : false);
 
+/** The phone's shell: its own chunk (`scripts/bundle-budget.mjs` measures it), requested only by a paired phone and only while the switch is on (`app/core/features.ts`). */
+const PhoneLayout = PWA ? lazy(() => import("~/components/PhoneLayout")) : null;
+
 export default function AppLayout() {
-  const { apiKey, permissions, surface } = useLoaderData<typeof loader>();
+  const { apiKey, permissions, surface, phone } = useLoaderData<typeof loader>();
   const { pathname } = useLocation();
+  if (phone !== null && PhoneLayout !== null) {
+    return (
+      <Suspense fallback={null}>
+        <PhoneLayout shop={phone.shop} platform={phone.platform} items={phone.items}>
+          <Outlet />
+        </PhoneLayout>
+      </Suspense>
+    );
+  }
   // `AppSurface` draws nothing of its own on the web admin (no element, no style, no request): only inside POS does it add the bar.
   return (
     <EmbeddedProvider apiKey={apiKey} polarisUrl={POLARIS_URL}>

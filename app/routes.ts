@@ -1,4 +1,6 @@
 import { index, layout, prefix, route, type RouteConfig } from "@react-router/dev/routes";
+import { PWA } from "./core/features";
+import { phoneAppRoutes, phonePublicRoutes } from "./routes/phone-routes";
 
 /**
  * Explicit route config, NOT flat file-name routing: the URL structure lives here and the file tree mirrors it.
@@ -27,6 +29,8 @@ export default [
     route("no-access", "routes/app/members/no-access.tsx"),
     // Where the page reports the surface it runs on (the Shopify POS webview); `app/surface.test.ts` holds this line.
     route("surface", "routes/app/surface.ts"),
+    // The member's own page about their phones: only while the staff phone app is on (`app/core/features.ts`).
+    ...(PWA ? phoneAppRoutes : []),
     route("plans", "routes/app/plans.tsx"),
     route("settings", "routes/app/settings.tsx"),
     route("*", "routes/app/not-found.tsx"),
@@ -34,6 +38,9 @@ export default [
 
   // The unsubscribe link of a campaign mail: public, no shop (`campaignDelivery.unsubscribePath`, default `/campaigns/unsubscribe`).
   route("campaigns/unsubscribe", "routes/campaigns/unsubscribe.ts"),
+
+  // The staff phone app (`app/core/features.ts`, `docs/POS-AND-PHONE.md` section 3): its public pages, the manifest, the pairing calls and the service worker. Off by default.
+  ...(PWA ? phonePublicRoutes : []),
 
   // One file of a support ticket, by its signed link (the pages, the portal and the mails carry it).
   route("support/file/:id", "routes/support/file.ts"),
