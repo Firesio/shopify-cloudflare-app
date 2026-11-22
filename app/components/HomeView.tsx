@@ -6,12 +6,13 @@ import type { HomeLabels } from "~/i18n/labels";
 /**
  * The home page of the embedded app: a placeholder a derived app replaces (`docs/ADOPTING_THE_TEMPLATE.md`). Polaris web
  * components only; the words are the catalogue's, handed in as `labels` (`homeLabelsOf`). `setup` is the onboarding card (`SetupChecklist`, `top` of the
- * page): the route draws it, so this component needs no router and a test can draw it on every surface (`app/dom/HomeView.dom.test.tsx`).
+ * page) and `news` the team's news (`NewsCard`, under it): the route draws it, so this component needs no router and a test can draw it on every surface (`app/dom/HomeView.dom.test.tsx`).
  */
-export function HomeView({ labels, setup }: { readonly labels: HomeLabels; readonly setup?: ReactNode }) {
+export function HomeView({ labels, setup, news }: { readonly labels: HomeLabels; readonly setup?: ReactNode; readonly news?: ReactNode }) {
   return (
     <s-page heading={identity.name}>
       {setup}
+      {news}
       <s-banner tone="info" heading={labels.placeholderHeading}>
         <s-paragraph>{labels.placeholder}</s-paragraph>
       </s-banner>

@@ -13,4 +13,7 @@ the template, in order.
 7. `wrangler.jsonc` (both environments): delete `EMAIL_FROM`, `EMAIL_FROM_NAME`; rename `SUPPORT_MAIL_DOMAIN` to `MAIL_DOMAIN`; `npx wrangler types`.
 8. `campaignDelivery`: drop `sender` and `shopSender`. Announcements default to service notices on `notifications` (transactional, Cloudflare). An app whose merchants
    write to their own customers (`customers`) names `shopStream`, a stream over a provider that accepts consent.
-9. `npm run verify`, then the production build.
+9. 3.1 (additive): `npm install @firesio/app@^3.1.0 @firesio/portal-contract@^1.4.0`; add `news: true` to `firesioSchemaPaths(...)` and `news: {}` to
+   `createFiresio`, then `npm run db:generate` (the expand-only migration adds `notify_deliveries.copies`, `notify_inbound` and the news tables); draw the
+   news card on the home page like the template (`firesio.news.view(args)` in the loader, `NewsCard`, Dismiss through `firesio.news.action(args)`).
+10. `npm run verify`, then the production build.

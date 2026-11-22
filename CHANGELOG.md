@@ -15,6 +15,10 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
 - `campaignDelivery: {}` in `app/firesio.server.ts`: the team's announcements (service notices) go out transactional on `notifications`, over Cloudflare Email only. No Resend,
   no extra secret. Declare `campaigns: true` for the app in the portal's `declared-apps.ts`.
 - Rules `notify` and `cloudflare`, `docs/OPERATIONS.md` ("Mail"), `docs/ADOPTING_THE_TEMPLATE.md`, `.dev.vars.example` follow.
+- **`@firesio/app` 3.1.0, `@firesio/portal-contract` 1.4.0** (additive): migration `drizzle/0007_firesio_3_1.sql` (`notify_deliveries.copies` for cc/bcc, `notify_inbound`, the news tables).
+  The team's FEATURE news is ON inside the app (`news: {}`, `firesioSchemaPaths({ news: true })`, the `NewsCard` on the home page; never mailed); declare `news: true` for
+  the app in the portal's `declared-apps.ts`. Also available, nothing to do: cc/bcc and attachments on mail, ICU plural/select in texts, a layout's words through
+  `props.words`, inbound per channel.
 
 ## template-v2.0.0 (unreleased)
 

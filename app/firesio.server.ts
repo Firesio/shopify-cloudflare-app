@@ -77,6 +77,9 @@ export const firesio = createFiresio<Env>()({
   // terms allow transactional mail only: feature news is not a service notice (`campaignDelivery.announcements` with a consent basis over another provider, an app's
   // opt-in). The flow needs the FLOWS binding (declared); the tables are in the migrations. `notify.explain` says when one cannot go out (no mail domain yet).
   campaignDelivery: {},
+  // The team's FEATURE news, shown inside the app on the home page (`NewsCard`), never mailed: the portal writes and publishes it (`news: true` for the app in
+  // its `declared-apps.ts`). Segments default to `campaignDelivery.segments`.
+  news: {},
   // The Admin API version is the package's default (`ADMIN_API_VERSION` of `@firesio/app/shell`, "2026-10"): ONE decision with `api_version` in both `shopify.app*.toml`, held by
   // `npm run check:placeholders`. Pass `shopify: { apiVersion }` only to choose another. One Polaris release for the preload header and `AppProvider`.
   shopify: { polarisUrl: POLARIS_URL },
