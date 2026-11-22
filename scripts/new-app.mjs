@@ -117,7 +117,7 @@ export function resourcesFor(slug) {
     "  SHOPIFY_API_SECRET, ATTACHMENT_TOKEN_SECRET, EVENT_HASH_SECRET (the portal's shared key), PARTNER_API_TOKEN, NOTIFY_SECRET (32+ characters: openssl rand -base64 32), TURNSTILE_SECRET_KEY (optional)",
     "",
     "Then:",
-    "  1. Email Routing: route support@<your domain> to this Worker; onboard the domain to Email Sending (EMAIL_FROM), then subscribe the mail-events queue to its events (docs/OPERATIONS.md, \"Mail\").",
+    "  1. Email Routing: route support@<your domain> to this Worker; onboard the domain to Email Sending (notification@ and support@ it), then subscribe the mail-events queue to its events (docs/OPERATIONS.md, \"Mail\").",
     "  2. Ratelimit namespace_id values in wrangler.jsonc are unique per ACCOUNT: change 1001, 1004, 1005 if another app uses them.",
     "  3. npm run config:link:dev, then npm run config:link:prod (both fill client_id), then npm run check:placeholders until it passes.",
     "",

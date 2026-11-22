@@ -16,7 +16,7 @@ export const links: LinksFunction = () => [{ rel: "stylesheet", href: publicStyl
  */
 export const loader = () => {
   const { env } = firesio.services();
-  const domain = supportMailDomain(env.SHOPIFY_APP_URL, env.SUPPORT_MAIL_DOMAIN);
+  const domain = supportMailDomain(env.SHOPIFY_APP_URL, env.MAIL_DOMAIN);
   return { install: installTarget(env.SHOPIFY_APP_HANDLE), supportEmail: domain === null ? identity.contacts.supportEmail : `support@${domain}` };
 };
 

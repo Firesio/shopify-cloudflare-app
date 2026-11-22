@@ -122,12 +122,10 @@
     "SHOPIFY_APP_URL": "http://localhost:3000",
     // The App Store listing handle (apps.shopify.com/<handle>); empty until the app has a listing.
     "SHOPIFY_APP_HANDLE": "",
-    // An address on a domain onboarded to Email Sending (`npx wrangler email sending enable <domain>`): the `app` sender of every mail. Empty = no sender: every mail is
-    // recorded as `skipped:no_sender`, never an error. Staff are alerted by the portal, not by mail from here.
-    "EMAIL_FROM": "",
-    "EMAIL_FROM_NAME": "",
-    // The domain support mail lives on when it is not the host of SHOPIFY_APP_URL.
-    "SUPPORT_MAIL_DOMAIN": "",
+    // The domain the app's mail is sent from and arrives at (notification@, support@) when it is not the host of SHOPIFY_APP_URL: local development only. The
+    // domain must be onboarded to Email Sending (`npx wrangler email sending enable <domain>`). No domain: every mail is recorded as `skipped:no_sender`, never
+    // an error. Staff are alerted by the portal, not by mail from here.
+    "MAIL_DOMAIN": "",
     // Cloudflare Turnstile on the public support form; empty = check off (local development only).
     "TURNSTILE_SITE_KEY": "",
     "TURNSTILE_SECRET_KEY": "",
@@ -217,9 +215,7 @@
         // Must match application_url in shopify.app.toml.
         "SHOPIFY_APP_URL": "https://example.com",
         "SHOPIFY_APP_HANDLE": "",
-        "EMAIL_FROM": "",
-        "EMAIL_FROM_NAME": "",
-        "SUPPORT_MAIL_DOMAIN": "",
+        "MAIL_DOMAIN": "",
         "TURNSTILE_SITE_KEY": "",
         "AI_GATEWAY_ID": "",
         "EVENT_HASH_KEY_ID": "",

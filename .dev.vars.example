@@ -37,8 +37,9 @@ EVENT_HASH_SECRET=dev-event-hash-secret-of-at-least-thirty-two-characters
 # Optional: custom shop domains Shopify may authenticate (a comma list is not supported: one domain).
 # SHOP_CUSTOM_DOMAIN=
 
-# Transactional email. The `send_email` binding is declared, but nothing sends until the domain is onboarded and EMAIL_FROM is set (in
-# wrangler.jsonc vars, per environment: it is not a secret). With no EMAIL_FROM every mail is recorded as `skipped:no_sender`, never an error:
+# Transactional email (`app/notifications/streams.ts`): notification@ and support@ the app's domain, the host of SHOPIFY_APP_URL once deployed.
+# Locally (a tunnel URL) set MAIL_DOMAIN in wrangler.jsonc vars to a domain onboarded to Email Sending; with no domain every mail is recorded
+# as `skipped:no_sender`, never an error:
 #   npx wrangler email sending enable yourdomain.com
 # The binding is not `remote` in wrangler.jsonc, so a send during `npm run dev` (and in tests) is SIMULATED by Miniflare: nothing is delivered
 # and no `wrangler login` is needed. Only a deployed Worker sends real mail.

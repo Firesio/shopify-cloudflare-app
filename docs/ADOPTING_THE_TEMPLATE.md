@@ -133,14 +133,14 @@ and evidence; a checked box is not a substitute for a tested implementation.
 - Declare and provision every required secret: `SHOPIFY_API_SECRET`, `ATTACHMENT_TOKEN_SECRET`,
   `EVENT_HASH_SECRET` (the shared key; `EVENT_HASH_KEY_ID` is the var that names it) and `PARTNER_API_TOKEN`.
   `TURNSTILE_SECRET_KEY` (with `TURNSTILE_SITE_KEY`), `SHOP_CUSTOM_DOMAIN`, `SHOPIFY_API_SECRET_PREVIOUS` and `SETTINGS_SECRET_KEY` (only for an app that uses `settings`) are optional and not declared. Secrets are never app configuration values.
-- Support mail: onboard the sending domain to Email Sending and set `EMAIL_FROM` and `EMAIL_FROM_NAME`
-  (vars, in both environments) only after authorizing it; route `support@<your domain>` through Email Routing to
-  this Worker (without `EMAIL_FROM` nothing is sent).
+- Mail: onboard the app's domain to Email Sending only after authorizing it (the streams send from `notification@` and
+  `support@` it, `app/notifications/streams.ts`); route `support@<your domain>` through Email Routing to this Worker. Until
+  the domain is onboarded nothing is delivered (each mail is recorded `skipped:no_sender` or failed, never lost silently).
 - Keep the admin bundle under its budget (`scripts/bundle-budget.mjs`); never raise it to pass a build, find the cause (`docs/UPGRADING.md`).
 - Create the queues BEFORE the first deploy (`npm run new-app` lists them: `<slug>-webhooks`, `-jobs`, `-notify`, `-mail-events`, each with its `-dlq`, in both environments; a 14 day
-  retention each) and set `NOTIFY_SECRET` (32+ characters). **Campaigns are OFF** in the template: they are mail on consent, which Cloudflare Email cannot carry. To turn them on, declare a sender that
-  accepts consent (`resend()` of `@firesio/app/notify/providers`) and a list in `app/notifications/index.ts`, `campaignDelivery: { sender: "..." }` in `app/firesio.server.ts`, and `campaigns: true`
-  in the portal's `declared-apps.ts`; the tables are already in the migrations.
+  retention each) and set `NOTIFY_SECRET` (32+ characters). **Announcements are ON** (`campaignDelivery: {}`): the team's service notices to installed merchants,
+  transactional on the `notifications` stream over Cloudflare Email, no other provider; declare `campaigns: true` for the app in the portal's `declared-apps.ts`; the tables are already in the
+  migrations. Feature marketing is not a service notice (Cloudflare's terms): it needs a stream over another provider, an app's opt-in.
 - The staff phone app (`app/core/features.ts`, off) and the Shopify POS bar are in `docs/POS-AND-PHONE.md`; the phone app's tables and rate limit are already declared, so turning it on needs no migration or wrangler edit.
 - Confirm the production crons (`30 3 * * *` daily, `* * * * *` outbox drain), the webhook
   queue/DLQ names and the rate-limit bindings are present (`check:placeholders` and

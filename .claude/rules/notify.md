@@ -17,17 +17,20 @@ examples, the empty rules. Read `node_modules/@firesio/app/src/notify/README.md`
   (the preset stores, validates and applies the edit).
 - **The layout MUST show `unsubscribeUrl` when it is not null** (`app/notifications/layout.tsx`): a mail on consent whose render lacks it is refused at render. Transactional
   mail has none. A mail to customers needs the shop's postal address under the words (`canSpam`).
-- **Zero config sends mail.** The preset adds the senders `app` (Cloudflare Email over `EMAIL`, from `EMAIL_FROM` / `EMAIL_FROM_NAME`) and `support`. With no `EMAIL_FROM` a send is
+- **Zero config sends mail.** The app's `streams` (`app/notifications/streams.ts`) send from `notification@` and `support@` the app's own domain over Cloudflare Email
+  (`EMAIL`). `notifications` and `support` are required (the package's own mail goes out on them). No domain (local development without `MAIL_DOMAIN`) or no binding: a send is
   recorded as `skipped:no_sender`, never an error. `NOTIFY_SECRET` (32+ characters) is REQUIRED: it keys the address hashes and signs the unsubscribe links, and changing it
   invalidates every link already sent.
-- **Cloudflare Email carries transactional mail only.** A message with `basis: { consent: "<list>" }` (news, a campaign) needs a sender that accepts consent (`resend()` of
-  `@firesio/app/notify/providers`) declared in `senders`, and a `lists` entry (owner, `opt-in` or `opt-out` per channel). `createNotify` refuses a declaration whose basis no
-  sender can carry, at startup. Campaigns (`campaignDelivery`) are OFF in the template for this reason.
+- **A stream is a purpose; its senders are tried in order.** Each sender may have `when(request, cx)` answering `true` or why not (a plan, a verified domain): a condition is app
+  code, never a package change. A message names its stream (`stream`, default `notifications`). Ask `services.notify.explain({ message, shop })` before a page promises a mail.
+- **Cloudflare Email carries transactional mail only** (Cloudflare's terms). A message with `basis: { consent: "<list>" }` (news to customers, marketing) needs a stream over a
+  provider that accepts consent (`resend()` of `@firesio/app/notify/providers`: an app's opt-in, e.g. a merchant's own domain) and a `lists` entry. Startup refuses a message whose
+  stream has no sender for its basis. The team's announcements (`campaignDelivery: {}`, ON) are SERVICE NOTICES, transactional on `notifications`: never feature marketing.
 - **Send through the kernel, never around it**: `services.notify.send(message, { shop, to: { email, locale }, vars, dedupeKey })`. The `dedupeKey` is the same text every time the
   same mail is meant (`welcome:<shop>`): a job may run twice, the kernel answers the repeat with the first send's result. A send inside a D1 batch is `services.notify.statements(...)`
   (the outbox rows join the caller's batch). The outcome is a value per channel (`queued`, `skipped` with a reason, `failed`, `duplicate`): read it.
-- **Hooks are the app's rules, and they are empty.** `resolve` (change sender, recipient, language, reply-to), `guard` (gates after the package's own: `canSpam`, `sendCaps`,
-  `contentRules`), `beforeDispatch`, `on` (listeners for `sent`, `failed`, `bounced`, ... told at least once: idempotent), `inbound` (routes for mail to the app's own domain). Examples
+- **Hooks are the app's rules, and they are empty.** `resolve` (change stream, recipient, language, reply-to), `guard` (gates after the package's own: `canSpam`, `sendCaps`,
+  `contentRules`; `scope: "sender"` for one about the sending side, a campaign pauses on it), `beforeDispatch`, `on` (listeners for `sent`, `failed`, `bounced`, ... told at least once: idempotent), `inbound` (routes for mail to the app's own domain). Examples
   sit in the comment of `app/notifications/index.ts`. A hook reads `services` typed by `AppServices` (`kit.ts`); a package service reaches it through an app service built in `app/wiring/`.
 - **The unsubscribe page is public** (`app/routes/public/unsubscribe.tsx`, `/unsubscribe?t=<signed token>`): a GET only SHOWS a button (mail scanners open links), a POST or a mail client's
   one-click POST (RFC 8058) unsubscribes, a forged link is a 400. Never put it behind a session.

@@ -3,6 +3,19 @@
 An app takes a newer template by merging its tag (`template-v<version>`, see `template-files.json`: the `template` files come over
 unchanged, the `app` files are the app's). Each entry says what to do besides the merge.
 
+## template-v3.0.0 (unreleased)
+
+**`@firesio/app` 3.0.0** (ticket 36 of `platform`). Mail goes out by STREAM, the package decides no address, and the team's announcements are ON. Follow
+`docs/migrating-to-3.0.md`. What changed in the template:
+
+- `app/notifications/streams.ts` (new): `notifications` (`notification@<app domain>`) and `support` (`support@<app domain>`), both Cloudflare Email over `EMAIL`;
+  `defineNotify({ streams })` replaces `senders: {}`; `kit.ts` is `notifyKit<AppServices, Env>()` (a `streams` function is handed the Worker's env).
+- `wrangler.jsonc`: `EMAIL_FROM`, `EMAIL_FROM_NAME` and `SUPPORT_MAIL_DOMAIN` are gone; `MAIL_DOMAIN` (local development only) replaces the last. Production sends from the host of
+  `SHOPIFY_APP_URL`.
+- `campaignDelivery: {}` in `app/firesio.server.ts`: the team's announcements (service notices) go out transactional on `notifications`, over Cloudflare Email only. No Resend,
+  no extra secret. Declare `campaigns: true` for the app in the portal's `declared-apps.ts`.
+- Rules `notify` and `cloudflare`, `docs/OPERATIONS.md` ("Mail"), `docs/ADOPTING_THE_TEMPLATE.md`, `.dev.vars.example` follow.
+
 ## template-v2.0.0 (unreleased)
 
 **`@firesio/app` 2.1.3 (2.0.0 plus the 2.0.1 to 2.1.3 fixes) and `@firesio/portal-contract` 1.3.0.** A major release of the package that REMOVES what it replaces (nothing is kept deprecated), and the template moves onto it completely. An app that is on

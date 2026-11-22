@@ -15,7 +15,7 @@ const services: AppServices = { links: appLinksFor("https://app.acme-apps.net"),
 // Addresses are on real-looking domains on purpose: the kernel skips a reserved one (`.test`, `example.*`) as `reserved_address`, and mails nobody there.
 const VARS = { shopName: "Acme", appUrl: "https://app.acme-apps.net/?shop=acme.myshopify.com" } as const;
 
-/** A message on consent, only so a test can see what the layout does with `unsubscribeUrl` (the template sends none until the app declares a sender that accepts consent). */
+/** A message on consent, only so a test can see what the layout does with `unsubscribeUrl` (the template sends none until the app declares a stream whose provider accepts consent). */
 const news = kit.defineMessage({
   id: "news",
   vars: z.object({}),
@@ -29,7 +29,7 @@ function world() {
   const notifications = kit.defineNotify({
     messages: [welcome, news],
     layout,
-    senders: { app: { provider, from: "app@acme-apps.net" } },
+    streams: { notifications: { senders: [{ provider, from: "app@acme-apps.net" }] }, support: { senders: [{ provider, from: "support@acme-apps.net" }] } },
     lists: { news: { owner: "platform", consent: { email: "opt-out" } } },
   });
   return { provider, mail: testNotify(notifications, { services, renderer: reactEmailRenderer(), words: i18nWords(I18N) }) };

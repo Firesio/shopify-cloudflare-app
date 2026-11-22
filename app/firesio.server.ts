@@ -41,8 +41,8 @@ export const firesio = createFiresio<Env>()({
   // The onboarding checklist of the home page (its words are the catalogue's `setup.steps.<id>.*`): `firesio.setup.view(args)` and `firesio.setup.action(args)`, the table `firesio_setup`.
   setup: SETUP,
   schema,
-  // The app's mail (`app/notifications`): a layout in React Email, the sample welcome message and the hook examples. The preset adds the senders `app` (Cloudflare
-  // Email over `EMAIL`, from `EMAIL_FROM`) and `support`, the stores, the queue and the package's own messages, so a clone sends mail with no more configuration.
+  // The app's mail (`app/notifications`): a layout in React Email, the sample welcome message, the streams (`notification@` and `support@` the app's domain over
+  // Cloudflare Email) and the hook examples. The preset adds the stores, the queue and the package's own messages, so a clone sends mail with no more configuration.
   notify: notifications,
   // The app's words, for the pages and the mail alike (`app/i18n/locales/<language>/app.json`): the languages ARE the folders.
   i18n: { catalogue: CATALOGUE, fallback: FALLBACK_LANGUAGE },
@@ -72,9 +72,11 @@ export const firesio = createFiresio<Env>()({
   on: {
     installed: ({ shop }, services) => sendWelcome(services, shop),
   },
-  // Campaigns (`campaignDelivery: { sender: "broadcast" }`) are off: they are mail on consent, which Cloudflare Email cannot carry. Turn them on with a sender that
-  // accepts consent (`resend()` of `@firesio/app/notify/providers`) declared in `app/notifications/index.ts`, the `campaigns` queue-free flow needs the FLOWS binding
-  // (declared), and the portal declares `campaigns: true`. The tables stay in the migrations, so switching them on needs no migration.
+  // The team's announcements to the merchants who installed the app (written in the portal, which declares `campaigns: true` for the app): SERVICE NOTICES
+  // (maintenance, a price or plan change, terms, security), transactional mail on the `notifications` stream over Cloudflare Email, no other provider. Cloudflare's
+  // terms allow transactional mail only: feature news is not a service notice (`campaignDelivery.announcements` with a consent basis over another provider, an app's
+  // opt-in). The flow needs the FLOWS binding (declared); the tables are in the migrations. `notify.explain` says when one cannot go out (no mail domain yet).
+  campaignDelivery: {},
   // The Admin API version is the package's default (`ADMIN_API_VERSION` of `@firesio/app/shell`, "2026-10"): ONE decision with `api_version` in both `shopify.app*.toml`, held by
   // `npm run check:placeholders`. Pass `shopify: { apiVersion }` only to choose another. One Polaris release for the preload header and `AppProvider`.
   shopify: { polarisUrl: POLARIS_URL },

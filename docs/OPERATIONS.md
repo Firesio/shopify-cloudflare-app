@@ -54,7 +54,7 @@ bot check; `TURNSTILE_SITE_KEY` is the public var), `SHOP_CUSTOM_DOMAIN` (only a
 `SHOPIFY_API_SECRET_PREVIOUS` (only during a rotation, below), `SETTINGS_SECRET_KEY` (seals the `secret()` fields of the `settings` library at rest, AES-256-GCM; base64 of 32 random bytes; without it a Worker whose settings groups hold a `secret()` field refuses to build its services, `SettingsSecretKeyMissing`, unless `SETTINGS_SECRETS_PLAINTEXT` is `"allow"` at the top level, development only; `SETTINGS_SECRET_KEY_ID` and `SETTINGS_SECRET_KEY_PREVIOUS` with its `_ID` serve a rotation). The template's sample settings group holds no secret, so it has no use for the key until an app adds one.
 
 Everything else is a var in `wrangler.jsonc`, committed on purpose: `SHOPIFY_API_KEY` (the public client id), `SCOPES`,
-`SHOPIFY_APP_URL`, `SHOPIFY_APP_HANDLE`, `EMAIL_FROM`, `EMAIL_FROM_NAME`, `SUPPORT_MAIL_DOMAIN`,
+`SHOPIFY_APP_URL`, `SHOPIFY_APP_HANDLE`, `MAIL_DOMAIN`,
 `TURNSTILE_SITE_KEY`, `AI_GATEWAY_ID`, `EVENT_HASH_KEY_ID`, `PARTNER_ORG_ID`, `PARTNER_APP_ID`. Their names must be in
 `wrangler.jsonc` so `Env` can be generated on a clean checkout (`npm run cf-typegen`); the values of secrets live only in the
 secret store and, locally, in `.dev.vars`.
@@ -283,7 +283,7 @@ the inbox keeps a hash, not the payload, so a topic whose handler cannot refetch
 
 ## Mail
 
-**Zero config:** the `EMAIL` binding sends with Cloudflare Email Sending from `EMAIL_FROM` (display name `EMAIL_FROM_NAME`); no provider account. Once per sending domain (operator-run, the domain's zone must be on this account):
+**Zero config:** the `EMAIL` binding sends with Cloudflare Email Sending from `notification@` and `support@` the app's domain (`app/notifications/streams.ts`; the host of `SHOPIFY_APP_URL`, or `MAIL_DOMAIN` locally); no provider account. Once per sending domain (operator-run, the domain's zone must be on this account):
 
 ```bash
 npx wrangler email sending enable <yourdomain.com>
@@ -303,7 +303,7 @@ npx wrangler d1 execute app-db-prod --remote --command \
   "SELECT message_id, channel, status, reason, COUNT(*) AS n FROM notify_deliveries WHERE created_at > (CAST(strftime('%s','now') AS INTEGER) - 86400) * 1000 GROUP BY 1,2,3,4 ORDER BY n DESC LIMIT 30;"
 ```
 
-`skipped:no_sender` means `EMAIL_FROM` is empty; `skipped:suppressed` a bounce or a complaint remembered; `skipped:reserved_address` a `.test` or `example.*` address.
+`skipped:no_sender` means no sender of the stream could carry it (the trace says why each declined: `no_mail_domain`, `no_email_binding`, an app's `when` reason); `skipped:suppressed` a bounce or a complaint remembered; `skipped:reserved_address` a `.test` or `example.*` address.
 **Spend**: Email Sending is billed by volume: turn on the email spend alerts (next section).
 
 ## Observability, cost and what pages you

@@ -46,9 +46,8 @@ describe("the AdminApi entrypoint over a service binding: shops", () => {
     for (let proto: object | null = firesio.AdminApi.prototype; proto !== null && proto !== Object.prototype; proto = Object.getPrototypeOf(proto)) {
       for (const name of Object.getOwnPropertyNames(proto)) methods.add(name);
     }
-    expect([...methods]).toEqual(expect.arrayContaining(["shops", "billing", "support", "staffTools", "system"]));
-    // Campaigns are off: mail on consent needs a sender Cloudflare Email cannot be, so the portal reads the group as unsupported.
-    expect(methods.has("campaigns")).toBe(false);
+    // Campaigns are ON: the team's announcements are service notices, transactional on the `notifications` stream over Cloudflare Email.
+    expect([...methods]).toEqual(expect.arrayContaining(["shops", "billing", "support", "staffTools", "system", "campaigns"]));
   });
 });
 

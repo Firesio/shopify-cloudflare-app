@@ -7,7 +7,7 @@ import { kit } from "../kit";
  * The sample message: a welcome mail to the shop when the app is installed (`on.installed` in `app/firesio.server.ts` sends it). A message is
  * its id, the shape of its data (a zod schema: a typo in `send` does not compile) and, for the email channel, a subject and a React Email body.
  * Every text goes through `words.t(key)`: the keys are in `app/i18n/locales/<language>/app.json` (`mail.welcome.*`), so the mail speaks the language
- * of the shop. It is transactional (no consent needed) and goes out from the `app` sender (Cloudflare Email, `EMAIL_FROM`).
+ * of the shop. It is transactional (no consent needed) and goes out on the `notifications` stream (Cloudflare Email, `notification@<app domain>`).
  *
  * To make a message a merchant may reword, list the keys: `editable: ["app:mail.welcome.body"]` (`removable` for a part they may hide).
  */

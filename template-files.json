@@ -1,7 +1,7 @@
 {
   "$comment": "Who owns each file of the template. `template` files are the shell: an app takes them from a newer template tag unchanged. `app` files are written by the app (its plans, roles, texts, config, pages): an upgrade never overwrites them. scripts/template-manifest.test.mjs fails when a tracked file is in neither list, so a new file has to be classified. Directories end with a slash.",
-  "version": "2.0.0",
-  "tag": "template-v2.0.0",
+  "version": "3.0.0",
+  "tag": "template-v3.0.0",
   "app": [
     "app/core/identity.ts",
     "app/core/plans.ts",
