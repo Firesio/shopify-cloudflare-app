@@ -5,7 +5,7 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
 
 ## template-v2.0.0 (unreleased)
 
-**`@firesio/app` 2.1.1 (2.0.0 plus the 2.0.1 to 2.1.1 fixes) and `@firesio/portal-contract` 1.3.0.** A major release of the package that REMOVES what it replaces (nothing is kept deprecated), and the template moves onto it completely. An app that is on
+**`@firesio/app` 2.1.3 (2.0.0 plus the 2.0.1 to 2.1.3 fixes) and `@firesio/portal-contract` 1.3.0.** A major release of the package that REMOVES what it replaces (nothing is kept deprecated), and the template moves onto it completely. An app that is on
 a 1.x template takes this tag by following `docs/migrating-to-2.0.md` (an ordered checklist of the package's own changeset), not by merging alone. What changed in the template:
 
 - **One call, typed**: `createFiresio<Env>()({ ... })` with ONE `services` factory (`AppServices`, `app/core/app-services.ts`), the typed `on` map of events (the welcome mail on `installed`), `jobs`, `flows`

@@ -11,12 +11,12 @@ then what you run before and after deploying (9 and 10).
 
 ```bash
 # a token in the command's environment only; never in .npmrc (the repo's .npmrc maps the scope to GitHub Packages with ${NPM_TOKEN})
-NPM_TOKEN=<read:packages token> npm install @firesio/app@^2.1.1 @firesio/portal-contract@^1.3.0 @react-email/components @react-email/render
+NPM_TOKEN=<read:packages token> npm install @firesio/app@^2.1.3 @firesio/portal-contract@^1.3.0 @react-email/components @react-email/render
 ```
 
 - `@firesio/portal-contract` must be `>=1.3.0 <2.0.0` (the peer range). `@react-email/components` and `@react-email/render` are optional peers the preset's mail renderer imports: every app installs them.
 - `ai` and `agents` stay only if the app uses AI (step 4). `wrangler` must be 4.158 or later (the Durable Object `retryable()` the coordinator uses is typed from there; the template is on 4.166) and
-  `@cloudflare/vitest-plugin` 1.9 or later (an older one bundles a `workerd` that rejects the shared `compatibility_date`). Take `@firesio/app` 2.1.1 or later.
+  `@cloudflare/vitest-plugin` 1.9 or later (an older one bundles a `workerd` that rejects the shared `compatibility_date`). Take `@firesio/app` 2.1.3 or later (2.1.2: a flow step can read `firesio.context`, and a plan card's bullets are read from the catalogue as `plans.plans.<handle>.bullets.1`, `.2`, ...); 2.1.3: `billing().revokeGrant` answers the stored `revokedAt`).
 - `npx wrangler types` after the config change of step 6, so `Env` knows the new bindings.
 
 ## 2. Remove what the package replaced
@@ -62,6 +62,8 @@ Delete, do not wrap:
 7. **`staffTools`**: `(define) => define({ resources, panels, actions })` (`app/wiring/staff-tools.ts`: one resource and one action as the example; the portal asks only an app that declares `staffTools: true` in its
    `declared-apps.ts`). **`defineTopic`**, **`defineCustomerData`**, **`defineStanding`** replace the old inline forms where the app used them. An app proxy route is `firesio.proxy({ ... })`, an extension backend
    `firesio.extension({ ... })`; the template has none.
+   The phone app's layout can be the package's: `export { default } from "@firesio/app/ui/frame/phone";` as the layout route, unless the app draws its own navigation.
+   If `tsc` reports TS7022 (`firesio` implicitly has type `any`) on `createFiresio<Env>()` in an app whose `wrangler types` output names `FiresioFlows` (the generated `FLOWS: Workflow<...>` points back at the class that extends `firesio.FiresioFlows`), type the call with the bindings it reads: `createFiresio<Pick<Env, "DB" | "SESSION" | ...>>()` (VIP Early Access does this: `AppEnv` in `app/wiring/scope.ts`). The template does not need it.
 8. **`jobs`** (`defineJob`) and **`flows`** (`defineFlow` + `packageFlows({ gdprExport, d1Export, resendDomain, backfills })`): `app/wiring/jobs.ts` is empty with the recipe in a comment; the template needs no flow of its own.
    `firesio.jobs()` is the job system (`enqueue(kind, payload, { dedupeKey })`), not the old step functions: `refreshSubscriptions()`, `announceShops()`, `backfillMetrics()`, `purgeDevices()` are gone, enqueue the step by kind.
 9. **`ai: cloudflareAi({ models, gate })`** (`@firesio/app/ai/cloudflare`) if the app uses AI. Without it the app has none and **the support spam check is OFF** (a stranger's mail opens a conversation) where it
