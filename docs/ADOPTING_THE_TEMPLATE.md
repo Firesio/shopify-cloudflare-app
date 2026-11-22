@@ -141,6 +141,9 @@ and evidence; a checked box is not a substitute for a tested implementation.
   retention each) and set `NOTIFY_SECRET` (32+ characters). **Announcements are ON** (`campaignDelivery: {}`): the team's service notices to installed merchants,
   transactional on the `notifications` stream over Cloudflare Email, no other provider; declare `campaigns: true` for the app in the portal's `declared-apps.ts`; the tables are already in the
   migrations. Feature marketing is not a service notice (Cloudflare's terms): it needs a stream over another provider, an app's opt-in.
+- **The blog** (`app/cms`, ticket 38 of `platform`): the same `blogs` collection and routes on every app (`/blogs`, `/blogs/:slug`, `/blogs/rss.xml`, `/sitemap.xml`),
+  written from the portal's Content page or over its MCP. Restyle it in `app/styles/public/_cms.scss` (your file); add a collection (a changelog, landing pages) in
+  `app/cms/index.ts` and its routes, nothing else changes. Declare `cms: true` for the app in the portal's `declared-apps.ts`; its images go to the `UPLOADS` bucket.
 - The staff phone app (`app/core/features.ts`, off) and the Shopify POS bar are in `docs/POS-AND-PHONE.md`; the phone app's tables and rate limit are already declared, so turning it on needs no migration or wrangler edit.
 - Confirm the production crons (`30 3 * * *` daily, `* * * * *` outbox drain), the webhook
   queue/DLQ names and the rate-limit bindings are present (`check:placeholders` and

@@ -70,5 +70,12 @@
     "confirm": "Unsubscribe",
     "done": "You are unsubscribed. You will not receive these emails again.",
     "invalid": "This unsubscribe link is not valid. If you still receive mail you do not want, reply to it and we will stop it."
+  },
+  "blog": {
+    "heading": "Blog",
+    "description": "News, guides and updates from {{app}}.",
+    "more": "Older posts",
+    "empty": "No posts yet.",
+    "back": "All posts"
   }
 }

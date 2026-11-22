@@ -19,6 +19,7 @@ import { JOBS } from "~/wiring/jobs";
 import { onboardingFor } from "~/wiring/onboarding";
 import { SETUP } from "~/wiring/setup";
 import { staffTools } from "~/wiring/staff-tools";
+import { CMS } from "~/cms";
 
 /**
  * The whole glue of the app (`docs/architecture.md` section 6.6, in the Firesio platform repo): the preset builds every service, the
@@ -80,6 +81,9 @@ export const firesio = createFiresio<Env>()({
   // The team's FEATURE news, shown inside the app on the home page (`NewsCard`), never mailed: the portal writes and publishes it (`news: true` for the app in
   // its `declared-apps.ts`). Segments default to `campaignDelivery.segments`.
   news: {},
+  // The app's own content, the blog first (`app/cms`): the portal (or an AI over its MCP) writes and publishes it, it is served here on the app's domain
+  // (`/blogs`, `/blogs/:slug`, `/sitemap.xml`, `/blogs/rss.xml`, images under `/cms/media`). D1 and the `UPLOADS` bucket; `cms: true` for the app in the portal.
+  cms: CMS,
   // The Admin API version is the package's default (`ADMIN_API_VERSION` of `@firesio/app/shell`, "2026-10"): ONE decision with `api_version` in both `shopify.app*.toml`, held by
   // `npm run check:placeholders`. Pass `shopify: { apiVersion }` only to choose another. One Polaris release for the preload header and `AppProvider`.
   shopify: { polarisUrl: POLARIS_URL },

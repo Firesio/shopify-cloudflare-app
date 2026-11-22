@@ -57,6 +57,13 @@
       "when": 1795362553747,
       "tag": "0007_firesio_3_1",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1795369045914,
+      "tag": "0008_firesio_3_2_cms",
+      "breakpoints": true
     }
   ]
 }

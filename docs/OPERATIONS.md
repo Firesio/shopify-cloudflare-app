@@ -281,6 +281,12 @@ compliance deliveries (`shop/redact` and the customer topics) have a 30-day wind
 the inbox keeps a hash, not the payload, so a topic whose handler cannot refetch needs its own `deadLetterQueues` handler that keeps the body where a person can replay it
 (`firesio.deadLetters()`). Never purge a DLQ as an incident response step: that discards the evidence and the work to recover. Record the delivery ids, the operator, the start and end time and the outcome.
 
+## Content (the blog)
+
+The app's own pages (`app/cms`): entries in D1 (`firesio_cms_*`, the app's, no shop column), uploaded images in the `UPLOADS` R2 bucket under `cms/<key>`
+(the same bucket as support files; create it before the first deploy). The portal writes them through the `cms()` group of `AdminApi` once the app is declared
+`cms: true` in its `declared-apps.ts`. Public pages are cached at the edge for a short while; a scheduled entry shows from its time and the daily sweep writes it.
+
 ## Mail
 
 **Zero config:** the `EMAIL` binding sends with Cloudflare Email Sending from `notification@` and `support@` the app's domain (`app/notifications/streams.ts`; the host of `SHOPIFY_APP_URL`, or `MAIL_DOMAIN` locally); no provider account. Once per sending domain (operator-run, the domain's zone must be on this account):

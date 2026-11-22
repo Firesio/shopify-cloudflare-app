@@ -22,6 +22,7 @@
     "app/core/app-services.ts",
     "app/wiring/",
     "app/notifications/",
+    "app/cms/",
     "app/i18n/",
     "app/routes/app/home.tsx",
     "app/routes/public/",

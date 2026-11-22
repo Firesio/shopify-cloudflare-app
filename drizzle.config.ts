@@ -9,7 +9,7 @@ export default defineConfig({
   driver: "d1-http",
   schema: [
     "./app/db/schema.ts",
-    ...firesioSchemaPaths({ settings: true, setup: true, campaigns: true, news: true }),
+    ...firesioSchemaPaths({ settings: true, setup: true, campaigns: true, news: true, cms: true }),
     // The thread store a support case sits on (support runs on conversations since 2.0); `firesioSchemaPaths({ messaging: true })` lists it too when texting is declared.
     "./node_modules/@firesio/app/src/conversations/d1/schema.ts",
     // The staff phone app's tables (`app/core/features.ts`). Always in the history, so switching the part on needs no migration; empty while it is off.

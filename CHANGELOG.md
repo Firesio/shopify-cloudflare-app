@@ -19,6 +19,11 @@ unchanged, the `app` files are the app's). Each entry says what to do besides th
   The team's FEATURE news is ON inside the app (`news: {}`, `firesioSchemaPaths({ news: true })`, the `NewsCard` on the home page; never mailed); declare `news: true` for
   the app in the portal's `declared-apps.ts`. Also available, nothing to do: cc/bcc and attachments on mail, ICU plural/select in texts, a layout's words through
   `props.words`, inbound per channel.
+- **`@firesio/app` 3.2.0, `@firesio/portal-contract` 1.5.0** (ticket 38 of `platform`): the app's own content, the BLOG first, written from the portal's Content page or by
+  an AI over the portal's MCP. `app/cms/index.ts` (the `blogs` collection: the same on every app), `cms: CMS` in `createFiresio`, migration
+  `drizzle/0008_firesio_3_2_cms.sql`, public routes `/blogs`, `/blogs/:slug`, `/blogs/rss.xml`, `/sitemap.xml`, `/cms/media/:key` (SSR, edge-cached, SEO head),
+  words `blog.*` in every language, and the default look `app/styles/public/_cms.scss` (the app's file: restyle it freely). Images go to the `UPLOADS` bucket.
+  Declare `cms: true` for the app in the portal's `declared-apps.ts`.
 
 ## template-v2.0.0 (unreleased)
 

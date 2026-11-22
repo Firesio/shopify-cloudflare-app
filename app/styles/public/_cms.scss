@@ -1,0 +1,151 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// The app's content pages (`@firesio/app/ui/cms`: the blog list and a post).
+//
+// The markup is the package's and unstyled (`cms-list__*`, `cms-article__*`, `cms-block--<type>`, `cms-cta__button`); THIS file is the app's look.
+// Every app starts from the template's and changes it freely (template-files.json lists it as the app's): the blog is the same on every app, its style
+// is each app's own. Only tokens and the shared mixins, logical properties (RTL), no raw colours.
+// ─────────────────────────────────────────────────────────────────────────────
+@use "tokens" as t;
+@use "mixins" as m;
+
+.cms-list,
+.cms-article {
+  max-inline-size: t.$prose-max;
+  margin-inline: auto;
+}
+
+.cms-list__heading,
+.cms-article__title {
+  font-size: m.text("3xl");
+  font-weight: t.$weight-bold;
+  line-height: 1.15;
+  margin-block-end: m.space("sm");
+}
+
+.cms-list__items {
+  display: grid;
+  gap: m.space("lg");
+  list-style: none;
+  padding: 0;
+}
+
+.cms-list__item {
+  display: grid;
+  gap: m.space("3xs");
+  padding-block-end: m.space("lg");
+  border-block-end: t.$border-width solid var(--color-border);
+}
+
+.cms-list__link {
+  display: grid;
+  gap: m.space("2xs");
+  color: var(--color-text);
+  text-decoration: none;
+
+  &:hover .cms-list__title {
+    color: var(--color-accent-text);
+  }
+
+  &:focus-visible {
+    @include m.focus-ring;
+  }
+}
+
+.cms-list__image,
+.cms-article__image {
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: t.$radius-md;
+  background: var(--color-bg-subtle);
+}
+
+.cms-list__title {
+  font-size: m.text("xl");
+  font-weight: t.$weight-semibold;
+}
+
+.cms-list__date,
+.cms-article__date {
+  color: var(--color-text-muted);
+  font-size: m.text("sm");
+}
+
+.cms-list__description,
+.cms-article__description {
+  color: var(--color-text-subtle);
+}
+
+.cms-list__empty {
+  color: var(--color-text-muted);
+}
+
+.cms-list__more,
+.cms-article__back {
+  display: inline-block;
+  margin-block-start: m.space("md");
+  color: var(--color-accent-text);
+  font-weight: t.$weight-medium;
+}
+
+.cms-article__header {
+  display: grid;
+  gap: m.space("2xs");
+  margin-block-end: m.space("lg");
+}
+
+.cms-article__body {
+  display: grid;
+  gap: m.space("md");
+  line-height: 1.7;
+
+  img {
+    max-inline-size: 100%;
+    border-radius: t.$radius-md;
+  }
+
+  pre,
+  code {
+    background: var(--color-bg-inset);
+    border-radius: t.$radius-md;
+  }
+
+  pre {
+    padding: m.space("sm");
+    overflow-x: auto;
+  }
+}
+
+.cms-block--quote blockquote {
+  margin: 0;
+  padding-inline-start: m.space("sm");
+  border-inline-start: 3px solid var(--color-accent);
+  color: var(--color-text-subtle);
+}
+
+.cms-block--cta {
+  padding: m.space("md");
+  border-radius: t.$radius-md;
+  background: var(--color-accent-subtle);
+}
+
+.cms-cta__button {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.75rem;
+  padding: m.space("2xs") m.space("sm");
+  border-radius: t.$radius-md;
+  background: var(--color-accent);
+  color: var(--color-text-inverse);
+  font-weight: t.$weight-medium;
+  text-decoration: none;
+
+  &:focus-visible {
+    @include m.focus-ring;
+  }
+}
+
+.cms-block--faq details {
+  padding-block: m.space("2xs");
+  border-block-end: t.$border-width solid var(--color-border);
+}

@@ -42,3 +42,16 @@ export function homeLabelsOf({ t }: Words, values: { readonly shop: string; read
     contactSupport: t("home.contactSupport"),
   };
 }
+
+export interface BlogLabels {
+  readonly heading: string;
+  readonly description: string;
+  readonly more: string;
+  readonly empty: string;
+  readonly back: string;
+}
+
+/** The blog pages' words (`blog.*`): the list's heading, its description for search engines, the next-page link, the empty state, the way back. */
+export function blogLabelsOf({ t }: Words, values: { readonly app: string }): BlogLabels {
+  return { heading: t("blog.heading"), description: t("blog.description", { app: values.app }), more: t("blog.more"), empty: t("blog.empty"), back: t("blog.back") };
+}

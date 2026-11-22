@@ -70,5 +70,12 @@
     "confirm": "Darme de baja",
     "done": "Te has dado de baja. No volverás a recibir estos correos.",
     "invalid": "Este enlace de baja no es válido. Si sigues recibiendo correos que no quieres, responde al correo y los detendremos."
+  },
+  "blog": {
+    "heading": "Blog",
+    "description": "Novedades, guías y actualizaciones de {{app}}.",
+    "more": "Entradas anteriores",
+    "empty": "Todavía no hay entradas.",
+    "back": "Todas las entradas"
   }
 }

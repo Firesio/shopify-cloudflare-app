@@ -8,7 +8,7 @@ import boundaries from "eslint-plugin-boundaries";
  * proves every row (the plugin otherwise ignores unresolved imports silently).
  *
  *   entry (root, routes.ts, entry.*) -> routes -> composition (app/firesio.server.ts) -> wiring -> adapters -> core, db
- *   routes -> ai -> core; composition -> notifications -> components -> i18n -> core
+ *   routes -> ai -> core; composition -> notifications -> components -> i18n -> core; composition -> cms -> core
  *   db -> core's vocabularies only (`app/core/<feature>/vocabulary.ts`: value lists, imports nothing)
  *   core: pure, imports nothing of the app; db: tables only; adapters: the app's ports implemented over D1, KV, R2, Shopify, HTTP.
  *
@@ -28,6 +28,8 @@ const elements = [
   { type: "wiring", pattern: "app/wiring", partialMatch: false },
   // The app's mail (`defineNotify`): the React Email layout, the messages, the hook examples.
   { type: "notifications", pattern: "app/notifications", partialMatch: false },
+  // The app's own content model (`@firesio/app/cms`): its collections and blocks, declarations only.
+  { type: "cms", pattern: "app/cms", partialMatch: false },
   { type: "components", pattern: "app/components", partialMatch: false },
   { type: "i18n", pattern: "app/i18n", partialMatch: false },
   // The app's AI features: prompts and calls, each a function that receives the shop's `ai` (`firesio.from(context).ai`) as an argument.
@@ -57,7 +59,7 @@ const policies = [
   // Third-party packages (and `@firesio/app`, which is a package here) are a separate concern.
   { allow: { to: { module: { origin: ["external", "core"] } } } },
   // Tests may reach what they test plus the shared test support.
-  fromFile("test", to("core", "db", "adapters", "wiring", "notifications", "components", "i18n", "routes", "test-support", "workers", "ai")),
+  fromFile("test", to("core", "db", "adapters", "wiring", "notifications", "cms", "components", "i18n", "routes", "test-support", "workers", "ai")),
   fromFile("test", toComposition),
   // root.tsx is a thing under test too (its error boundary).
   fromFile("test", { to: { file: { categories: [ENTRY] } } }),
@@ -72,13 +74,14 @@ const policies = [
   // never imports that file back (a factory that names `firesio` while `firesio` is being typed is a circular type, TS7022).
   allow("wiring", "wiring", "core", "db", "adapters", "ai"),
   allow("notifications", "notifications", "core", "i18n", "components"),
+  allow("cms", "cms", "core"),
   allow("i18n", "i18n", "core"),
   allow("components", "components", "i18n", "core"),
   // An AI feature gets `ai` from its caller: it never reaches the composition file or the database itself, so a test hands it `fakeAi()`.
   allow("ai", "ai", "core"),
   // The one file that calls `createFiresio`: it names the app's own values (plans, members, identity, schema, labels, messages) and
   // plugs in the app's own services and handlers (wiring, or an adapter directly when binding it is one line).
-  fromFile(COMPOSITION, to("core", "db", "i18n", "adapters", "wiring", "notifications")),
+  fromFile(COMPOSITION, to("core", "db", "i18n", "adapters", "wiring", "notifications", "cms")),
   // Routes read input, call a use case, return the result: they get the services (the preset's and, through the `services` factory, the
   // app's own) from `firesio`, never build them, and never query a table themselves (no `db`, no `adapters`, no `wiring`).
   allow("routes", "routes", "components", "i18n", "core", "ai"),

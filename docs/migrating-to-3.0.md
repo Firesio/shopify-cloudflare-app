@@ -16,4 +16,7 @@ the template, in order.
 9. 3.1 (additive): `npm install @firesio/app@^3.1.0 @firesio/portal-contract@^1.4.0`; add `news: true` to `firesioSchemaPaths(...)` and `news: {}` to
    `createFiresio`, then `npm run db:generate` (the expand-only migration adds `notify_deliveries.copies`, `notify_inbound` and the news tables); draw the
    news card on the home page like the template (`firesio.news.view(args)` in the loader, `NewsCard`, Dismiss through `firesio.news.action(args)`).
-10. `npm run verify`, then the production build.
+10. 3.2 (additive, the blog): `npm install @firesio/app@^3.2.0 @firesio/portal-contract@^1.5.0`; copy the template's `app/cms/`, the public routes under
+    `app/routes/public/blogs/`, `sitemap.ts`, `cms/media.ts` and their lines in `app/routes.ts`, the `blog.*` words, and `app/styles/public/_cms.scss` (then restyle it);
+    `cms: CMS` in `createFiresio`, `cms: true` in `firesioSchemaPaths(...)`, `npm run db:generate`. Portal: `cms: true` for the app.
+11. `npm run verify`, then the production build.

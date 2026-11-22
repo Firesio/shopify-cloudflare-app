@@ -15,7 +15,13 @@ export default [
     ...prefix("legal", [route("privacy", "routes/public/legal/privacy.tsx"), route("terms", "routes/public/legal/terms.tsx")]),
     // The unsubscribe link of a mail sent on consent (`firesio.unsubscribe`, RFC 8058 one-click): public, signed, no shop.
     route("unsubscribe", "routes/public/unsubscribe.tsx"),
+    // The app's blog (`app/cms`): written from the portal, served here for search engines. A static segment outranks `:slug`, so `rss.xml` is never a post.
+    ...prefix("blogs", [index("routes/public/blogs/index.tsx"), route(":slug", "routes/public/blogs/post.tsx")]),
   ]),
+  // The content's resource routes: the feed, the sitemap of every collection, the uploaded images.
+  route("blogs/rss.xml", "routes/public/blogs/rss.ts"),
+  route("sitemap.xml", "routes/public/sitemap.ts"),
+  route("cms/media/:key", "routes/public/cms/media.ts"),
 
   // Embedded Shopify admin: everything under /app runs inside the Shopify admin iframe.
   route("app", "routes/app/layout.tsx", [
