@@ -1,9 +1,10 @@
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import { localeIn } from "@firesio/app";
 import { grantsOf } from "@firesio/app/members";
-import { AppErrorBoundary, EmbeddedProvider } from "@firesio/app/ui/shell";
+import { AppErrorBoundary } from "@firesio/app/ui/shell";
+import { AdminFrame } from "@firesio/app/ui/frame";
 import { platformOf } from "@firesio/app/notify/push";
-import { AppSurface } from "@firesio/app/ui/surface";
-import { lazy, Suspense } from "react";
+import { lazy } from "react";
 import type { HeadersFunction, LoaderFunctionArgs, MiddlewareFunction, ShouldRevalidateFunction } from "react-router";
 import { Outlet, redirect, useLoaderData, useLocation } from "react-router";
 import { AppNav } from "~/components/AppNav";
@@ -14,6 +15,7 @@ import { phoneItems } from "~/components/phone-items";
 import { POLARIS_URL } from "~/core/polaris";
 import { PWA } from "~/core/features";
 import { firesio } from "~/firesio.server";
+import { navLabelsOf } from "~/i18n/labels";
 
 /**
  * One middleware guards all of /app: Shopify proves who is asking (`authenticate.admin`), the members library decides whether that
@@ -36,10 +38,13 @@ export const middleware: MiddlewareFunction[] = [
  */
 export const loader = ({ context, request }: LoaderFunctionArgs) => {
   const { member, services, shop, surface } = firesio.maybeFrom(context);
-  // On a paired staff phone (`surface === "pwa"`, only while `PWA` is on) the layout draws the phone's shell instead; `platform` lets an iPhone's bars be glass from the first paint.
-  const phone = PWA && surface === "pwa" ? { shop, platform: platformOf(request.headers.get("user-agent") ?? "", 0), items: [...phoneItems()] } : null;
-  // `surface` is where this request is drawn (the web admin, or the Shopify POS webview): `AppSurface` below draws the POS bar for `pos`.
-  return { apiKey: services.env.SHOPIFY_API_KEY, permissions: member === null ? [] : [...grantsOf(member, MEMBERS)], surface, phone };
+  // The menu's words, in the language of the request (the member's remembered language, `?locale=`, `Accept-Language`): a translator over the app's own words,
+  // no read of any shop's layers (the menu is not something a merchant rewords), so nothing waits on the database here.
+  const nav = navLabelsOf(services.i18n.translator(localeIn(services.i18n)(request, member?.locale ?? null)));
+  // On a paired staff phone (`surface === "pwa"`, only while `PWA` is on) the frame draws the phone's shell instead; `platform` lets an iPhone's bars be glass from the first paint.
+  const phone = PWA && surface === "pwa" ? { shop, platform: platformOf(request.headers.get("user-agent") ?? "", 0), items: [...phoneItems(nav)] } : null;
+  // `surface` is where this request is drawn (the web admin, or the Shopify POS webview): `AdminFrame` draws the POS bar for `pos`.
+  return { apiKey: services.env.SHOPIFY_API_KEY, permissions: member === null ? [] : [...grantsOf(member, MEMBERS)], surface, phone, nav };
 };
 
 /**
@@ -52,25 +57,21 @@ export const shouldRevalidate: ShouldRevalidateFunction = ({ formMethod, default
 const PhoneLayout = PWA ? lazy(() => import("~/components/PhoneLayout")) : null;
 
 export default function AppLayout() {
-  const { apiKey, permissions, surface, phone } = useLoaderData<typeof loader>();
+  const { apiKey, permissions, surface, phone, nav } = useLoaderData<typeof loader>();
   const { pathname } = useLocation();
-  if (phone !== null && PhoneLayout !== null) {
-    return (
-      <Suspense fallback={null}>
-        <PhoneLayout shop={phone.shop} platform={phone.platform} items={phone.items}>
-          <Outlet />
-        </PhoneLayout>
-      </Suspense>
-    );
-  }
-  // `AppSurface` draws nothing of its own on the web admin (no element, no style, no request): only inside POS does it add the bar.
+  // `AdminFrame` picks the shell the surface needs (the web admin and POS: App Bridge, Polaris, this menu, the POS bar; a paired phone: its own shell, a separate chunk
+  // requested only by a phone and only while `PWA` is on). It adds no element of its own on the web admin.
   return (
-    <EmbeddedProvider apiKey={apiKey} polarisUrl={POLARIS_URL}>
-      <AppNav permissions={permissions} />
-      <AppSurface surface={surface} back={backOf(pathname)}>
-        <Outlet />
-      </AppSurface>
-    </EmbeddedProvider>
+    <AdminFrame
+      surface={surface}
+      apiKey={apiKey}
+      polarisUrl={POLARIS_URL}
+      back={backOf(pathname)}
+      nav={<AppNav permissions={permissions} labels={nav} />}
+      {...(phone !== null && PhoneLayout !== null ? { phone: { layout: PhoneLayout, shop: phone.shop, platform: phone.platform, items: phone.items } } : {})}
+    >
+      <Outlet />
+    </AdminFrame>
   );
 }
 

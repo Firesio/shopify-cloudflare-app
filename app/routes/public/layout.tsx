@@ -1,6 +1,6 @@
 import type { LinksFunction } from "react-router";
 import { Link, Outlet, useLoaderData } from "react-router";
-import { installTarget } from "~/core/install-target";
+import { installTarget } from "@firesio/app/shell";
 import { identity } from "~/core/identity";
 import { supportMailDomain } from "@firesio/app/support";
 import { firesio } from "~/firesio.server";

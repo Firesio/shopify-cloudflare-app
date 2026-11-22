@@ -24,9 +24,9 @@ const elements = [
   { type: "db", pattern: "app/db", partialMatch: false },
   // The app's own implementations of core's ports: Drizzle over `services.db`, KV, R2, Queues, the Admin GraphQL API, outside HTTP.
   { type: "adapters", pattern: "app/adapters", partialMatch: false },
-  // What `app/firesio.server.ts` plugs in: the app's services for one shop (`withServices`) and its handlers (webhooks, queues, cron, hooks).
+  // What `app/firesio.server.ts` plugs in: the app's services for one shop (the `services` factory), its jobs and flows, and its handlers (webhooks, queues, cron, events).
   { type: "wiring", pattern: "app/wiring", partialMatch: false },
-  // The app's own mail and push messages (`defineMessages`), their texts per language and their templates.
+  // The app's mail (`defineNotify`): the React Email layout, the messages, the hook examples.
   { type: "notifications", pattern: "app/notifications", partialMatch: false },
   { type: "components", pattern: "app/components", partialMatch: false },
   { type: "i18n", pattern: "app/i18n", partialMatch: false },
@@ -79,7 +79,7 @@ const policies = [
   // The one file that calls `createFiresio`: it names the app's own values (plans, members, identity, schema, labels, messages) and
   // plugs in the app's own services and handlers (wiring, or an adapter directly when binding it is one line).
   fromFile(COMPOSITION, to("core", "db", "i18n", "adapters", "wiring", "notifications")),
-  // Routes read input, call a use case, return the result: they get the services (the preset's and, through `withServices`, the
+  // Routes read input, call a use case, return the result: they get the services (the preset's and, through the `services` factory, the
   // app's own) from `firesio`, never build them, and never query a table themselves (no `db`, no `adapters`, no `wiring`).
   allow("routes", "routes", "components", "i18n", "core", "ai"),
   allowComposition("routes"),

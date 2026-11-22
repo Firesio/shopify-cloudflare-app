@@ -1,4 +1,5 @@
-import { contactContext, englishContactLabels } from "@firesio/app/ui/support";
+import { localeIn } from "@firesio/app";
+import { contactContext, contactLabelsOf } from "@firesio/app/ui/support";
 import Contact from "@firesio/app/ui/support/contact";
 import type { MiddlewareFunction } from "react-router";
 import { identity } from "~/core/identity";
@@ -13,9 +14,11 @@ import { firesio } from "~/firesio.server";
 export { action, loader } from "@firesio/app/ui/support/contact";
 
 export const middleware: MiddlewareFunction[] = [
-  ({ context }, next) => {
-    const { env, contact } = firesio.services();
-    context.set(contactContext, { service: contact, labels: englishContactLabels, turnstileSiteKey: env.TURNSTILE_SITE_KEY });
+  ({ context, request }, next) => {
+    const { contact, i18n, supportTurnstileSiteKey } = firesio.services();
+    // The form's words are the catalogue's (`firesio:contact.*`, English, Spanish and German from the package; the app's `firesio.json` swaps any), in the visitor's language.
+    // The widget's site key is the preset's (`support.turnstile`, default the two vars).
+    context.set(contactContext, { service: contact, labels: contactLabelsOf(i18n.translator(localeIn(i18n)(request))), turnstileSiteKey: supportTurnstileSiteKey });
     return next();
   },
 ];

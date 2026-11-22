@@ -2,8 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "shopify-cloudflare-app",
   "main": "./workers/app.ts",
-  // Do not raise to 2026-11-17 or later without testing: the new module registry becomes the default.
-  "compatibility_date": "2026-10-06",
+  // ONE date for every Firesio Worker: `COMPATIBILITY_DATE` of `@firesio/app` (`@firesio/app/preset/compatibility`; `tools/architecture/compatibility-date.test.ts` holds this file to it).
+  // Do not raise to 2026-11-17 or later without testing: the new module registry becomes the default, `request.signal` aborts when the client leaves.
+  "compatibility_date": "2026-11-13",
   // nodejs_compat: the Shopify libraries reach for a few Node built-ins.
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -11,8 +12,12 @@
     // Bound so the Worker can serve a static asset in-process (env.ASSETS.fetch) without a network self-fetch.
     "binding": "ASSETS"
   },
-  // redact_query_string: an embedded request carries `id_token` and `hmac` in its query string.
-  "observability": { "enabled": true, "head_sampling_rate": 1, "redact_query_string": true },
+  // redact_query_string: an embedded request carries `id_token` and `hmac` in its query string. Logs are kept whole (the portal reads them per shop); traces (where a
+  // slow page spent its time: which D1 call, which fetch) are SAMPLED, because they share the logs' monthly allowance (`docs/OPERATIONS.md`, "Cost").
+  "observability": { "enabled": true, "head_sampling_rate": 1, "redact_query_string": true, "traces": { "enabled": true, "head_sampling_rate": 0.05 } },
+  // A ceiling on the CPU one invocation may use, below the platform's 30 s default: a loop that never ends costs seconds, not half a minute, and shows up as an
+  // error the portal hears of. Wall time is not limited by this (a queue consumer or a cron may wait on Shopify for minutes). Raise it only on a measured need.
+  "limits": { "cpu_ms": 10000 },
 
   // BINDINGS ARE NOT INHERITED by a named environment: every binding below is declared again under `env.production`
   // (main, compatibility_*, assets and the `$schema` are inherited). `scripts/wrangler-bindings.test.mjs` compares the two
@@ -24,27 +29,50 @@
   // Every tick drains the portal outbox and, in development, also runs the daily work (the preset's worker/cron.ts).
   "triggers": { "crons": ["*/5 * * * *"] },
 
+  // Reason for each queue: `.claude/rules/cloudflare.md`. ONE naming rule, `<slug>-<role>[-dlq][-prod]` (the preset consumes by role). Create every queue before a deploy
+  // (`npm run new-app` lists them), with a 14 day retention: `wrangler queues create <name> --message-retention-period-secs 1209600` (a dead-letter queue without a
+  // consumer keeps a message 4 days by default, and the preset's own consumer copies each dead letter into D1 where the portal can resend it).
   "queues": {
     "producers": [
       // Verified webhooks, one durable message each (the request writes nothing to D1).
       { "binding": "WEBHOOK_QUEUE", "queue": "my-app-webhooks" },
+      // ALL background work: the preset's periodic jobs, every event handler of `on`, the app's own `jobs`. Claimed by (kind, dedupe key), so a duplicate delivery runs once.
+      { "binding": "JOBS_QUEUE", "queue": "my-app-jobs" },
+      // A mail to send: the delivery is recorded in D1 first, then `{ deliveryId }` goes here (without the binding it is sent in the turn that recorded it).
+      { "binding": "NOTIFY_QUEUE", "queue": "my-app-notify" },
       // Events for the portal (`docs/architecture.md` section 4 in the Firesio platform repo). The outbox drains into it. The DLQ
       // (portal-events-dlq) is the portal's CONSUMER side: nothing to declare here.
-      { "binding": "PORTAL_EVENTS", "queue": "portal-events" },
-      // Campaigns (`campaignDelivery` in app/firesio.server.ts): one message per step of a delivery chain. Its OWN queue on purpose: a
-      // campaign's pacing and retries must never share a line with a password reset or a support reply. Named `<slug>-campaigns` (the preset's default).
-      { "binding": "CAMPAIGNS_QUEUE", "queue": "my-app-campaigns" }
+      { "binding": "PORTAL_EVENTS", "queue": "portal-events" }
     ],
-    // The webhook queue, and its dead-letter queue: what the main queue gave up on is marked `dead_letter` in the inbox and logged
-    // (`webhook.dead_letter`) by the preset's `queue` handler instead of sitting unread. Both queues must exist before a deploy.
+    // Each queue and its dead-letter queue; all must exist before a deploy. `max_retries` of the jobs queue is the platform's ceiling on purpose: the job system counts its own
+    // attempts (and backs off per job), so Cloudflare's limit must never be what ends a job. The mail-events queue has NO producer here: Email Sending's event
+    // subscription writes to it (`docs/OPERATIONS.md`, "Mail").
     "consumers": [
       { "queue": "my-app-webhooks", "max_retries": 8, "dead_letter_queue": "my-app-webhooks-dlq" },
       { "queue": "my-app-webhooks-dlq" },
-      // The campaigns queue and its dead-letter queue (read as `<name>-dlq`); both must exist before a deploy.
-      { "queue": "my-app-campaigns", "max_retries": 5, "dead_letter_queue": "my-app-campaigns-dlq" },
-      { "queue": "my-app-campaigns-dlq" }
+      { "queue": "my-app-jobs", "max_retries": 100, "dead_letter_queue": "my-app-jobs-dlq" },
+      { "queue": "my-app-jobs-dlq" },
+      { "queue": "my-app-notify", "max_retries": 8, "dead_letter_queue": "my-app-notify-dlq" },
+      { "queue": "my-app-notify-dlq" },
+      { "queue": "my-app-mail-events", "max_retries": 8, "dead_letter_queue": "my-app-mail-events-dlq" },
+      { "queue": "my-app-mail-events-dlq" }
     ]
   },
+
+  // FLOWS: the ONE Workflow class of the app (`FiresioFlows`, workers/app.ts): the preset's uninstall, post-install and seat flows run on it, so it is declared even
+  // while the app has no flow of its own. Without it an uninstall delivery fails (the queue tries it again).
+  "workflows": [{ "name": "my-app-flows", "binding": "FLOWS", "class_name": "FiresioFlows" }],
+
+  // SHOP_COORDINATOR: one Durable Object per shop (`ShopCoordinator`, exported by workers/app.ts): one token refresh at a time and a lease lock for a shop's writers.
+  // SQLite-backed, so the migration says `new_sqlite_classes`. A later Durable Object of the app's own (the realtime room) is migration `v2`, never an edit of `v1`.
+  "durable_objects": { "bindings": [{ "name": "SHOP_COORDINATOR", "class_name": "ShopCoordinator" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ShopCoordinator"] }],
+
+  // USAGE: Analytics Engine, one data point per `services.usage.track` (AI calls with their tokens, and what the app counts): counts go there, not into the log.
+  "analytics_engine_datasets": [{ "binding": "USAGE", "dataset": "my-app-usage" }],
+
+  // CF_VERSION_METADATA: the deploy's id and tag on every log line and alert, so an error is tied to the release that caused it.
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
 
   // SESSION: Shopify sessions. PORTAL_BLOCKLIST: the portal's blocklist and kill switch (READ ONLY here; the id is the
   // portal's namespace, a placeholder locally).
@@ -79,11 +107,12 @@
   ],
 
   // Secret NAMES, declared rather than inferred (values never live here): so `wrangler types` does not depend on .dev.vars.
-  // PARTNER_API_TOKEN is optional in the preset but REQUIRED by this template (Managed Pricing reads), so it is listed.
+  // PARTNER_API_TOKEN is optional in the preset but REQUIRED by this template (Managed Pricing reads), so it is listed. NOTIFY_SECRET (32 or more
+  // characters, `openssl rand -base64 32`) keys the address hashes and signs every unsubscribe link: the preset refuses to build its services without it.
   // Optional secrets are not listed (a name here is a deploy-time requirement): SHOP_CUSTOM_DOMAIN (a shop's custom domain,
   // only for an app that serves one), SHOPIFY_API_SECRET_PREVIOUS (only during a secret rotation), TURNSTILE_SECRET_KEY (a var slot above).
   "secrets": {
-    "required": ["SHOPIFY_API_SECRET", "ATTACHMENT_TOKEN_SECRET", "EVENT_HASH_SECRET", "PARTNER_API_TOKEN"]
+    "required": ["SHOPIFY_API_SECRET", "ATTACHMENT_TOKEN_SECRET", "EVENT_HASH_SECRET", "PARTNER_API_TOKEN", "NOTIFY_SECRET"]
   },
 
   // Non-secret vars. SHOPIFY_API_KEY is the public client_id; `shopify app dev` injects the real one (vite.config.ts).
@@ -93,11 +122,10 @@
     "SHOPIFY_APP_URL": "http://localhost:3000",
     // The App Store listing handle (apps.shopify.com/<handle>); empty until the app has a listing.
     "SHOPIFY_APP_HANDLE": "",
-    // An address on a domain onboarded to Email Sending. Empty = email disabled.
+    // An address on a domain onboarded to Email Sending (`npx wrangler email sending enable <domain>`): the `app` sender of every mail. Empty = no sender: every mail is
+    // recorded as `skipped:no_sender`, never an error. Staff are alerted by the portal, not by mail from here.
     "EMAIL_FROM": "",
     "EMAIL_FROM_NAME": "",
-    // Where a merchant's support activity is announced (one address; staff routing belongs to the portal). Empty = nobody.
-    "STAFF_ALERT_EMAIL": "",
     // The domain support mail lives on when it is not the host of SHOPIFY_APP_URL.
     "SUPPORT_MAIL_DOMAIN": "",
     // Cloudflare Turnstile on the public support form; empty = check off (local development only).
@@ -112,6 +140,17 @@
     "PARTNER_APP_ID": ""
   },
 
+  // WORKER PREVIEWS (`wrangler preview`, wrangler 4.135 or later; `docs/OPERATIONS.md`, "Previews"): a branch of this Worker to try a change before `main`. ONE shared
+  // STAGING set of resources serves every preview, so a preview never touches production data; fill the ids once (they are placeholders on purpose:
+  // `check-placeholders` reads production only). What a preview does NOT do, so it cannot test it: it receives no queue message, runs no cron, and reaches no
+  // portal. Webhooks, jobs, mail deliveries and the portal's commands are tried on the staging Worker or in tests, never in a preview.
+  "previews": {
+    "vars": { "SHOPIFY_APP_URL": "https://staging.example.com" },
+    "kv_namespaces": [{ "binding": "SESSION", "id": "REPLACE_ME_STAGING" }],
+    "d1_databases": [{ "binding": "DB", "database_name": "app-db-staging", "database_id": "REPLACE_ME_STAGING", "migrations_dir": "drizzle" }],
+    "r2_buckets": [{ "binding": "UPLOADS", "bucket_name": "app-support-uploads-staging" }]
+  },
+
   // ─────────────────────────── PRODUCTION ───────────────────────────
   // `wrangler deploy --env production`. Every binding is re-declared in full.
   "env": {
@@ -122,23 +161,34 @@
       "routes": [{ "pattern": "REPLACE_ME", "custom_domain": true }],
       "workers_dev": false,
       "preview_urls": false,
-      "observability": { "enabled": true, "head_sampling_rate": 1, "redact_query_string": true },
-      // Daily (the snapshot, the prune), hourly (the uninstall probe, the ticket backfill, the sweep of held usage, the app's hourly work) and every
-      // minute (the outbox drain only): the preset's worker/cron.ts names each.
+      "observability": { "enabled": true, "head_sampling_rate": 1, "redact_query_string": true, "traces": { "enabled": true, "head_sampling_rate": 0.05 } },
+      "limits": { "cpu_ms": 10000 },
+      // Daily (the snapshot, the prune), hourly (the uninstall probe, the sweeps, the flows reconcile, the app's hourly work) and every
+      // minute (the outbox drain and the minute jobs): the preset's worker/cron.ts names each. A cron only TRIGGERS: each tick enqueues jobs, the work is theirs.
       "triggers": { "crons": ["30 3 * * *", "0 * * * *", "* * * * *"] },
       "queues": {
         "producers": [
           { "binding": "WEBHOOK_QUEUE", "queue": "my-app-webhooks-prod" },
-          { "binding": "PORTAL_EVENTS", "queue": "portal-events-prod" },
-          { "binding": "CAMPAIGNS_QUEUE", "queue": "my-app-campaigns-prod" }
+          { "binding": "JOBS_QUEUE", "queue": "my-app-jobs-prod" },
+          { "binding": "NOTIFY_QUEUE", "queue": "my-app-notify-prod" },
+          { "binding": "PORTAL_EVENTS", "queue": "portal-events-prod" }
         ],
         "consumers": [
           { "queue": "my-app-webhooks-prod", "max_retries": 8, "dead_letter_queue": "my-app-webhooks-dlq-prod" },
           { "queue": "my-app-webhooks-dlq-prod" },
-          { "queue": "my-app-campaigns-prod", "max_retries": 5, "dead_letter_queue": "my-app-campaigns-prod-dlq" },
-          { "queue": "my-app-campaigns-prod-dlq" }
+          { "queue": "my-app-jobs-prod", "max_retries": 100, "dead_letter_queue": "my-app-jobs-dlq-prod" },
+          { "queue": "my-app-jobs-dlq-prod" },
+          { "queue": "my-app-notify-prod", "max_retries": 8, "dead_letter_queue": "my-app-notify-dlq-prod" },
+          { "queue": "my-app-notify-dlq-prod" },
+          { "queue": "my-app-mail-events-prod", "max_retries": 8, "dead_letter_queue": "my-app-mail-events-dlq-prod" },
+          { "queue": "my-app-mail-events-dlq-prod" }
         ]
       },
+      "workflows": [{ "name": "my-app-flows-prod", "binding": "FLOWS", "class_name": "FiresioFlows" }],
+      "durable_objects": { "bindings": [{ "name": "SHOP_COORDINATOR", "class_name": "ShopCoordinator" }] },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ShopCoordinator"] }],
+      "analytics_engine_datasets": [{ "binding": "USAGE", "dataset": "my-app-usage-prod" }],
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "kv_namespaces": [
         // Replace with the real ids: `wrangler kv namespace create SESSION`; PORTAL_BLOCKLIST is the portal's blocklist-prod namespace.
         { "binding": "SESSION", "id": "REPLACE_ME" },
@@ -158,7 +208,7 @@
       ],
       // `secrets` must be specified in every named environment.
       "secrets": {
-        "required": ["SHOPIFY_API_SECRET", "ATTACHMENT_TOKEN_SECRET", "EVENT_HASH_SECRET", "PARTNER_API_TOKEN"]
+        "required": ["SHOPIFY_API_SECRET", "ATTACHMENT_TOKEN_SECRET", "EVENT_HASH_SECRET", "PARTNER_API_TOKEN", "NOTIFY_SECRET"]
       },
       "vars": {
         // The production client_id, from shopify.app.toml.
@@ -169,7 +219,6 @@
         "SHOPIFY_APP_HANDLE": "",
         "EMAIL_FROM": "",
         "EMAIL_FROM_NAME": "",
-        "STAFF_ALERT_EMAIL": "",
         "SUPPORT_MAIL_DOMAIN": "",
         "TURNSTILE_SITE_KEY": "",
         "AI_GATEWAY_ID": "",

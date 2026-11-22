@@ -33,20 +33,21 @@ describe("the landing page", () => {
   });
 });
 
-describe("the campaign unsubscribe page", () => {
-  const forged = "/campaigns/unsubscribe?e=someone%40example.org&c=forged&s=forged";
+describe("the unsubscribe page", () => {
+  const forged = "/unsubscribe?t=forged.token";
 
-  it("is public: the link opens without a Shopify session", async () => {
+  it("is public: the link opens without a Shopify session, and says a forged one is not valid (a GET changes nothing)", async () => {
     const response = await get(forged);
     expect(response.status).toBe(200);
-    // The test build draws a route as a document, so the page's own HTML and headers (the button, no-store, noindex) are read where
-    // nothing wraps the response: app/routes/campaigns/unsubscribe.test.ts.
+    expect(await response.text()).toContain("This unsubscribe link is not valid");
   });
 
-  it("refuses a forged link with a plain 400 that says nothing about which addresses are known", async () => {
-    const response = await exports.default.fetch(new Request(`https://example.test${forged}`, { method: "POST", headers: { "user-agent": BROWSER } }));
+  it("refuses a forged POST, the mail client's one-click form included, with a 400 that says nothing about which addresses are known", async () => {
+    const response = await exports.default.fetch(
+      new Request(`https://example.test${forged}`, { method: "POST", headers: { "user-agent": BROWSER, "content-type": "application/x-www-form-urlencoded" }, body: "List-Unsubscribe=One-Click" }),
+    );
     expect(response.status).toBe(400);
-    expect(await response.text()).toContain("This link is not valid");
+    expect(await response.text()).toContain("This unsubscribe link is not valid");
   });
 });
 

@@ -53,17 +53,19 @@ the template: a derived app fills them as its features need, one sub-folder or f
 
 ```
 app/
-  firesio.server.ts  THE composition: `createFiresio({ identity, plans, members, schema, ... })`, only what differs from the preset's
-                     defaults, plus the app's own services (`.withServices(...)`) and handlers (`webhooks`, `queues`, `cron`) from wiring/
-  core/              the app's declarations (identity, plans, MEMBERS, settings, paths, retention) and pure helpers
+  firesio.server.ts  THE composition: `createFiresio<Env>()({ identity, services, plans, members, schema, notify, i18n, on, ... })`, only what
+                     differs from the preset's defaults, plus the app's own `services` (ONE factory), `jobs`, `flows` and handlers (`on`,
+                     `webhooks`, `queues`, `cron`) from wiring/
+  core/              the app's declarations (identity, plans, MEMBERS, settings, AppServices, retention) and pure helpers
   core/<feature>/    (empty) a feature's domain, pure: types, rules, input schemas, ports, use cases handed their ports, time and ids;
                      vocabulary.ts, the value lists its rows store (the one file of core db imports, for its CHECK constraints)
   db/                the app's own Drizzle tables (schema.ts; one file per feature once there are several)
   adapters/<feature>/ (empty) the ports implemented over D1 (`services.db`), KV, R2, Queues, the Admin GraphQL API, outside HTTP
-  wiring/<feature>.ts (empty) a feature's services bound for a shop and its handlers, handed the preset's services; plugged in by firesio.server.ts
-  notifications/     (empty) the app's own messages (`defineMessages`), their texts and templates
+  wiring/            the template's two small services, its (empty) jobs and its staff tools; a feature's services bound for a shop and its
+                     handlers, handed the preset's services (`wiring/<feature>.ts`); plugged in by firesio.server.ts
+  notifications/     the app's mail (`defineNotify`): the React Email layout, the sample welcome message, the hook examples
   ai/<feature>.ts    (empty) one function per AI feature, handed the shop's `ai`
-  i18n/              (empty) the app's words per language
+  i18n/              the app's words (`locales/<language>/app.json`: English and Spanish), label builders and the completeness test
   components/        presentational React (`components/<feature>/` once there are several)
   routes/            thin: app/ (embedded; `middleware = [firesio.adminMiddleware]`; `app/<feature>/`, and one-line files mounting
                      @firesio/app/ui/*, the support file staging route included), public/, auth/, webhooks/, support/, healthz;
@@ -179,7 +181,7 @@ Workers Builds installs the private `@firesio` packages only if the build has `N
 `npm run verify`, `new-app`, `dev`, `build`, `db:generate`, `db:migrate:local`, `db:migrate`, `cf:deploy`, `check:placeholders`,
 `cf-typegen` (after every `wrangler.jsonc` change; `worker-configuration.d.ts` is committed on purpose; `cf-typegen:check` is part of `verify`), the Shopify wrappers (`config:link:*`, `deploy:*`, `generate`, `env`).
 
-The Admin GraphQL client has no codegen here (no document uses it yet). Add it with the first Admin GraphQL document: `npm i -D @shopify/api-codegen-preset graphql-config`, a `.graphqlrc.ts` with `shopifyApiProject({ apiType: ApiType.Admin, apiVersion, documents: ["./app/**/*.{ts,tsx}"], outputDir: "./app/types" })` (`apiVersion` from `app/core/api-version.ts`), a `graphql-codegen` script, and `app/types/` in `.gitignore`; follow the `shopify-plugin:shopify` skill for the document itself.
+The Admin GraphQL client has no codegen here (no document uses it yet). Add it with the first Admin GraphQL document: `npm i -D @shopify/api-codegen-preset graphql-config`, a `.graphqlrc.ts` with `shopifyApiProject({ apiType: ApiType.Admin, apiVersion, documents: ["./app/**/*.{ts,tsx}"], outputDir: "./app/types" })` (`apiVersion`: `ADMIN_API_VERSION` of `@firesio/app/shell`), a `graphql-codegen` script, and `app/types/` in `.gitignore`; follow the `shopify-plugin:shopify` skill for the document itself.
 
 ## Dependency overrides: do not remove
 

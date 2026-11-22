@@ -10,6 +10,14 @@
 # Signs the links of support attachments. Any long random string locally.
 ATTACHMENT_TOKEN_SECRET=dev-attachment-secret
 
+# Keys the address hashes of the notify kernel and signs every unsubscribe link (at least 32 characters). REQUIRED: the preset refuses to build its services without it.
+# Locally anything long enough; in production `wrangler secret put NOTIFY_SECRET --env production` (openssl rand -base64 32) and never change it afterwards
+# (a new value makes every unsubscribe link already sent invalid and every stored address hash unmatched).
+NOTIFY_SECRET=dev-notify-secret-of-at-least-thirty-two-characters
+
+# Development only: limit EVERY mail the app sends to these addresses (or @domains), comma separated, so a test shop's real customers never receive one. Unset = no limit.
+# NOTIFY_DEV_ALLOW=you@example.com,@yourcompany.com
+
 # The HMAC key every app and the portal hash events with (at least 32 characters). Locally anything long enough; production uses the shared secret and EVENT_HASH_KEY_ID.
 EVENT_HASH_SECRET=dev-event-hash-secret-of-at-least-thirty-two-characters
 
@@ -30,7 +38,7 @@ EVENT_HASH_SECRET=dev-event-hash-secret-of-at-least-thirty-two-characters
 # SHOP_CUSTOM_DOMAIN=
 
 # Transactional email. The `send_email` binding is declared, but nothing sends until the domain is onboarded and EMAIL_FROM is set (in
-# wrangler.jsonc vars, per environment: it is not a secret):
+# wrangler.jsonc vars, per environment: it is not a secret). With no EMAIL_FROM every mail is recorded as `skipped:no_sender`, never an error:
 #   npx wrangler email sending enable yourdomain.com
 # The binding is not `remote` in wrangler.jsonc, so a send during `npm run dev` (and in tests) is SIMULATED by Miniflare: nothing is delivered
 # and no `wrangler login` is needed. Only a deployed Worker sends real mail.

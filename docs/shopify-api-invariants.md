@@ -7,8 +7,8 @@ pointer; the finding and its design consequence still hold. Where a current equi
 
 | Earlier path | Now |
 |---|---|
-| `app/shopify.server.ts`, `app/shopify-api-version.ts` | `app/firesio.server.ts` and `app/core/api-version.ts` (the preset's `adapters/shopify-app.ts` builds `shopifyApp`) |
-| `app/lib/install-target.ts` | `app/core/install-target.ts` |
+| `app/shopify.server.ts`, `app/shopify-api-version.ts` | `app/firesio.server.ts` and `ADMIN_API_VERSION` of `@firesio/app/shell` (the preset's `adapters/shopify-app.ts` builds `shopifyApp`) |
+| `app/lib/install-target.ts` | `installTarget` of `@firesio/app/shell` |
 | `app/adapters/shopify-webhook.server.ts`, `app/routes/webhooks/*.server.ts`, `app/services/webhook-*.ts`, `app/domain/webhook-*.ts` | `@firesio/app/shopify` (`webhooks/verify.ts`, `intake.ts`, `inbox.ts`, `ordering.ts`) and the preset's `worker/receive.ts` and `worker/consume.ts`; the route is `firesio.webhook(request)` |
 | `app/services/redaction*.ts`, `app/routes/webhooks/redaction.test.ts` | `@firesio/app/shopify` `tombstone.ts` and the preset's `purge/` |
 | `.claude/rules/members.md`, `app/services/members/`, `app/domain/member-seat*.ts` | the members library: `node_modules/@firesio/app/src/members/README.md` |
@@ -48,7 +48,7 @@ Two that hold for every Shopify app, so they are here from the start:
 | Finding | Design consequence |
 |---|---|
 | Webhooks deliver **at-least-once** | Every handler is idempotent — `@rules/core.md`. The replay test ships with the handler, not later |
-| A mutation's shape is only true **for an API version** | Pin the version you checked against. `apiVersion` in `app/core/api-version.ts` and `api_version` in both `shopify.app*.toml` are the same decision — change them together |
+| A mutation's shape is only true **for an API version** | Pin the version you checked against. `ADMIN_API_VERSION` of `@firesio/app/shell` (or the app's `shopify: { apiVersion }`) and `api_version` in both `shopify.app*.toml` are the same decision — change them together |
 
 ## Webhook delivery, compliance and offline tokens (2026-10-08)
 

@@ -5,9 +5,9 @@ import * as appHome from "~/routes/app/home";
 import * as appLayout from "~/routes/app/layout";
 import * as supportUpload from "~/routes/app/support/upload";
 import * as callback from "~/routes/auth/callback";
-import * as unsubscribe from "~/routes/campaigns/unsubscribe";
 import * as landing from "~/routes/public/landing";
 import * as support from "~/routes/public/support";
+import * as unsubscribe from "~/routes/public/unsubscribe";
 import * as healthz from "~/routes/healthz";
 import * as receive from "~/routes/webhooks/receive";
 
@@ -57,7 +57,7 @@ function define(spec: Spec): { readonly route: ServerRoute; readonly manifest: N
  * What `virtual:react-router/server-build` is in the end-to-end tests (`vitest.config.ts` aliases it here), so the REAL
  * `workers/app.ts` boots under workerd without the React Router Vite plugin. The routes are the app's own route modules, the
  * entry is its own `entry.server.tsx`; only the route table is narrowed to the routes the tests call (the webhook receiver,
- * `/healthz`, the campaign unsubscribe page, the landing and support pages, `/auth/*`, `/app` and the support file staging route under it), with the ids, parents and paths `app/routes.ts` gives them (the
+ * `/healthz`, the unsubscribe page, the landing and support pages, `/auth/*`, `/app` and the support file staging route under it), with the ids, parents and paths `app/routes.ts` gives them (the
  * public layout excepted: it imports a stylesheet, so those pages are mounted on the root).
  */
 const defined = [
@@ -69,7 +69,7 @@ const defined = [
   define({ id: "routes/auth/callback", parentId: "root", path: "auth/*", module: { ...callback, default: noComponent } }),
   define({ id: "routes/public/landing", parentId: "root", index: true, module: landing }),
   define({ id: "routes/public/support", parentId: "root", path: "support", module: { ...support, middleware: asResponseMiddleware(support.middleware) } }),
-  define({ id: "routes/campaigns/unsubscribe", parentId: "root", path: "campaigns/unsubscribe", module: { ...unsubscribe, default: noComponent } }),
+  define({ id: "routes/public/unsubscribe", parentId: "root", path: "unsubscribe", module: unsubscribe }),
   define({ id: "routes/healthz", parentId: "root", path: "healthz", module: { ...healthz, default: noComponent } }),
 ];
 

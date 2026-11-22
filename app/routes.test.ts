@@ -1,6 +1,6 @@
 import type { RouteConfigEntry } from "@react-router/dev/routes";
 import { describe, expect, it } from "vitest";
-import { SUPPORT_UPLOAD_PATH } from "~/core/paths";
+import { SUPPORT_UPLOAD_PATH } from "@firesio/app/shell";
 import routes from "~/routes";
 
 interface Mounted {

@@ -27,9 +27,10 @@ job (or gone); the Partner-history sweep, the uninstall probe and the scope log 
 
 ## Routine upgrades (any app on this template)
 
-**Admin API / webhook version.** ONE decision written in three places: `app/core/api-version.ts` (`ApiVersion.October26` is
-`2026-10`) and `api_version` in `[webhooks]` of BOTH `shopify.app.toml` and `shopify.app.dev.toml`. Change them in one commit;
-`npm run check:placeholders` refuses a mismatch. Before moving, read the release notes of the new version in full (shopify.dev
+**Admin API / webhook version.** ONE decision: the package's default (`ADMIN_API_VERSION` of `@firesio/app/shell`, `2026-10`, which
+`createFiresio({ shopify: { apiVersion } })` follows unless the app chooses another) and `api_version` in `[webhooks]` of BOTH
+`shopify.app.toml` and `shopify.app.dev.toml`. A newer package moves the first; change the two tomls in the same commit;
+`npm run check:placeholders` refuses a mismatch (it reads the package's file). Before moving, read the release notes of the new version in full (shopify.dev
 changelog) and validate every Admin operation of the app against it with the Shopify skill's `validate.mjs`; record what you
 read in `docs/shopify-api-invariants.md`. Production apps: deploy the Worker first, then `shopify app deploy`, in separate commits
 from any queue, cron, secret or migration change.
@@ -54,6 +55,10 @@ Cloudflare Workers Builds (the build that migrates and deploys), whose default i
 row together only after a Workers Builds run on the newer Node.
 
 **TypeScript** stays on 6.0.x while `typescript-eslint` declares `typescript <6.1.0`.
+
+**The admin bundle budget** (`scripts/bundle-budget.mjs`, run by `npm run build`): never raise it to make a build pass. A package bump that fails it has put something in every page: find which chunk grew (`react-router build --sourcemapClient`, sum the sources per chunk), fix the cause in the app or report the package-side gap (entry, size, what to split). 2.0.0 -> 2.1.1 went 227 KB -> 167 KB this way.
+
+**Moving from 1.x to 2.x** is `docs/migrating-to-2.0.md`.
 
 **Every upgrade ends with**
 

@@ -8,9 +8,11 @@ describe("the app's own declarations", () => {
   it("has a members configuration where the owner and the admin hold everything and a stranger never gets the plan", () => {
     expect(MEMBERS.presets.get("owner")).toEqual(MEMBERS.permissions);
     expect(MEMBERS.presets.get("admin")).toEqual(MEMBERS.permissions);
-    expect(MEMBERS.presets.get(MEMBERS.autoJoinRole)).not.toContain("billing:manage");
+    expect(MEMBERS.presets.get(MEMBERS.joinRole)).not.toContain("billing:manage");
+    expect(MEMBERS.presets.get(MEMBERS.joinRole)).not.toContain("members:manage");
     expect(MEMBERS.notForStrangers).toContain("billing:manage");
-    expect(MEMBERS.autoJoinRole).not.toBe(MEMBERS.ownerRole);
+    expect(MEMBERS.joinRole).not.toBe(MEMBERS.ownerRole);
+    expect(MEMBERS.join).toBe("auto");
   });
 
   it("starts the plan table with the free plan (the one a shop with no subscription is served)", () => {

@@ -55,6 +55,14 @@ const testBindings = {
   EVENT_HASH_SECRET: "test-event-hash-secret-of-at-least-thirty-two-characters",
   EVENT_HASH_KEY_ID: "test-key",
   PARTNER_API_TOKEN: "test-partner-token",
+  // Keys the address hashes and signs the unsubscribe links: the preset refuses to build its services with fewer than 32 characters.
+  NOTIFY_SECRET: "test-notify-secret-of-at-least-thirty-two-characters",
+};
+/** `cloudflare:workers` and `cloudflare:workflows` exist in workerd only: the package's own stand-ins let a Node test import `@firesio/app` (its constants, `localeIn`) without booting a Worker. */
+const nodeAliases = {
+  "~": path.resolve(import.meta.dirname, "app"),
+  "cloudflare:workers": "@firesio/app/preset/testing/cloudflare-workers",
+  "cloudflare:workflows": "@firesio/app/preset/testing/cloudflare-workflows",
 };
 const outboundService = () => new Response("Outbound network is blocked in tests. Fake this call at the HTTP boundary.", { status: 403 });
 
@@ -64,7 +72,7 @@ export default defineConfig({
       {
         // `cloudflare:workers` exists in workerd only: the package's own stand-in lets a Node test import `@firesio/app` (for its
         // exported constants, e.g. the cron expressions) without booting a Worker.
-        resolve: { alias: { "~": path.resolve(import.meta.dirname, "app"), "cloudflare:workers": "@firesio/app/preset/testing/cloudflare-workers" } },
+        resolve: { alias: nodeAliases },
         test: {
           name: "unit",
           include: unitFiles,
@@ -76,7 +84,7 @@ export default defineConfig({
       },
       {
         // A page rendered in jsdom, with no Worker: where its actions are drawn on each surface.
-        resolve: { alias: { "~": path.resolve(import.meta.dirname, "app"), "cloudflare:workers": "@firesio/app/preset/testing/cloudflare-workers" } },
+        resolve: { alias: nodeAliases },
         test: { name: "dom", include: domFiles, environment: "jsdom" },
       },
       {

@@ -1,14 +1,16 @@
-import type { BillingCommands, BillingGrantCommands, CampaignsCommands, Received, ShopsCommands, SupportCommands, SupportOpenCommands } from "@firesio/portal-contract";
+import type { BillingCommands, BillingGrantCommands, Received, ShopsCommands, StaffToolsCommands, SupportCommands, SupportOpenCommands, SystemCommands } from "@firesio/portal-contract";
 
 /**
  * The portal's view of this app's `AdminApi` over RPC: every input is `unknown` until the app has validated it (`Received`), and the
- * template supports `support().open`, the grants commands and the `campaigns()` group (`campaignDelivery`), so they are not optional here.
+ * template supports `support().open`, the grants commands, the `staffTools()` group (`staffTools` in `app/firesio.server.ts`) and the `system()` group (`health`), so they are not
+ * optional here. It has no `campaigns()` group: campaigns are mail on consent, which needs a sender Cloudflare Email cannot be (`app/notifications/index.ts`).
  */
 interface AdminApiOverRpc extends Rpc.WorkerEntrypointBranded {
   shops(): Received<ShopsCommands>;
   billing(): Received<BillingCommands> & Received<BillingGrantCommands>;
   support(): Received<SupportCommands> & Received<SupportOpenCommands>;
-  campaigns(): Received<CampaignsCommands>;
+  staffTools(): Received<StaffToolsCommands>;
+  system(): Received<SystemCommands>;
 }
 
 // Test-only bindings: `@cloudflare/vitest-plugin` types `env` from "cloudflare:test" as `Cloudflare.Env`, so the extra bindings

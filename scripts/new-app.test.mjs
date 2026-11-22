@@ -40,13 +40,13 @@ test("renames the slug, the display name and every resource name in one run", ()
   assert.match(read(root, "app/core/identity.ts"), /name: "Repair Ops"/);
   const wrangler = read(root, "wrangler.jsonc");
   assert.match(wrangler, /"name": "repair-ops"/);
-  for (const name of ["repair-ops-db", "repair-ops-db-prod", "repair-ops-support-uploads", "repair-ops-webhooks", "repair-ops-webhooks-dlq-prod", "repair-ops-campaigns", "repair-ops-campaigns-dlq", "repair-ops-campaigns-prod", "repair-ops-campaigns-prod-dlq"]) assert.ok(wrangler.includes(`"${name}"`), name);
+  for (const name of ["repair-ops-db", "repair-ops-db-prod", "repair-ops-support-uploads", "repair-ops-webhooks", "repair-ops-webhooks-dlq-prod", "repair-ops-jobs", "repair-ops-jobs-dlq", "repair-ops-jobs-prod", "repair-ops-jobs-dlq-prod", "repair-ops-notify-prod", "repair-ops-mail-events-dlq", "repair-ops-flows", "repair-ops-flows-prod", "repair-ops-usage", "repair-ops-usage-prod", "repair-ops-db-staging", "repair-ops-support-uploads-staging"]) assert.ok(wrangler.includes(`"${name}"`), name);
   // The migration scripts read the database names from wrangler.jsonc: nothing else names them.
   assert.equal(databaseName(JSON.parse(stripJsonComments(wrangler)), "production"), "repair-ops-db-prod");
   assert.equal(databaseName(JSON.parse(stripJsonComments(wrangler)), ""), "repair-ops-db");
   assert.doesNotMatch(read(root, "package.json"), /--database/);
   // The preset derives the consumed queues from identity.slug: the config names no queue, and the script does not edit it.
-  assert.doesNotMatch(readFileSync(join(repo, "app/firesio.server.ts"), "utf8"), /webhookQueues|-webhooks/);
+  assert.doesNotMatch(readFileSync(join(repo, "app/firesio.server.ts"), "utf8"), /webhookQueues|queueRole|-webhooks/);
   assert.match(read(root, "shopify.app.toml"), /name = "Repair Ops"/);
   assert.ok(!changed.includes("scripts/ci-release.mjs"));
 });
@@ -56,7 +56,7 @@ test("leaves nothing of the template's names behind in the files it edits", () =
   applyRenames(root, "repair-ops", "Repair Ops");
   for (const file of ["wrangler.jsonc", "package.json", "shopify.web.toml", "shopify.app.toml", "app/core/identity.ts"]) {
     const text = read(root, file);
-    assert.doesNotMatch(text, /shopify-cloudflare-app|"app-db|app-support-uploads|"my-app-webhooks|TODO: Your App Name|"my-app"/, file);
+    assert.doesNotMatch(text, /shopify-cloudflare-app|"app-db|app-support-uploads|"my-app-|TODO: Your App Name|"my-app"/, file);
   }
 });
 
@@ -70,7 +70,7 @@ test("never renames the queue it shares with the portal", () => {
 
 test("lists the resources to create and creates none of them", () => {
   const text = resourcesFor("repair-ops");
-  for (const command of ["d1 create repair-ops-db-prod", "r2 bucket create repair-ops-support-uploads-prod", "queues create repair-ops-webhooks-prod", "queues create repair-ops-webhooks-dlq-prod"]) {
+  for (const command of ["d1 create repair-ops-db-prod", "r2 bucket create repair-ops-support-uploads-prod", "queues create repair-ops-webhooks-prod", "queues create repair-ops-webhooks-dlq-prod", "queues create repair-ops-jobs-prod", "queues create repair-ops-notify-dlq-prod", "queues create repair-ops-mail-events-prod"]) {
     assert.ok(text.includes(command), command);
   }
   assert.match(text, /portal-events-prod/);

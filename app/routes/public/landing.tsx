@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { redirect, useLoaderData } from "react-router";
-import { installTarget } from "~/core/install-target";
+import { installTarget } from "@firesio/app/shell";
 import { identity } from "~/core/identity";
 import { firesio } from "~/firesio.server";
 

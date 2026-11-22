@@ -1,17 +1,14 @@
 import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, useLocation } from "react-router";
 import type { LoaderFunctionArgs, ShouldRevalidateFunction } from "react-router";
-import { directionOf, localeOf } from "@firesio/app";
 import { RootErrorBoundary } from "@firesio/app/ui/shell";
 import "@shopify/app-bridge-types";
+import { requestLanguage } from "~/i18n/request.server";
 
 /**
  * The root loader resolves the language once per request; `<html lang dir>`, the server render and the client hydration read it
  * from here and can never disagree.
  */
-export const loader = ({ request }: LoaderFunctionArgs) => {
-  const locale = localeOf(request);
-  return { locale, dir: directionOf(locale) };
-};
+export const loader = ({ request }: LoaderFunctionArgs) => requestLanguage(request);
 
 /** The document's language is chosen when the document loads and does not change while the app is open: in-app navigation must not re-run this loader (it can drop `?locale=`). */
 export const shouldRevalidate: ShouldRevalidateFunction = () => false;

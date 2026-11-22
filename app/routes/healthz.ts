@@ -1,15 +1,9 @@
+import type { LoaderFunctionArgs } from "react-router";
 import { firesio } from "~/firesio.server";
 
 /**
- * A public liveness and readiness probe: no session, no data about any shop. 200 with `{ ok: true }` when the Worker runs and
- * D1 answers; 503 when D1 does not (the one dependency a request cannot do without). Safe to call from an uptime monitor.
+ * A public liveness and readiness probe: no session, no data about any shop (`firesio.healthz`). 200 while D1 and KV answer, 503 when one does not, with the
+ * deploy's version and the latency of each; it names an error's kind, never its text, and never calls Shopify. GET and HEAD only. The portal asks it every five
+ * minutes through the service binding and tells staff when it fails twice in a row; an uptime monitor may call it too.
  */
-export async function loader(): Promise<Response> {
-  const headers = { "Cache-Control": "no-store", "Content-Type": "application/json" };
-  try {
-    await firesio.services().env.DB.prepare("SELECT 1").first();
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
-  } catch {
-    return new Response(JSON.stringify({ ok: false }), { status: 503, headers });
-  }
-}
+export const loader = ({ request }: Pick<LoaderFunctionArgs, "request">) => firesio.healthz(request);

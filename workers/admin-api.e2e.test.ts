@@ -1,9 +1,10 @@
 import { env } from "cloudflare:workers";
 import { planMeters } from "@firesio/app/plans";
 import { installShop } from "@firesio/app/preset/testing";
-import { callCommand, campaignDraftResultSchema, campaignPageSchema, grantListSchema, openTicketResultSchema, planListSchema, revokeGrantResultSchema, standingSchema, ticketPageSchema, ticketSchema } from "@firesio/portal-contract";
+import { callCommand, fingerprintInput, grantListSchema, healthReportSchema, openTicketResultSchema, planListSchema, revokeGrantResultSchema, standingSchema, staffToolsDeclarationSchema, ticketPageSchema, ticketSchema, toolResultSchema, toolRowPageSchema } from "@firesio/portal-contract";
 import { describe, expect, it } from "vitest";
 import { PLANS } from "~/core/plans";
+import { GENERAL_SETTINGS } from "~/core/settings";
 import { firesio } from "~/firesio.server";
 import { setupTestDatabase } from "~/test/database";
 
@@ -45,19 +46,48 @@ describe("the AdminApi entrypoint over a service binding: shops", () => {
     for (let proto: object | null = firesio.AdminApi.prototype; proto !== null && proto !== Object.prototype; proto = Object.getPrototypeOf(proto)) {
       for (const name of Object.getOwnPropertyNames(proto)) methods.add(name);
     }
-    expect([...methods]).toEqual(expect.arrayContaining(["shops", "billing", "support", "campaigns"]));
+    expect([...methods]).toEqual(expect.arrayContaining(["shops", "billing", "support", "staffTools", "system"]));
+    // Campaigns are off: mail on consent needs a sender Cloudflare Email cannot be, so the portal reads the group as unsupported.
+    expect(methods.has("campaigns")).toBe(false);
   });
 });
 
-describe("the AdminApi entrypoint over a service binding: campaigns", () => {
-  it("keeps a draft the portal writes, once per requestId, and lists it; nothing is mailed by writing it", async () => {
-    const input = { requestId: "e2e-campaign-1", name: "Spring news", subject: "What is new", body: "Hello from the team.", actor: "staff_1" };
-    const first = await callCommand(() => admin().campaigns().create(input), campaignDraftResultSchema);
-    const again = await callCommand(() => admin().campaigns().create(input), campaignDraftResultSchema);
-    expect(first.ok).toBe(true);
-    expect(again.ok && first.ok && again.value.campaign.id).toBe(first.ok ? first.value.campaign.id : null);
-    const listed = await callCommand(() => admin().campaigns().list({ status: "draft" }), campaignPageSchema);
-    expect(listed.ok && listed.value.campaigns.map((campaign) => campaign.name)).toEqual(["Spring news"]);
+describe("the AdminApi entrypoint over a service binding: system", () => {
+  it("answers health with the app alive, and says which deploy it is (the portal asks every five minutes and tells staff after two failures)", async () => {
+    const health = await callCommand(() => admin().system().health({}), healthReportSchema);
+    expect(health.ok && health.value.ok).toBe(true);
+  });
+});
+
+describe("the AdminApi entrypoint over a service binding: staff tools", () => {
+  const shop = "tools-shop.myshopify.com";
+
+  it("describes one resource and one action, checked by the contract's own schema", async () => {
+    const declared = await callCommand(() => admin().staffTools().describe({}), staffToolsDeclarationSchema);
+    expect(declared.ok).toBe(true);
+    if (!declared.ok) return;
+    expect(declared.value.resources.map((resource) => resource.id)).toEqual(["settings_changes"]);
+    expect(declared.value.actions.map((action) => action.id)).toEqual(["reset_general_settings"]);
+  });
+
+  it("runs the action once per requestId (a double click resets once and gets the first answer again), and the table lists what it changed", async () => {
+    await installShop(firesio, env, shop, 1_700_000_000_000);
+    const { settings } = firesio.services(env);
+    await settings.save(shop, GENERAL_SETTINGS, { signature: "The team" }, { actor: "member:1", allows: () => true });
+    const input = {};
+    const context = { actor: "staff_1", account: account(shop), requestId: "reset-1", inputFingerprint: await fingerprintInput(input) };
+    const first = await callCommand(() => admin().staffTools().run({ actionId: "reset_general_settings", input, context }), toolResultSchema);
+    const again = await callCommand(() => admin().staffTools().run({ actionId: "reset_general_settings", input, context }), toolResultSchema);
+    expect(first).toMatchObject({ ok: true, value: { message: "The general settings are back to their defaults." } });
+    expect(again).toMatchObject({ ok: true, value: { replayed: true } });
+    expect(await settings.get(shop, GENERAL_SETTINGS)).toMatchObject({ signature: "" });
+    const listed = await callCommand(() => admin().staffTools().list({ resourceId: "settings_changes", account: account(shop) }), toolRowPageSchema);
+    expect(listed.ok && listed.value.rows.map((row) => row.cells["key"])).toEqual(expect.arrayContaining(["general.signature"]));
+  });
+
+  it("refuses to list a table that is about one shop without one", async () => {
+    const refused = await callCommand(() => admin().staffTools().list({ resourceId: "settings_changes" }), toolRowPageSchema);
+    expect(refused.ok).toBe(false);
   });
 });
 

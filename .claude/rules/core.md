@@ -12,7 +12,7 @@ One law: **dependencies point inward.** The table is `eslint.boundaries.js`; `to
 
 The folders, what each holds, what each may import and where a growing feature's files go: `CLAUDE.md`, "Layout". In short, per feature:
 `app/core/<feature>/` (types, rules, ports, use cases: pure) -> `app/adapters/<feature>/` (the ports over D1, KV, R2, Shopify, HTTP)
--> `app/wiring/<feature>.ts` (bound for a shop, plus the feature's handlers) -> `app/firesio.server.ts` (`withServices`, `webhooks`,
+-> `app/wiring/<feature>.ts` (bound for a shop, plus the feature's handlers) -> `app/firesio.server.ts` (the `services` factory, `jobs`, `flows`, `on`, `webhooks`,
 `queues`, `cron`) -> `app/routes/app/<feature>/` (thin) with `app/components/<feature>/` and `app/i18n/`; the tables in `app/db/`.
 
 - core takes time, ids, randomness and secrets as arguments: lint bans `Date.now`, `new Date()`, `Math.random`, `crypto.randomUUID` outside tests (the preset's runtime reads them; a Date made from a value, `new Date(ms)`, is fine) and bans `fetch` and React in core.
@@ -29,4 +29,4 @@ The folders, what each holds, what each may import and where a growing feature's
 
 ## Routes
 
-`app/routes.ts` is explicit config; the file tree mirrors the URL. One folder per surface: `public/`, `app/` (embedded admin), `auth/`, `webhooks/`. The merchant pages of `@firesio/app` are two-line files under `routes/app/` that re-export a library route module (`export { default, loader, action } from "@firesio/app/ui/support/thread"`); the layout's `middleware = [firesio.adminMiddleware]` authenticates, admits the member and hands them their deps. A loader or action of the app's own is `firesio.loader(permission, handler)` / `firesio.action(...)` (the long form: `firesio.from(context)` and `firesio.requirePermission(member, "...")`), and reaches the app's own services from the same bag (`withServices`). One folder per feature under `routes/app/` (`routes/app/orders/list.tsx`), a resource route (no page) is a `.ts` file. To change a page, extend the library, do not copy it out.
+`app/routes.ts` is explicit config; the file tree mirrors the URL. One folder per surface: `public/`, `app/` (embedded admin), `auth/`, `webhooks/`. The merchant pages of `@firesio/app` are two-line files under `routes/app/` that re-export a library route module (`export { default, loader, action } from "@firesio/app/ui/support/thread"`); the layout's `middleware = [firesio.adminMiddleware]` authenticates, admits the member and hands them their deps. A loader or action of the app's own is `firesio.loader(permission, handler)` / `firesio.action(...)` (the long form: `firesio.from(context)` and `firesio.requirePermission(member, "...")`), and reaches the app's own services from the same bag (the `services` factory). One folder per feature under `routes/app/` (`routes/app/orders/list.tsx`), a resource route (no page) is a `.ts` file. To change a page, extend the library, do not copy it out.

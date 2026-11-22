@@ -20,7 +20,7 @@ import { configForEnv, stripJsonComments } from "./wrangler-config.mjs";
 
 export { configForEnv, stripJsonComments };
 
-/** Same rule as HANDLE_PATTERN in app/core/install-target.ts (this script cannot import TypeScript). */
+/** Same rule as HANDLE_PATTERN in `installTarget` of `@firesio/app/shell` (this script cannot import TypeScript). */
 const APP_HANDLE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
 function isHttpsUrl(value) {
@@ -68,6 +68,7 @@ const BINDING_SECTIONS = [
   ["send_email", "name"],
   ["services", "binding"],
   ["vectorize", "binding"],
+  ["version_metadata", "binding"],
   ["workflows", "binding"],
 ];
 
@@ -129,21 +130,23 @@ function scopeIssues(files, production) {
   return issues;
 }
 
-const MONTHS = { January: "01", February: "02", March: "03", April: "04", May: "05", June: "06", July: "07", August: "08", September: "09", October: "10", November: "11", December: "12" };
+/** Where the package states its Admin API version (this script cannot import TypeScript): the file is read, never the string typed here. */
+export const API_VERSION_FILE = "node_modules/@firesio/app/src/shell/api-version.ts";
 
-/** The webhook API version `app/core/api-version.ts` names (`ApiVersion.October26` is "2026-10"), or null when it is not a dated one. */
+/** The webhook API version `ADMIN_API_VERSION` of `@firesio/app/shell` names (`export const ADMIN_API_VERSION = "2026-10";`), or null when it is not a dated one. */
 export function apiVersionOf(source) {
-  const match = /ApiVersion\.([A-Z][a-z]+)(\d{2})\b/.exec(source ?? "");
-  const month = match ? MONTHS[match[1]] : undefined;
-  return match && month ? `20${match[2]}-${month}` : null;
+  return /ADMIN_API_VERSION\s*=\s*"(\d{4}-\d{2})"/.exec(source ?? "")?.[1] ?? null;
 }
 
-/** The Admin API / webhook version is ONE decision: `app/core/api-version.ts` and `api_version` in both tomls. */
+/**
+ * The Admin API / webhook version is ONE decision: the package's default (`ADMIN_API_VERSION`, which `createFiresio({ shopify: { apiVersion } })` follows
+ * unless the app chooses another) and `api_version` in both tomls.
+ */
 function webhookVersionIssues(files) {
   const supported = apiVersionOf(files.apiVersionSource);
-  if (supported === null) return ["app/core/api-version.ts does not name a dated ApiVersion (for example ApiVersion.October26)"];
+  if (supported === null) return [`${API_VERSION_FILE} does not name a dated ADMIN_API_VERSION (for example "2026-10")`];
   const versions = [files.productionToml, files.developmentToml].map((toml) => tomlSectionString(toml, "webhooks", "api_version"));
-  return versions.every((version) => version === supported) ? [] : [`webhook api_version must be ${supported} (app/core/api-version.ts) in both shopify.app.toml and shopify.app.dev.toml`];
+  return versions.every((version) => version === supported) ? [] : [`webhook api_version must be ${supported} (ADMIN_API_VERSION of @firesio/app/shell) in both shopify.app.toml and shopify.app.dev.toml`];
 }
 
 export function validateLaunchContract(files) {
@@ -159,13 +162,14 @@ export function validateLaunchContract(files) {
       issues.push(`${key} is missing or placeholder`);
     }
   }
-  for (const secret of ["PARTNER_API_TOKEN", "ATTACHMENT_TOKEN_SECRET", "EVENT_HASH_SECRET"]) {
+  for (const secret of ["PARTNER_API_TOKEN", "ATTACHMENT_TOKEN_SECRET", "EVENT_HASH_SECRET", "NOTIFY_SECRET"]) {
     if (!(production.secrets?.required ?? []).includes(secret)) issues.push(`${secret} secret is not declared`);
   }
 
   const requiredBindings = [
     ["SESSION", "kv_namespaces"], ["PORTAL_BLOCKLIST", "kv_namespaces"], ["DB", "d1_databases"], ["UPLOADS", "r2_buckets"],
-    ["EMAIL", "send_email"], ["AI", "ai"], ["WEBHOOK_QUEUE", "queues"], ["PORTAL_EVENTS", "queues"],
+    ["EMAIL", "send_email"], ["AI", "ai"], ["WEBHOOK_QUEUE", "queues"], ["JOBS_QUEUE", "queues"], ["NOTIFY_QUEUE", "queues"], ["PORTAL_EVENTS", "queues"],
+    ["FLOWS", "workflows"], ["SHOP_COORDINATOR", "durable_objects"], ["USAGE", "analytics_engine_datasets"], ["CF_VERSION_METADATA", "version_metadata"],
     ["SUPPORT_LIMITER", "ratelimits"], ["SUPPORT_FORM_LIMITER", "ratelimits"], ["SUPPORT_MAIL_LIMITER", "ratelimits"],
   ];
   for (const [binding, section] of requiredBindings) {
@@ -175,14 +179,20 @@ export function validateLaunchContract(files) {
         ? production.queues?.producers?.some((entry) => entry.binding === binding)
         : section === "ratelimits"
           ? production.ratelimits?.some((entry) => entry.name === binding)
-          : production[section]?.some((entry) => entry.binding === binding || entry.name === binding);
+          : section === "durable_objects"
+            ? production.durable_objects?.bindings?.some((entry) => entry.name === binding)
+            : section === "version_metadata"
+              ? production.version_metadata?.binding === binding
+              : production[section]?.some((entry) => entry.binding === binding || entry.name === binding);
     if (!configured) issues.push(`production binding ${binding} is missing`);
   }
-  // The portal consumes the events queue (and owns its DLQ); only the webhook queue has a consumer here.
-  const webhookQueue = production.queues?.producers?.find((entry) => entry.binding === "WEBHOOK_QUEUE")?.queue;
-  if (!webhookQueue || !production.queues?.consumers?.some((entry) => entry.queue === webhookQueue)) {
-    issues.push("production WEBHOOK_QUEUE consumer is missing");
+  // The portal consumes the events queue (and owns its DLQ); this Worker consumes its own queues (`queueNameIssues` holds the names).
+  for (const binding of ["WEBHOOK_QUEUE", "JOBS_QUEUE", "NOTIFY_QUEUE"]) {
+    const queue = production.queues?.producers?.find((entry) => entry.binding === binding)?.queue;
+    if (!queue || !production.queues?.consumers?.some((entry) => entry.queue === queue)) issues.push(`production ${binding} consumer is missing`);
   }
+  // The shop coordinator is a SQLite-backed Durable Object: without its migration the class cannot be created.
+  if (!(production.migrations ?? []).some((migration) => (migration.new_sqlite_classes ?? []).includes("ShopCoordinator"))) issues.push("production migrations must create the ShopCoordinator class (new_sqlite_classes)");
   // Named-env triggers are not inherited, and these two strings are decisions shared with the preset (`@firesio/app`, preset/worker/cron.ts; scripts/wrangler-bindings.test.mjs pins them):
   // without the drain-only cron the outbox is sent once a day, without the daily one the snapshot never runs.
   const crons = production.triggers?.crons ?? [];
@@ -207,7 +217,7 @@ export function validateLaunchContract(files) {
   issues.push(...webhookSubscriptionIssues(files.productionToml, files.developmentToml));
   issues.push(...buildFlagIssues(files.productionToml, files.developmentToml));
   issues.push(...productionRouteIssues(production));
-  issues.push(...queueNameIssues(files.wrangler, slugOf(files.identity), { campaigns: /\bcampaignDelivery\s*:/.test(files.firesio ?? "") }));
+  issues.push(...queueNameIssues(files.wrangler, slugOf(files.identity)));
   const identitySource = files.identity ?? "";
   const requiredIdentity = ["slug", "name", "companyName", "supportEmail", "address"];
   const missingIdentity = requiredIdentity.some((field) => new RegExp(`${field}\\s*:\\s*"[^"\\n]+"`).test(identitySource) === false);
@@ -228,7 +238,7 @@ export function validateLaunchContract(files) {
  * Not blocking, but worth reading before a release. An empty handle is right
  * until the app has a listing: the manual shop-domain form is then the only way
  * in. Once listed, App Store requirement 2.3.1 forbids that form, and the handle
- * is what removes it (app/core/install-target.ts).
+ * is what removes it (`installTarget` of `@firesio/app/shell`).
  */
 export function launchWarnings(files) {
   const warnings = [];
@@ -302,7 +312,7 @@ function main() {
     legal: readSources(repoRoot, "app/routes/public/legal").map(({ source }) => source).join("\n") + readFileSync(join(repoRoot, "app/core/identity.ts"), "utf8"),
     identity: readFileSync(join(repoRoot, "app/core/identity.ts"), "utf8"),
     firesio: readFileSync(join(repoRoot, "app/firesio.server.ts"), "utf8"),
-    apiVersionSource: readFileSync(join(repoRoot, "app/core/api-version.ts"), "utf8"),
+    apiVersionSource: readFileSync(join(repoRoot, API_VERSION_FILE), "utf8"),
     plans: readFileSync(join(repoRoot, "app/core/plans.ts"), "utf8"),
     publicCopy: ["landing", "support"].map((page) => readFileSync(join(repoRoot, `app/routes/public/${page}.tsx`), "utf8")).join("\n"),
     routeSources: [{ path: "app/routes/app/home.tsx", source: readFileSync(join(repoRoot, "app/routes/app/home.tsx"), "utf8") }],

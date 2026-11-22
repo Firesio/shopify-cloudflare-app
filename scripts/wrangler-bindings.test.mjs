@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { bindingKeys, configForEnv, stripJsonComments } from "./check-placeholders.mjs";
-import { campaignQueueIssues, productionRouteIssues, queueNameIssues, slugOf } from "./launch-config-checks.mjs";
+import { QUEUE_ROLES, productionRouteIssues, queueNameIssues, slugOf } from "./launch-config-checks.mjs";
 
 const config = JSON.parse(stripJsonComments(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8")));
 const top = configForEnv(config, "top-level");
@@ -23,41 +23,70 @@ test("production declares the same vars and the same secret names", () => {
   assert.deepEqual(sorted(production.secrets.required), sorted(top.secrets.required));
 });
 
-test("the two environments name different queues, and the webhook queue's dead-letter queue is consumed in both", () => {
+test("the two environments name different queues, and every dead-letter queue is consumed in both", () => {
   const names = (env) => (env.queues?.producers ?? []).map((producer) => producer.queue);
   for (const queue of names(top)) assert.ok(!names(production).includes(queue), `${queue} is shared by both environments`);
   for (const env of [top, production]) {
-    const webhooks = env.queues.consumers.filter((consumer) => consumer.dead_letter_queue !== undefined && consumer.queue.includes("webhooks"));
-    assert.equal(webhooks.length, 1, "one consumer has a dead-letter queue: the webhook queue");
-    assert.ok(env.queues.consumers.some((consumer) => consumer.queue === webhooks[0].dead_letter_queue), `${webhooks[0].dead_letter_queue} has no consumer: the preset would never record what lands there`);
+    const withDeadLetters = env.queues.consumers.filter((consumer) => consumer.dead_letter_queue !== undefined);
+    assert.equal(withDeadLetters.length, QUEUE_ROLES.length, "one consumer per role has a dead-letter queue");
+    for (const consumer of withDeadLetters) assert.ok(env.queues.consumers.some((entry) => entry.queue === consumer.dead_letter_queue), `${consumer.dead_letter_queue} has no consumer: the preset would never copy what lands there into D1`);
   }
 });
 
-test("the webhook queues are named after the slug in app/core/identity.ts, in both environments", () => {
+test("the queues are named after the slug in app/core/identity.ts, <slug>-<role>[-dlq][-prod], and consumed in both environments", () => {
   const slug = slugOf(readFileSync(new URL("../app/core/identity.ts", import.meta.url), "utf8"));
   assert.ok(slug);
-  assert.deepEqual(queueNameIssues(config, slug, { campaigns: true }), []);
-  assert.deepEqual(top.queues.producers.find((entry) => entry.binding === "WEBHOOK_QUEUE"), { binding: "WEBHOOK_QUEUE", queue: `${slug}-webhooks` });
-  assert.deepEqual(top.queues.consumers.filter((entry) => entry.queue.includes("webhooks")).map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-webhooks`, `${slug}-webhooks-dlq`], [`${slug}-webhooks-dlq`, undefined]]);
-  assert.deepEqual(production.queues.producers.find((entry) => entry.binding === "WEBHOOK_QUEUE"), { binding: "WEBHOOK_QUEUE", queue: `${slug}-webhooks-prod` });
-  assert.deepEqual(production.queues.consumers.filter((entry) => entry.queue.includes("webhooks")).map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-webhooks-prod`, `${slug}-webhooks-dlq-prod`], [`${slug}-webhooks-dlq-prod`, undefined]]);
-});
-
-test("the campaigns queue and its dead-letter queue are named after the slug and consumed, in both environments", () => {
-  const slug = slugOf(readFileSync(new URL("../app/core/identity.ts", import.meta.url), "utf8"));
-  assert.ok(slug);
-  assert.ok(/\bcampaignDelivery\s*:/.test(readFileSync(new URL("../app/firesio.server.ts", import.meta.url), "utf8")), "the template declares campaignDelivery");
-  assert.deepEqual(campaignQueueIssues(config, slug), []);
-  assert.deepEqual(queueNameIssues(config, slug, { campaigns: true }), []);
-  assert.deepEqual(top.queues.consumers.filter((entry) => entry.queue.includes("campaigns")).map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-campaigns`, `${slug}-campaigns-dlq`], [`${slug}-campaigns-dlq`, undefined]]);
-  assert.deepEqual(production.queues.consumers.filter((entry) => entry.queue.includes("campaigns")).map((entry) => [entry.queue, entry.dead_letter_queue]), [[`${slug}-campaigns-prod`, `${slug}-campaigns-prod-dlq`], [`${slug}-campaigns-prod-dlq`, undefined]]);
+  assert.deepEqual(queueNameIssues(config, slug), []);
+  for (const { role, binding } of QUEUE_ROLES) {
+    if (binding === null) continue;
+    assert.deepEqual(top.queues.producers.find((entry) => entry.binding === binding), { binding, queue: `${slug}-${role}` });
+    assert.deepEqual(production.queues.producers.find((entry) => entry.binding === binding), { binding, queue: `${slug}-${role}-prod` });
+  }
+  // The jobs queue's max_retries is the platform's ceiling on purpose: the job system counts its own attempts.
+  assert.equal(top.queues.consumers.find((entry) => entry.queue === `${slug}-jobs`)?.max_retries, 100);
   // A producer or a consumer forgotten in one environment is named, not found in production.
   const forgotten = structuredClone(config);
-  forgotten.env.production.queues.producers = forgotten.env.production.queues.producers.filter((entry) => entry.binding !== "CAMPAIGNS_QUEUE");
-  forgotten.env.production.queues.consumers = forgotten.env.production.queues.consumers.filter((entry) => !entry.queue.includes("campaigns"));
-  const issues = campaignQueueIssues(forgotten, slug).join("\n");
-  assert.match(issues, /env\.production: the CAMPAIGNS_QUEUE producer must be/);
-  assert.match(issues, /env\.production: the campaigns queue .* must both be consumers/);
+  forgotten.env.production.queues.producers = forgotten.env.production.queues.producers.filter((entry) => entry.binding !== "JOBS_QUEUE");
+  forgotten.env.production.queues.consumers = forgotten.env.production.queues.consumers.filter((entry) => !entry.queue.includes("-jobs"));
+  const issues = queueNameIssues(forgotten, slug).join("\n");
+  assert.match(issues, /env\.production: the JOBS_QUEUE producer must be/);
+  assert.match(issues, /env\.production: the queue consumers must be/);
+});
+
+test("the Workflow, the Durable Object, the dataset and the version metadata are declared in both environments, with the shop coordinator's SQLite migration", () => {
+  for (const env of [top, production]) {
+    assert.equal(env.workflows?.[0]?.binding, "FLOWS");
+    assert.equal(env.workflows?.[0]?.class_name, "FiresioFlows");
+    assert.deepEqual(env.durable_objects?.bindings, [{ name: "SHOP_COORDINATOR", class_name: "ShopCoordinator" }]);
+    assert.deepEqual(env.migrations, [{ tag: "v1", new_sqlite_classes: ["ShopCoordinator"] }]);
+    assert.equal(env.analytics_engine_datasets?.[0]?.binding, "USAGE");
+    assert.deepEqual(env.version_metadata, { binding: "CF_VERSION_METADATA" });
+  }
+  assert.notEqual(top.workflows[0].name, production.workflows[0].name, "the two environments share no Workflow");
+});
+
+test("both environments cap CPU below the platform's 30 s default and sample traces, and keep logs whole", () => {
+  for (const env of [top, production]) {
+    assert.ok(env.limits.cpu_ms > 0 && env.limits.cpu_ms < 30_000);
+    assert.equal(env.observability.enabled, true);
+    assert.equal(env.observability.head_sampling_rate, 1);
+    assert.equal(env.observability.redact_query_string, true);
+    assert.equal(env.observability.traces.enabled, true);
+    assert.ok(env.observability.traces.head_sampling_rate > 0 && env.observability.traces.head_sampling_rate < 1);
+  }
+});
+
+test("NOTIFY_SECRET is a secret in both environments (32 or more characters: the preset refuses to build without it)", () => {
+  for (const env of [top, production]) assert.ok(env.secrets.required.includes("NOTIFY_SECRET"));
+});
+
+test("the previews block names its own staging resources, never production's", () => {
+  const previews = config.previews;
+  assert.ok(previews, "wrangler.jsonc has a previews block");
+  const ids = JSON.stringify(previews);
+  for (const binding of production.d1_databases) assert.ok(!ids.includes(binding.database_name), "a preview must not share production's database");
+  assert.equal(previews.d1_databases[0].binding, "DB");
+  assert.equal(previews.kv_namespaces[0].binding, "SESSION");
 });
 
 test("production is on one custom domain only: no workers.dev, no preview URLs (and the top level is not)", () => {

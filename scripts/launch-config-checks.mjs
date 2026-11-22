@@ -12,54 +12,46 @@ export function slugOf(identitySource) {
 }
 
 /**
- * The webhook queue names are derived from the slug (`@firesio/app` consumes `<slug>-webhooks` / `<slug>-webhooks-prod`: the preset's
- * `queue` handler refuses any other batch), so a queue that does not carry it is a webhook queue nobody consumes. The dead-letter
- * queues follow the same pattern and are consumed by the same Worker (the preset's `webhookDeadLetterQueues` records what landed
- * there); a webhook queue without that consumer would let dead deliveries sit unread. `portal-events*` is the portal's and is never checked here.
+ * The queue roles the preset consumes (`@firesio/app`: ONE naming rule, `<slug>-<role>[-dlq][-prod]`; `firesio.queue` refuses a batch of any other queue). Each has a main
+ * queue and a dead-letter queue, both consumed by this Worker: the preset copies a dead letter into D1 (`firesio_dead_letters`) where the portal can resend it, so a
+ * dead-letter queue nobody consumes would let messages expire unread in four days. `binding` is the producer this app writes to (the mail-events queue has none: Email
+ * Sending's event subscription writes to it). `portal-events*` is the portal's and is never checked here.
  */
-export function queueNameIssues(wrangler, slug, options = {}) {
-  if (slug === null) return ["app/core/identity.ts has no slug: the webhook queue names cannot be checked"];
-  const expectations = [
-    { label: "top level", env: configForEnv(wrangler, "top-level"), queue: `${slug}-webhooks`, dlq: `${slug}-webhooks-dlq`, campaigns: [`${slug}-campaigns`, `${slug}-campaigns-dlq`] },
-    { label: "env.production", env: configForEnv(wrangler, "production"), queue: `${slug}-webhooks-prod`, dlq: `${slug}-webhooks-dlq-prod`, campaigns: [`${slug}-campaigns-prod`, `${slug}-campaigns-prod-dlq`] },
-  ];
-  const issues = [];
-  for (const { label, env, queue, dlq, campaigns } of expectations) {
-    const producer = env?.queues?.producers?.find((entry) => entry.binding === "WEBHOOK_QUEUE")?.queue;
-    if (producer !== queue) issues.push(`wrangler.jsonc ${label}: the WEBHOOK_QUEUE producer must be "${queue}" (found ${JSON.stringify(producer ?? null)})`);
-    const consumers = env?.queues?.consumers ?? [];
-    const names = consumers.map((entry) => entry.queue);
-    // Exactly the queues this app consumes: the webhook pair, and the campaigns pair while `campaignDelivery` is declared. A stray consumer is a queue nobody meant to read.
-    const wanted = options.campaigns === true ? [queue, dlq, ...campaigns] : [queue, dlq];
-    if (names.length !== wanted.length || !wanted.every((name) => names.includes(name))) {
-      issues.push(`wrangler.jsonc ${label}: the queue consumers must be "${queue}" and its dead-letter queue "${dlq}"${options.campaigns === true ? ` and the campaigns queue "${campaigns[0]}" with its dead-letter queue "${campaigns[1]}"` : ""} (found ${JSON.stringify(consumers.map((entry) => entry.queue))})`);
-    }
-    const main = consumers.find((entry) => entry.queue === queue);
-    if (main !== undefined && main.dead_letter_queue !== dlq) issues.push(`wrangler.jsonc ${label}: the dead-letter queue of "${queue}" must be "${dlq}" (found ${JSON.stringify(main.dead_letter_queue ?? null)})`);
-  }
-  if (options.campaigns === true) issues.push(...campaignQueueIssues(wrangler, slug));
-  return issues;
-}
+export const QUEUE_ROLES = [
+  { role: "webhooks", binding: "WEBHOOK_QUEUE", maxRetries: 8 },
+  { role: "jobs", binding: "JOBS_QUEUE", maxRetries: 100 },
+  { role: "notify", binding: "NOTIFY_QUEUE", maxRetries: 8 },
+  { role: "mail-events", binding: null, maxRetries: 8 },
+];
+
+const queueNameOf = (slug, role, dlq, production) => `${slug}-${role}${dlq ? "-dlq" : ""}${production ? "-prod" : ""}`;
 
 /**
- * The campaigns queue (`campaignDelivery` in app/firesio.server.ts): the preset consumes `<slug>-campaigns` / `<slug>-campaigns-prod` and
- * reads the dead-letter queue as `<name>-dlq`, and sends each step of a delivery through the `CAMPAIGNS_QUEUE` producer. A queue that does
- * not carry the slug is one nobody consumes: a campaign would start and never send.
+ * The queues are named after the slug and consumed, in both environments: every role's producer (where it has one) writes to the main queue, the consumers are exactly the main
+ * queues and their dead-letter queues, each main consumer names its dead-letter queue, and the jobs queue's `max_retries` is the platform's ceiling (the job system counts
+ * its own attempts and backs off per job, so Cloudflare's limit must never be what ends a job).
  */
-export function campaignQueueIssues(wrangler, slug) {
-  const expectations = [
-    { label: "top level", env: configForEnv(wrangler, "top-level"), queue: `${slug}-campaigns`, dlq: `${slug}-campaigns-dlq` },
-    { label: "env.production", env: configForEnv(wrangler, "production"), queue: `${slug}-campaigns-prod`, dlq: `${slug}-campaigns-prod-dlq` },
-  ];
+export function queueNameIssues(wrangler, slug) {
+  if (slug === null) return ["app/core/identity.ts has no slug: the queue names cannot be checked"];
   const issues = [];
-  for (const { label, env, queue, dlq } of expectations) {
-    const producer = env?.queues?.producers?.find((entry) => entry.binding === "CAMPAIGNS_QUEUE")?.queue;
-    if (producer !== queue) issues.push(`wrangler.jsonc ${label}: the CAMPAIGNS_QUEUE producer must be "${queue}" (found ${JSON.stringify(producer ?? null)})`);
+  for (const [label, env, production] of [["top level", configForEnv(wrangler, "top-level"), false], ["env.production", configForEnv(wrangler, "production"), true]]) {
     const consumers = env?.queues?.consumers ?? [];
+    const wanted = QUEUE_ROLES.flatMap(({ role }) => [queueNameOf(slug, role, false, production), queueNameOf(slug, role, true, production)]);
     const names = consumers.map((entry) => entry.queue);
-    if (!names.includes(queue) || !names.includes(dlq)) issues.push(`wrangler.jsonc ${label}: the campaigns queue "${queue}" and its dead-letter queue "${dlq}" must both be consumers (found ${JSON.stringify(names)})`);
-    const main = consumers.find((entry) => entry.queue === queue);
-    if (main !== undefined && main.dead_letter_queue !== dlq) issues.push(`wrangler.jsonc ${label}: the dead-letter queue of "${queue}" must be "${dlq}" (found ${JSON.stringify(main.dead_letter_queue ?? null)})`);
+    if (names.length !== wanted.length || !wanted.every((name) => names.includes(name))) {
+      issues.push(`wrangler.jsonc ${label}: the queue consumers must be ${wanted.map((name) => `"${name}"`).join(", ")} (found ${JSON.stringify(names)})`);
+    }
+    for (const { role, binding, maxRetries } of QUEUE_ROLES) {
+      const queue = queueNameOf(slug, role, false, production);
+      const dlq = queueNameOf(slug, role, true, production);
+      if (binding !== null) {
+        const producer = env?.queues?.producers?.find((entry) => entry.binding === binding)?.queue;
+        if (producer !== queue) issues.push(`wrangler.jsonc ${label}: the ${binding} producer must be "${queue}" (found ${JSON.stringify(producer ?? null)})`);
+      }
+      const main = consumers.find((entry) => entry.queue === queue);
+      if (main !== undefined && main.dead_letter_queue !== dlq) issues.push(`wrangler.jsonc ${label}: the dead-letter queue of "${queue}" must be "${dlq}" (found ${JSON.stringify(main.dead_letter_queue ?? null)})`);
+      if (main !== undefined && main.max_retries !== maxRetries) issues.push(`wrangler.jsonc ${label}: "${queue}" must have max_retries ${maxRetries} (found ${JSON.stringify(main.max_retries ?? null)})`);
+    }
   }
   return issues;
 }

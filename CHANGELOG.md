@@ -3,6 +3,30 @@
 An app takes a newer template by merging its tag (`template-v<version>`, see `template-files.json`: the `template` files come over
 unchanged, the `app` files are the app's). Each entry says what to do besides the merge.
 
+## template-v2.0.0 (unreleased)
+
+**`@firesio/app` 2.1.1 (2.0.0 plus the 2.0.1 to 2.1.1 fixes) and `@firesio/portal-contract` 1.3.0.** A major release of the package that REMOVES what it replaces (nothing is kept deprecated), and the template moves onto it completely. An app that is on
+a 1.x template takes this tag by following `docs/migrating-to-2.0.md` (an ordered checklist of the package's own changeset), not by merging alone. What changed in the template:
+
+- **One call, typed**: `createFiresio<Env>()({ ... })` with ONE `services` factory (`AppServices`, `app/core/app-services.ts`), the typed `on` map of events (the welcome mail on `installed`), `jobs`, `flows`
+  (`packageFlows`), `staffTools` (one resource, one action: `app/wiring/staff-tools.ts`), `setup` (the onboarding checklist), `i18n` and `notify`. Gone: `withServices`, `lifecycle`, `around`, `onlineTokens`, the
+  members' `ownerRole`/`firstUserRole`/... (the small `defineMembers`), `STAFF_ALERT_EMAIL`, campaigns (OFF: they need a sender that accepts consent), `app/routes/campaigns/`.
+- **Mail**: `app/notifications/` (a React Email layout that shows `unsubscribeUrl`, a sample welcome message, `kit.ts`, hook examples in comments), words in the catalogue; the sender `app` is the preset's Cloudflare
+  Email over `EMAIL_FROM`; `NOTIFY_SECRET` is required; the public `/unsubscribe` page. Rule: `.claude/rules/notify.md`.
+- **Words**: `app/i18n/locales/{en,es}/app.json`, `assertCatalogueComplete`, label builders for the app's own pages, the settings page's words; `localeIn(I18N)` in the root loader.
+- **Pages**: settings by `firesio.settings.route` (+ history), the home page's `SetupChecklist`, `AdminFrame` in the `/app` layout, the package's `PhoneFrame` for the phone chunk, `/healthz` is `firesio.healthz`.
+- **Cloudflare**: queues `<slug>-webhooks|jobs|notify|mail-events` (+ `-dlq`, `-prod`), `FLOWS`, `SHOP_COORDINATOR` (Durable Object, SQLite migration `v1`), `USAGE`, `CF_VERSION_METADATA`, `observability.traces`
+  (sampled), `limits.cpu_ms`, the shared `compatibility_date` (2026-11-13), a `previews` block, `NOTIFY_SECRET`. `wrangler` 4.166 and `@cloudflare/vitest-plugin` 1.9. `npm run new-app` renames and lists the new resources.
+- **D1**: `drizzle/0006_firesio_2_0.sql` is EXPAND ONLY (new tables and columns; the generated `DROP`s were taken out by hand and wait for the next release's `*_contract.sql`);
+  `tools/architecture/migration-guard.test.ts` (`checkMigrations`) holds every later migration to it.
+- **The shell copies are the package's**: `app/core/{render-error,install-target,response-headers,paths,api-version}.ts` are deleted (`@firesio/app/shell`); `npm run check:placeholders` reads the package's `ADMIN_API_VERSION`.
+- **Docs and rules**: `docs/OPERATIONS.md` (incident: rollback first, then Time Travel; D1 insights; mail; observability, spend alerts without a hard limit, Issues and Monitors to the portal, health check; R2 lifecycle;
+  previews; the build command `npm run verify && npm run build`), `docs/migrating-to-2.0.md`, rules `notify`, `jobs-and-flows`, `i18n`, and the `cloudflare` rule's "why" line per service.
+- **Bundle**: the admin's scripts measure 167,151 bytes gzip against the budget of 195,000 (`scripts/bundle-budget.mjs`, unchanged). On 2.0.0 they measured 227,122, and 2.1.0 196,151, because route modules pulled their server code (zod) into the page chunk; 2.1.1 fixed it upstream. **The budget rule: never raise it to make a build pass; find what landed in which chunk (`react-router build --sourcemapClient`, sum `sourcesContent` per chunk) and fix the cause, or report a package-side gap with the entry, the size and what to split.**
+- **Rules learned on the way** (`docs/migrating-to-2.0.md`): the `services` factory is written BEFORE every option that uses the services (`ServicesMustComeFirst`), and every such option is typed with `AppServices`; a package route module exports plain `loader`/`action` functions, so an app with its own intent map writes `export function action(args) { return myAction()(args); }`, never a top-level call; the test stand-ins are `@firesio/app/preset/testing/cloudflare-workers` and `.../cloudflare-workflows` (public entries, aliased in `vitest.config.ts`), and `installShop(firesio, env, ...)` takes the typed `firesio` as it is.
+- **The welcome mail links to the app's own entry** (`<SHOPIFY_APP_URL>/?shop=<shop>`, tested), because shopify.dev documents no admin URL for linking a merchant to an installed app (searched 2026-11-22).
+- **Still unverified**: that a failing Workers Builds build command stops the deploy; the `--events` spelling of the Email Sending event subscription; a real send through Email Sending; the Free-zone WAF wording.
+
 ## template-v1.1.0 (unreleased)
 
 - `@firesio/app` 1.10.0 (only adds): `revenue.mrr` is zero, not missing: an app with no paying shop sends `{ amount: 0, currency }`, so the portal shows "0". An app reports its own numbers with `createFiresio({ metrics: { catalogue, collectors, backfill } })` (mark the two that matter `featured: true`: the portal's dashboard card shows an app's own numbers first, four at most).

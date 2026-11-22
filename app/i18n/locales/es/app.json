@@ -1,0 +1,74 @@
+{
+  "nav": {
+    "home": "Inicio",
+    "support": "Soporte",
+    "plan": "Plan",
+    "team": "Equipo",
+    "settings": "Ajustes",
+    "phones": "Teléfonos"
+  },
+  "home": {
+    "placeholderHeading": "Marcador de posición",
+    "placeholder": "TODO: sustituye esta página por el inicio de la app. Todo lo que hay bajo el menú viene de las librerías compartidas.",
+    "storeHeading": "Tu tienda",
+    "store": "Tienda: {{shop}}",
+    "plan": "Plan: {{plan}}",
+    "access": "Tu acceso: {{permissions}}",
+    "contactSupport": "Contactar con soporte"
+  },
+  "settings": {
+    "general": {
+      "title": "General",
+      "intro": "Cómo redacta la app los correos que envía a tus clientes.",
+      "signature": {
+        "label": "Firma en los correos",
+        "help": "Se añade bajo cada mensaje que la app envía por ti."
+      },
+      "weeklySummary": {
+        "label": "Enviarme un resumen semanal"
+      },
+      "summaryDay": {
+        "label": "Día",
+        "options": {
+          "monday": "Lunes",
+          "friday": "Viernes"
+        }
+      }
+    }
+  },
+  "setup": {
+    "steps": {
+      "save_settings": {
+        "title": "Revisa tus ajustes",
+        "body": "Guarda los ajustes generales una vez para que sean tuyos.",
+        "action": "Abrir ajustes"
+      },
+      "contact_support": {
+        "title": "Saluda a soporte",
+        "body": "Cuéntanos qué necesitas de la app: un primer mensaje nos dice que estás aquí.",
+        "action": "Escríbenos"
+      }
+    }
+  },
+  "mail": {
+    "welcome": {
+      "subject": "Te damos la bienvenida a {{app}}, {{shop}}",
+      "preheader": "{{app}} está instalada en {{shop}}.",
+      "heading": "Te damos la bienvenida a {{app}}",
+      "body": "{{app}} ya está instalada en {{shop}}. Abre la app desde tu panel de Shopify para terminar la configuración: son unos minutos.",
+      "cta": "Abrir la app",
+      "help": "Responde a este correo si necesitas ayuda."
+    },
+    "layout": {
+      "unsubscribe": "Darse de baja",
+      "sentBy": "Enviado por {{app}}"
+    }
+  },
+  "unsubscribe": {
+    "title": "Darse de baja",
+    "intro": "¿Dejar de recibir estos correos?",
+    "confirm": "Darme de baja",
+    "done": "Te has dado de baja. No volverás a recibir estos correos.",
+    "invalid": "Este enlace de baja no es válido. Si sigues recibiendo correos que no quieres, responde al correo y los detendremos."
+  }
+}

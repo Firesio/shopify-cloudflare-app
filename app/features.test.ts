@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { phoneItems } from "~/components/phone-items";
+import { I18N } from "~/i18n";
+import { navLabelsOf } from "~/i18n/labels";
 import { PHONE_DEVICES, PHONE_PATHS } from "~/core/phone";
 import { PWA } from "~/core/features";
 import { PHONE_ROUTE_FILES } from "./routes/phone-routes";
@@ -126,7 +128,7 @@ describe("PWA: what the findings say", () => {
 describe("the phone app's own settings", () => {
   it("are coherent: its addresses are the package's defaults, its bar is short", () => {
     expect(PHONE_PATHS).toMatchObject({ install: "/m", start: "/m/start", startApi: "/m/api/link/start", pollApi: "/m/api/link/poll", manage: "/app/phone" });
-    expect(phoneItems().length).toBeLessThanOrEqual(5);
+    expect(phoneItems(navLabelsOf(I18N.translator("en"))).length).toBeLessThanOrEqual(5);
   });
 
   it("deny-list names real /app routes, and each icon is the size it says", async () => {

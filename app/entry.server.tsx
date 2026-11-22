@@ -1,9 +1,8 @@
-import { onPromiseSettled } from "@firesio/app/core";
+import { renderErrorLog } from "@firesio/app/shell";
 import { describeRequestError } from "@firesio/app/ui/shell";
 import { isbot } from "isbot";
 import { renderToReadableStream } from "react-dom/server";
 import { ServerRouter, type EntryContext } from "react-router";
-import { renderErrorLog } from "~/core/render-error";
 import { firesio } from "~/firesio.server";
 
 export const streamTimeout = 5000;
@@ -38,7 +37,8 @@ export default async function handleRequest(request: Request, responseStatusCode
 
   // Bots need the whole document (SEO, link unfurling); browsers get the shell as soon as it is ready.
   if (isbot(request.headers.get("user-agent") ?? "")) await stream.allReady;
-  onPromiseSettled(stream.allReady, () => clearTimeout(timeout));
+  const stopTimer = (): void => clearTimeout(timeout);
+  void stream.allReady.then(stopTimer, stopTimer);
 
   responseHeaders.set("Content-Type", "text/html");
   return new Response(stream, { headers: responseHeaders, status: didError ? 500 : responseStatusCode });

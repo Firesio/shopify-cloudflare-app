@@ -9,8 +9,9 @@ The design of the platform (events, commands, libraries, the portal) is `docs/ar
 - [New app setup](SETUP.md): the copy-and-start workflow (`npm run new-app`).
 - [Adoption checklist](ADOPTING_THE_TEMPLATE.md): product, compliance and release decisions, and what an agent does in a derived app.
 - [Legal content template](LEGAL_TEMPLATE.md): required policy inputs.
-- [Operations runbook](OPERATIONS.md): deploy, roll back, D1 backup and recovery, secrets, webhook DLQ replay.
+- [Operations runbook](OPERATIONS.md): deploy, incident (roll back first, then D1 Time Travel), D1 insights, secrets, jobs and dead letters, mail, observability, spend alerts, Issues and Monitors to the portal, R2 lifecycle, previews.
 - [Upgrading](UPGRADING.md): taking a newer template tag, and the routine upgrades (Admin API version, packages, wrangler, Node).
+- [Migrating an app from `@firesio/app` 1.x to 2.0](migrating-to-2.0.md): the package's changeset as an ordered checklist (code, configuration, expand-only migration, one-shot flows, what to run before deploying).
 - `../CHANGELOG.md` and `../template-files.json`: what each template tag changes, and which files are the template's and which the app's.
 
 ## How the systems work

@@ -1,0 +1,44 @@
+import type { Translator } from "@firesio/app/i18n";
+
+/**
+ * The words of the app's own pages as plain-string objects, built from the catalogue (`locales/<language>/app.json`) in a loader and handed to a component as
+ * props, so a component never reads the catalogue and a test hands it any words. The package's pages do the same (`membersLabelsOf(t, ...)`, `plansLabelsOf(t, ...)`).
+ */
+type Words = Pick<Translator, "t">;
+
+export interface NavLabels {
+  readonly home: string;
+  readonly support: string;
+  readonly plan: string;
+  readonly team: string;
+  readonly settings: string;
+  /** The staff phone app's own page (only while `PWA` is on). */
+  readonly phones: string;
+}
+
+export function navLabelsOf({ t }: Words): NavLabels {
+  return { home: t("nav.home"), support: t("nav.support"), plan: t("nav.plan"), team: t("nav.team"), settings: t("nav.settings"), phones: t("nav.phones") };
+}
+
+export interface HomeLabels {
+  readonly placeholderHeading: string;
+  readonly placeholder: string;
+  readonly storeHeading: string;
+  readonly store: string;
+  readonly plan: string;
+  readonly access: string;
+  readonly contactSupport: string;
+}
+
+/** The home page's words with the values of this request filled in (the shop, its plan's name, what the member holds). */
+export function homeLabelsOf({ t }: Words, values: { readonly shop: string; readonly plan: string; readonly permissions: readonly string[] }): HomeLabels {
+  return {
+    placeholderHeading: t("home.placeholderHeading"),
+    placeholder: t("home.placeholder"),
+    storeHeading: t("home.storeHeading"),
+    store: t("home.store", { shop: values.shop }),
+    plan: t("home.plan", { plan: values.plan }),
+    access: t("home.access", { permissions: values.permissions.join(", ") }),
+    contactSupport: t("home.contactSupport"),
+  };
+}

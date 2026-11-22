@@ -13,6 +13,8 @@ export default [
     index("routes/public/landing.tsx"),
     route("support", "routes/public/support.tsx"),
     ...prefix("legal", [route("privacy", "routes/public/legal/privacy.tsx"), route("terms", "routes/public/legal/terms.tsx")]),
+    // The unsubscribe link of a mail sent on consent (`firesio.unsubscribe`, RFC 8058 one-click): public, signed, no shop.
+    route("unsubscribe", "routes/public/unsubscribe.tsx"),
   ]),
 
   // Embedded Shopify admin: everything under /app runs inside the Shopify admin iframe.
@@ -33,11 +35,9 @@ export default [
     ...(PWA ? phoneAppRoutes : []),
     route("plans", "routes/app/plans.tsx"),
     route("settings", "routes/app/settings.tsx"),
+    route("settings/history", "routes/app/settings-history.tsx"),
     route("*", "routes/app/not-found.tsx"),
   ]),
-
-  // The unsubscribe link of a campaign mail: public, no shop (`campaignDelivery.unsubscribePath`, default `/campaigns/unsubscribe`).
-  route("campaigns/unsubscribe", "routes/campaigns/unsubscribe.ts"),
 
   // The staff phone app (`app/core/features.ts`, `docs/POS-AND-PHONE.md` section 3): its public pages, the manifest, the pairing calls and the service worker. Off by default.
   ...(PWA ? phonePublicRoutes : []),

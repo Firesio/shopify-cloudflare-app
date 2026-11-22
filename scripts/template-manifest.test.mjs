@@ -5,7 +5,8 @@ import test from "node:test";
 
 const manifest = JSON.parse(readFileSync(new URL("../template-files.json", import.meta.url), "utf8"));
 const root = new URL("..", import.meta.url).pathname;
-const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" }).split("\0").filter(Boolean);
+// What git tracks AND what it would (a new file the author has not committed yet, minus what .gitignore leaves out): a file must be classified the moment it exists, not after its commit.
+const tracked = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: root, encoding: "utf8" }).split("\0").filter(Boolean);
 
 const owns = (patterns, file) => patterns.some((pattern) => (pattern.endsWith("/") ? file.startsWith(pattern) : file === pattern));
 

@@ -20,6 +20,23 @@ async function tablesOf(file: string): Promise<string[]> {
   return Object.values(module).flatMap((value) => (is(value, SQLiteTable) ? [getTableConfig(value).name] : []));
 }
 
+/**
+ * The tables @firesio/app 2.0 replaced and the migration history still creates. `0006_firesio_2_0.sql` is EXPAND ONLY (a release applies its migrations before the
+ * new code is live, and D1 does not roll back): the previous release still reads them, so the DROP of each is the NEXT release's `*_contract.sql` file
+ * (`docs/migrating-to-2.0.md`), and its author deletes the name from this list with it. A table that is not in this list and not in a schema file fails the test above.
+ */
+const CONTRACT_PENDING: readonly string[] = [
+  "notification_logs",
+  "notification_preferences",
+  "ai_models",
+  "ai_runs",
+  "ai_usage",
+  "support_tickets",
+  "support_messages",
+  "support_attachments",
+  "campaign_unsubscribes",
+];
+
 const NAME = "[`\"]?(\\w+)[`\"]?";
 const TABLE_STATEMENT = new RegExp(`CREATE TABLE\\s+(?:IF NOT EXISTS\\s+)?${NAME}|DROP TABLE\\s+(?:IF EXISTS\\s+)?${NAME}|ALTER TABLE\\s+${NAME}\\s+RENAME TO\\s+${NAME}`, "gi");
 
@@ -80,8 +97,20 @@ describe("the migrations match the schema files drizzle.config.ts lists", () => 
     }
   });
 
-  it("creates no table that no listed schema file declares", async () => {
+  it("creates no table that no listed schema file declares, except the old ones kept until the contract migration", async () => {
     const declared = new Set((await Promise.all(schemaFiles.map(tablesOf))).flat());
-    for (const table of migratedTables()) expect(declared.has(table), `${table} is migrated but no schema file declares it (is a schema file missing from drizzle.config.ts?)`).toBe(true);
+    for (const table of migratedTables()) {
+      if (CONTRACT_PENDING.includes(table)) continue;
+      expect(declared.has(table), `${table} is migrated but no schema file declares it (is a schema file missing from drizzle.config.ts?)`).toBe(true);
+    }
+  });
+
+  it("keeps a table that 2.0 replaced only while it is listed as pending, and never one a schema file declares again", async () => {
+    const declared = new Set((await Promise.all(schemaFiles.map(tablesOf))).flat());
+    const migrated = new Set(migratedTables());
+    for (const table of CONTRACT_PENDING) {
+      expect(migrated.has(table), `${table} is listed as pending but no migration creates it: take it off CONTRACT_PENDING`).toBe(true);
+      expect(declared.has(table), `${table} is declared by a schema file again: take it off CONTRACT_PENDING`).toBe(false);
+    }
   });
 });

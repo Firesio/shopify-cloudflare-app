@@ -4,7 +4,7 @@ import { EmbeddedProvider } from "@firesio/app/ui/shell";
 import { useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { Form, redirect, useActionData, useLoaderData } from "react-router";
-import { installTarget } from "~/core/install-target";
+import { installTarget } from "@firesio/app/shell";
 import { POLARIS_URL } from "~/core/polaris";
 import { firesio } from "~/firesio.server";
 

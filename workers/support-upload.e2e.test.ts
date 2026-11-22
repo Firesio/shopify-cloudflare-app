@@ -1,6 +1,6 @@
 import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { SUPPORT_UPLOAD_PATH } from "~/core/paths";
+import { SUPPORT_UPLOAD_PATH } from "@firesio/app/shell";
 import { setupTestDatabase } from "~/test/database";
 
 setupTestDatabase();

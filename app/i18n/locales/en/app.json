@@ -1,0 +1,74 @@
+{
+  "nav": {
+    "home": "Home",
+    "support": "Support",
+    "plan": "Plan",
+    "team": "Team",
+    "settings": "Settings",
+    "phones": "Phones"
+  },
+  "home": {
+    "placeholderHeading": "Placeholder",
+    "placeholder": "TODO: replace this page with the app's own home. Everything under the menu comes from the shared libraries.",
+    "storeHeading": "Your store",
+    "store": "Store: {{shop}}",
+    "plan": "Plan: {{plan}}",
+    "access": "Your access: {{permissions}}",
+    "contactSupport": "Contact support"
+  },
+  "settings": {
+    "general": {
+      "title": "General",
+      "intro": "How the app words the mail it sends to your customers.",
+      "signature": {
+        "label": "Signature on mails",
+        "help": "Added under every message the app sends for you."
+      },
+      "weeklySummary": {
+        "label": "Send me a weekly summary"
+      },
+      "summaryDay": {
+        "label": "Day",
+        "options": {
+          "monday": "Monday",
+          "friday": "Friday"
+        }
+      }
+    }
+  },
+  "setup": {
+    "steps": {
+      "save_settings": {
+        "title": "Review your settings",
+        "body": "Save the general settings once so they are yours.",
+        "action": "Open settings"
+      },
+      "contact_support": {
+        "title": "Say hello to support",
+        "body": "Tell us what you need from the app: a first message tells us you are here.",
+        "action": "Write to us"
+      }
+    }
+  },
+  "mail": {
+    "welcome": {
+      "subject": "Welcome to {{app}}, {{shop}}",
+      "preheader": "{{app}} is installed on {{shop}}.",
+      "heading": "Welcome to {{app}}",
+      "body": "{{app}} is now installed on {{shop}}. Open the app from your Shopify admin to finish the setup: it takes a few minutes.",
+      "cta": "Open the app",
+      "help": "Reply to this email if you need a hand."
+    },
+    "layout": {
+      "unsubscribe": "Unsubscribe",
+      "sentBy": "Sent by {{app}}"
+    }
+  },
+  "unsubscribe": {
+    "title": "Unsubscribe",
+    "intro": "Stop receiving these emails?",
+    "confirm": "Unsubscribe",
+    "done": "You are unsubscribed. You will not receive these emails again.",
+    "invalid": "This unsubscribe link is not valid. If you still receive mail you do not want, reply to it and we will stop it."
+  }
+}

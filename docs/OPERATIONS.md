@@ -4,8 +4,9 @@ This guide is for the operator of an app made from this template, after its prod
 provisioned (`npm run new-app` lists them). It does not provide a deploy workflow for a particular CI provider: choose an
 organization-specific identity, approval, audit-log and rollback policy before automating any of these steps.
 
-What runs in production is the template's Worker (`workers/app.ts`) with the `@firesio/app` preset behind it: the webhook queue
-consumer, the cron, the support mail handler and the `AdminApi` the portal calls. What the preset does at each step is documented in
+What runs in production is the template's Worker (`workers/app.ts`) with the `@firesio/app` preset behind it: the webhook, jobs, notify and
+mail-events queue consumers, the cron (which only triggers), the Workflows class `FiresioFlows`, the Durable Object `ShopCoordinator`, the support mail handler,
+`/healthz` and the `AdminApi` the portal calls. What the preset does at each step is documented in
 `node_modules/@firesio/app/src/preset/README.md`.
 
 Commands use the repository-pinned Wrangler (`npx wrangler`, the `wrangler` devDependency of `package.json`). Commands marked
@@ -28,6 +29,7 @@ npx wrangler secret put SHOPIFY_API_SECRET --env production
 npx wrangler secret put ATTACHMENT_TOKEN_SECRET --env production
 npx wrangler secret put EVENT_HASH_SECRET --env production
 npx wrangler secret put PARTNER_API_TOKEN --env production
+npx wrangler secret put NOTIFY_SECRET --env production      # 32+ characters: openssl rand -base64 32
 npx wrangler secret list --env production
 
 # operator-run: validates the populated production release contract
@@ -44,6 +46,7 @@ Secrets (set with `wrangler secret put`, declared by NAME in `secrets.required` 
 | `SHOPIFY_API_SECRET` | The app's client secret: verifies webhooks and the session tokens of the embedded app. |
 | `ATTACHMENT_TOKEN_SECRET` | Signs the links of support attachments. |
 | `EVENT_HASH_SECRET` | The HMAC key every app and the portal hash events with (32+ characters). Its public half, `EVENT_HASH_KEY_ID`, is a var. |
+| `NOTIFY_SECRET` | Keys the address hashes of the notify kernel and signs every unsubscribe link (32+ characters; the preset refuses to build without it). **Never change it after the first mail**: a new value makes every unsubscribe link already sent invalid and every stored address hash unmatched. |
 | `PARTNER_API_TOKEN` | A Partner API token that reads this app's subscription (Managed Pricing). The preset treats it as optional (without it the subscription refresh reports `not_configured` and every shop stays on the free plan); **this template requires it**, because the plan a shop is on is the product. |
 
 Optional and NOT declared (a name in `secrets.required` is a deploy-time requirement): `TURNSTILE_SECRET_KEY` (the support form's
@@ -51,7 +54,7 @@ bot check; `TURNSTILE_SITE_KEY` is the public var), `SHOP_CUSTOM_DOMAIN` (only a
 `SHOPIFY_API_SECRET_PREVIOUS` (only during a rotation, below), `SETTINGS_SECRET_KEY` (seals the `secret()` fields of the `settings` library at rest, AES-256-GCM; base64 of 32 random bytes; without it a Worker whose settings groups hold a `secret()` field refuses to build its services, `SettingsSecretKeyMissing`, unless `SETTINGS_SECRETS_PLAINTEXT` is `"allow"` at the top level, development only; `SETTINGS_SECRET_KEY_ID` and `SETTINGS_SECRET_KEY_PREVIOUS` with its `_ID` serve a rotation). The template's sample settings group holds no secret, so it has no use for the key until an app adds one.
 
 Everything else is a var in `wrangler.jsonc`, committed on purpose: `SHOPIFY_API_KEY` (the public client id), `SCOPES`,
-`SHOPIFY_APP_URL`, `SHOPIFY_APP_HANDLE`, `EMAIL_FROM`, `EMAIL_FROM_NAME`, `STAFF_ALERT_EMAIL`, `SUPPORT_MAIL_DOMAIN`,
+`SHOPIFY_APP_URL`, `SHOPIFY_APP_HANDLE`, `EMAIL_FROM`, `EMAIL_FROM_NAME`, `SUPPORT_MAIL_DOMAIN`,
 `TURNSTILE_SITE_KEY`, `AI_GATEWAY_ID`, `EVENT_HASH_KEY_ID`, `PARTNER_ORG_ID`, `PARTNER_APP_ID`. Their names must be in
 `wrangler.jsonc` so `Env` can be generated on a clean checkout (`npm run cf-typegen`); the values of secrets live only in the
 secret store and, locally, in `.dev.vars`.
@@ -64,9 +67,15 @@ and deploys production**. The settings (Workers & Pages > the Worker > Settings 
 | Setting        | Value                                                                                          |
 | -------------- | ---------------------------------------------------------------------------------------------- |
 | Branch         | `main`                                                                                         |
-| Build command  | `npm run build`                                                                                |
+| Build command  | `npm run verify && npm run build`                                                              |
 | Deploy command | `npx wrangler deploy`                                                                          |
 | Build variable | `CLOUDFLARE_ENV=production` (selects `env.production`; without it the build bakes local config) |
+
+**Why the build command runs `npm run verify`.** A push to `main` is a release and used to deploy without running any test: `npm run build` alone only compiles. Builds run the build
+command before the deploy command, so a verify that fails fails the build and (to be confirmed, see below) nothing deploys. `verify` is `wrangler types --check`, the type check, lint and the whole
+suite (workerd and jsdom included; outbound network is blocked in the tests, so it needs nothing but the install). A build may take 20 minutes and a paid account has 6,000 build minutes
+a month: the suite runs in about a minute and a half. **Not yet verified:** that a failing build command stops the deploy command. Verify it ONCE, on a throwaway Worker connected to a
+throwaway branch, with a deliberately failing test, before relying on it; until then `npm run verify` before every push is still the rule (`CLAUDE.md`).
 
 `npm run build` runs `scripts/ci-release.mjs` after the Vite build. It acts only inside Workers Builds (`WORKERS_CI`): it first runs
 `npm run check:placeholders` (fatal: a placeholder, a route, queue or webhook that drifted stops the build before anything is applied), then applies
@@ -74,16 +83,21 @@ the D1 migrations to the production database `wrangler.jsonc` names under `env.p
 config with the repository's pinned Shopify CLI, only when the commits touched `shopify.app.toml` or `extensions/`. Two optional
 build variables: `D1_MIGRATIONS_API_TOKEN` (a token that may edit D1, used for the migration step when the build's own token may not)
 and `SHOPIFY_APP_AUTOMATION_TOKEN` (without it the Shopify deploy is skipped; the build never logs anything about its value).
-`@react-router/dev` is a devDependency: the build runs after `npm ci`/`npm clean-install`, which installs devDependencies (the Vite, Cloudflare and Wrangler tooling the build needs are devDependencies too), so it needs no special setting. The build does **not** run `npm run verify`: run it
-(or `npm run cf:deploy`) before pushing to `main`; CI (`.github/workflows/verify.yml`) runs it only on a pull request that touches code,
+`@react-router/dev` is a devDependency: the build runs after `npm ci`/`npm clean-install`, which installs devDependencies (the Vite, Cloudflare and Wrangler tooling the build needs are devDependencies too), so it needs no special setting. Run `npm run verify` yourself before pushing to `main` all the same (a red build costs minutes; a green push is a release); CI (`.github/workflows/verify.yml`) runs it only on a pull request that touches code,
 on a `template-v*` tag (a derived app picks its own pattern in `verify.yml`) or by hand. Runtime secrets are not build variables; they stay on the Worker. Installing the private `@firesio`
 packages in the build needs `NPM_TOKEN` as a build variable (a read-only `read:packages` token); that this works in Workers Builds is not
 yet verified, so check the first build.
 
-## Roll back safely
+## Incident: roll back first, then data
 
-A Worker rollback does not roll back a D1 schema or data change. First decide whether the incident is code-only or needs a data
-recovery plan.
+Two different recoveries, in this order. A Worker rollback does not roll back a D1 schema or data change, so first decide whether the incident is code-only or needs a data recovery
+plan, and start with the cheap, reversible one.
+
+1. **Stop the harm, then look.** Cloudflare alerts reach the portal (Issues, Monitors, the system health check: below). Read the log lines of the failing release by `event` and `version`
+   (every line carries the deploy's `CF_VERSION_METADATA` tag): `npx wrangler tail --env production --format json --status error`.
+2. **Roll the Worker back** to the last known-good version. This is the first move for a bad deploy: it takes seconds and changes no data.
+3. **Data only if data is wrong.** A bad release that wrote bad rows needs D1 Time Travel (next section) after the rollback, never before: restoring under a Worker that still writes bad rows
+   restores nothing.
 
 ```bash
 # operator-run: inspect available releases, then choose a known-good version ID
@@ -95,8 +109,16 @@ npx wrangler rollback <known-good-version-id> --env production \
 npx wrangler tail --env production --format json --status error
 ```
 
-If the failed release includes a migration, keep the old Worker compatible with the newer schema or ship a forward corrective
-migration. Do not apply an old migration file in reverse without an approved, tested recovery plan.
+What a rollback cannot do: it reaches the last 100 versions; it is refused when the target version binds a KV namespace, R2 bucket or queue that has since been deleted, and when the move would
+change a Durable Object class's lifecycle (`migrations`). It does not change a resource a binding points at, and it does not touch D1.
+
+**That is why migrations are expand-only** (`.claude/rules/data.md`, `tools/architecture/migration-guard.test.ts`): a release applies its migrations BEFORE the new code is live, so the previous
+version's code runs on the new schema, and after a rollback the old code runs on it for good. A removal (`DROP`, `RENAME`) is its own `*_contract.sql` file, released one version AFTER the code stopped
+reading the thing. If the failed release includes a migration, the rolled-back Worker is compatible with it by construction; if you broke that rule, ship a forward corrective migration. Do not apply
+an old migration file in reverse without an approved, tested recovery plan.
+
+**Slow queries and size.** `npx wrangler d1 insights app-db-prod` (experimental; 31 days kept) lists the queries that read or took the most; run it after a release that touched a page's
+queries and routinely once a month. A D1 database is capped at 10 GB: watch its size (`npx wrangler d1 info app-db-prod`) and put it in a Monitor.
 
 ## D1 backup and recovery
 
@@ -121,33 +143,33 @@ A restore also rolls back `webhook_deliveries` and `portal_outbox`: a delivery S
 (a retry from Shopify or a replay from the DLQ, below, brings it back), and an outbox row that was `sent` becomes `pending` again and is
 sent a second time (the portal drops the duplicate by event id).
 
-## Scheduled work (cron) and R2
+## Scheduled work (cron), jobs and R2
 
-Production has three crons (`triggers.crons`, re-declared under `env.production`; the preset's `worker/cron.ts` knows exactly these
-strings and `tools/architecture/wrangler-crons.test.ts` holds `wrangler.jsonc` to them):
+**A cron only triggers.** Production has three crons (`triggers.crons`, re-declared under `env.production`; `tools/architecture/wrangler-crons.test.ts` holds `wrangler.jsonc` to the strings the preset
+knows). Each tick drains the portal outbox into the `portal-events-prod` queue (up to 50 events a run) and puts the periodic JOBS of its trigger on the jobs queue, one message per job, keyed by the
+time slot (a cron that fires twice is one job). The work is the jobs':
 
-- `* * * * *`, every minute: **drains the portal outbox** into the `portal-events-prod` queue (up to 50 events a run). Nothing else
-  (an app with a `metered` feature also sends its usage reports to Shopify on every tick).
-- `0 * * * *`, hourly: the same drain, then the **uninstall probe**, the one-time **ticket backfill**, the **sweep of held usage** (a
-  quota reserved with `services.usage.reserve` and never settled is given back after `heldUsageMaxAge`, 30 minutes by default) and the
-  app's own `cron.hourly` steps.
-- `30 3 * * *`, daily: the same drain, then the **daily metrics snapshot** (yesterday's counts, sent as one `metrics.snapshot` event), the
-  **prune** (sent outbox rows older than a week, spent usage counters with their operations and settled holds, expired support uploads, and
-  the preset's logs by `retention`) and the **subscription refresh**. The sweep deletes the R2 objects before their D1 rows, so a failed
-  object deletion stays retryable on the next daily tick.
+- `* * * * *`, every minute: `usage_reports` (Shopify usage billing, when the plan declares a metered feature), `messaging` (texting, when declared) and the app's `cron.everyTick` steps.
+- `0 * * * *`, hourly: `uninstall_probe`, `metrics_backfill`, `held_usage_sweep` (a quota reserved with `services.usage.reserve` and never settled is given back after `heldUsageMaxAge`), `flows_reconcile`
+  (creates the flow instances that should be running and are not), `subscriptions_sync`, `token_refresh_sweep`, `mail_sweep` (re-queues a delivery whose queue message was lost) and `cron.hourly`.
+- `30 3 * * *`, daily: `metrics_snapshot` (yesterday's counts, one `metrics.snapshot` event), `prune` (sent outbox rows, usage counters, expired uploads, job claims and dead letters, the mail log and the
+  address of a finished delivery after `retention.mailAddressDays`, command runs, and the preset's logs by `retention`), `shop_sync_sweep`, `subscriptions_sweep_start`, `grants_expiry`, `devices_purge_stale`
+  and `cron.daily`.
 
-Development has one cron, `*/5 * * * *`, which runs all of it (the hourly and the daily work run on every tick).
+Development has one cron, `*/5 * * * *`, which triggers all of it.
 
-A step that did something logs one line, `cron.step` with `step` (`outbox_drain`, `uninstall_probe`, `tickets_backfill`,
-`held_usage_sweep`, `metrics_snapshot`, `prune`, `subscriptions_refresh`) and its counts; a step that threw always logs
-`cron.step_failed` with its name. A failed step does not stop the next one and is repaired by the next tick. A step of the preset's an
-app runs at its own pace is left out with `cron: { preset: { <step>: false } }` and called through `firesio.jobs()`; while the app's
-`frozen` option answers true, a tick drains the outbox and does nothing else (`cron.held_frozen`). Investigate `cron.step_failed` and the
-event-specific log lines before touching data by hand.
+A job that did something logs one line with its kind and counts; a job that threw is retried with its own backoff, and one that gave up is copied into D1 (`firesio_dead_letters`), told to
+the portal (`app.alert`, code `jobs.failed`, the kind only) and heard by `on.jobFailed`. A job that failed does not stop the others and is repaired by the next tick. A step of the preset's an app runs at its
+own pace is left out with `cron: { preset: { <step>: false } }` and enqueued by `firesio.jobs().enqueueStep(...)`; while the app's `frozen` option answers true, a tick drains the outbox and does nothing
+else and the queues are held (nothing is lost).
 
 ```bash
-# operator-run: stream structured step failures from the deployed Worker
-npx wrangler tail --env production --format json --search cron.step_failed
+# operator-run: stream structured failures from the deployed Worker
+npx wrangler tail --env production --format json --search job.dead_letter
+
+# operator-run: the jobs the system gave up on (the portal lists and resends the same rows)
+npx wrangler d1 execute app-db-prod --remote --command \
+  "SELECT id, queue, kind, shop, attempts, created_at FROM firesio_dead_letters ORDER BY created_at DESC LIMIT 50;"
 
 # operator-run: inspect expired pending-upload rows before remediation
 npx wrangler d1 execute app-db-prod --remote --command \
@@ -158,8 +180,24 @@ npx wrangler r2 object get app-support-uploads-prod/<object-key> --remote \
   --file /tmp/upload-verification.bin
 ```
 
-Do not run a broad R2 deletion to "clean up" failed uploads. Use the row and object key from the investigation, preserve incident
-evidence and let the scheduled sweep retry whenever possible.
+Do not run a broad R2 deletion to "clean up" failed uploads. Use the row and object key from the investigation, preserve incident evidence and let the scheduled sweep retry whenever possible.
+
+**R2 folders and their lifecycle rules.** The package writes under fixed prefixes (`R2_PREFIX` of `@firesio/app/core`): `tmp/` (1 day), `exports/` (8 days: a GDPR export; the flow deletes at 7),
+`documents/` (30 days), `backups/` (30 days), `images/` (never expired: derivatives live with their original). Create the rules ONCE per bucket (`-y` skips the prompt):
+
+```bash
+# operator-run, changes the bucket: the five rules
+npx wrangler r2 bucket lifecycle add app-support-uploads-prod expire-tmp tmp/ --expire-days 1 -y
+npx wrangler r2 bucket lifecycle add app-support-uploads-prod expire-exports exports/ --expire-days 8 -y
+npx wrangler r2 bucket lifecycle add app-support-uploads-prod expire-documents documents/ --expire-days 30 -y
+npx wrangler r2 bucket lifecycle add app-support-uploads-prod expire-backups backups/ --expire-days 30 -y
+npx wrangler r2 bucket lifecycle add app-support-uploads-prod abort-multipart "" --abort-multipart-days 1 -y
+
+# operator-run: what R2 stored
+npx wrangler r2 bucket lifecycle list app-support-uploads-prod
+```
+
+Objects go within about 24 hours of expiry. **Never put a bucket lock on a folder that holds personal data**: a lock beats a lifecycle rule and blocks the deletes of `shop/redact`.
 
 ## Events that did not reach the portal (`portal_outbox`)
 
@@ -212,69 +250,91 @@ npx wrangler secret delete SHOPIFY_API_SECRET_PREVIOUS --env production
 npx wrangler secret list --env production
 ```
 
-## Webhook DLQ investigation and replay
+## Dead letters: webhooks, jobs, mail
 
-The deployment declares `my-app-webhooks-prod` with `my-app-webhooks-dlq-prod` as its dead-letter queue, after 8 retries
-(`max_retries` in `wrangler.jsonc`). The path of a delivery is in [Receiving Shopify webhooks](webhooks.md); what matters for the DLQ:
+Every queue of the app has a dead-letter queue (`<slug>-<role>-dlq-prod`) that this Worker consumes, and `max_retries` says when a message goes there (8 for webhooks, notify and mail events; the
+jobs queue's is 100 on purpose: the job system counts its own attempts). Create each queue with a 14 day retention
+(`npx wrangler queues create <name> --message-retention-period-secs 1209600`; the default for a queue nobody consumes is 4 days).
 
-- A message is the one the receiver queued: the shop, the Shopify webhook id and an `intake` (topic, event id, API version, trigger time, payload
-  hash). The body travels only for the app's own topics (the `webhooks` option) and, for the customer topics, only when `customerData.stores`
-  is true; the GDPR topics of a template that stores no customer data carry no payload. Treat what it holds as potentially sensitive.
-- The consumer retries a delivery whose handler threw, or whose inbox could not be written, after a delay that doubles with each attempt (30 seconds, then 60, ... at most an hour) until the queue gives up. A handler
-  that failed leaves its `webhook_deliveries` row `failed`, with `attempts`, `failure_code` (`handler_failed`) and `failure_detail`. A message that
-  never got past the inbox (D1 unavailable for all the attempts) has **no row**: only the `webhook.retry` log lines and the DLQ itself record it. An
-  unknown topic or a payload that does not fit is not retried: it is settled as a `failed` row and acknowledged, so it never reaches the DLQ.
-- This Worker consumes the DLQ too (`wrangler.jsonc` declares `my-app-webhooks-dlq-prod` as a consumer, and the preset's `webhookDeadLetterQueues` names it): each
-  message that lands there is **acknowledged** after its inbox row is marked `dead_letter` (with the topic and a hash of the shop in a `webhook.dead_letter`
-  log line, never the domain), so a dead delivery is recorded instead of sitting unread. The app itself sends staff no alert about it: watch the
-  `webhook.dead_letter` log lines, the `dead_letter` rows and the `failed` ones. A message that never got past the inbox has no row to mark: the log line is
-  its record.
+- **Jobs, and the app's own queues.** The preset COPIES each dead letter into D1 (`firesio_dead_letters`, the body clipped to 64 KB, 30 days), tells the portal (`app.alert`, code `jobs.failed` or
+  `queues.dead_letter`, the kind or queue only), logs it (`job.dead_letter`: queue, kind, attempts; never the body) and acknowledges it. The portal lists them on its System page and can
+  RESEND one (the same dedupe key, the claim reset first; nothing is removed when the queue refuses). By hand: the SELECT above, and `firesio.deadLetters().resend(id)` from a script that runs in the Worker.
+- **Webhooks.** The path of a delivery is in [Receiving Shopify webhooks](webhooks.md). The consumer retries a delivery whose handler threw (30 seconds doubling, at most an hour) until
+  the queue gives up; the DLQ consumer marks the inbox row `dead_letter` (a `webhook.dead_letter` log line with the topic and a hash of the shop), tells the portal (`app.alert`, code
+  `webhooks.dead_letter`, one per delivery) and acknowledges, so the message itself is gone: what stays is the row and the line. A message that never got past the inbox (D1 unavailable for all the attempts) has no row.
+- **Mail.** A delivery that could not be sent is `failed` in `notify_deliveries` with its trace; the hourly `mail_sweep` re-queues a delivery whose queue message was lost. A message in
+  `<slug>-notify-dlq` or `<slug>-mail-events-dlq` is acknowledged the same way.
 
 ```bash
 # operator-run: DLQ backlog and consumer configuration
 npx wrangler queues info my-app-webhooks-dlq-prod
 npx wrangler queues consumer list my-app-webhooks-dlq-prod
 
-# operator-run: the failed and dead-lettered deliveries the inbox knows
+# operator-run: the failed and dead-lettered webhook deliveries the inbox knows
 npx wrangler d1 execute app-db-prod --remote --command \
   "SELECT id, topic, shop, status, attempts, failure_code, failure_detail FROM webhook_deliveries WHERE status IN ('failed', 'dead_letter') ORDER BY received_at DESC LIMIT 50;"
 ```
 
-Wrangler reports queue metadata and attaches or removes a consumer, but it has no command to read or replay individual messages. Replay works
-through the inbox, and it is idempotent by design: a message put back on `my-app-webhooks-prod` is claimed by its webhook id, a delivery already
-`processed` is acknowledged without running again (`already_processed`), a `failed` or `dead_letter` one is taken over and run again, and a delivery for a redacted
-shop is dropped (`suppressed`). So a replay is "forward each message, unchanged, to the main queue" once the cause is fixed and deployed.
+**Replaying a webhook.** Replay works through the inbox and is idempotent: a delivery already `processed` is acknowledged without running again, a `failed` or `dead_letter` one is taken over and run
+again, and a delivery for a redacted shop is dropped. Fix the cause, deploy, then ask Shopify to resend (it does not replay one for you once its own retries, up to 8 over 4 hours, are spent;
+compliance deliveries (`shop/redact` and the customer topics) have a 30-day window) or redrive from Cloudflare. The template does not keep the message bodies of the webhook DLQ: for the app's own topics
+the inbox keeps a hash, not the payload, so a topic whose handler cannot refetch needs its own `deadLetterQueues` handler that keeps the body where a person can replay it
+(`firesio.deadLetters()`). Never purge a DLQ as an incident response step: that discards the evidence and the work to recover. Record the delivery ids, the operator, the start and end time and the outcome.
 
-**This template records dead letters and does not keep them.** Its Worker consumes the DLQ and acknowledges each message once the row is marked, so the
-queue holds nothing to forward: what survives is the `dead_letter` row (topic, shop, webhook id, attempts) and the `webhook.dead_letter` line. For a delivery
-whose body travelled in the message (an app's own topics) that is the only trace; the inbox keeps a hash, not the payload. An app that must keep the messages for a replay changes that on purpose, in one commit: no DLQ consumer in `wrangler.jsonc` (both environments),
-`webhookDeadLetterQueues: []` in `app/firesio.server.ts`, and `queueNameIssues` (`scripts/launch-config-checks.mjs`) with `scripts/wrangler-bindings.test.mjs`.
-The queue then keeps the messages (Cloudflare's retention) and nothing records them; the procedure is:
+## Mail
 
-1. Deploy the fix and check that the deployed handler accepts the stored message shape (a handler with an external effect needs its own idempotency:
-   the inbox guarantees one claim per delivery, not one effect per attempt).
-2. With the owner's approval, attach a small reviewed Worker as a temporary consumer of the DLQ. It has a producer binding to `my-app-webhooks-prod`
-   and its `queue` handler sends each `message.body` to it unchanged (batch size 1, concurrency 1), acknowledging only after the send. Remove the
-   consumer when the DLQ is empty. (The production Worker must not be that consumer: its `queue` handler consumes only the queues of `webhookQueues`
-   and `webhookDeadLetterQueues`, and a batch from any other queue is retried whole and never acknowledged, `queue.unknown`.)
+**Zero config:** the `EMAIL` binding sends with Cloudflare Email Sending from `EMAIL_FROM` (display name `EMAIL_FROM_NAME`); no provider account. Once per sending domain (operator-run, the domain's zone must be on this account):
 
 ```bash
-# operator-run, changes delivery: attach the approved replay Worker temporarily
-npx wrangler queues consumer add my-app-webhooks-dlq-prod <replay-worker-name> \
-  --batch-size 1 --max-concurrency 1
-
-# operator-run, changes delivery: remove that temporary consumer after the replay window
-npx wrangler queues consumer remove my-app-webhooks-dlq-prod <replay-worker-name>
+npx wrangler email sending enable <yourdomain.com>
+# the delivery events (delivered, bounced, complained, ...) arrive on a queue this Worker consumes: subscribe the mail-events queue to the domain's events
+npx wrangler queues subscription create my-app-mail-events-prod --source email.sending --domain <yourdomain.com> --zone-id <zone-id> \
+  --events message.delivered,message.deferred,message.bounced,message.failed,message.rejected,message.complained
 ```
 
-Record the delivery ids, operator, start and end time and outcome (`webhook.settled` log lines, and the rows now `processed`). Never purge the DLQ
-as an incident response step: that discards the evidence and the work to recover. Shopify does not replay a delivery for you once its own retries
-(up to 8 over 4 hours) are spent; compliance deliveries (`shop/redact` and the customer topics) have a 30-day window.
+The event names are the ones the package's parser reads (`cf.email.sending.message.*`); confirm the exact `--events` spelling against Cloudflare's Email Sending event-subscription page before the first
+run (it is not verified here). Keep **"Drop suppressed recipients" OFF** (the default) in the sending settings: the package must see a suppressed recipient to record it. A mail the app sends
+is one row of `notify_deliveries` (status, reason, the decision trace of each guard); the address is erased 30 days after the delivery finishes and the row after 90 (`retention.mailAddressDays`,
+`mailLogDays`).
+
+```bash
+# operator-run: what was sent, skipped and why, today
+npx wrangler d1 execute app-db-prod --remote --command \
+  "SELECT message_id, channel, status, reason, COUNT(*) AS n FROM notify_deliveries WHERE created_at > (CAST(strftime('%s','now') AS INTEGER) - 86400) * 1000 GROUP BY 1,2,3,4 ORDER BY n DESC LIMIT 30;"
+```
+
+`skipped:no_sender` means `EMAIL_FROM` is empty; `skipped:suppressed` a bounce or a complaint remembered; `skipped:reserved_address` a `.test` or `example.*` address.
+**Spend**: Email Sending is billed by volume: turn on the email spend alerts (next section).
+
+## Observability, cost and what pages you
+
+- **Logs and traces.** Both environments keep every log line (`head_sampling_rate: 1`: the portal reads them per shop and event) and sample traces at 5%. They share one monthly allowance on Workers Paid
+  (logs and traces together with AI Gateway logs; **from 2026-12-01 it is counted by volume: 50 GB ingested and 10 GB-month stored included, then $0.25 per GB and $0.10 per GB-month**): read the current
+  volume in the dashboard before then and lower `traces.head_sampling_rate` first if it grows.
+- **Usage and AI cost** per shop are the `USAGE` Analytics Engine dataset (`services.usage.track`); the portal reads it by SQL.
+- **Version.** Every log line, alert and Analytics point carries `version` (`CF_VERSION_METADATA`): an error is tied to the release that caused it.
+- **Health, checked by the portal.** `/healthz` answers 200 while D1 and KV answer (503 otherwise) with the deploy's version and the latency of each, and never calls Shopify. The portal asks the same
+  facts through the service binding (`AdminApi.system().health`, because that binding has no `fetch`), every five minutes, and tells staff after two failures in a row. Cloudflare Health Checks are
+  not used (they need a Pro zone; this account is Workers Paid with a Free zone). An uptime monitor may call `/healthz` from outside as well.
+- **Workers Issues and Monitors → the portal.** Cloudflare tells the PORTAL, not this app, when the Worker throws, answers 5xx or a threshold is crossed: create the webhook destinations and
+  automations once per account as the portal's README says (`apps/portal/README.md`, section "Observability": Access bypass for `/webhooks/cloudflare/issues` and `/webhooks/cloudflare/monitors`,
+  the two destinations signed with `cf-webhook-auth`, one Issues automation, the Monitors). **Name each automation and monitor after this Worker's script name** (the portal files an alert under the
+  app whose script name it finds in the notification) and set `scriptName` for this app in the portal's `declared-apps.ts`. Suggested monitors: 5xx rate, error log lines per app, D1 size, mail deliveries that failed.
+  Workflows `instance.errored` and Workers Builds `build.failed` reach the portal through Queues event subscriptions (the portal's side).
+- **Spend alerts and Incident Alerts: alerts only, no hard limit.** Turn on the email **spend alerts** (Billing, Notifications, usage-based billing) and the **Incident Alerts** (Cloudflare's own
+  incidents) once for the account. Do NOT set a hard spend limit: it applies to the whole account and would stop HTTP, cron, queues and email of production together.
+- **Zone (Free plan).** The Free Managed Ruleset and the account's five custom rules are enough for the public form; skip them for the webhook paths and the app proxy (their bodies carry an HMAC). Not verified here.
+
+## Previews
+
+`npx wrangler preview` (wrangler 4.135 or later) deploys a branch of the Worker with the `previews` block of `wrangler.jsonc`: the shared STAGING D1, KV and R2 (fill the placeholder ids once; create the
+staging database with the same migrations: `npx wrangler d1 migrations apply app-db-staging --remote`). A preview receives **no queue message, runs no cron and reaches no portal**, so webhooks, jobs, mail deliveries
+and the portal's commands cannot be tried in one: those are tried in the tests (`workers/*.e2e.test.ts`) or on the staging Worker.
 
 ## Routine checks
 
-Run the release checks before every deployment and retain their output with the release record. Alert on Worker errors, `cron.step_failed`,
-a growing or dead `portal_outbox`, DLQ depth and D1 export failures. Thresholds, paging routes and dashboard ownership are decisions of the
+Run the release checks before every deployment and retain their output with the release record. Alert on Worker errors, `job.dead_letter`,
+a growing or dead `portal_outbox`, dead letters in `firesio_dead_letters`, DLQ depth, failed mail deliveries and D1 export failures (the portal hears of most of them: above). Thresholds, paging routes and dashboard ownership are decisions of the
 adopting team.
 
 ```bash

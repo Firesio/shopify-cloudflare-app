@@ -35,14 +35,18 @@ function replace(file, from, to) {
 
 /**
  * Every place the template names itself, as data: the file and what to put there. The resource names are the template's
- * defaults (`app-db`, `my-app-webhooks`, ...): they become `<slug>-db`, `<slug>-webhooks`, ... (queue, bucket and database
+ * defaults (`app-db`, `my-app-webhooks`, `my-app-jobs`, ...): they become `<slug>-db`, `<slug>-webhooks`, ... (queue, bucket and database
  * names are per account, so two apps must not share one). `portal-events` is shared with the portal and is NEVER renamed.
  */
 export function renames(slug, name) {
   const resources = [
     [/\bapp-support-uploads\b/g, `${slug}-support-uploads`],
     [/\bmy-app-webhooks\b/g, `${slug}-webhooks`],
-    [/\bmy-app-campaigns\b/g, `${slug}-campaigns`],
+    [/\bmy-app-jobs\b/g, `${slug}-jobs`],
+    [/\bmy-app-notify\b/g, `${slug}-notify`],
+    [/\bmy-app-mail-events\b/g, `${slug}-mail-events`],
+    [/\bmy-app-flows\b/g, `${slug}-flows`],
+    [/\bmy-app-usage\b/g, `${slug}-usage`],
     [/\bapp-db\b/g, `${slug}-db`],
   ];
   const withResources = (file) => resources.map(([from, to]) => replace(file, from, to));
@@ -99,18 +103,21 @@ export function resourcesFor(slug) {
     `  npx wrangler d1 create ${slug}-db-prod`,
     `  npx wrangler kv namespace create SESSION --env production      (the id goes in env.production.kv_namespaces[SESSION])`,
     `  npx wrangler r2 bucket create ${slug}-support-uploads-prod`,
-    `  npx wrangler queues create ${slug}-webhooks-prod`,
-    `  npx wrangler queues create ${slug}-webhooks-dlq-prod`,
+    ...["webhooks", "jobs", "notify", "mail-events"].flatMap((role) => [
+      `  npx wrangler queues create ${slug}-${role}-prod --message-retention-period-secs 1209600`,
+      `  npx wrangler queues create ${slug}-${role}-dlq-prod --message-retention-period-secs 1209600`,
+    ]),
+    "  (the Workflow ${slug}-flows-prod, the Durable Object ShopCoordinator and the Analytics Engine dataset are created by the deploy itself)".replace("${slug}", slug),
     "",
     "Shared with the portal (already exist; never create or rename them):",
     "  queue portal-events-prod (this app is a producer; its dead-letter queue is the portal's consumer side)",
     "  KV namespace for the portal's blocklist (bind its id as PORTAL_BLOCKLIST under env.production)",
     "",
     "Secrets (wrangler secret put <NAME> --env production):",
-    "  SHOPIFY_API_SECRET, ATTACHMENT_TOKEN_SECRET, EVENT_HASH_SECRET (the portal's shared key), PARTNER_API_TOKEN, TURNSTILE_SECRET_KEY (optional)",
+    "  SHOPIFY_API_SECRET, ATTACHMENT_TOKEN_SECRET, EVENT_HASH_SECRET (the portal's shared key), PARTNER_API_TOKEN, NOTIFY_SECRET (32+ characters: openssl rand -base64 32), TURNSTILE_SECRET_KEY (optional)",
     "",
     "Then:",
-    "  1. Email Routing: route support@<your domain> to this Worker; onboard the domain to Email Sending (EMAIL_FROM).",
+    "  1. Email Routing: route support@<your domain> to this Worker; onboard the domain to Email Sending (EMAIL_FROM), then subscribe the mail-events queue to its events (docs/OPERATIONS.md, \"Mail\").",
     "  2. Ratelimit namespace_id values in wrangler.jsonc are unique per ACCOUNT: change 1001, 1004, 1005 if another app uses them.",
     "  3. npm run config:link:dev, then npm run config:link:prod (both fill client_id), then npm run check:placeholders until it passes.",
     "",

@@ -2,7 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { deliver, installShop, type Settlement } from "@firesio/app/preset/testing";
 import { signedWebhookRequest } from "@firesio/app/shopify/testing";
 import { callCommand, openTicketResultSchema } from "@firesio/portal-contract";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { identity } from "~/core/identity";
 import { firesio } from "~/firesio.server";
 import { setupTestDatabase } from "~/test/database";
@@ -39,6 +39,14 @@ async function outboxTypes(shop: string): Promise<string[]> {
   return rows.results.flatMap((row) => (typeof row["type"] === "string" ? [row["type"]] : []));
 }
 
+/**
+ * The uninstall is a FLOW since 2.0 (`uninstall`: record, devices, texting, sessions, the funnel and the Partner read, then the `uninstalled` event): the queue consumer starts it
+ * and returns, so the shop's events appear when the instance has run. Wait for the last one rather than for a time.
+ */
+async function untilUninstalled(shop: string): Promise<void> {
+  await vi.waitFor(async () => expect(await outboxTypes(shop)).toContain("subscription.changed"), { timeout: 30_000, interval: 100 });
+}
+
 /** Shopify delivers the same webhook again (same webhook id): over HTTP, through the queue, to the consumer. */
 async function redeliver(sent: { bodies: () => unknown[] }, request: () => Promise<Response>): Promise<Settlement> {
   const before = sent.bodies().length;
@@ -49,7 +57,9 @@ async function redeliver(sent: { bodies: () => unknown[] }, request: () => Promi
 
 describe("app/uninstalled, from the HTTP request to the D1 effect, through the real Worker", () => {
   const shop = "e2e-uninstall.myshopify.com";
-  const uninstall = () => post({ path: "/webhooks/app/uninstalled", topic: "app/uninstalled", shop, webhookId: "wh-uninstall-1", payload: { id: 1, domain: shop } });
+  // The flow's instance id is the webhook's id, and the Workflows binding keeps its instances between tests (D1 is emptied, they are not): one webhook id per test.
+  const uninstallWith = (webhookId: string) => () => post({ path: "/webhooks/app/uninstalled", topic: "app/uninstalled", shop, webhookId, payload: { id: 1, domain: shop } });
+  const uninstall = uninstallWith("wh-uninstall-1");
 
   it("is a 200 with one queued message and nothing in D1; the consumer marks the shop uninstalled and queues shop.uninstalled for the portal", async () => {
     await installShop(firesio, env, shop, 1_700_000_000_000);
@@ -61,24 +71,28 @@ describe("app/uninstalled, from the HTTP request to the D1 effect, through the r
     expect((await env.DB.prepare(`SELECT relationship_status FROM shops WHERE shop = ?1`).bind(shop).first())?.["relationship_status"]).not.toBe("UNINSTALLED");
 
     expect(await deliver(exports.default, QUEUE, sent.bodies())).toMatchObject({ acked: ["msg-0"], retried: [], retriedAll: 0 });
+    await untilUninstalled(shop);
     const shopRow = await env.DB.prepare(`SELECT relationship_status, uninstalled_at FROM shops WHERE shop = ?1`).bind(shop).first();
     expect(shopRow?.["relationship_status"]).toBe("UNINSTALLED");
     expect(typeof shopRow?.["uninstalled_at"]).toBe("number");
-    expect(await outboxTypes(shop)).toEqual(["shop.installed", "shop.uninstalled"]);
+    // The shop's own events, and the plan change the uninstall made (the shop was served a plan; now it is served none).
+    expect([...(await outboxTypes(shop))].sort()).toEqual(["shop.installed", "shop.uninstalled", "subscription.changed"]);
     const outbox = await env.DB.prepare(`SELECT status, account_kind, event_id FROM portal_outbox WHERE type = 'shop.uninstalled' AND account_id = ?1`).bind(shop).first();
     expect(outbox).toMatchObject({ status: "pending", account_kind: "shopify_shop", event_id: "uninstall_wh-uninstall-1" });
     expect(await count(`SELECT COUNT(*) AS n FROM webhook_deliveries WHERE shop = ?1 AND status = 'processed'`, shop)).toBe(1);
   });
 
   it("changes nothing when Shopify delivers it a second time", async () => {
+    const uninstall = uninstallWith("wh-uninstall-2");
     await installShop(firesio, env, shop, 1_700_000_000_000);
     const sent = record(env.WEBHOOK_QUEUE);
     expect((await uninstall()).status).toBe(200);
     await deliver(exports.default, QUEUE, sent.bodies());
+    await untilUninstalled(shop);
     const before = await env.DB.prepare(`SELECT uninstalled_at FROM shops WHERE shop = ?1`).bind(shop).first();
 
     expect(await redeliver(sent, uninstall)).toMatchObject({ acked: ["msg-0"], retried: [] });
-    expect(await outboxTypes(shop)).toEqual(["shop.installed", "shop.uninstalled"]);
+    expect([...(await outboxTypes(shop))].sort()).toEqual(["shop.installed", "shop.uninstalled", "subscription.changed"]);
     expect(await count(`SELECT COUNT(*) AS n FROM webhook_deliveries WHERE shop = ?1`, shop)).toBe(1);
     expect((await env.DB.prepare(`SELECT uninstalled_at FROM shops WHERE shop = ?1`).bind(shop).first())?.["uninstalled_at"]).toBe(before?.["uninstalled_at"]);
   });
@@ -105,9 +119,9 @@ describe("the Worker's queue handler", () => {
   });
 });
 
-const ERASED = ["shops", "support_tickets", "support_messages", "shop_plan_grants"] as const;
+const ERASED = ["shops", "conversations", "conversation_messages", "shop_plan_grants"] as const;
 
-/** A shop with rows in several tables: its install, a ticket with its message and a plan gift. */
+/** A shop with rows in several tables: its install, a ticket (a conversation and its message) and a plan gift. */
 async function seedShop(shop: string): Promise<void> {
   await installShop(firesio, env, shop, 1_700_000_000_000);
   const ticket = await callCommand(() => env.PORTAL_ADMIN_API.support().open({ account: account(shop), requestId: `req-${shop}`, subject: "Hello", body: "A message", category: "question", actor: "staff_1" }), openTicketResultSchema);

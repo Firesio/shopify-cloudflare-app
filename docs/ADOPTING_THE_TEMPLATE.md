@@ -53,7 +53,7 @@ and evidence; a checked box is not a substitute for a tested implementation.
   `SCOPES` var of the top level and of `env.production` in `wrangler.jsonc`;
   `check:placeholders` refuses a pair that differs. Request protected
   customer-data access before adding topics that need it.
-- The Admin API / webhook version is one decision too: `app/core/api-version.ts` and
+- The Admin API / webhook version is one decision too: the package's `ADMIN_API_VERSION` (`@firesio/app/shell`) and
   `api_version` in both TOML files (the check reads the first and compares).
 - Keep the Shopify API secret out of source control: it is the `SHOPIFY_API_SECRET` Cloudflare secret.
 - Configure Partner access, which this template **requires** (the preset treats it as optional):
@@ -98,9 +98,9 @@ and evidence; a checked box is not a substitute for a tested implementation.
   abuse, cost and emergency-disable policy (and an AI Gateway spend limit on the `app` metadata as a safety net), and test
   the normal, over-limit, provider-failure and refused states.
 - Decide who may use the app, in `app/core/members.ts` (`defineMembers`): how a Shopify user who is not yet a member is
-  handled (`onUnknownUser`: `auto_join`, `invite_only`, `approval`), the role strangers get, whether to
-  ask Shopify for the person's email and name (`onlineTokens`; `invite_only` needs it), and the
-  permissions each role holds. Guard every embedded route with `firesio.requirePermission`. Members are
+  handled (`join`: `auto`, `invite` (the default), `approval`), the role strangers get (`joinRole`: never one that holds `members:manage` or
+  `billing:manage`), and the permissions each role holds (the person's email and name come from one token exchange: there is no
+  online token to choose). Guard every embedded route with `firesio.requirePermission`. Members are
   staff of the merchant, so they carry a name and an email: confirm the privacy copy covers them.
   The team page is the library's, mounted at `/app/members`. Decide whether merchants may give a person
   permissions of their own (`customPermissions`), and what happens to a team over its seat limit after a downgrade
@@ -136,10 +136,11 @@ and evidence; a checked box is not a substitute for a tested implementation.
 - Support mail: onboard the sending domain to Email Sending and set `EMAIL_FROM` and `EMAIL_FROM_NAME`
   (vars, in both environments) only after authorizing it; route `support@<your domain>` through Email Routing to
   this Worker (without `EMAIL_FROM` nothing is sent).
-- Create the campaigns queues BEFORE the first deploy (the template serves the portal's campaigns, `campaignDelivery` in `app/firesio.server.ts`; `npm run new-app` renamed them to
-  the slug): `wrangler queues create <slug>-campaigns`, `<slug>-campaigns-dlq`, `<slug>-campaigns-prod` and `<slug>-campaigns-prod-dlq`. Mail needs `EMAIL_FROM` on a verified Email Sending domain
-  and `ATTACHMENT_TOKEN_SECRET` (it signs the unsubscribe link); without them a campaign's test and start answer "unavailable" (nothing is faked). An app that does not want campaigns removes
-  `campaignDelivery`, the two queue producers/consumers in `wrangler.jsonc` and `app/routes/campaigns/`, and the launch check stops asking for the queues.
+- Keep the admin bundle under its budget (`scripts/bundle-budget.mjs`); never raise it to pass a build, find the cause (`docs/UPGRADING.md`).
+- Create the queues BEFORE the first deploy (`npm run new-app` lists them: `<slug>-webhooks`, `-jobs`, `-notify`, `-mail-events`, each with its `-dlq`, in both environments; a 14 day
+  retention each) and set `NOTIFY_SECRET` (32+ characters). **Campaigns are OFF** in the template: they are mail on consent, which Cloudflare Email cannot carry. To turn them on, declare a sender that
+  accepts consent (`resend()` of `@firesio/app/notify/providers`) and a list in `app/notifications/index.ts`, `campaignDelivery: { sender: "..." }` in `app/firesio.server.ts`, and `campaigns: true`
+  in the portal's `declared-apps.ts`; the tables are already in the migrations.
 - The staff phone app (`app/core/features.ts`, off) and the Shopify POS bar are in `docs/POS-AND-PHONE.md`; the phone app's tables and rate limit are already declared, so turning it on needs no migration or wrangler edit.
 - Confirm the production crons (`30 3 * * *` daily, `* * * * *` outbox drain), the webhook
   queue/DLQ names and the rate-limit bindings are present (`check:placeholders` and
@@ -148,8 +149,8 @@ and evidence; a checked box is not a substitute for a tested implementation.
   1. `apps/portal/app/core/apps/declared-apps.ts`: an entry with the app's `slug` (the `appSlug` its events carry,
      `app/core/identity.ts`), `name`, `kind`, the `binding` key (a service binding of the portal's `Env`; `wrangler types`
      gives it to the type and `apps/portal/app/shell/apps/app-bindings.ts` says how to reach it), optionally default `modules`,
-     `links` and `staffPages`, and `campaigns: true` (the template implements the `campaigns()` group, so declare it; without it the
-     portal does not ask the app about campaigns).
+     `links` and `staffPages`, `staffTools: true` (the template declares one resource and one action: `app/wiring/staff-tools.ts`) and `scriptName` (the Worker's
+     name: the portal files Cloudflare's Issues, Monitors and Builds alerts under it). `campaigns: true` only when the app turns campaigns on.
   2. Commands: in the same PR, declare the service binding in `apps/portal/wrangler.jsonc`, at the top level AND under
      `env.production` (bindings are not inherited), with `entrypoint: "AdminApi"` and `service` the app's production Worker name,
      `<slug>-production`:

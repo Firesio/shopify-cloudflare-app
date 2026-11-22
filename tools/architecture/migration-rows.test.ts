@@ -54,7 +54,7 @@ describe("0003: content_overrides gains `hidden`", () => {
     const { db, finish } = migratedBefore("0003");
     db.prepare(`INSERT INTO content_overrides (account_id, key, locale, parts, default_fingerprint, updated_at) VALUES (?, ?, ?, ?, ?, ?)`).run("one.myshopify.com", "mail.support_reply", "en", `{"intro":"Hello"}`, "abc", 5);
     finish();
-    expect({ ...db.prepare(`SELECT * FROM content_overrides`).get() }).toEqual({ account_id: "one.myshopify.com", key: "mail.support_reply", locale: "en", parts: `{"intro":"Hello"}`, hidden: "[]", default_fingerprint: "abc", updated_at: 5 });
+    expect({ ...db.prepare(`SELECT * FROM content_overrides`).get() }).toEqual({ account_id: "one.myshopify.com", key: "mail.support_reply", locale: "en", parts: `{"intro":"Hello"}`, hidden: "[]", source_text: null, default_fingerprint: "abc", updated_at: 5 });
   });
 });
 
@@ -70,5 +70,36 @@ describe("0003: plan_usage_holds is the table the library publishes (`holdsTable
     expect(() => insert.run("h3", "op3", 0, 0, "held")).toThrow(/CHECK/i);
     expect(() => insert.run("h4", "op4", 5, 6, "committed")).toThrow(/CHECK/i);
     expect(() => insert.run("h5", "op1", 5, 0, "held")).toThrow(/UNIQUE/i);
+  });
+});
+
+describe("0006: the @firesio/app 2.0 expand keeps every row the release before it wrote, and every table it still reads", () => {
+  const rows = (db: DatabaseSync, sql: string) => db.prepare(sql).all().map((row) => ({ ...row }));
+
+  it("adds the new columns with defaults and keeps the shop, its subscription and a merchant's edit", () => {
+    const { db, finish } = migratedBefore("0006");
+    db.prepare(`INSERT INTO shops (shop, name, installed_at) VALUES ('one.myshopify.com', 'One', 1700000000000)`).run();
+    db.prepare(`INSERT INTO shop_subscriptions (shop, status, plan_handle, applied_occurred_at, applied_external_id, updated_at) VALUES ('one.myshopify.com', 'ACTIVE', 'pro', 1, 'sub-1', 2)`).run();
+    db.prepare(`INSERT INTO content_overrides (account_id, key, locale, parts, default_fingerprint, updated_at) VALUES ('one.myshopify.com', 'mail.support_reply', 'en', '{"intro":"Hello"}', 'abc', 5)`).run();
+    finish();
+    expect(rows(db, `SELECT shop, name, installed_at, currency_code, taxes_included, address, primary_locale FROM shops`)).toEqual([
+      { shop: "one.myshopify.com", name: "One", installed_at: 1700000000000, currency_code: null, taxes_included: null, address: null, primary_locale: null },
+    ]);
+    expect(rows(db, `SELECT shop, plan_handle, revision, verified_at, cancel_effective_on FROM shop_subscriptions`)).toEqual([{ shop: "one.myshopify.com", plan_handle: "pro", revision: 0, verified_at: null, cancel_effective_on: null }]);
+    expect(rows(db, `SELECT key, parts, source_text FROM content_overrides`)).toEqual([{ key: "mail.support_reply", parts: `{"intro":"Hello"}`, source_text: null }]);
+  });
+
+  it("creates the tables of 2.0 and leaves the old ones in place for the release that still reads them", () => {
+    const { db, finish } = migratedBefore("0006");
+    db.prepare(`INSERT INTO support_tickets (id, shop, shop_name, category, subject, last_author, last_message_at, created_at) VALUES ('t1', 'one.myshopify.com', 'One', 'question', 'Hi', 'merchant', 1, 1)`).run();
+    finish();
+    const tables = tablesOf(db);
+    for (const created of ["notify_deliveries", "notify_suppressions", "notify_consents", "notify_scheduled", "firesio_job_claims", "firesio_dead_letters", "firesio_settings_audit", "firesio_setup", "portal_command_runs", "shop_probes", "conversations", "support_cases"]) {
+      expect(tables, created).toContain(created);
+    }
+    for (const kept of ["support_tickets", "support_messages", "support_attachments", "notification_logs", "notification_preferences", "campaign_unsubscribes", "ai_models", "ai_runs", "ai_usage"]) {
+      expect(tables, kept).toContain(kept);
+    }
+    expect(rows(db, `SELECT id FROM support_tickets`)).toEqual([{ id: "t1" }]);
   });
 });
