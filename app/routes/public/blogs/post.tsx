@@ -1,4 +1,3 @@
-import { localeIn } from "@firesio/app";
 import { CmsArticle, cmsMeta } from "@firesio/app/ui/cms";
 import type { HeadersFunction, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { Link, useLoaderData } from "react-router";
@@ -9,7 +8,7 @@ import { blogLabelsOf } from "~/i18n/labels";
 /** `/blogs/:slug`: one post. A moved address answers 301, an unknown one 404, one taken down 410 (`firesio.cms.page` throws them). */
 export const loader = async (args: LoaderFunctionArgs) => {
   const { i18n } = firesio.services();
-  const labels = blogLabelsOf(i18n.translator(localeIn(i18n)(args.request)), { app: identity.name });
+  const labels = blogLabelsOf(i18n.translator(firesio.addressLanguage(args.request)), { app: identity.name });
   return { page: await firesio.cms.page(args), labels };
 };
 

@@ -1,7 +1,8 @@
+import { languageMetaOf } from "@firesio/app/ui/language";
 import type { MetaFunction } from "react-router";
 import { identity } from "~/core/identity";
 
-export const meta: MetaFunction = () => [{ title: `Privacy policy - ${identity.name}` }];
+export const meta: MetaFunction = ({ matches }) => [{ title: `Privacy policy - ${identity.name}` }, ...languageMetaOf(matches)];
 
 /** Placeholder text a derived app replaces with its own policy (`docs/LEGAL_TEMPLATE.md`). */
 export default function Privacy() {

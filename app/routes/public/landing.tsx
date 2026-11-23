@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { redirect, useLoaderData } from "react-router";
 import { installTarget } from "@firesio/app/shell";
+import { languageMetaOf } from "@firesio/app/ui/language";
 import { identity } from "~/core/identity";
 import { firesio } from "~/firesio.server";
 
@@ -11,7 +12,7 @@ export const loader = ({ request }: LoaderFunctionArgs) => {
   return { install: installTarget(firesio.services().env.SHOPIFY_APP_HANDLE) };
 };
 
-export const meta: MetaFunction = () => [{ title: identity.name }, { name: "description", content: "TODO: one sentence about what the app does." }];
+export const meta: MetaFunction = ({ matches }) => [{ title: identity.name }, { name: "description", content: "TODO: one sentence about what the app does." }, ...languageMetaOf(matches)];
 
 /**
  * Two ways in. Listed on the App Store: one link out to the listing, no field for a shop domain (Shopify forbids asking for it).

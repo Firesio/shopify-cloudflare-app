@@ -2,6 +2,7 @@ import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, useLoca
 import type { LoaderFunctionArgs, ShouldRevalidateFunction } from "react-router";
 import { RootErrorBoundary } from "@firesio/app/ui/shell";
 import "@shopify/app-bridge-types";
+import { useHtmlLanguage } from "@firesio/app/ui/language";
 import { requestLanguage } from "~/i18n/request.server";
 
 /**
@@ -14,10 +15,12 @@ export const loader = ({ request }: LoaderFunctionArgs) => requestLanguage(reque
 export const shouldRevalidate: ShouldRevalidateFunction = () => false;
 
 export default function App() {
-  const { locale, dir } = useLoaderData<typeof loader>();
+  const root = useLoaderData<typeof loader>();
+  // A public page's language is its address's (the layout's loader); everything else (the embedded admin, an error) keeps the request's.
+  const { lang, dir } = useHtmlLanguage(root.locale);
   return (
     // App Bridge adds a class to <html> (`p-partial-theme-admin-next`) before React hydrates, which would be a hydration mismatch.
-    <html lang={locale} dir={dir} suppressHydrationWarning>
+    <html lang={lang} dir={lang === root.locale ? root.dir : dir} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />

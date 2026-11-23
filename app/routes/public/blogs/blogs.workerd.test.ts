@@ -2,7 +2,9 @@ import { RouterContextProvider, type LoaderFunctionArgs } from "react-router";
 import { describe, expect, it } from "vitest";
 import { firesio } from "~/firesio.server";
 import { setupTestDatabase } from "~/test/database";
-import { loader as sitemap } from "../sitemap";
+import { loader as sitemapIndex } from "../sitemap";
+import { loader as sitemapContent } from "../sitemap-content";
+import { loader as sitemapPages } from "../sitemap-pages";
 import { loader as list } from "./index";
 import { loader as post } from "./post";
 
@@ -20,11 +22,15 @@ async function published(slug: string, title: string) {
 setupTestDatabase();
 
 describe("the blog on the app's own domain (`app/cms`, served by `firesio.cms`)", () => {
-  it("lists a published post with the page's words in the reader's language", async () => {
+  it("reads the page's words in the language of the ADDRESS, never of the cookie or the browser", async () => {
     await published("first-post", "First post");
-    const page = await list(at("/blogs", { headers: { "accept-language": "es-ES,es;q=0.9" } }));
-    expect(page.list.items.map((item) => item.path)).toContain("/blogs/first-post");
-    expect(page.labels.empty).toBe("Todavía no hay entradas.");
+    const browser = { headers: { "accept-language": "es-ES,es;q=0.9", cookie: "firesio_lang=es" } };
+    const english = await list(at("/blogs", browser));
+    expect(english.list.items.map((item) => item.path)).toContain("/blogs/first-post");
+    expect(english.labels.empty).toBe("No posts yet.");
+    const spanish = await list(at("/es/blogs"));
+    expect(spanish.list).toMatchObject({ locale: "es", path: "/es/blogs", items: [] });
+    expect(spanish.labels.empty).toBe("Todavía no hay entradas.");
   });
 
   it("draws a post from its address, and answers 404 for one that does not exist", async () => {
@@ -34,10 +40,16 @@ describe("the blog on the app's own domain (`app/cms`, served by `firesio.cms`)"
     await expect(post(at("/blogs/nobody-wrote-this"))).rejects.toMatchObject({ init: { status: 404 } });
   });
 
-  it("lists the published posts in the sitemap", async () => {
+  it("lists the published posts in the content sitemap, the app's pages in every language in the pages sitemap, and both in the index", async () => {
     await published("third-post", "Third post");
-    const answer = await sitemap(at("/sitemap.xml"));
-    expect(answer.headers.get("content-type")).toContain("xml");
-    expect(await answer.text()).toContain("https://app.acme-apps.net/blogs/third-post");
+    const content = await sitemapContent(at("/sitemap-content.xml"));
+    expect(content.headers.get("content-type")).toContain("xml");
+    expect(await content.text()).toContain("https://app.acme-apps.net/blogs/third-post");
+    const pages = await (await sitemapPages(at("/sitemap-pages.xml"))).text();
+    expect(pages).toContain("<loc>https://app.acme-apps.net/support</loc>");
+    expect(pages).toContain('hreflang="es" href="https://app.acme-apps.net/es/support"');
+    const index = await (await sitemapIndex(at("/sitemap.xml"))).text();
+    expect(index).toContain("<loc>https://app.acme-apps.net/sitemap-pages.xml</loc>");
+    expect(index).toContain("<loc>https://app.acme-apps.net/sitemap-content.xml</loc>");
   });
 });

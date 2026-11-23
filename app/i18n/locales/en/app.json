@@ -5,7 +5,12 @@
     "plan": "Plan",
     "team": "Team",
     "settings": "Settings",
-    "phones": "Phones"
+    "phones": "Phones",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "language": "Language",
+    "skip": "Skip to content",
+    "main": "Main"
   },
   "home": {
     "placeholderHeading": "Placeholder",

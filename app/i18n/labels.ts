@@ -20,6 +20,20 @@ export function navLabelsOf({ t }: Words): NavLabels {
   return { home: t("nav.home"), support: t("nav.support"), plan: t("nav.plan"), team: t("nav.team"), settings: t("nav.settings"), phones: t("nav.phones") };
 }
 
+export interface PublicNavLabels {
+  readonly support: string;
+  readonly privacy: string;
+  readonly terms: string;
+  readonly language: string;
+  readonly skip: string;
+  readonly main: string;
+}
+
+/** The words around every public page (header, footer, the language switch), in the language of the address. */
+export function publicNavLabelsOf({ t }: Words): PublicNavLabels {
+  return { support: t("nav.support"), privacy: t("nav.privacy"), terms: t("nav.terms"), language: t("nav.language"), skip: t("nav.skip"), main: t("nav.main") };
+}
+
 export interface HomeLabels {
   readonly placeholderHeading: string;
   readonly placeholder: string;

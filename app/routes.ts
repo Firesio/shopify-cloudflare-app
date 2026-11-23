@@ -1,4 +1,4 @@
-import { index, layout, prefix, route, type RouteConfig } from "@react-router/dev/routes";
+import { index, prefix, route, type RouteConfig } from "@react-router/dev/routes";
 import { PWA } from "./core/features";
 import { phoneAppRoutes, phonePublicRoutes } from "./routes/phone-routes";
 
@@ -9,7 +9,9 @@ import { phoneAppRoutes, phonePublicRoutes } from "./routes/phone-routes";
  */
 export default [
   // Public surface: marketing, legal, support. No authentication (the App Store listing links straight to /legal/privacy).
-  layout("routes/public/layout.tsx", [
+  // `:language?` is the language folder (`/es/pricing`; none for the default language): ONE rule for every public page, read from the address by the layout's loader
+  // (`firesio.publicLanguage`, docs/LANGUAGES.md). A folder that is no language of the app is the public 404.
+  route(":language?", "routes/public/layout.tsx", [
     index("routes/public/landing.tsx"),
     route("support", "routes/public/support.tsx"),
     ...prefix("legal", [route("privacy", "routes/public/legal/privacy.tsx"), route("terms", "routes/public/legal/terms.tsx")]),
@@ -18,9 +20,12 @@ export default [
     // The app's blog (`app/cms`): written from the portal, served here for search engines. A static segment outranks `:slug`, so `rss.xml` is never a post.
     ...prefix("blogs", [index("routes/public/blogs/index.tsx"), route(":slug", "routes/public/blogs/post.tsx")]),
   ]),
-  // The content's resource routes: the feed, the sitemap of every collection, the uploaded images.
-  route("blogs/rss.xml", "routes/public/blogs/rss.ts"),
+  // The language switch (`/language/es?next=/support`: remembers the choice, goes to the page in that language), the feed of each language, the sitemaps and the uploaded images.
+  route("language/:language", "routes/public/language.ts"),
+  route(":language?/blogs/rss.xml", "routes/public/blogs/rss.ts"),
   route("sitemap.xml", "routes/public/sitemap.ts"),
+  route("sitemap-pages.xml", "routes/public/sitemap-pages.ts"),
+  route("sitemap-content.xml", "routes/public/sitemap-content.ts"),
   route("cms/media/:key", "routes/public/cms/media.ts"),
 
   // Embedded Shopify admin: everything under /app runs inside the Shopify admin iframe.

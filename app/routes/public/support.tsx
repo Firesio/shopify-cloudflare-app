@@ -1,7 +1,7 @@
-import { localeIn } from "@firesio/app";
 import { contactContext, contactLabelsOf } from "@firesio/app/ui/support";
 import Contact from "@firesio/app/ui/support/contact";
-import type { MiddlewareFunction } from "react-router";
+import { languageMetaOf } from "@firesio/app/ui/language";
+import type { MetaFunction, MiddlewareFunction } from "react-router";
 import { identity } from "~/core/identity";
 import { firesio } from "~/firesio.server";
 
@@ -16,12 +16,14 @@ export { action, loader } from "@firesio/app/ui/support/contact";
 export const middleware: MiddlewareFunction[] = [
   ({ context, request }, next) => {
     const { contact, i18n, supportTurnstileSiteKey } = firesio.services();
-    // The form's words are the catalogue's (`firesio:contact.*`, English, Spanish and German from the package; the app's `firesio.json` swaps any), in the visitor's language.
+    // The form's words are the catalogue's (`firesio:contact.*`, English, Spanish and German from the package; the app's `firesio.json` swaps any), in the language of the address.
     // The widget's site key is the preset's (`support.turnstile`, default the two vars).
-    context.set(contactContext, { service: contact, labels: contactLabelsOf(i18n.translator(localeIn(i18n)(request))), turnstileSiteKey: supportTurnstileSiteKey });
+    context.set(contactContext, { service: contact, labels: contactLabelsOf(i18n.translator(firesio.addressLanguage(request))), turnstileSiteKey: supportTurnstileSiteKey });
     return next();
   },
 ];
+
+export const meta: MetaFunction = ({ matches }) => [{ title: `Support - ${identity.name}` }, ...languageMetaOf(matches)];
 
 /** The public support page: the App Store checklist expects real support resources linked from the listing. */
 export default function Support() {

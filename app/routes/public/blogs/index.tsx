@@ -1,4 +1,3 @@
-import { localeIn } from "@firesio/app";
 import { CmsList, cmsListMeta } from "@firesio/app/ui/cms";
 import type { HeadersFunction, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { useLoaderData } from "react-router";
@@ -9,7 +8,7 @@ import { blogLabelsOf } from "~/i18n/labels";
 /** `/blogs`: the published posts, newest first (`?cursor=` for older ones), rendered on the server for search engines. */
 export const loader = async (args: LoaderFunctionArgs) => {
   const { i18n } = firesio.services();
-  const labels = blogLabelsOf(i18n.translator(localeIn(i18n)(args.request)), { app: identity.name });
+  const labels = blogLabelsOf(i18n.translator(firesio.addressLanguage(args.request)), { app: identity.name });
   return { list: await firesio.cms.list(args, "blogs"), labels };
 };
 

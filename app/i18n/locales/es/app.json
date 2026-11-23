@@ -5,7 +5,12 @@
     "plan": "Plan",
     "team": "Equipo",
     "settings": "Ajustes",
-    "phones": "Teléfonos"
+    "phones": "Teléfonos",
+    "privacy": "Privacidad",
+    "terms": "Términos",
+    "language": "Idioma",
+    "skip": "Saltar al contenido",
+    "main": "Principal"
   },
   "home": {
     "placeholderHeading": "Marcador de posición",

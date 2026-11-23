@@ -1,7 +1,8 @@
+import { languageMetaOf } from "@firesio/app/ui/language";
 import type { MetaFunction } from "react-router";
 import { identity } from "~/core/identity";
 
-export const meta: MetaFunction = () => [{ title: `Terms of service - ${identity.name}` }];
+export const meta: MetaFunction = ({ matches }) => [{ title: `Terms of service - ${identity.name}` }, ...languageMetaOf(matches)];
 
 /** Placeholder text a derived app replaces with its own terms (`docs/LEGAL_TEMPLATE.md`). */
 export default function Terms() {
