@@ -78,6 +78,8 @@ export const firesio = createFiresio<Env>()({
   // terms allow transactional mail only: feature news is not a service notice (`campaignDelivery.announcements` with a consent basis over another provider, an app's
   // opt-in). The flow needs the FLOWS binding (declared); the tables are in the migrations. `notify.explain` says when one cannot go out (no mail domain yet).
   campaignDelivery: {},
+  // OPT-IN, off here (no default changes with a package bump): `endpoints: { proxyMaxAgeSeconds }` (default 300 s, 0 off) is how long a signed app proxy URL stays valid;
+  // WhatsApp or another channel is `messaging: { channels: { whatsapp: { connectors: [twilio({ channel: "whatsapp" })] } } }` (and `firesioSchemaPaths({ messaging: true })`).
   // The team's FEATURE news, shown inside the app on the home page (`NewsCard`), never mailed: the portal writes and publishes it (`news: true` for the app in
   // its `declared-apps.ts`). Segments default to `campaignDelivery.segments`.
   news: {},
