@@ -3,6 +3,19 @@
 An app takes a newer template by merging its tag (`template-v<version>`, see `template-files.json`: the `template` files come over
 unchanged, the `app` files are the app's). Each entry says what to do besides the merge.
 
+## template-v3.4.0 (unreleased)
+
+**`@firesio/app` 3.4.0, `@firesio/portal-contract` 1.6.0.** No code of the template's own had to change (typecheck and lint pass as they were). What to do besides the merge:
+see `docs/UPGRADING.md` ("template-v3.4.0"). In short:
+
+- Migration `drizzle/0009_firesio_3_4.sql` is EXPAND ONLY: the notify dedupe index per shop (`notify_deliveries_dedupe_shop_unique`) and the two opt-in tables
+  `notify_pending_events` and `push_sent` (empty until used). The old `notify_deliveries_dedupe_unique` stays until a later `*_contract.sql`, so the previous code runs on the new schema.
+- `app/migrations.test.ts` (new, an app file): `checkMigrations` from the package fails a migration after the baseline that drops or renames; the drop goes in a `*_contract.sql`.
+- Behaviour that changes with the package, nothing to configure: proxy freshness is on (`endpoints.proxyMaxAgeSeconds`, 300 s), notify dedupe is per shop, access rules also cover `.data`
+  requests, `isEmail` and the link validators are stricter, `services.grants.create`/`revoke` go through the funnel (a second notification if the app also emitted one), flow stop checks
+  are named `guard2:<n>`, the proxy limiter keys on the visitor (limits restart at deploy), `ProviderContext` carries `channel`.
+- OPT-IN, off in the template: WhatsApp and other channels (`messaging.channels`), `system().describe()` is answered by the AdminApi without any config.
+
 ## template-v3.0.0 (unreleased)
 
 **`@firesio/app` 3.0.0** (ticket 36 of `platform`). Mail goes out by STREAM, the package decides no address, and the team's announcements are ON. Follow

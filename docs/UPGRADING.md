@@ -9,6 +9,24 @@ a template that is the preset plus one config file.
 
 ---
 
+## template-v3.4.0: `@firesio/app` 3.4.0 and `@firesio/portal-contract` 1.6.0
+
+An app on 3.3 does, in this order (the package's `packages/app/CHANGELOG.md`, 3.4.0, lists every change):
+
+1. `NPM_TOKEN="$(gh auth token)" npm install @firesio/app@^3.4.0 @firesio/portal-contract@^1.6.0`, then `npm run typecheck` and `npm run lint`. Fix what the new types report by the changelog; the template needed nothing.
+2. `npm run db:generate`, then EDIT the SQL so it only expands (a release migrates before the new code is live): keep the new `notify_deliveries_dedupe_shop_unique` index and the new tables, DELETE the
+   generated `DROP INDEX notify_deliveries_dedupe_unique` (the drop goes in a `*_contract.sql` one release later; no comments in the SQL). `app/migrations.test.ts` (set `baseline` to your last
+   migration before this one) fails on a drop outside a contract file. The package schema now has `notify_pending_events` (webhook events that arrive before their delivery) and `push_sent`; both are created, empty and harmless.
+3. Config: `endpoints: { proxyMaxAgeSeconds }` only if 300 s of signed app proxy URL freshness (now ON by default; `0` turns it off) is wrong for the app. Nothing else is required.
+4. Check the behaviour changes against the app's own code: an `access` rule on a path now also covers its `.data` request; an app comparing `devices` `normalisedPath` with a raw path; an app that read the
+   proxy limiter key by hand; `isEmail`/`isLink` refusing addresses and links that were accepted; `services.grants` is the read-only reader plus `create`/`revoke` (both go through the funnel and throw when it cannot commit);
+   an exhaustive `switch` over the news, cms refusal reasons needs a `"stale"` case; flows named `guard:<n>` are now `guard2:<n>` (a running instance runs its stop checks once more).
+5. Opt-in, only when wanted: WhatsApp (`messaging: { channels: { whatsapp: { connectors: [twilio({ channel: "whatsapp" })] } } }` and `firesioSchemaPaths({ messaging: true })`), the content revisions and versions, the
+   devices and campaigns features. Declare nothing in the portal's `declared-apps.ts` for them until they are on. `system().describe()` needs no config: the portal reads the groups the app has.
+6. `npm run verify`, the production build (`CLOUDFLARE_ENV=production npx react-router build`), `npm run template:check`.
+
+---
+
 ## template-v1.0.0: the minimal app on `@firesio/app` (roadmap step 13, ticket 17)
 
 A NEW BASELINE, not an increment. An app built on the earlier template does not merge this tag: it moves one feature at a time onto the
