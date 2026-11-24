@@ -32,6 +32,7 @@ pnpm-lock.yaml
 # Shopify CLI local state
 .shopify/*
 .shopify.lock
+.shopify-home/
 
 # Local tooling noise
 .claude/settings.local.json
