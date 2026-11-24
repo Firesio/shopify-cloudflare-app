@@ -38,8 +38,8 @@
     "new-app": "node scripts/new-app.mjs"
   },
   "dependencies": {
-    "@firesio/app": "^3.3.0",
-    "@firesio/portal-contract": "^1.5.0",
+    "@firesio/app": "^3.4.0",
+    "@firesio/portal-contract": "^1.6.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.3.1",
     "@shopify/shopify-api": "^15.0.1",
