@@ -126,7 +126,7 @@ async function seedShop(shop: string): Promise<void> {
   await installShop(firesio, env, shop, 1_700_000_000_000);
   const ticket = await callCommand(() => env.PORTAL_ADMIN_API.support().open({ account: account(shop), requestId: `req-${shop}`, subject: "Hello", body: "A message", category: "question", actor: "staff_1" }), openTicketResultSchema);
   expect(ticket.ok).toBe(true);
-  expect(await env.PORTAL_ADMIN_API.billing().grantPlan({ account: account(shop), planId: "free", reason: "e2e", actor: "staff_1" })).toMatchObject({ ok: true });
+  expect(await env.PORTAL_ADMIN_API.billing().grantPlan({ account: account(shop), planId: "free", requestId: `gift-${shop}`, reason: "e2e", actor: "staff_1" })).toMatchObject({ ok: true });
 }
 
 const rowsOf = (table: string, shop: string) => count(`SELECT COUNT(*) AS n FROM ${table} WHERE shop = ?1`, shop);

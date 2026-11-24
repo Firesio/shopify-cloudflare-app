@@ -29,7 +29,7 @@ describe("the AdminApi entrypoint over a service binding: shops", () => {
 
   it("blocks an account with blockAccount and reports the standing it left behind", async () => {
     await installShop(firesio, env, "admin-two.myshopify.com", 1_700_000_000_000);
-    const blocked = await callCommand(() => admin().shops().blockAccount({ account: account("admin-two.myshopify.com"), reason: "chargeback", actor: "staff_1" }), standingSchema);
+    const blocked = await callCommand(() => admin().shops().blockAccount({ account: account("admin-two.myshopify.com"), requestId: "block-2", reason: "chargeback", actor: "staff_1" }), standingSchema);
     expect(blocked.ok && blocked.value.state).toBe("blocked");
     const again = await callCommand(() => admin().shops().getStanding({ account: account("admin-two.myshopify.com") }), standingSchema);
     expect(again.ok && again.value).toMatchObject({ state: "blocked", reason: "chargeback (by staff_1)" });
@@ -100,22 +100,22 @@ describe("the AdminApi entrypoint over a service binding: billing", () => {
 
   it("refuses a gift for a shop it does not know and for a plan it does not have", async () => {
     await installShop(firesio, env, "admin-gift.myshopify.com", 1_700_000_000_000);
-    expect(await admin().billing().grantPlan({ account: account("never-seen.myshopify.com"), planId: "free", reason: "x", actor: "staff_1" })).toEqual({ ok: false, reason: "unknown account" });
-    expect(await admin().billing().grantPlan({ account: account("admin-gift.myshopify.com"), planId: "no-such-plan", reason: "x", actor: "staff_1" })).toEqual({ ok: false, reason: "unknown plan" });
+    expect(await admin().billing().grantPlan({ account: account("never-seen.myshopify.com"), planId: "free", requestId: "gift-unknown-account", reason: "x", actor: "staff_1" })).toEqual({ ok: false, reason: "unknown account" });
+    expect(await admin().billing().grantPlan({ account: account("admin-gift.myshopify.com"), planId: "no-such-plan", requestId: "gift-unknown-plan", reason: "x", actor: "staff_1" })).toEqual({ ok: false, reason: "unknown plan" });
   });
 });
 
 describe("the AdminApi entrypoint over a service binding: plan gifts", () => {
-  it("gives a plan, lists the gift and takes it back; revoking twice answers as the first time", async () => {
+  it("gives a plan, lists the gift and takes it back; revoking twice with one requestId answers as the first time", async () => {
     const shop = "admin-grants.myshopify.com";
     await installShop(firesio, env, shop, 1_700_000_000_000);
-    const given = await admin().billing().grantPlan({ account: account(shop), planId: "free", reason: "launch gift", actor: "staff_1" });
+    const given = await admin().billing().grantPlan({ account: account(shop), planId: "free", requestId: "gift-1", reason: "launch gift", actor: "staff_1" });
     expect(given).toMatchObject({ ok: true, value: { planId: "free" } });
     const listed = await callCommand(() => admin().billing().grants({ account: account(shop) }), grantListSchema);
     expect(listed.ok && listed.value.grants).toHaveLength(1);
     if (!listed.ok) return;
     const grantId = listed.value.grants[0]?.grantId;
-    const revoke = () => callCommand(() => admin().billing().revokeGrant({ account: account(shop), grantId, reason: "ended", actor: "staff_1" }), revokeGrantResultSchema);
+    const revoke = () => callCommand(() => admin().billing().revokeGrant({ account: account(shop), grantId, requestId: "revoke-1", reason: "ended", actor: "staff_1" }), revokeGrantResultSchema);
     const first = await revoke();
     const second = await revoke();
     expect(first.ok).toBe(true);
@@ -132,7 +132,7 @@ describe("the AdminApi entrypoint over a service binding: support", () => {
     const opened = await callCommand(() => admin().support().open(input), openTicketResultSchema);
     expect(opened.ok && opened.value.created).toBe(true);
     const repeat = await callCommand(() => admin().support().open(input), openTicketResultSchema);
-    expect(repeat.ok && repeat.value.created).toBe(false);
+    expect(repeat).toEqual(opened);
     if (!opened.ok) return;
     const page = await callCommand(() => admin().support().listTickets({ account: account("admin-three.myshopify.com") }), ticketPageSchema);
     expect(page.ok && page.value.tickets.map((ticket) => ticket.ticketId)).toEqual([opened.value.ticketId]);
