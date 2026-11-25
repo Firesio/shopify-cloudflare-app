@@ -1,11 +1,12 @@
-import { catalogueFromFiles, createI18n } from "@firesio/app/i18n";
+import { catalogueFromFiles, createI18n, takeChoices } from "@firesio/app/i18n";
 
 /**
  * The app's words (`@firesio/app/i18n`): ONE catalogue for the pages and the mail, `locales/<language>/<namespace>.json`. The app's languages ARE
  * its folders (English and Spanish here); a key without `ns:` is read from `app.json`, and `firesio.json` of a language would swap a word of the
  * package's own pages by key. `app/firesio.server.ts` hands `I18N` itself to `createFiresio({ i18n: I18N })` (built ONCE: the preset uses the instance as it is);
  * the root loader reads the request's language with the same instance (`localeIn(I18N)`), so the document, the pages and the mail can never disagree.
- * What `createI18n` takes (`layers` of the merchants' edits, `choose: takeChoices` for ICU plural/select) is set HERE, never on `createFiresio`: the template needs neither.
+ * What `createI18n` takes is set HERE, never on `createFiresio`: `choose: takeChoices` (ICU plural/select, for the app's words and the package's; the preset's
+ * options path always added it, so an instance must too) and, when an app adds them, `layers` of the merchants' edits.
  * `words.ts` declares the namespaces (audience and places) and `words.test.ts` holds that declaration to the catalogue.
  *
  * A new language is a folder with the same keys (`assertCatalogueComplete` in `catalogue.test.ts` fails until every key, placeholder and plural
@@ -17,4 +18,4 @@ export const CATALOGUE = catalogueFromFiles(import.meta.glob("./locales/*/*.json
 export const FALLBACK_LANGUAGE = "en";
 
 /** The catalogue as a negotiator (`localeIn(I18N)` picks the request's language among the folders): immutable, safe at module scope. */
-export const I18N = createI18n({ catalogue: CATALOGUE, fallback: FALLBACK_LANGUAGE });
+export const I18N = createI18n({ catalogue: CATALOGUE, fallback: FALLBACK_LANGUAGE, choose: takeChoices });
