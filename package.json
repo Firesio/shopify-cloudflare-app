@@ -38,7 +38,7 @@
     "new-app": "node scripts/new-app.mjs"
   },
   "dependencies": {
-    "@firesio/app": "^3.9.0",
+    "@firesio/app": "^3.10.0",
     "@firesio/portal-contract": "^1.8.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.3.1",
