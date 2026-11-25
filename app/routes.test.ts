@@ -1,6 +1,7 @@
 import type { RouteConfigEntry } from "@react-router/dev/routes";
 import { describe, expect, it } from "vitest";
 import { SUPPORT_UPLOAD_PATH } from "@firesio/app/shell";
+import { REFUSAL_PATHS } from "~/core/paths";
 import routes from "~/routes";
 
 interface Mounted {
@@ -26,5 +27,15 @@ describe("app/routes.ts", () => {
     const upload = mounted(routes).get("routes/app/support/upload.ts");
     expect(upload?.path).toBe(SUPPORT_UPLOAD_PATH);
     expect(upload?.parents).toContain("routes/app/layout.tsx");
+  });
+
+  it.each([
+    ["routes/app/blocked.tsx", "blocked", "/app/blocked"],
+    ["routes/app/request-access.ts", "requestAccess", "/app/request-access"],
+  ] as const)("mounts %s under the /app layout at paths.%s, which firesio.server.ts sets to the same address", (file, option, address) => {
+    const page = mounted(routes).get(file);
+    expect(page?.path).toBe(address);
+    expect(page?.parents).toContain("routes/app/layout.tsx");
+    expect(REFUSAL_PATHS[option]).toBe(address);
   });
 });

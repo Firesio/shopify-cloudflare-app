@@ -6,6 +6,7 @@ import { appLinksFor, type AppServices } from "~/core/app-services";
 import { PWA } from "~/core/features";
 import { identity } from "~/core/identity";
 import { MEMBERS } from "~/core/members";
+import { REFUSAL_PATHS } from "~/core/paths";
 import { PHONE_DEVICES } from "~/core/phone";
 import { PLANS } from "~/core/plans";
 import { UNASSIGNED_CONVERSATION_DAYS } from "~/core/retention";
@@ -55,7 +56,9 @@ export const firesio = createFiresio<Env>()({
   // (`core/retention.ts`): the package keeps it for ever unless the app decides, and a stranger's words need a limit the policy states.
   retention: { unassignedConversationDays: UNASSIGNED_CONVERSATION_DAYS },
   // The support pages' file picker streams each file to the staging route mounted there (`app/routes.ts`); without it they take no files.
-  paths: { supportUpload: SUPPORT_UPLOAD_PATH },
+  // `blocked` and `requestAccess` are the two refusal pages (a blocked shop is redirected to a page, not a 403; the kept-out page can ask to be let in): each is on only
+  // with its route mounted in `app/routes.ts` under /app, so the option and the route are added together.
+  paths: { supportUpload: SUPPORT_UPLOAD_PATH, ...REFUSAL_PATHS },
   // Serves the Shopify POS webview with the same pages: the request's surface is read (`from(context).surface`), `routes/app/surface.ts` receives
   // the page's own report. Costs nothing on the web admin. `[pos] embedded = true` in `shopify.app.toml` is what lists the app in POS.
   surface: {},

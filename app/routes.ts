@@ -40,6 +40,9 @@ export default [
     route("members", "routes/app/members/team.tsx"),
     route("members/:memberId", "routes/app/members/member.tsx"),
     route("no-access", "routes/app/members/no-access.tsx"),
+    // The blocked-shop page and the ask-to-be-let-in action: mounted together with `paths.blocked` and `paths.requestAccess` (`app/firesio.server.ts`); `app/routes.test.ts` holds the pairs.
+    route("blocked", "routes/app/blocked.tsx"),
+    route("request-access", "routes/app/request-access.ts"),
     // Where the page reports the surface it runs on (the Shopify POS webview); `app/surface.test.ts` holds this line.
     route("surface", "routes/app/surface.ts"),
     // The member's own page about their phones: only while the staff phone app is on (`app/core/features.ts`).
