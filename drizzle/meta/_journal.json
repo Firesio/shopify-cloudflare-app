@@ -71,6 +71,13 @@
       "when": 1795482912609,
       "tag": "0009_firesio_3_4",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1795616142493,
+      "tag": "0010_firesio_3_8_campaign_channels",
+      "breakpoints": true
     }
   ]
 }
