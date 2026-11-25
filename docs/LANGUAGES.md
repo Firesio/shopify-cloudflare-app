@@ -15,3 +15,15 @@ One list: the folders of `app/i18n/locales/` (plus the fallback). Nothing else l
 ## The blog
 
 A collection that names no `locales` is written in every language of the app. A post in Spanish is a second entry (the portal's Content page has a Language field and "translation of"); `/es/blogs/<slug>` is 404 until it is published, so nothing is served twice. Sitemaps: `/sitemap.xml` is the index of `/sitemap-pages.xml` and `/sitemap-content.xml`.
+
+## Words for an extension
+
+`app/i18n/words.ts` declares every namespace of `app/i18n/locales/<source>/` (`defineWords`: its audience, the places it goes, whether a merchant may overwrite it through `layers`) and `app/i18n/words.test.ts` holds that declaration to the catalogue (`describeI18nTargets` of `@firesio/app/i18n/testing`). A namespace with no declaration, or a declared one with no file, fails the test. The template has no extension with `locales/`, so its `targets` is empty.
+
+To give a Shopify extension its `locales/` files (built from the same catalogue; there is no script to write):
+
+1. Put the extension's words in their own namespace (`app/i18n/locales/<language>/pos.json`, or `block.json` and `block-schema.json` for a theme block) in every language, and declare each in `words.ts` with `targets: ["pos"]` (a name of `TARGETS`).
+2. Add one line to `targets` in `words.test.ts`: `pos: uiExtension({ dir: "extensions/pos", groups: ["pos"] })` for a UI extension (`maxBytes` only if you measured a limit: Shopify documents none), or `theme: themeExtension({ dir: "extensions/theme", storefront: ["block"], schema: ["block-schema"] })` (15 KB a file and 100 files, reported as a problem, never worked around). Both come from `@firesio/app/i18n/build`.
+3. Run `npx vitest -u app/i18n/words.test.ts`: it writes `<dir>/locales/<language>.json` and `<default>.default.json` (plural forms in Shopify's nested shape). A plain run fails while a generated file is stale, so a change to a word is a change of the extension's file in the same commit.
+
+A namespace marked `editable` cannot go to an extension. Details: `node_modules/@firesio/app/src/i18n/README.md`, "Build targets".

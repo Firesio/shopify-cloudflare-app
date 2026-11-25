@@ -12,7 +12,7 @@ import { UNASSIGNED_CONVERSATION_DAYS } from "~/core/retention";
 import { SETTINGS } from "~/core/settings";
 import { POLARIS_URL } from "~/core/polaris";
 import * as schema from "~/db/schema";
-import { CATALOGUE, FALLBACK_LANGUAGE } from "~/i18n";
+import { I18N } from "~/i18n";
 import { notifications } from "~/notifications";
 import { sendWelcome } from "~/notifications/welcome";
 import { JOBS } from "~/wiring/jobs";
@@ -45,8 +45,9 @@ export const firesio = createFiresio<Env>()({
   // The app's mail (`app/notifications`): a layout in React Email, the sample welcome message, the streams (`notification@` and `support@` the app's domain over
   // Cloudflare Email) and the hook examples. The preset adds the stores, the queue and the package's own messages, so a clone sends mail with no more configuration.
   notify: notifications,
-  // The app's words, for the pages and the mail alike (`app/i18n/locales/<language>/app.json`): the languages ARE the folders.
-  i18n: { catalogue: CATALOGUE, fallback: FALLBACK_LANGUAGE },
+  // The app's words, for the pages and the mail alike (`app/i18n/locales/<language>/app.json`): the languages ARE the folders. The instance is built once in
+  // `app/i18n/index.ts` (with any `layers` or `choose` of its own) and the preset uses it as it is, so the words are never built twice.
+  i18n: I18N,
   // Workers AI: the support spam check (a stranger's mail opens a conversation unless a model reads it as spam) and any feature the app adds (`.claude/rules/ai.md`).
   // AI is opt-in by import: without this line the app has none and the spam check is off.
   ai: cloudflareAi(),
