@@ -3,13 +3,17 @@ import type { LoaderFunctionArgs, ShouldRevalidateFunction } from "react-router"
 import { RootErrorBoundary } from "@firesio/app/ui/shell";
 import "@shopify/app-bridge-types";
 import { useHtmlLanguage } from "@firesio/app/ui/language";
+import { firesio } from "~/firesio.server";
 import { requestLanguage } from "~/i18n/request.server";
 
 /**
  * The root loader resolves the language once per request; `<html lang dir>`, the server render and the client hydration read it
  * from here and can never disagree.
  */
-export const loader = ({ request }: LoaderFunctionArgs) => requestLanguage(request);
+export async function loader({ request }: LoaderFunctionArgs) {
+  // `shellLabels` are the words of the surfaces with no loader of their own (a boundary that replaces the document): built from the in-memory catalogue and the request's language, no I/O.
+  return { ...requestLanguage(request), shellLabels: await firesio.shellLabels({ request }) };
+}
 
 /** The document's language is chosen when the document loads and does not change while the app is open: in-app navigation must not re-run this loader (it can drop `?locale=`). */
 export const shouldRevalidate: ShouldRevalidateFunction = () => false;

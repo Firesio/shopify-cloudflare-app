@@ -36,7 +36,7 @@ export const middleware: MiddlewareFunction[] = [
  * This layout hides what a member cannot use, but only to be kind. On the kept-out page there is no member (`maybeFrom` answers
  * `member: null`, where `from` would redirect to that very page): that is "no permissions", not an error.
  */
-export const loader = ({ context, request }: LoaderFunctionArgs) => {
+export async function loader({ context, request }: LoaderFunctionArgs) {
   const { member, services, shop, surface } = firesio.maybeFrom(context);
   // The menu's words, in the language of the request (the member's remembered language, `?locale=`, `Accept-Language`): a translator over the app's own words,
   // no read of any shop's layers (the menu is not something a merchant rewords), so nothing waits on the database here.
@@ -44,8 +44,11 @@ export const loader = ({ context, request }: LoaderFunctionArgs) => {
   // On a paired staff phone (`surface === "pwa"`, only while `PWA` is on) the frame draws the phone's shell instead; `platform` lets an iPhone's bars be glass from the first paint.
   const phone = PWA && surface === "pwa" ? { shop, platform: platformOf(request.headers.get("user-agent") ?? "", 0), items: [...phoneItems(nav)] } : null;
   // `surface` is where this request is drawn (the web admin, or the Shopify POS webview): `AdminFrame` draws the POS bar for `pos`.
-  return { apiKey: services.env.SHOPIFY_API_KEY, permissions: member === null ? [] : [...grantsOf(member, MEMBERS)], surface, phone, nav };
-};
+  // The words of the surfaces with no loader of their own (the boundaries, the loading bar, the POS bar, the phone's chrome) in the same language. Only the phone needs the shop's
+  // wording (`context`: a shop read); the web admin and POS use the in-memory translator, so this adds no I/O.
+  const shellLabels = await firesio.shellLabels(phone === null ? { request } : { request, context });
+  return { apiKey: services.env.SHOPIFY_API_KEY, permissions: member === null ? [] : [...grantsOf(member, MEMBERS)], surface, phone, nav, shellLabels };
+}
 
 /**
  * This shell's data is fixed for the lifetime of the embedded session, so client-side navigation between /app pages does not

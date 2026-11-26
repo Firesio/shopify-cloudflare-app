@@ -27,3 +27,7 @@ To give a Shopify extension its `locales/` files (built from the same catalogue;
 3. Run `npx vitest -u app/i18n/words.test.ts`: it writes `<dir>/locales/<language>.json` and `<default>.default.json` (plural forms in Shopify's nested shape). A plain run fails while a generated file is stale, so a change to a word is a change of the extension's file in the same commit.
 
 A namespace marked `editable` cannot go to an extension. Details: `node_modules/@firesio/app/src/i18n/README.md`, "Build targets".
+
+## Shell labels
+
+The root's and the `/app` layout's loaders return `shellLabels: await firesio.shellLabels({ request })` (the layout passes `context` too on the phone): the error boundaries, loading bar, POS bar and phone chrome speak the request's language from the in-memory catalogue (without them the browser fallback knows only en, es and de); `app/routes/app/layout.loader.workerd.test.ts` holds it.
