@@ -14,7 +14,12 @@
   },
   // redact_query_string: an embedded request carries `id_token` and `hmac` in its query string. Logs are kept whole (the portal reads them per shop); traces (where a
   // slow page spent its time: which D1 call, which fetch) are SAMPLED, because they share the logs' monthly allowance (`docs/OPERATIONS.md`, "Cost").
-  "observability": { "enabled": true, "head_sampling_rate": 1, "redact_query_string": true, "traces": { "enabled": true, "head_sampling_rate": 0.05 } },
+  // issues: Workers Issues groups uncaught exceptions, failed invocations, 5xx answers and error-level logs; the portal reads them (platform ticket 47). It
+  // is ON ONLY WHILE THIS KEY IS HERE: a deploy from a config without it turns Issues off (Cloudflare docs, "Workers Issues"; it happened to one app).
+  "observability": { "enabled": true, "head_sampling_rate": 1, "redact_query_string": true, "traces": { "enabled": true, "head_sampling_rate": 0.05 }, "issues": { "enabled": true } },
+  // upload_source_maps: true makes the deploy FAIL when a source map cannot be resolved (left unset, Wrangler skips it silently), so Issues and logs always
+  // show the real file and line. Inheritable: the production environment gets it from here.
+  "upload_source_maps": true,
   // A ceiling on the CPU one invocation may use, below the platform's 30 s default: a loop that never ends costs seconds, not half a minute, and shows up as an
   // error the portal hears of. Wall time is not limited by this (a queue consumer or a cron may wait on Shopify for minutes). Raise it only on a measured need.
   "limits": { "cpu_ms": 10000 },
@@ -60,8 +65,9 @@
   },
 
   // FLOWS: the ONE Workflow class of the app (`FiresioFlows`, workers/app.ts): the preset's uninstall, post-install and seat flows run on it, so it is declared even
-  // while the app has no flow of its own. Without it an uninstall delivery fails (the queue tries it again).
-  "workflows": [{ "name": "my-app-flows", "binding": "FLOWS", "class_name": "FiresioFlows" }],
+  // while the app has no flow of its own. Without it an uninstall delivery fails (the queue tries it again). default_retention: an instance that ERRORED is
+  // kept 30 days (the maximum) to find out why; finished ones keep Cloudflare's default (7 days on Workers Paid). Not inherited: repeated under env.production.
+  "workflows": [{ "name": "my-app-flows", "binding": "FLOWS", "class_name": "FiresioFlows", "default_retention": { "error_retention": "30 days" } }],
 
   // SHOP_COORDINATOR: one Durable Object per shop (`ShopCoordinator`, exported by workers/app.ts): one token refresh at a time and a lease lock for a shop's writers.
   // SQLite-backed, so the migration says `new_sqlite_classes`. A later Durable Object of the app's own (the realtime room) is migration `v2`, never an edit of `v1`.
@@ -159,7 +165,7 @@
       "routes": [{ "pattern": "REPLACE_ME", "custom_domain": true }],
       "workers_dev": false,
       "preview_urls": false,
-      "observability": { "enabled": true, "head_sampling_rate": 1, "redact_query_string": true, "traces": { "enabled": true, "head_sampling_rate": 0.05 } },
+      "observability": { "enabled": true, "head_sampling_rate": 1, "redact_query_string": true, "traces": { "enabled": true, "head_sampling_rate": 0.05 }, "issues": { "enabled": true } },
       "limits": { "cpu_ms": 10000 },
       // Daily (the snapshot, the prune), hourly (the uninstall probe, the sweeps, the flows reconcile, the app's hourly work) and every
       // minute (the outbox drain and the minute jobs): the preset's worker/cron.ts names each. A cron only TRIGGERS: each tick enqueues jobs, the work is theirs.
@@ -182,7 +188,7 @@
           { "queue": "my-app-mail-events-dlq-prod" }
         ]
       },
-      "workflows": [{ "name": "my-app-flows-prod", "binding": "FLOWS", "class_name": "FiresioFlows" }],
+      "workflows": [{ "name": "my-app-flows-prod", "binding": "FLOWS", "class_name": "FiresioFlows", "default_retention": { "error_retention": "30 days" } }],
       "durable_objects": { "bindings": [{ "name": "SHOP_COORDINATOR", "class_name": "ShopCoordinator" }] },
       "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ShopCoordinator"] }],
       "analytics_engine_datasets": [{ "binding": "USAGE", "dataset": "my-app-usage-prod" }],

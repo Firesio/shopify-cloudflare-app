@@ -57,6 +57,7 @@ test("the Workflow, the Durable Object, the dataset and the version metadata are
   for (const env of [top, production]) {
     assert.equal(env.workflows?.[0]?.binding, "FLOWS");
     assert.equal(env.workflows?.[0]?.class_name, "FiresioFlows");
+    assert.deepEqual(env.workflows?.[0]?.default_retention, { error_retention: "30 days" }, "an errored flow instance is kept 30 days in both environments");
     assert.deepEqual(env.durable_objects?.bindings, [{ name: "SHOP_COORDINATOR", class_name: "ShopCoordinator" }]);
     assert.deepEqual(env.migrations, [{ tag: "v1", new_sqlite_classes: ["ShopCoordinator"] }]);
     assert.equal(env.analytics_engine_datasets?.[0]?.binding, "USAGE");
@@ -73,7 +74,10 @@ test("both environments cap CPU below the platform's 30 s default and sample tra
     assert.equal(env.observability.redact_query_string, true);
     assert.equal(env.observability.traces.enabled, true);
     assert.ok(env.observability.traces.head_sampling_rate > 0 && env.observability.traces.head_sampling_rate < 1);
+    // A deploy from a config without this key turns Workers Issues off: the key is checked, not trusted to stay.
+    assert.deepEqual(env.observability.issues, { enabled: true });
   }
+  assert.equal(config.upload_source_maps, true, "a source map that cannot be resolved fails the deploy (inherited by production)");
 });
 
 test("NOTIFY_SECRET is a secret in both environments (32 or more characters: the preset refuses to build without it)", () => {
