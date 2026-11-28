@@ -85,6 +85,13 @@
       "when": 1795756737346,
       "tag": "0011_firesio_3_14_support_spam_at",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1795844748661,
+      "tag": "0012_firesio_3_18_shopify_plan",
+      "breakpoints": true
     }
   ]
 }
